@@ -64,7 +64,7 @@ final class InvoiceSettlement
         'partially_paid' => 'Part-settled; the rest is still owed.',
         'overdue' => 'Open and past due — what the whole collections surface is about.',
         'disputed' => 'A contested LINE does not stop the tenant PAYING the invoice, and Yardi collects against it. Note that CreditNoteService narrows further and refuses a disputed invoice: that is deliberate and is not drift. Paying is the tenant choice; applying credit is the operator spending a credit note against an amount still being argued about, and if the dispute resolves downward that credit was spent on money never owed. A channel may be stricter than this floor, with its reason stated.',
-        'paid' => 'Nothing left owing, so settleableAmount() is 0 anyway. LIVE rather than RELIEVED because a reversal re-opens it, and refusing on the status would refuse the receipt that arrives inside that window.',
+        'paid' => 'LIVE because a reversal re-opens it, and refusing on the status would refuse the receipt that arrives inside that window. Do NOT rely on "settleableAmount() is 0 anyway": that holds only while `balance` agrees with the status, and it need not — an invoice can carry `status = paid` with a standing balance. CreditNoteService therefore refuses it outright, because a credit note reduces what is OWED and nothing is.',
     ];
 
     /**

@@ -43,6 +43,11 @@ class EvidenceUpload
     public static function make(string $name = 'evidence'): SpatieMediaLibraryFileUpload
     {
         return SpatieMediaLibraryFileUpload::make($name)
+            // A default label, because a component with none is humanised into English by Filament —
+            // and `TranslationKeyConformanceTest` reads the source file, so the factory cannot rely
+            // on its two call sites each setting one. They still override it: the contractor and the
+            // operator are told different things about the same field.
+            ->label(__('admin.facility.fields.evidence'))
             ->collection($name)
             ->multiple()
             ->image()

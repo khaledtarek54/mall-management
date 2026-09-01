@@ -135,6 +135,12 @@ final class TableSortPolicy
 
         // ── REGISTER ──────────────────────────────────────────────────────────
         // Master data or a catalogue, read by name or code. Alphabetical / sort_order, ASCENDING.
+        // The portfolio view of abstracted clauses, ordered by clause TYPE — the question it
+        // answers is "which leases carry a co-tenancy trigger", so the type is the spine and A→Z
+        // within it is what a reader scans. Classified 2026-09-01: it shipped with the clause
+        // abstract and was never registered, so the gate had been counting 145 tables against a
+        // premise of 144 — the premise is what caught it, exactly as intended.
+        'Admin/Pages/ClauseRegister' => self::REGISTER,
         'Admin/Pages/OccupancyMap' => self::REGISTER,
         'Admin/Pages/RentableItemMap' => self::REGISTER,
         'Admin/RelationManagers/AssetFloorsRelationManager' => self::REGISTER,

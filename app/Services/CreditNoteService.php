@@ -109,13 +109,21 @@ class CreditNoteService
                 return 0.0;
             }
 
-            // …and then this channel's OWN, narrower rule, which is deliberate and is NOT a
-            // disagreement to be flattened. A tenant may PAY a disputed invoice — that is their
-            // choice, and `PaymentForm` has always allowed it. An operator applying CREDIT to one is
-            // a different act: it consumes a credit note's balance against a row whose amount is
-            // still being argued about, and if the dispute resolves downward the credit has been
-            // spent on money that was never owed. Resolve the dispute, then apply.
-            if ($invoice->status === 'disputed') {
+            // …and then this channel's OWN, narrower rules, which are deliberate and are NOT
+            // disagreements to be flattened.
+            //
+            // DISPUTED: a tenant may PAY a disputed invoice — that is their choice, and `PaymentForm`
+            // has always allowed it. An operator applying CREDIT to one is a different act: it spends
+            // a credit note against an amount still being argued about, and if the dispute resolves
+            // downward that credit went on money never owed. Resolve the dispute, then apply.
+            //
+            // PAID: a credit note reduces what is OWED, and nothing is. Money already received comes
+            // back by voiding or refunding the RECEIPT, not by consuming a credit note against it.
+            // The floor calls `paid` live because a reversal re-opens it and every channel caps at
+            // `settleableAmount()` — but that cap only protects a row whose `balance` agrees with its
+            // status, and this one does not have to: measured, an invoice can carry `status = paid`
+            // with a standing balance, and dropping this clause let a 3,000 note apply to it.
+            if (in_array($invoice->status, ['disputed', 'paid'], true)) {
                 return 0.0;
             }
 

@@ -74,7 +74,10 @@ function drawableCredit(float $surplus): void
     $settled->update(['status' => 'issued']);
 
     $payment = Payment::create([
-        'asset_id' => test()->asset->id,
+        // No `asset_id`: `payments` carries none. The books dimension is DERIVED from the invoices a
+        // receipt settles (or from a cleared cheque), which is exactly why this helper allocates to
+        // one. Eloquent drops an unknown key silently, so writing it set up a different state than
+        // it claimed — the shape `FixtureColumnsExistConformanceTest` exists to catch.
         'tenant_id' => test()->tenant->id,
         'amount' => (float) $settled->balance + $surplus,
         'currency' => 'EGP',
@@ -191,7 +194,6 @@ it('refuses tenant credit against a DRAFT invoice — the case only the status c
         ->and((float) $draft->fresh()->paid_amount)->toEqual(0.0);
 });
 
-
 it('refuses a receipt that would over-relieve the un-forgiven part', function () {
     // The MODEL-LEVEL backstop, which the picker tests above do not reach: `assertInvoicesNotOverAllocated`
     // compared the four channels against the raw `total`, and `total` is another number a write-off
@@ -202,7 +204,6 @@ it('refuses a receipt that would over-relieve the un-forgiven part', function ()
     app(WriteOffInvoiceService::class)->write($invoice, ['amount' => 1400, 'reason' => 'tenant_insolvent']);
 
     $payment = Payment::create([
-        'asset_id' => $this->asset->id,
         'tenant_id' => $this->tenant->id,
         'amount' => 11400,
         'currency' => 'EGP',
@@ -227,7 +228,6 @@ it('refuses a receipt allocated to a relieved invoice on the SAVE path, not only
     $draft = makeInvoice($this->lease, ['status' => 'draft']);
 
     $payment = Payment::create([
-        'asset_id' => $this->asset->id,
         'tenant_id' => $this->tenant->id,
         'amount' => 11400,
         'currency' => 'EGP',

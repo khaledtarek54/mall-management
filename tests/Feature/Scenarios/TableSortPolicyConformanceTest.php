@@ -64,7 +64,7 @@ it('classifies every table that owns its row order', function () {
 
     // The premise. A sweep whose discovery silently stopped collecting would report no offenders
     // and pass — the failure this codebase has been bitten by more than any other.
-    expect($files)->toHaveCount(144);
+    expect($files)->toHaveCount(145);
 
     $unclassified = [];
 
