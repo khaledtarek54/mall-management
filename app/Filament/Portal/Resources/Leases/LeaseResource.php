@@ -100,7 +100,18 @@ class LeaseResource extends Resource
         return parent::getEloquentQuery()
             ->with(['unit.asset'])
             // The signed-in tenant's own leases only.
-            ->where('tenant_id', Portal::tenantId());
+            ->where('tenant_id', Portal::tenantId())
+            // …and only leases that ARE a document. `draft` and `pending_approval` are terms
+            // nobody has agreed yet — the tenant reading their own rent, term and deposit off a
+            // lease still being negotiated, and treating it as settled. Same rule as
+            // `TenantVisibility` applies to invoices and credit notes, and the same reason: whose
+            // row is this, and has it been agreed, are TWO questions.
+            //
+            // EXCLUDED rather than allowlisted, deliberately: `expired`, `renewed`, `terminated`
+            // and `cancelled` all still explain a tenancy the tenant remembers, and losing a real
+            // one from their history is the worse failure. A status this list has not heard of is
+            // visible, and must be hidden on purpose.
+            ->whereNotIn('status', ['draft', 'pending_approval']);
     }
 
     public static function canCreate(): bool

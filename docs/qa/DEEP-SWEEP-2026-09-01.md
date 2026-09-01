@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 30 closed, 187 open (updated 2026-09-01)
+> ### Where this stands — 33 closed, 184 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -99,7 +99,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Billing · leases
 
-*20 open — 4 high, 11 medium, 5 low.*
+*19 open — 3 high, 11 medium, 5 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -108,7 +108,7 @@ which is the same failure this repo gates for generated doc blocks.
 | **SW-035** | ✅ **fixed** `e6d9f699` | high | — | `leases:expire` empties the holdover queue every morning, making the whole LE-04 holdover conversion permanently unreachable | `Console/Commands/ExpireLeasesCommand:84` |
 | **SW-036** | ✅ **fixed** `e6d9f699` | high | M | leases:expire makes holdover conversion unreachable — the entire LE-04 workflow is dead after the first night | `Console/Commands/ExpireLeasesCommand:87` |
 | **SW-037** | ✅ **fixed** `aa624ab1` | high | — | Clicking a report filter's clear (×) 500s the page — the bound property is non-nullable and Livewire unsets it Thirteen screens had it, not two — every financial statement through the shared ledger bar, plus the ageing bucket, month-end close, the reports index, tax depreciation, the VAT and withholding returns and the revenue forecast. `KeepsFilterAnswered` restores a filter whose blank is not an answer; `selectablePlaceholder(false)` stops it being offered. `AClearableFilterNeverBreaksItsPageTest` DRIVES every filter-bearing admin page, because the control and the property live in different files and no source sweep can pair them. | `Filament/Admin/Pages/BillingRunPreview:62` |
-| **SW-038** | open | high | — | Portal lease list shows DRAFT and PENDING_APPROVAL leases — the tenant reads terms nobody has approved | `Filament/Portal/Resources/Leases/LeaseResource:100` |
+| **SW-038** | ✅ fixed | high | — | Portal lease list shows DRAFT and PENDING_APPROVAL leases — the tenant reads terms nobody has approved | `Filament/Portal/Resources/Leases/LeaseResource:100` |
 | **SW-039** | open | high | S | Writing off a partially-paid billed deposit erases the PAID portion from depositHeld — tenant's deposit silently kept at move-out | `Models/Lease:674` |
 | **SW-040** | open | high | — | An assessment invoice records the calendar month it did not bill, so a resale credits the seller too little and the mall over-collects | `Services/BillUnitOwnershipsService:268` |
 | **SW-041** | ✅ **fixed** `e37f23f9` | high | M | Re-running Terminate on a lease under notice stacks duplicate unearned credit notes — no idempotency on the MF-02 credit `CreditUnearnedBillingService` now refuses when a live credit note already stands against the invoice — keyed on the INVOICE, not the termination date, since re-terminating with a different date is the same mistake wearing a different figure. A VOIDED note deliberately does not block: voiding one is how an operator says *do that again properly*. | `Services/LeaseTerminationService:176` |
@@ -131,12 +131,12 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Facility · vendors · procurement
 
-*29 open — 6 high, 11 medium, 12 low.*
+*28 open — 5 high, 11 medium, 12 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-058** | open | high | M | No screen can assign or reassign a work order's technician after creation — the model's own reassignment-notification hook is unreachable | `Filament/Admin/Resources/FacilityWorkOrders/Schemas/FacilityWorkOrderForm:146` |
-| **SW-059** | open | high | XS | Service Plans 'Generate due' header action calls a protected method cross-class — guaranteed PHP Error after generation runs | `Filament/Admin/Resources/ServicePlans/Tables/ServicePlansTable:146` |
+| **SW-059** | ✅ fixed | high | XS | Service Plans 'Generate due' header action calls a protected method cross-class — guaranteed PHP Error after generation runs | `Filament/Admin/Resources/ServicePlans/Tables/ServicePlansTable:146` |
 | **SW-060** | open | high | S | Draft purchase request is a panel dead-end: submit() has no caller and every edit surface is locked to 'requested' | `Filament/Admin/RelationManagers/PurchaseRequestLinesRelationManager:53` |
 | **SW-061** | open | high | M | Editing day_of_month (or frequency) on a live schedule re-walks the calendar and double-books the current period | `Filament/Admin/Resources/RecurringExpenses/Schemas/RecurringExpenseForm:104` |
 | **SW-062** | open | high | — | The contractor can post to the job thread but can never read it — the operator's "Share with the contractor" reaches nobody | `Filament/Vendor/Resources/WorkOrders/Pages/ListWorkOrders:142` |
@@ -168,14 +168,14 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### HR · payroll · treasury
 
-*22 open — 4 high, 10 medium, 8 low.*
+*21 open — 3 high, 10 medium, 8 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-088** | open | high | — | The per-property proration override renders as a NUMERIC box — the setting is unsettable, and anything typed is silently discarded | `Filament/Admin/Pages/PropertyOverrides:149` |
 | **SW-089** | ✅ **fixed** `5041571a` | high | — | Two unvalidated free-text time fields feed cron expressions — "24:00" stops the entire scheduler | `Filament/Admin/Pages/Settings:381` |
 | **SW-090** | open | high | S | Payroll add-line modal renders allowances / other deductions / deduction note / employer SI and silently discards all four on save | `Filament/Admin/RelationManagers/PayrollLinesRelationManager:232` |
-| **SW-091** | open | high | S | Un-settled custody's custody_date can be back-dated into a closed period through the Edit form — row saves, GL re-post silently refused | `Filament/Admin/Resources/Custodies/Pages/EditCustody:11` |
+| **SW-091** | ✅ fixed | high | S | Un-settled custody's custody_date can be back-dated into a closed period through the Edit form — row saves, GL re-post silently refused | `Filament/Admin/Resources/Custodies/Pages/EditCustody:11` |
 | **SW-092** | open | high | — | Two payroll runs for the same month can both be approved concurrently — the double-pay guard takes no lock, and the advance re-check decides from a pre-lock snapshot | `Services/PayrollService:48` |
 | **SW-093** | open | medium | — | The audit trail cannot be filtered or searched by WHO acted — its most-asked question is unanswerable on screen and in the scheduled CSV | `Filament/Admin/Pages/ActivityLog:207` |
 | **SW-094** | open | medium | — | PropertyOverrides' Save button is ungated in the Blade — the gated getFormActions() is never rendered, so manager/viewer get a raw 403 | `Filament/Admin/Pages/PropertyOverrides:168` |

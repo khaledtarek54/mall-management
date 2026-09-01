@@ -58,7 +58,7 @@ class ServicePlanActions
      *
      * @param  array<int, string>  $failures
      */
-    protected static function report(int $created, array $failures): void
+    public static function report(int $created, array $failures): void
     {
         if ($failures !== []) {
             Notification::make()
