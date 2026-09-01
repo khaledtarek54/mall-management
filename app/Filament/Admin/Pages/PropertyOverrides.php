@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Support\PropertySettings;
 use App\Support\TenantScope;
+use App\Support\ValueSets;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -146,6 +147,33 @@ class PropertyOverrides extends Page implements HasSchemas
                         ->hint($hint);
                 }
 
+                // A setting whose portfolio value is a STRING is a choice, not a number.
+                //
+                // Every non-boolean override rendered as a NUMERIC text box, and
+                // `billing.proration_method` is one of `actual | thirty_day | year_365 |
+                // whole_month`. So the field could not hold its own value: the operator was shown a
+                // number box for a word, anything they typed was rejected as non-numeric or
+                // silently discarded, and the setting was unsettable from the one screen that
+                // exists to set it. Same class as the boolean case directly above, which was fixed
+                // and not generalised.
+                //
+                // The options come from `ValueSets`, the register that already says what the column
+                // may hold — never a second list beside it.
+                if (is_string($portfolio) && ($choices = self::choicesFor($key)) !== []) {
+                    return Select::make(self::field($key))
+                        ->label(__('admin.settings.fields.'.self::name($key)))
+                        ->options($choices)
+                        ->placeholder(__('admin.property_overrides.inherit_option', [
+                            'value' => $choices[$portfolio] ?? $portfolio,
+                        ]))
+                        ->native(false)
+                        ->helperText(__('admin.property_overrides.inherits', [
+                            'value' => $choices[$portfolio] ?? $portfolio,
+                        ]))
+                        ->hintColor('gray')
+                        ->hint($hint);
+                }
+
                 return TextInput::make(self::field($key))
                     ->label(__('admin.settings.fields.'.self::name($key)))
                     ->numeric()
@@ -233,5 +261,33 @@ class PropertyOverrides extends Page implements HasSchemas
     private static function name(string $key): string
     {
         return explode('.', $key, 2)[1];
+    }
+
+    /**
+     * The values a string-valued override may take, labelled.
+     *
+     * Read from `ValueSets` — the register that already answers "what may this column hold" — so a
+     * new proration method is offered here by being registered there, not by anyone remembering
+     * this screen. Returns `[]` when the setting maps to no known column, which falls the field
+     * back to a plain text box rather than offering an empty dropdown.
+     *
+     * @return array<string, string>
+     */
+    private static function choicesFor(string $key): array
+    {
+        $column = match ($key) {
+            'billing.proration_method' => ['leases', 'proration_method'],
+            default => null,
+        };
+
+        if ($column === null) {
+            return [];
+        }
+
+        return collect(ValueSets::allowed(...$column))
+            ->mapWithKeys(fn (string $value): array => [
+                $value => __('admin.proration_methods.'.$value),
+            ])
+            ->all();
     }
 }

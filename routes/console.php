@@ -250,7 +250,11 @@ Schedule::command('sales:scan-missing-declarations')
 // way to avoid percentage rent. Runs a week after the chase, so the tenant has had the reminder
 // and a chance to file first.
 Schedule::command('sales:estimate-missing')
-    ->monthlyOn(8, '07:30')
+    // The 17th, a week AFTER the chase on the 10th. It ran on the 8th — two days BEFORE the
+    // reminder it is supposed to follow — so the estimate landed first and the chase arrived
+    // afterwards about a declaration the system had already estimated for the tenant. The comment
+    // above said "a week after the chase" the whole time; only the day said otherwise.
+    ->monthlyOn(17, '07:30')
     ->name('atriom-estimate-missing-sales')
     ->withoutOverlapping();
 
