@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Expense;
 use App\Models\RecurringExpense;
@@ -93,9 +94,9 @@ it('will not raise a second credit note against an invoice that already has one'
     // as a one-off and is never clawed back, so a fixture without it produces no note at all and
     // any assertion about duplicates passes for the wrong reason. (It did: the first version of
     // this test stayed green with the guard deleted.)
-    $charge = App\Models\Charge::create([
+    $charge = Charge::create([
         'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
-        'origin' => App\Models\Charge::ORIGIN_SEED, 'amount' => 30000, 'currency' => 'EGP',
+        'origin' => Charge::ORIGIN_SEED, 'amount' => 30000, 'currency' => 'EGP',
         'frequency' => 'monthly', 'start_date' => CarbonImmutable::now()->startOfMonth()->toDateString(),
         'is_active' => true,
     ]);
