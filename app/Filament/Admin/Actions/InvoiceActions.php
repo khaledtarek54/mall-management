@@ -164,6 +164,11 @@ class InvoiceActions
                 // remedy must outlive payability.
                 ->visible(fn (Invoice $record) => filled($record->payment_link_token)
                     && (auth()->user()?->can('invoices.edit') ?? false))
+                // Stated intent as well as the gate below. This came off the copy of this action
+                // that used to live inline on EditInvoice — the page composed BOTH, so the operator
+                // read "Regenerate payment link" twice in the header (2026-09-01). One definition
+                // survives; the authorisation the other declared survives with it.
+                ->authorize(fn (): bool => auth()->user()?->can('invoices.edit') ?? false)
                 ->action(function (Invoice $record): void {
                     // The real gate: mountAction() ignores visible(), so revoking a client's
                     // access to their invoice must not be dispatchable without invoices.edit.

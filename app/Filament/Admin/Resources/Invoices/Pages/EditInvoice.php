@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Invoices\Pages;
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Actions\InvoiceActions;
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\DepositApplication;
 use App\Models\Invoice;
@@ -19,9 +20,9 @@ use App\Services\WriteOffInvoiceService;
 use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
-use App\Support\OpsLog;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -36,7 +37,6 @@ use Illuminate\Support\Facades\Auth;
 class EditInvoice extends EditRecord
 {
     use AnnouncesLedgerRestatement;
-    use RefreshesRecordState;
     use RefreshesRecordState;
 
     /**
@@ -73,16 +73,99 @@ class EditInvoice extends EditRecord
         return round(min((float) $this->record->balance, $this->availableCredit()), 2);
     }
 
+    /**
+     * **The header, grouped by the question being asked.**
+     *
+     * An invoice carries thirteen acts. Rendered loose they filled the header edge to edge, wrapped
+     * the page title down four lines and the breadcrumb with it, and read as a wall of
+     * equally-weighted verbs with no shape to scan — the same complaint that grouped the lease page
+     * ({@see LeaseActions::GROUPS}), and the same answer, so the two
+     * record hubs read alike.
+     *
+     * A group whose every act is hidden hides itself (`ActionGroup::isHidden()`), so a draft invoice
+     * with nothing to reverse shows two dropdowns, not two empty ones.
+     *
+     * **An act missing from this map is defined and rendered NOWHERE** — it passes every visibility
+     * and authorisation check and simply never appears, which is indistinguishable from a feature
+     * that was never built. `InvoiceActionTopologyTest` asserts the map and {@see headerActs()} name
+     * exactly the same set, in both directions.
+     *
+     * @var array<string, array<int, string>>
+     */
+    public const HEADER_GROUPS = [
+        // What you SEND: the document itself and the ways a tenant reaches it.
+        'document' => ['downloadPdf', 'sendToTenant', 'paymentLink', 'regeneratePaymentLink', 'submitToEta'],
+        // What SETTLES it — and the undo for each channel that can.
+        'settlement' => ['apply_credit', 'allocateToLines', 'reverse_credit', 'reverse_deposit_application', 'reverse_write_off'],
+        // What CORRECTS it, once it is no longer a draft.
+        'corrections' => ['disputeLine', 'resolveDispute', 'write_off', 'void_invoice'],
+    ];
+
+    /** @var array<string, string> */
+    private const GROUP_ICONS = [
+        'document' => 'heroicon-o-document-text',
+        'settlement' => 'heroicon-o-banknotes',
+        'corrections' => 'heroicon-o-wrench-screwdriver',
+    ];
+
     protected function getHeaderActions(): array
     {
+        $acts = $this->headerActs();
+        $groups = [];
+
+        foreach (self::HEADER_GROUPS as $group => $names) {
+            $groups[] = ActionGroup::make(array_values(array_filter(array_map(
+                fn (string $name): ?Action => $acts[$name] ?? null,
+                $names,
+            ))))
+                ->label(__("admin.actions.groups.{$group}"))
+                ->icon(self::GROUP_ICONS[$group])
+                ->button();
+        }
+
         return [
-            // The record hub: what you can DO to this record lives here, not on the list.
-            ...InvoiceActions::all(),
             // **The ledger panel, on the screen where the edit happens.** The factory has existed
             // since CHANGE-IMPACT-PLAN §6.1 and was mounted on five LIST tables only — which is
             // where you audit, not where you act. An operator about to retype a figure could not
-            // see what the document had already done to the books without leaving the page.
+            // see what the document had already done to the books without leaving the page. It
+            // stands alone: it is the one control here that READS rather than acts.
             LedgerEntryAction::make(),
+            ...$groups,
+            RestoreAction::make(),
+        ];
+    }
+
+    /**
+     * Every act this page offers, keyed by name — the shared registry's, plus its own.
+     *
+     * Public so the topology gate can ask the page what it defines rather than re-listing it.
+     *
+     * @return array<string, Action>
+     */
+    public function headerActs(): array
+    {
+        $acts = [];
+
+        // The record hub: what you can DO to this record lives here, not on the list.
+        foreach ([...InvoiceActions::all(), ...$this->ownActions()] as $action) {
+            $acts[$action->getName()] = $action;
+        }
+
+        return $acts;
+    }
+
+    /**
+     * The acts only the record page has — nothing else composes these, so they stay here rather
+     * than in {@see InvoiceActions}, which exists for the ones a second surface also renders.
+     *
+     * Public alongside {@see headerActs()} so the topology gate can read the UNKEYED list: keying
+     * by name is what hides a duplicate, and a duplicate is the defect this page shipped.
+     *
+     * @return array<int, Action>
+     */
+    public function ownActions(): array
+    {
+        return [
             PdfDownloadAction::make('downloadPdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->service(InvoicePdfService::class)
@@ -145,34 +228,6 @@ class EditInvoice extends EditRecord
                 ->modalHeading(fn () => __('admin.actions.payment_link').' · '.$this->record->number)
                 ->modalSubmitAction(false)
                 ->modalContent(fn () => view('filament.payment-link-modal', ['invoice' => $this->record])),
-            // Kill a leaked pay link. See the identical action on the invoice table for
-            // why a bearer URL with no expiry needs a revocation path.
-            Action::make('regeneratePaymentLink')
-                ->label(__('admin.actions.regenerate_payment_link'))
-                ->icon('heroicon-o-arrow-path')
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalDescription(__('admin.actions.regenerate_payment_link_confirm'))
-                ->authorize(fn () => Auth::user()?->can('invoices.edit') ?? false)
-                ->visible(fn () => filled($this->record->payment_link_token)
-                    && (Auth::user()?->can('invoices.edit') ?? false))
-                ->action(function (): void {
-                    abort_unless(Auth::user()?->can('invoices.edit') ?? false, 403);
-
-                    $this->record->rotatePaymentLinkToken();
-
-                    OpsLog::info('invoice.pay_link_rotated', [
-                        'invoice_id' => $this->record->id,
-                        'invoice_number' => $this->record->number,
-                        'by' => Auth::id(),
-                    ]);
-
-                    Notification::make()
-                        ->title(__('admin.actions.regenerate_payment_link_done'))
-                        ->body(__('admin.actions.regenerate_payment_link_done_body', ['number' => $this->record->number]))
-                        ->success()
-                        ->send();
-                }),
             // Apply the tenant's on-account CREDIT to this invoice. Posts its own Dr Unearned / Cr AR
             // entry dated today (ApplyTenantCreditService), so an old overpayment settles a current
             // invoice safely. Capped at the invoice balance; same-property.
@@ -451,7 +506,6 @@ class EditInvoice extends EditRecord
                             ->send();
                     }
                 }),
-            RestoreAction::make(),
         ];
     }
 }

@@ -1979,3 +1979,40 @@ other one. Without it an Arabic document renders an English sentence as `.Issued
 
 See [OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference) for the
 whole rule, and `ADocumentIsWrittenInItsReadersLanguageTest` for what is pinned.
+
+## The invoice's own page: one act, one place (2026-09-01)
+
+**Reported from the panel: the header said "Regenerate payment link" twice.** `EditInvoice`
+composed `InvoiceActions::all()` — which defines that act — *and* a second, inline copy of it, so
+the same red button rendered twice on every invoice carrying a pay-link token. Both rotated the
+same token, so nothing was wrong with either; what was wrong is that a **destructive** act appeared
+twice with nothing to say which was which.
+
+It survived because a duplicate is invisible from either definition. Each file is correct on its
+own; `cacheAction()` keys by name, so `mountAction('regeneratePaymentLink')` resolved cleanly and
+every existing test — including the two that drive that exact act on that exact page — passed.
+**Only the rendered header shows two.** The inline copy is gone; the `->authorize()` it declared
+moved onto the surviving definition, so the double gate is unchanged.
+
+**The other half is layout.** Thirteen acts rendered as loose buttons filled the header edge to
+edge, wrapped the page title down four lines and took the breadcrumb with it. They are now three
+dropdowns beside the standalone ledger panel, grouped by the question being asked — the same answer
+the lease page already reached (`LeaseActions::GROUPS`), so the two record hubs read alike:
+
+| Group | Acts |
+| --- | --- |
+| **Document** | download PDF · send to tenant · payment link · regenerate payment link · submit to ETA |
+| **Settlement** | apply credit · allocate to lines · reverse credit · reverse deposit application · reverse write-off |
+| **Corrections** | dispute line · resolve dispute · write off · void |
+
+A group whose every act is hidden hides itself (`ActionGroup::isHidden()`), so an issued invoice
+with nothing to settle shows two dropdowns rather than an empty third. Measured on the demo books:
+**seven loose buttons → three controls.**
+
+**The hazard grouping introduces:** an act missing from `EditInvoice::HEADER_GROUPS` is defined and
+rendered **nowhere at all** — it passes every visibility and authorisation check and simply never
+appears, which is indistinguishable from a feature that was never built. That happened to two lease
+actions the day *they* were grouped. `InvoiceActionTopologyTest` asserts the map and the page's own
+composition name exactly the same set, in **both** directions, that no name is grouped twice, and —
+because grouping must be a layout change and never an authorisation one — that every act is still
+mountable by name through the real page. All four teeth mutation-proved.
