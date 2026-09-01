@@ -246,6 +246,18 @@ class LeaseForm
                         EntitySelect::make('tenant_id')
                             ->label(__('admin.resources.tenant.singular'))
                             ->entity(Tenant::class)
+                            // The relationship is what makes `createOptionForm()` below work:
+                            // Filament's create-option action creates the RELATED model, and a
+                            // select with no relationship and no `createOptionUsing()` throws a
+                            // LogicException the moment somebody presses the button. This field
+                            // carried `->relationship('tenant', 'name', …)` until d9587a86 moved it
+                            // to `EntitySelect`, which dropped it and left the create form behind —
+                            // so the "+" beside Tenant was a guaranteed 500 from that commit until
+                            // 2026-09-01, on the first screen a leasing agent opens. `entity()` and
+                            // `relationship()` compose in either order by design, and the picker's
+                            // reach is OptionDisplay's (stricter than the scope that was written
+                            // here by hand), so nothing is given back to get the affordance working.
+                            ->relationship('tenant', 'name')
                             ->required()
                             // The counterparty is the lease. Re-pointing it would hand one tenant's
                             // billing history, deposit and AR to another under the same contract
