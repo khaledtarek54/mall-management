@@ -29,7 +29,14 @@ use Illuminate\Support\Facades\Auth;
  */
 trait ScopesLedgerReport
 {
-    public int $year;
+    use KeepsFilterAnswered;
+
+    /**
+     * Nullable so a cleared picker cannot leave it UNINITIALISED. `KeepsFilterAnswered` restores it
+     * on the same request, so none of its seventeen readers ever sees null — the restore is the
+     * actual fix and the type is the belt to its braces.
+     */
+    public ?int $year = null;
 
     /**
      * A single month within the selected year (`YYYY-MM`), or null for the whole year.
@@ -100,7 +107,22 @@ trait ScopesLedgerReport
      */
     public function updatedYear(): void
     {
+        // Restored FIRST: `updatedYear()` runs before the generic hook, and clearing the year must
+        // not then clear the month as though the operator had picked a different one.
+        $this->restoreAnsweredFilter('year');
+
         $this->period = null;
+    }
+
+    /**
+     * The fiscal year is never blank. `period` deliberately is not listed: its blank means
+     * "full year", which is why it is typed `?string` and carries a placeholder saying so.
+     *
+     * @return array<string, mixed>
+     */
+    protected function answerableFilters(): array
+    {
+        return ['year' => (int) now()->year];
     }
 
     /** The year + property picker strip, rendered above the report table. */
@@ -131,6 +153,17 @@ trait ScopesLedgerReport
                 ->label(__('admin.reports.fiscal_year'))
                 ->options(fn (): array => $this->yearOptions())
                 ->native(false)
+                // NOT CLEARABLE. Filament renders a blank option on every Select unless it is
+                // told otherwise, and clearing one sets the bound Livewire property to null —
+                // which UNSETS a non-nullable typed property, so every later read of it throws
+                // and the page 500s. Measured on all seven report screens that had it.
+                //
+                // The fix is the control, not the type: there is no such thing as "no fiscal
+                // year" or "no period" for a statement, so offering the blank was offering an
+                // action that cannot work. Where a blank IS an answer it stays — `period` on
+                // the shared ledger bar means "full year", says so in its placeholder, and is
+                // typed `?string` accordingly.
+                ->selectablePlaceholder(false)
                 ->live(),
             // The operator runs a MONTHLY close and could not print that month's trial
             // balance, income statement, balance sheet or cash flow — the pages were

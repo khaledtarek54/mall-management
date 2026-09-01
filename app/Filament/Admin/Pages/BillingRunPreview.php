@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Pages\Concerns\KeepsFilterAnswered;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Services\MonthlyBillingService;
@@ -50,6 +51,7 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use KeepsFilterAnswered;
     use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
@@ -59,7 +61,7 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
     protected static string $routePath = 'billing-run-preview';
 
     /** The month being previewed, `Y-m`. */
-    public string $period;
+    public ?string $period = null;
 
     /** Memoised so switching a filter or paginating doesn't recompute the whole mall's plan. */
     private ?array $preview = null;
@@ -118,6 +120,17 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
                         ->label(__('admin.billing_preview.period'))
                         ->options(fn (): array => self::periodOptions())
                         ->native(false)
+                        // NOT CLEARABLE. Filament renders a blank option on every Select unless it is
+                        // told otherwise, and clearing one sets the bound Livewire property to null —
+                        // which UNSETS a non-nullable typed property, so every later read of it throws
+                        // and the page 500s. Measured on all seven report screens that had it.
+                        //
+                        // The fix is the control, not the type: there is no such thing as "no fiscal
+                        // year" or "no period" for a statement, so offering the blank was offering an
+                        // action that cannot work. Where a blank IS an answer it stays — `period` on
+                        // the shared ledger bar means "full year", says so in its placeholder, and is
+                        // typed `?string` accordingly.
+                        ->selectablePlaceholder(false)
                         ->live()
                         // Recomputing is the whole point of changing the month.
                         ->afterStateUpdated(fn () => $this->preview = null),
@@ -285,5 +298,16 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
             ])
             ->defaultPaginationPageOption(25)
             ->emptyStateHeading(__('admin.billing_preview.empty'));
+    }
+
+    /**
+     * `$period` is never blank — the Select offers no clear, and a payload that sends one is
+     * restored here rather than left to break the page. {@see KeepsFilterAnswered}
+     *
+     * @return array<string, mixed>
+     */
+    protected function answerableFilters(): array
+    {
+        return ['period' => now()->format('Y-m')];
     }
 }

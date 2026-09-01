@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
+use App\Filament\Admin\Pages\Concerns\KeepsFilterAnswered;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Asset;
@@ -49,6 +50,7 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
     use ExportsReport;
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use KeepsFilterAnswered;
     use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowTrendingDown;
@@ -64,7 +66,7 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
 
     protected static string $routePath = 'ar-aging';
 
-    public string $bucket = 'd_1_30';
+    public ?string $bucket = 'd_1_30';
 
     /**
      * The day the receivables are aged at (`Y-m-d`).
@@ -143,6 +145,17 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
                             ->label(__('admin.reports.bucket'))
                             ->options(fn (): array => self::buckets())
                             ->native(false)
+                            // NOT CLEARABLE. Filament renders a blank option on every Select unless it is
+                            // told otherwise, and clearing one sets the bound Livewire property to null —
+                            // which UNSETS a non-nullable typed property, so every later read of it throws
+                            // and the page 500s. Measured on all seven report screens that had it.
+                            //
+                            // The fix is the control, not the type: there is no such thing as "no fiscal
+                            // year" or "no period" for a statement, so offering the blank was offering an
+                            // action that cannot work. Where a blank IS an answer it stays — `period` on
+                            // the shared ledger bar means "full year", says so in its placeholder, and is
+                            // typed `?string` accordingly.
+                            ->selectablePlaceholder(false)
                             ->live(),
                         // The ageing date is part of the answer, not a hidden constant:
                         // "31–60 days" only means something relative to a day. Showing it
@@ -303,5 +316,16 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
             ->paginated([25, 50, 100, 'all'])
             ->emptyStateIcon('heroicon-o-check-circle')
             ->emptyStateHeading(__('admin.reports.no_invoices_in_bucket'));
+    }
+
+    /**
+     * `$bucket` is never blank — the Select offers no clear, and a payload that sends one is
+     * restored here rather than left to break the page. {@see KeepsFilterAnswered}
+     *
+     * @return array<string, mixed>
+     */
+    protected function answerableFilters(): array
+    {
+        return ['bucket' => 'd_1_30'];
     }
 }

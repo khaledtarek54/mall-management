@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
+use App\Filament\Admin\Pages\Concerns\KeepsFilterAnswered;
 use App\Services\Accounting\TaxDepreciationService;
 use App\Support\TaxDepreciation as Pools;
 use App\Support\TenantScope;
@@ -34,6 +35,7 @@ class TaxDepreciation extends Page implements DeliverableReport, HasSchemas
 {
     use ExportsReport;
     use InteractsWithSchemas;
+    use KeepsFilterAnswered;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
@@ -44,7 +46,7 @@ class TaxDepreciation extends Page implements DeliverableReport, HasSchemas
     /** @var array<string, mixed> */
     public array $data = [];
 
-    public int $year;
+    public ?int $year = null;
 
     public static function canAccess(): bool
     {
@@ -80,6 +82,17 @@ class TaxDepreciation extends Page implements DeliverableReport, HasSchemas
                 ->options(fn () => collect(range((int) now()->year, (int) now()->year - 9))
                     ->mapWithKeys(fn (int $y) => [$y => (string) $y])->all())
                 ->native(false)
+                // NOT CLEARABLE. Filament renders a blank option on every Select unless it is
+                // told otherwise, and clearing one sets the bound Livewire property to null —
+                // which UNSETS a non-nullable typed property, so every later read of it throws
+                // and the page 500s. Measured on all seven report screens that had it.
+                //
+                // The fix is the control, not the type: there is no such thing as "no fiscal
+                // year" or "no period" for a statement, so offering the blank was offering an
+                // action that cannot work. Where a blank IS an answer it stays — `period` on
+                // the shared ledger bar means "full year", says so in its placeholder, and is
+                // typed `?string` accordingly.
+                ->selectablePlaceholder(false)
                 ->live()
                 ->afterStateUpdated(fn ($state) => $this->year = (int) $state),
         ]);
@@ -147,5 +160,16 @@ class TaxDepreciation extends Page implements DeliverableReport, HasSchemas
     public static function pools(): array
     {
         return Pools::pools();
+    }
+
+    /**
+     * `$year` is never blank — the Select offers no clear, and a payload that sends one is
+     * restored here rather than left to break the page. {@see KeepsFilterAnswered}
+     *
+     * @return array<string, mixed>
+     */
+    protected function answerableFilters(): array
+    {
+        return ['year' => (int) now()->year];
     }
 }

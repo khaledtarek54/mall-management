@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
+use App\Filament\Admin\Pages\Concerns\KeepsFilterAnswered;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\LeaseBillingForecastService;
 use App\Services\PortfolioRevenueForecastService;
@@ -49,6 +50,7 @@ class RevenueForecast extends Page implements DeliverableReport, HasSchemas, Has
     use ExportsReport;
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use KeepsFilterAnswered;
     use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;
@@ -58,7 +60,7 @@ class RevenueForecast extends Page implements DeliverableReport, HasSchemas, Has
     protected static string $routePath = 'revenue-forecast';
 
     /** How far ahead to look, in months. */
-    public int $horizon = LeaseBillingForecastService::HORIZON_MONTHS;
+    public ?int $horizon = LeaseBillingForecastService::HORIZON_MONTHS;
 
     private ?array $data = null;
 
@@ -82,6 +84,17 @@ class RevenueForecast extends Page implements DeliverableReport, HasSchemas, Has
                             36 => __('admin.revenue_forecast.horizon_months', ['count' => 36]),
                         ])
                         ->native(false)
+                        // NOT CLEARABLE. Filament renders a blank option on every Select unless it is
+                        // told otherwise, and clearing one sets the bound Livewire property to null —
+                        // which UNSETS a non-nullable typed property, so every later read of it throws
+                        // and the page 500s. Measured on all seven report screens that had it.
+                        //
+                        // The fix is the control, not the type: there is no such thing as "no fiscal
+                        // year" or "no period" for a statement, so offering the blank was offering an
+                        // action that cannot work. Where a blank IS an answer it stays — `period` on
+                        // the shared ledger bar means "full year", says so in its placeholder, and is
+                        // typed `?string` accordingly.
+                        ->selectablePlaceholder(false)
                         // Recomputed rather than cached: a forecast that silently predates a rent
                         // change is the failure this page exists to prevent.
                         ->afterStateUpdated(fn () => $this->data = null)
@@ -218,5 +231,16 @@ class RevenueForecast extends Page implements DeliverableReport, HasSchemas, Has
             ->emptyStateIcon(Heroicon::OutlinedPresentationChartLine)
             ->emptyStateHeading(__('admin.revenue_forecast.empty_heading'))
             ->emptyStateDescription(__('admin.revenue_forecast.empty_description'));
+    }
+
+    /**
+     * `$horizon` is never blank — the Select offers no clear, and a payload that sends one is
+     * restored here rather than left to break the page. {@see KeepsFilterAnswered}
+     *
+     * @return array<string, mixed>
+     */
+    protected function answerableFilters(): array
+    {
+        return ['horizon' => LeaseBillingForecastService::HORIZON_MONTHS];
     }
 }

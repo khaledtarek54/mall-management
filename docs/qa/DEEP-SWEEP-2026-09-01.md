@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 19 closed, 190 open (updated 2026-09-01)
+> ### Where this stands — 21 closed, 188 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -96,7 +96,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Billing · leases
 
-*22 open — 6 high, 11 medium, 5 low.*
+*21 open — 5 high, 11 medium, 5 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -104,7 +104,7 @@ which is the same failure this repo gates for generated doc blocks.
 | **SW-034** | open | high | M | 'End charge' / 'End assessment' with a future stop date silently stops billing immediately — the intervening months are never invoiced | `Filament/Admin/RelationManagers/ChargeScheduleRelationManager:508` |
 | **SW-035** | ✅ **fixed** `e6d9f699` | high | — | `leases:expire` empties the holdover queue every morning, making the whole LE-04 holdover conversion permanently unreachable | `Console/Commands/ExpireLeasesCommand:84` |
 | **SW-036** | ✅ **fixed** `e6d9f699` | high | M | leases:expire makes holdover conversion unreachable — the entire LE-04 workflow is dead after the first night | `Console/Commands/ExpireLeasesCommand:87` |
-| **SW-037** | open | high | — | Clicking a report filter's clear (×) 500s the page — the bound property is non-nullable and Livewire unsets it | `Filament/Admin/Pages/BillingRunPreview:62` |
+| **SW-037** | ✅ fixed | high | — | Clicking a report filter's clear (×) 500s the page — the bound property is non-nullable and Livewire unsets it Thirteen screens had it, not two — every financial statement through the shared ledger bar, plus the ageing bucket, month-end close, the reports index, tax depreciation, the VAT and withholding returns and the revenue forecast. `KeepsFilterAnswered` restores a filter whose blank is not an answer; `selectablePlaceholder(false)` stops it being offered. `AClearableFilterNeverBreaksItsPageTest` DRIVES every filter-bearing admin page, because the control and the property live in different files and no source sweep can pair them. | `Filament/Admin/Pages/BillingRunPreview:62` |
 | **SW-038** | open | high | — | Portal lease list shows DRAFT and PENDING_APPROVAL leases — the tenant reads terms nobody has approved | `Filament/Portal/Resources/Leases/LeaseResource:100` |
 | **SW-039** | open | high | S | Writing off a partially-paid billed deposit erases the PAID portion from depositHeld — tenant's deposit silently kept at move-out | `Models/Lease:674` |
 | **SW-040** | open | high | — | An assessment invoice records the calendar month it did not bill, so a resale credits the seller too little and the mall over-collects | `Services/BillUnitOwnershipsService:268` |
@@ -222,12 +222,12 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### General ledger · period · banking
 
-*20 open — 5 high, 9 medium, 6 low.*
+*19 open — 4 high, 9 medium, 6 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-131** | open | high | — | A Form 41 quarter cannot survive a link or a saved view — the screen shows the full year while the emailed CSV shows the quarter | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:67` |
-| **SW-132** | open | high | — | Clearing any report Select unsets a non-nullable Livewire property and 500s the page | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:130` |
+| **SW-132** | ✅ fixed | high | — | Clearing any report Select unsets a non-nullable Livewire property and 500s the page Same root cause as SW-037 and fixed with it. | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:130` |
 | **SW-133** | open | high | — | The unallocated-entries warning exists only on screen — the PDF, CSV, XLSX, scheduled email and owner pack omit money silently | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:270` |
 | **SW-134** | open | high | L | Re-pointing a posting-role mapping (or a charge code's posting_role) retroactively re-derives the entire ledger history: the weekly --all sweep mass-voids/re-posts every open-period document and permanently str | `Services/Accounting/LedgerPoster:506` |
 | **SW-135** | open | high | S | On estimate_basis='billed', a unit owner's estimated_paid is always 0 — the owner is billed his full annual share again despite a year of paid assessments | `Services/SyncCamPoolFromLedgerService:278` |
