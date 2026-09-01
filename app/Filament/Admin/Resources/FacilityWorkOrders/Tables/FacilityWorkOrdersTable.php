@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\FacilityWorkOrders\Tables;
 
+use App\Filament\Actions\EvidenceUpload;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Models\FacilityWorkOrder;
@@ -20,7 +21,6 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -367,12 +367,11 @@ class FacilityWorkOrdersTable
                     ->visible(fn (): bool => self::canComplete())
                     ->authorize(fn (): bool => self::canComplete())
                     ->schema([
-                        SpatieMediaLibraryFileUpload::make('evidence')
+                        // Append-only, and shared with the contractor's own evidence verb on the
+                        // vendor portal — one definition, because these are two doors onto one
+                        // collection and each used to delete what the other had put there.
+                        EvidenceUpload::make()
                             ->label(__('admin.facility.fields.evidence'))
-                            ->collection('evidence')
-                            ->multiple()
-                            ->appendFiles()
-                            ->image()
                             ->helperText(__('admin.facility.help.attach_evidence')),
                     ])
                     ->action(function (): void {

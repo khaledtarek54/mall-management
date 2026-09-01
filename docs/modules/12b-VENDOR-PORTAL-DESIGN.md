@@ -123,7 +123,20 @@ already built — which is the argument for doing it in this order.
 | 1 | ~~Work-order comment thread (internal/external), admin side only~~ ✅ **DONE 2026-08-28** — `facility_work_order_comments`, `FacilityWorkOrderComment`, `CommentOnWorkOrderService`, `WorkOrderCommentsRelationManager`, `AWorkOrderHasAThreadTest` | The one missing primitive. Useful on its own even if the portal never ships — and it is now in use on the admin side whether or not the portal follows |
 | 2 | ~~`VendorContact` login + `/vendor` panel + the scoping rule, with its refusal tests~~ ✅ **DONE 2026-08-28** — `vendor` guard + `vendor_contacts` provider + its OWN reset-token table, `VendorPanelProvider`, `App\Support\Filament\VendorScope`, `AContractorSeesOnlyTheirOwnJobsTest` (mutation-proved: dropping the vendor filter turns 2 red, gutting the ownership gate turns 1 red) | The security model, proven before any feature hangs off it |
 | 3 | ~~The jobs list + **accept**~~ ✅ **DONE 2026-08-28** — `WorkOrderResource` (list only; no create/edit/delete) + `AcceptWorkOrderService`, idempotent and lock-safe. **The admin-side accept was ADDED, not replaced** — §9's mitigation, and both sides call the one service | The highest-value verb: it makes the response SLA real |
-| 4 | ~~**Evidence** + **update**~~ ✅ **DONE 2026-08-28** — the `evidence` collection with `appendFiles()` (never replace: the completion gate reads it, and a replace would erase what an earlier decision rested on) and the step-1 thread, contractor-side and **always public** | Both are surfaces over what exists |
+| 4 | ~~**Evidence** + **update**~~ ✅ **DONE 2026-08-28** — the `evidence` collection, append-only via `App\Filament\Actions\EvidenceUpload` (never replace: the completion gate reads it, and a replace would erase what an earlier decision rested on) and the step-1 thread, contractor-side and **always public** | Both are surfaces over what exists |
+
+> **⚠️ Append-only is `EvidenceUpload`, and it was NOT `->appendFiles()` (fixed 2026-09-01).** Both
+> doors onto this collection — the contractor's here and the operator's `attachEvidence` on the
+> admin work-order table — shipped carrying `->appendFiles()` and a comment promising exactly the
+> behaviour they did not have. That option governs the **browser widget**; the save runs
+> `SpatieMediaLibraryFileUpload::deleteAbandonedFiles()`, which deletes every medium whose uuid is
+> absent from the component's state — and an **action modal's** state is never hydrated from the
+> record, so every photograph already on the job was abandoned by definition. Measured: a contractor
+> uploaded `before.jpg`, returned the next day with `after.jpg`, and the collection held `after.jpg`
+> alone. The two doors also erased each other. `EvidenceUpload` is the single definition and saves
+> without the delete — correct for a collection that may only grow, since **removing evidence is not
+> one of the verbs on either side**. (`EvidenceAppendsAndNeverReplacesTest`, mutation-proved on both
+> doors.)
 | 5 | ~~**Quote**~~ ✅ **DONE 2026-08-28** — and *"only the author differs"* was truer than this row knew: `submitted_by_user_id` is a FK to `users` and means *the operator who keyed it*, so a `VendorContact` there would name a random admin. `submitted_by_vendor_contact_id` sits beside it | Reuses `WorkOrderProposalService`; the approval ladder, the NTE rise and every refusal are unchanged |
 | 6 | ~~Dispatch notification to the contractor~~ ✅ **DONE 2026-08-28** — `WorkOrderDispatchedNotification` to every PORTAL contact (a bell someone can never see is not a notification), on create and on re-dispatch, `wasChanged('vendor_id')` so an ordinary edit re-pings nobody | Closes the loop |
 

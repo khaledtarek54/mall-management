@@ -2,6 +2,7 @@
 
 namespace App\Filament\Vendor\Resources\WorkOrders\Pages;
 
+use App\Filament\Actions\EvidenceUpload;
 use App\Filament\Vendor\Resources\WorkOrders\WorkOrderResource;
 use App\Models\FacilityWorkOrder;
 use App\Services\AcceptWorkOrderService;
@@ -10,7 +11,6 @@ use App\Services\WorkOrderProposalService;
 use App\Support\Filament\VendorScope;
 use DomainException;
 use Filament\Actions\Action;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -114,16 +114,19 @@ class ListWorkOrders extends ListRecords
                         && $record->status !== 'cancelled')
                     ->authorize(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record))
                     ->schema([
-                        SpatieMediaLibraryFileUpload::make('evidence')
+                        // APPEND, never replace. A contractor adding a second photograph must not
+                        // silently delete the first — the operator's completion gate reads this
+                        // collection, and a replace would let a later upload erase the evidence an
+                        // earlier decision rested on.
+                        //
+                        // That promise used to be made by `->appendFiles()` alone, which does not
+                        // keep it: it governs the browser widget, while the save runs
+                        // `deleteAbandonedFiles()` against a modal state that nothing hydrated.
+                        // Measured — a second upload really did delete the first. `EvidenceUpload`
+                        // is the one definition, shared with the operator's door on the admin table
+                        // so the two cannot drift or erase each other's work.
+                        EvidenceUpload::make()
                             ->label(__('vendor.jobs.evidence'))
-                            ->collection('evidence')
-                            ->multiple()
-                            // APPEND, never replace. A contractor adding a second photograph must
-                            // not silently delete the first — the operator's completion gate reads
-                            // this collection, and a replace would let a later upload erase the
-                            // evidence an earlier decision rested on.
-                            ->appendFiles()
-                            ->image()
                             ->helperText(__('vendor.jobs.evidence_helper')),
                     ])
                     ->action(function (FacilityWorkOrder $record): void {
