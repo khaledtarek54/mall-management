@@ -124,6 +124,23 @@ trait HasCamTerms
     }
 
     /**
+     * Is this lease carved OUT of the share denominator — Yardi's *adjusted* basis?
+     *
+     * The anchor deal. An anchor negotiates a contribution its floor area would never justify;
+     * leaving that area in the divisor dilutes every in-line tenant's share, so the pool
+     * under-recovers by most of its value and the landlord absorbs the difference silently.
+     * Carved out, the anchor takes the share its contract NAMES and the in-line tenants divide what
+     * is left over their own area.
+     *
+     * Meaningless without a stated share — a lease out of the divisor has no area basis left to
+     * derive one from — which `CamReconciliationService` refuses rather than allocating it nothing.
+     */
+    public function isCarvedOutOfCamDenominator(int $reconciledYear, ?string $poolCode = null): bool
+    {
+        return (bool) $this->camTermFor($reconciledYear, $poolCode)?->excluded_from_denominator;
+    }
+
+    /**
      * The ledger accounts this lease's clause carves out of ITS OWN share (slice 3).
      *
      * A per-lease exclusion — "my share excludes capital items and the management fee" — and not a

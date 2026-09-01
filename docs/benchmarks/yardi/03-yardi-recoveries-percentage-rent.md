@@ -75,8 +75,10 @@ offers `occupied` (the default, and the legacy behaviour) · `gla` · `fixed` wi
 `denominator_fixed_sqm`, resolved in `CamReconciliationService::resolveDenominator()`. A zone-scoped
 pool on a `gla` basis divides by the ZONE's leasable area, not the centre's. The landlord can now
 elect to absorb vacancy, and the choice is a pool field rather than an accident of the code.
-Yardi's *adjusted* denominator (carve an anchor out of the denominator while it still participates)
-has no direct equivalent — `participant_scope = area` expresses the zone case, not the carve-out.
+Yardi's *adjusted* denominator is **SHIPPED (2026-09-01)** — `lease_cam_terms.excluded_from_denominator`,
+per pool and effective-dated. The anchor takes the share its contract names and the in-line tenants
+divide the REMAINDER over their own area; measured on a 100,000 pool, a 3,000 m² anchor at 5% left
+in the divisor leaves 70,000 unrecovered, and carved out the pool recovers in full.
 
 ## A4. Gross-up
 
@@ -130,8 +132,12 @@ of leases that are `active` today. Numerator and denominator narrow together, so
 equals the pool and the shares still sum to 100%; `CamProratesPartYearOccupancyTest` pins that
 alongside the two corrected shares, and both halves are proven by removal.
 
-Yardi parity for recoveries is now complete except the **adjusted denominator** (carve an anchor out
-of the denominator while it still participates), which has no equivalent here.
+**Yardi parity for recoveries is COMPLETE as of 2026-09-01.** This line read *"complete except the
+adjusted denominator"* until that shipped — the carve-out that lets an anchor out of the divisor
+while it still participates, so the in-line tenants divide the remainder over their own area. The
+last three to land were the adjusted denominator, per-lease account exclusions
+(`lease_cam_terms.excluded_account_ids`) and a cap scoped to its recovery POOL rather than to the
+year, which is what "each pool with a different cap" in §A2 actually requires.
 
 ## A5. Caps, base years and expense stops
 

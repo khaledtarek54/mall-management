@@ -755,6 +755,7 @@ return [
         'cam_cap_type' => 'Cap Type',
         'cam_term_pool_code' => 'Applies to pool',
         'cam_excluded_accounts' => 'Accounts this lease excludes',
+        'cam_excluded_from_denominator' => 'Carve out of the denominator',
         'cam_cap_absolute_amount' => 'Absolute Cap (EGP)',
         'cam_base_year' => 'Base Year',
         'cam_base_year_amount' => 'Base-Year CAM (EGP)',

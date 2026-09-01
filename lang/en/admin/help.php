@@ -83,6 +83,7 @@ return [
         'cam_cap_scope' => 'Most clauses cap only controllable costs and carve out rates, insurance and utilities.',
         'cam_term_pool_code' => 'Each recovery pool can carry its own cap. Blank covers any pool without one.',
         'cam_excluded_accounts' => 'Carved out of THIS tenant\'s share only; the landlord bears it. Needs a ledger-sourced pool.',
+        'cam_excluded_from_denominator' => 'The anchor deal: its area stops diluting everyone else, and the rest share what is left. Needs a stated share.',
         'cam_cap_carry_forward' => 'A year under the ceiling banks the difference, and a later year can draw on it.',
         'cam_stated_share_pct' => 'Use only when the lease names the percentage outright. Leave blank to derive it from area.',
         'late_fee_recurrence_days' => 'Days before this invoice may be charged another late fee. Blank inherits the property; 0 charges once.',

@@ -121,7 +121,7 @@ class CamReconciliationService
         $referenceSqm = $isRerun ? (float) $pool->denominator_used_sqm : $totalSqm;
 
         $occupancyPct = $referenceSqm > 0
-            ? $this->occupiedDenominator($leases, $periodStart, $periodEnd) / $referenceSqm * 100
+            ? $this->occupiedDenominator($leases, $periodStart, $periodEnd, $pool) / $referenceSqm * 100
             : 0.0;
 
         $basis = $pool->apportionmentBasis($occupancyPct);
@@ -155,9 +155,36 @@ class CamReconciliationService
         $statedShares = $isRerun
             ? collect()
             : $this->statedShares($pool, $leases, $totalSqm, $periodStart, $periodEnd);
+        // What the carved-out anchors together take. The in-line tenants divide the REMAINDER, so
+        // this is the one figure both the projection guard and the loop have to agree on.
+        $carvedOutShare = $isRerun
+            ? 0.0
+            : (float) $leases
+                ->filter(fn ($p) => self::isCarvedOut($p, $pool))
+                ->sum(fn ($p) => (float) ($statedShares->get(self::agreementKeyFor($p)) ?? 0));
+
+        // A CARVE-OUT WITHOUT A STATED SHARE IS AN INCOMPLETE TERM, and it has to be refused HERE.
+        //
+        // A lease outside the divisor has no area basis left to derive a share from. Checked before
+        // the projection guard below, because that guard throws FIRST: the anchor's 3,000 m² over a
+        // 1,000 m² in-line denominator projects a 300% share, so the operator would be told their
+        // stated shares exceed the pool — about a lease that states no share at all. A guard placed
+        // after it is unreachable, which is what the first version of this was (mutation-proved: the
+        // refusal test passed with it deleted, because it was measuring the other guard).
+        if (! $isRerun) {
+            foreach ($leases as $participant) {
+                if (self::isCarvedOut($participant, $pool)
+                    && $statedShares->get(self::agreementKeyFor($participant)) === null) {
+                    throw new \DomainException(__('admin.refusals.cam_carve_out_needs_a_stated_share', [
+                        'lease' => $participant->reference ?? ('#'.$participant->id),
+                    ]));
+                }
+            }
+        }
+
         $projectedShare = $isRerun
             ? 0.0
-            : $this->projectedTotalShare($leases, $statedShares, $totalSqm, $periodStart, $periodEnd);
+            : $this->projectedTotalShare($leases, $statedShares, $totalSqm, $periodStart, $periodEnd, $carvedOutShare);
 
         if ($projectedShare > 1.000001) {
             throw new \DomainException(__('admin.cam.errors.stated_shares_exceed_pool', [
@@ -165,7 +192,7 @@ class CamReconciliationService
             ]));
         }
 
-        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis, $statedShares, $existing) {
+        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis, $statedShares, $existing, $carvedOutShare) {
             $count = 0;
             $allocatedTotal = 0.0;
             $touched = [];
@@ -206,7 +233,13 @@ class CamReconciliationService
                         //
                         // The harmful direction is the other one, and it is guarded before the loop:
                         // stated shares that together exceed the pool are refused rather than billed.
-                        $share = $sqm / $totalSqm;
+                        // WHAT IS LEFT AFTER THE CARVE-OUTS. An anchor removed from the divisor takes
+                        // the share its contract names, so the in-line tenants divide the REMAINDER
+                        // over their own area — not the whole pool, which together with the anchor's
+                        // stated share would recover more than the pool holds.
+                        $share = $carvedOutShare > 0
+                            ? (1 - $carvedOutShare) * ($sqm / $totalSqm)
+                            : $sqm / $totalSqm;
                     }
                 }
 
@@ -554,9 +587,9 @@ class CamReconciliationService
             // like it always did, not silently recover zero from everyone.
             CamExpensePool::DENOMINATOR_FIXED => (float) $pool->denominator_fixed_sqm > 0
                 ? (float) $pool->denominator_fixed_sqm
-                : $this->occupiedDenominator($leases, $periodStart, $periodEnd),
+                : $this->occupiedDenominator($leases, $periodStart, $periodEnd, $pool),
 
-            default => $this->occupiedDenominator($leases, $periodStart, $periodEnd),
+            default => $this->occupiedDenominator($leases, $periodStart, $periodEnd, $pool),
         };
     }
 
@@ -580,10 +613,28 @@ class CamReconciliationService
             ->sum(fn (Unit $unit) => $unit->areaSqmDaysBetween($periodStart, $periodEnd) / $days);
     }
 
-    /** @param  Collection<int, Lease>  $leases */
-    private function occupiedDenominator($leases, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): float
+    /**
+     * The area every share divides by on the `occupied` basis — Yardi's *adjusted* denominator when
+     * any lease is carved out of it.
+     *
+     * A carved-out anchor's floor area is NOT in the divisor, so the in-line tenants divide over
+     * their own area rather than being diluted by a tenant whose contribution its contract fixes.
+     * With nobody carved out this is the plain sum it always was.
+     *
+     * @param  Collection<int, Lease>  $leases
+     */
+    private function occupiedDenominator($leases, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, ?CamExpensePool $pool = null): float
     {
-        return (float) $leases->sum(fn ($p) => self::areaForPeriod($p, $periodStart, $periodEnd));
+        return (float) $leases
+            ->reject(fn ($p) => $pool !== null && self::isCarvedOut($p, $pool))
+            ->sum(fn ($p) => self::areaForPeriod($p, $periodStart, $periodEnd));
+    }
+
+    /** Is this participant out of the divisor? An ownership never is — a sale carries no CAM clause. */
+    private static function isCarvedOut($participant, CamExpensePool $pool): bool
+    {
+        return $participant instanceof Lease
+            && $participant->isCarvedOutOfCamDenominator((int) $pool->period_year, $pool->pool_code);
     }
 
     /**
@@ -848,7 +899,7 @@ class CamReconciliationService
      * @param  Collection<int, mixed>  $leases
      * @param  Collection<string, float>  $statedShares
      */
-    private function projectedTotalShare($leases, $statedShares, float $totalSqm, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): float
+    private function projectedTotalShare($leases, $statedShares, float $totalSqm, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, float $carvedOutShare = 0.0): float
     {
         if ($totalSqm <= 0) {
             return 0.0;
@@ -868,7 +919,11 @@ class CamReconciliationService
             $sqm = self::areaForPeriod($participant, $periodStart, $periodEnd);
 
             if ($sqm > 0) {
-                $total += $sqm / $totalSqm;
+                // The same split the loop applies, or the guard would project a total the run never
+                // produces and refuse a pool that recovers exactly 100%.
+                $total += $carvedOutShare > 0
+                    ? (1 - $carvedOutShare) * ($sqm / $totalSqm)
+                    : $sqm / $totalSqm;
             }
         }
 

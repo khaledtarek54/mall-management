@@ -130,6 +130,12 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->numeric()
                 ->minValue(0)
                 ->maxValue(100),
+            // YARDI'S *ADJUSTED* DENOMINATOR. Paired with the stated share above because it is
+            // meaningless without one — the service refuses the run rather than allocating an
+            // anchor nothing.
+            Toggle::make('excluded_from_denominator')
+                ->label(__('admin.fields.cam_excluded_from_denominator'))
+                ->helperText(__('admin.helpers.cam_excluded_from_denominator')),
             TextInput::make('cap_absolute_amount')
                 ->label(__('admin.fields.cam_cap_absolute_amount'))
                 ->helperText(__('admin.lease_cam_terms.help.cap_absolute_amount'))

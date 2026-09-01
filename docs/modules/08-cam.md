@@ -977,6 +977,44 @@ public function markBilled() {
 
 ---
 
+## An anchor may be carved out of the denominator — Yardi's *adjusted* basis (2026-09-01)
+
+Yardi offers four denominators and this module shipped three: total **GLA** (the landlord eats the
+vacancy), **occupied** area (the sitting tenants do), and a **fixed** stated figure. The fourth is
+**adjusted** — *"anchors carved out, in-line tenants share the rest"* — and the benchmark recorded it
+as having no equivalent here.
+
+**It is the anchor deal every mall signs, and `stated_share_pct` alone does not express it.** An
+anchor of 3,000 m² negotiating 5% leaves its floor area sitting in the divisor, diluting every
+in-line tenant — measured on a 100,000 pool with two 500 m² shops beside it, the shops take 12.5%
+each and **70,000 goes unrecovered**, absorbed by the landlord with nothing on any screen saying
+why. Carved out, the anchor takes its contracted 5% and the two shops divide the remaining 95% over
+their own 1,000 m²: **47,500 each, and the pool recovers in full**.
+
+`lease_cam_terms.excluded_from_denominator` is per pool and effective-dated like everything else on
+that row — an anchor carved out of CAM is an ordinary participant in the food-court pool it also
+trades in, because the deal was struck about one pool.
+
+**The remainder split is the half that is easy to miss.** Dividing the WHOLE pool over the reduced
+denominator recovers 100% from the in-line tenants **and** 5% from the anchor — an over-recovery the
+pool's own guard would then refuse. The in-line share is `(1 − Σ carved-out stated) × (area ÷
+adjusted denominator)`, and `projectedTotalShare()` applies the identical arithmetic or the guard
+would refuse a pool that recovers exactly 100%.
+
+**A carve-out with no stated share is refused, and WHERE that check sits is the point.** A lease
+outside the divisor has no area basis left to derive a share from. The first version put the guard
+inside the allocation loop, where it is **unreachable**: the anchor's 3,000 m² over a 1,000 m²
+denominator projects a 300% share, so the over-recovery guard throws first and tells the operator
+their stated shares exceed the pool — about a lease that states no share at all. Mutation proved it
+(the refusal test passed with the guard deleted, because it was measuring the other one), and the
+test now asserts the **message**, not just the exception class.
+
+(`CamAdjustedDenominatorTest`, four teeth mutation-proved, including a control that measures what
+the same deal costs the landlord WITHOUT the carve-out — so the feature's value is measured rather
+than asserted.)
+
+---
+
 ## A lease may carve named accounts out of its own share (slice 3, 2026-09-01)
 
 `cam_allocations.exclusions` existed from the day the table was created — fillable, cast to array,
@@ -1444,7 +1482,6 @@ A UX audit found the reconciliation numbers weren't verifiable and one modal mis
 
 | What | Why it is not built |
 |---|---|
-| **Adjusted denominator** (Yardi) | Carve an anchor out of the denominator while it still participates. Zero references in the service; the three bases we have cannot express it, and no lease here has asked for it yet. |
 | **Non-annual true-up** (EG-41) | `cam_expense_pools` is `unique(asset_id, period_year, pool_code)` — one pool per YEAR — so a quarterly reconciliation is not a scheduling option: the POOL must gain a shorter period first, and everything that assumes one-pool-per-year follows it. Worth building only if the operator's leases state a non-annual reconciliation. |
 | **Line text frozen in the writer's language** | Not CAM's, and recorded as [ROADMAP UX-30](../ROADMAP.md). A credit note's `reason_notes` and every invoice line description are composed with `__()` at WRITE time and stored, so they freeze in whichever language the operator was running. |
 

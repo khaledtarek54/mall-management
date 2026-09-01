@@ -754,6 +754,7 @@ return [
         'cam_cap_type' => 'نوع الحد الأقصى',
         'cam_term_pool_code' => 'ينطبق على مجمّع',
         'cam_excluded_accounts' => 'حسابات مستثناة من حصة العقد ده',
+        'cam_excluded_from_denominator' => 'شيله من مقام القسمة',
         'cam_cap_absolute_amount' => 'الحد الأقصى المطلق (ج.م)',
         'cam_base_year' => 'سنة الأساس',
         'cam_base_year_amount' => 'مصروفات الأساس (ج.م)',
