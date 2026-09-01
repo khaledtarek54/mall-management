@@ -14,6 +14,25 @@ use Illuminate\Support\Facades\DB;
 
 class CreatePayment extends CreateRecord
 {
+    /**
+     * The receipt and its allocations are ONE unit of work.
+     *
+     * `afterCreate()` runs INSIDE Filament's own try (`CreateRecord::create()`), which already
+     * rolls back and re-throws on any Throwable — it was simply inert, because
+     * `CanUseDatabaseTransactions` defaults to the panel and no panel here opts in. So this one
+     * property is the whole mechanism, rather than a hand-rolled wrapper that would have to
+     * re-implement Filament's semantics (and, in the first attempt at this fix, got them wrong:
+     * swallowing the refusal left `$this->record` pointing at a rolled-back row, Livewire
+     * dehydrated it with a key, and the operator's very next keystroke 404'd on `firstOrFail()`).
+     *
+     * What it replaced: `afterCreate()` compensated for a refused allocation with
+     * `$payment->delete()`, and this form DEFAULTS to `captured` — a receipt that is on the books,
+     * which `RefusesDeletionOfCommittedRecords` refuses. The compensation threw its own exception,
+     * the operator saw the DELETION refusal instead of the allocation error, and the orphan
+     * survived with no allocations, reading as unallocated tenant credit.
+     */
+    protected ?bool $hasDatabaseTransactions = true;
+
     protected static string $resource = PaymentResource::class;
 
     protected array $allocations = [];
@@ -180,27 +199,31 @@ class CreatePayment extends CreateRecord
         }
 
         if (! empty($sync)) {
-            try {
-                $payment->assertInvoicesShareTenant(array_keys($sync));
-                DB::transaction(function () use ($payment, $sync) {
-                    $payment->invoices()->sync($sync);
-                    $payment->recomputeAllocatedInvoices();
-                    // Lock-safe backstop: the form cap is per-request; this catches
-                    // a parallel capture that would push the invoice over its total.
-                    $payment->assertInvoicesNotOverAllocated(array_keys($sync));
-                });
-            } catch (\DomainException $e) {
-                $payment->delete(); // undo the orphan payment row created before this hook
-                Notification::make()
-                    ->title(__('admin.actions.allocation_exceeds_title'))
-                    ->body($e->getMessage())
-                    ->danger()
-                    ->send();
-                $this->halt();
-            }
+            // NOT caught. A refusal here unwinds Filament's transaction (see
+            // `$hasDatabaseTransactions` above), so the receipt is never committed, and the
+            // `DomainException` reaches `bootstrap/app.php` — which words it for the operator as a
+            // message and a redirect back, exactly as every other refusal in this app is worded.
+            // Catching it to send a nicer title cost more than it bought: the first attempt at this
+            // fix did, and had to swallow the exception to stay on the form, which poisoned the
+            // Livewire component.
+            //
+            // Reachable in ONE request, no concurrency: the per-row cap in `PaymentForm` bounds each
+            // allocation row independently while this hook SUMS rows against the same invoice, so
+            // 700 + 600 on a 1,000 invoice passes every form gate and is refused here.
+            $payment->assertInvoicesShareTenant(array_keys($sync));
+            $payment->invoices()->sync($sync);
+            $payment->recomputeAllocatedInvoices();
+            $payment->assertInvoicesNotOverAllocated(array_keys($sync));
 
-            // Allocations are now synced — deliver the receipt notification.
-            $payment->notifyReceiptOnce();
+            // AFTER THE COMMIT, not inside it. `assertInvoicesNotOverAllocated()` holds
+            // `lockForUpdate()` on the invoice and on four settlement tables, and
+            // `PaymentReceivedNotification` is not `ShouldQueue` — its `mail` channel sends
+            // synchronously, per portal user. Sent inside the transaction, every other capture,
+            // credit-note application, deposit netting or write-off against that invoice queues
+            // behind an SMTP round-trip and surfaces as a lock-wait timeout on an unrelated screen.
+            // Previously the inner transaction had already committed by this point; under the outer
+            // one it is only a SAVEPOINT, and releasing a savepoint does not release row locks.
+            DB::afterCommit(fn () => $payment->notifyReceiptOnce());
         }
     }
 }

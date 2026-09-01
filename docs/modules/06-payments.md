@@ -547,6 +547,46 @@ Fawry, Meeza, Vodafone Cash and Aman already exist, switched off. Activating one
 - `tests/Feature/Api/V1/Tenant/InitiatePaymobSessionTest.php` — portal Pay-Now endpoint.
 - `tests/Feature/Portal/PortalDemoPaymentTest.php` — demo capture from portal.
 
+> **⚠️ A refused allocation left an orphan RECEIPT behind (fixed 2026-09-02).**
+>
+> `CreatePayment::afterCreate()` synced the invoice allocations *after* Filament had already
+> committed the payment row, and compensated for a refusal with `$payment->delete()`. **That delete
+> cannot work.** `RefusesDeletionOfCommittedRecords` refuses anything `isReceived()`, and the payment
+> form **defaults to `captured`** — measured: `delete()` on a captured payment throws, on an
+> `initiated` one succeeds. So the compensation threw its own `DomainException`, the operator was
+> shown the DELETION refusal instead of the allocation error they had actually hit, and the orphan
+> survived: a captured receipt with no allocations, which reads as unallocated tenant credit and
+> invites the operator to key the payment a second time.
+>
+> CLAUDE.md states that an uncommitted record stays deletable *"which is what keeps `CreatePayment`'s
+> orphan rollback working"*. The rule is right; the claim about this caller was not, because nothing
+> here is uncommitted by the time the hook runs.
+>
+> The create is now ONE unit of work, through **Filament's own** transaction
+> (`protected ?bool $hasDatabaseTransactions = true`). `CreateRecord::create()` already rolls back
+> and re-throws on any Throwable; it was simply inert, because `CanUseDatabaseTransactions` defers to
+> the panel and **no panel here opts in** — which means every other Create/Edit page that throws in
+> `afterCreate`/`afterSave` still commits its record (recorded as SW-003d).
+>
+> **The first cut hand-rolled the wrapper and was worse**, caught in review: it swallowed the refusal
+> to keep the operator's form, which left `$this->record` pointing at a row the rollback had just
+> removed — `exists` is true and `id` is set, because a rollback does not touch PHP object state — so
+> Livewire dehydrated it with a key and the operator's very next keystroke 404'd on `firstOrFail()`.
+> Letting the refusal propagate destroys and rebuilds the component, which is how every other refusal
+> in this app already behaves.
+>
+> **The receipt e-mail moved to `DB::afterCommit()`.** `assertInvoicesNotOverAllocated()` holds
+> `lockForUpdate()` on the invoice and four settlement tables, and `PaymentReceivedNotification` is
+> **not** `ShouldQueue` — its mail channel sends synchronously, per portal user. Under the outer
+> transaction the inner one is only a SAVEPOINT, and releasing a savepoint does not release row
+> locks, so every other capture, credit-note application, deposit netting or write-off against that
+> invoice would have queued behind an SMTP round-trip.
+>
+> **Reachable in ONE request, no concurrency** — the comment claiming a parallel capture was wrong.
+> `PaymentForm` caps each allocation ROW independently while this hook SUMS rows against the same
+> invoice, so 700 + 600 on a 1,000 invoice passes every form gate and is refused only here
+> (SW-003b). (`AnOrphanReceiptIsRolledBackNotDeletedTest` drives the real page through exactly that.)
+
 ### Online payment link & channels (2026-06-27)
 
 Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pay/{token}` page), `mobile_api` (the app), `portal` (tenant portal Pay Now), `admin`. Paymob **session reuse is scoped per channel**, and `CallbackController::returned()` routes the browser by channel — `payment_link` → the public status page `/pay/{token}/status`, everything else → the portal. The S2S capture + tenant notification are shared. The public link is surfaced via the admin/portal **"Payment link"** action and the mobile `invoice.payment_link_url`. **Apple Pay** is scaffolded (a separate `PAYMOB_APPLE_PAY_INTEGRATION_ID` + the `/.well-known/apple-developer-merchantid-domain-association` route), off until configured. Full runbook: **[docs/PAYMENT-LINK-APPLEPAY.md](../integrations/PAYMENT-LINK-APPLEPAY.md)**. Tests: `tests/Feature/PaymentLink/PaymentLinkFlowTest.php`.
