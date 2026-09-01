@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Filament\Admin\Pages\ActivityLog;
 use App\Filament\Admin\Pages\Assistant;
+use App\Filament\Admin\Pages\AssistantQuestions;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -283,6 +284,7 @@ class ScreenGuides
         NotificationCenter::class => 'notification_center',
         Handbook::class => 'handbook',
         Assistant::class => 'assistant',
+        AssistantQuestions::class => 'assistant_questions',
 
         // ── Tenant portal ─────────────────────────────────────────────────────────────────────
         // A separate namespace on purpose: the reader here is the retailer, not the operator, so the

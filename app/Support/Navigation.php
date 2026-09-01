@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Filament\Admin\Pages\ActivityLog;
 use App\Filament\Admin\Pages\Assistant;
+use App\Filament\Admin\Pages\AssistantQuestions;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -357,6 +358,7 @@ final class Navigation
             UserResource::class,
             RoleResource::class,
             ActivityLog::class,
+            AssistantQuestions::class,
             Handbook::class,
         ],
     ];

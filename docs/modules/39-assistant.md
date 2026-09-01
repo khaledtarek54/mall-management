@@ -28,7 +28,8 @@ screen held it, which is precisely what a new operator does not know.
 | `DocCorpus` | WHICH documentation may be quoted, and the chunker |
 | `AssistantDocs` | the documentation tier — consulted only when the guides had nothing |
 | `AnswerQuestionService` | `app/Services/Assistant` — fold, score, filter by access, record |
-| `Assistant` (page) | `/admin/ask` |
+| `Assistant` (page) | `/admin/ask` — the question box |
+| `AssistantQuestions` (page) | `/admin/assistant-questions` — the miss list |
 
 **The corpus is derived, never listed.** `ScreenGuides::SCREENS` and `ReportCatalogue::REPORTS` are
 the sources, and both already have conformance gates forcing completeness — so a new screen becomes
@@ -80,6 +81,26 @@ sentence, presented with the same confidence as a title match scoring 16. **A wr
 worse than none** — the reader follows it, finds the wrong screen, and concludes the box does not
 work. Silence is honest, costs one more search, and lands the question on the unanswered list where
 it becomes the next screen guide.
+
+## The miss list is the point
+
+`/admin/assistant-questions` is where the A phase pays off. It groups every question by its FOLDED
+form — so «فاتورة» and «فاتوره» are one row, and so are *"Credit Note"* and *"credit note"* — counts
+it, and ranks **most-asked first**. One person asking six times is not six problems, and a list of
+misses in date order is a feed, which is something you read once.
+
+The **Answered** column reads *"1 of 3"* or *"Never"*, and the difference is the whole value:
+answered-sometimes is a **ranking** problem, answered-never is a **missing screen guide**. Two
+causes, two fixes, and a yes/no column would hide which one you have.
+
+**It has its own permission — `assistant.review` — where the box deliberately has none.** Every
+result the box offers is already filtered through the target screen's `canAccess()`, so a right
+there would grant what the reader already holds. This screen shows what *other people typed*, in
+their own words, and a question can name a tenant: that is something to grant. Held by `super_admin`
+and `manager`. **Adding it was a deploy step** — `php artisan db:seed --class=…RolesPermissionsSeeder`
+— because a permission that exists only in the seeder file leaves the screen invisible to everyone.
+
+Property-scoped, like the questions themselves.
 
 ## Three tiers, in order
 
@@ -178,6 +199,13 @@ link, and the report shows its own period selector.
 - **`|| warn` in `deploy.sh` would have aborted every release.** The script defines exactly one
   helper (`step`) and runs under `set -Eeuo pipefail`, so an undefined function returns non-zero
   and takes the deploy down — over a search index. It is `|| printf`, which always succeeds.
+- **Every non-grouped column in the miss list is an aggregate**, because MySQL runs
+  `ONLY_FULL_GROUP_BY` and would reject a bare column while SQLite silently picks an arbitrary row
+  and the suite stays green. `MAX(id)` also gives Filament a real record key, so the table
+  paginates and sorts like any other.
+- **`AuthenticateSession` logs the second user out** when `actingAs` is swapped between two HTTP
+  requests in one test: the control then answers a redirect, which blows up inside the session
+  middleware as a 500 and makes a working page look broken. `$this->flushSession()` between them.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and
@@ -194,8 +222,8 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 
 ## Tests
 
-`AskingAtriomFindsTheScreenThatAnswersTest` (18 cases) and
-`TheAssistantReachesPastTheScreenGuidesTest` (9). Every refusal is
+`AskingAtriomFindsTheScreenThatAnswersTest` (18), `TheAssistantReachesPastTheScreenGuidesTest` (9)
+and `TheMissListIsTheDeliverableTest` (6) — 33 in all. Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.
 
