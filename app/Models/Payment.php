@@ -13,6 +13,7 @@ use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\InvoiceSettlement;
 use App\Support\Translate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -295,6 +296,20 @@ class Payment extends Model
         }
 
         foreach (Invoice::whereIn('id', $invoiceIds)->lockForUpdate()->get() as $invoice) {
+            // Whose AR is still live, before asking how much of it is left. The pickers narrow to
+            // this and a narrowed picker is a UI truth: the ids arrive in a Livewire payload, and
+            // `CreatePayment`'s `?invoice=` deep-link prefills from the resource query with no
+            // status test at all. Without this the one status the registry argues hardest about —
+            // `draft`, where nothing was ever posted — was refused in the dropdown and accepted on
+            // save, and the amount check below could not see it: a draft has nothing written off,
+            // so its full total fits.
+            if (! InvoiceSettlement::accepts($invoice)) {
+                throw new \DomainException(__('admin.refusals.invoice_ar_already_relieved', [
+                    'number' => $invoice->number,
+                    'status' => Translate::orHumanized("admin.statuses.invoice.{$invoice->status}", (string) $invoice->status),
+                ]));
+            }
+
             // LOCKING reads, all four. Locking the INVOICE row serialises two concurrent
             // allocations, but it does not make the sums below authoritative: under MySQL
             // REPEATABLE READ a plain read is served from the snapshot this transaction took at its
@@ -315,7 +330,18 @@ class Payment extends Model
                 2,
             );
 
-            if ($allocated > round((float) $invoice->total, 2) + 0.01) {
+            // Net of anything already written off, for the reason `refitAllocationsToBalance()`
+            // states below: the forgiven part of a partial write-off is no longer receivable, and
+            // this guard compared against the raw total.
+            // A LOCKING read, like the four sibling terms above it and for the identical reason:
+            // under REPEATABLE READ a plain select inside this transaction answers from the snapshot
+            // taken BEFORE we waited on the invoice lock, so a write-off another writer committed
+            // while we waited would be invisible and this guard would pass on stale data. The full
+            // write-off is caught anyway (the invoice row itself is read under a lock, so the status
+            // is fresh) — the PARTIAL one lives entirely in `invoice_write_offs` and would not be.
+            $writtenOff = round((float) $invoice->writeOffs()->lockForUpdate()->sum('amount'), 2);
+
+            if ($allocated > round((float) $invoice->total, 2) - $writtenOff + 0.01) {
                 // Name what THIS payment may allocate, not the invoice total. The refusal used to
                 // quote the total — so an operator over-allocating an invoice already part-settled
                 // by a credit note was told the cap was 240,300 when 60,200 was left, and the number
@@ -325,7 +351,7 @@ class Payment extends Model
                     ->wherePivot('invoice_id', $invoice->id)
                     ->sum('invoice_payment.allocated_amount'), 2);
 
-                $fittable = round(max((float) $invoice->total - ($allocated - $mine), 0), 2);
+                $fittable = round(max((float) $invoice->total - $writtenOff - ($allocated - $mine), 0), 2);
 
                 throw new \DomainException(
                     __('admin.payment.allocation_exceeds_balance', [
@@ -368,10 +394,15 @@ class Payment extends Model
     public function refitAllocationsToBalance(): void
     {
         foreach ($this->invoices()->lockForUpdate()->get() as $invoice) {
-            if ($invoice->status === 'cancelled') {
-                // A cancelled invoice has left the books and can hold no receivable —
-                // the whole payment becomes a tenant overpayment (unearned), never AR
-                // against a cancelled invoice.
+            if (! InvoiceSettlement::accepts($invoice)) {
+                // An invoice whose AR is no longer live can hold no receivable — the whole payment
+                // becomes a tenant overpayment (unearned), never AR against it.
+                //
+                // This tested `cancelled` alone. `written_off` is the case that mattered and it
+                // fell straight through, because a write-off deliberately leaves both `balance` and
+                // `total` standing — and the arithmetic below computes from `total`, which
+                // cancelling does not zero either, so a cancelled invoice would have produced
+                // `fittable = total` rather than 0. Neither was safe by accident here.
                 $fittable = 0.0;
             } else {
                 // Locking reads for the same reason as the throw-guard above (F-09): this runs
@@ -387,8 +418,18 @@ class Payment extends Model
                 $appliedTenantCredit = (float) TenantCreditApplication::where('invoice_id', $invoice->getKey())->lockForUpdate()->sum('amount');
                 $appliedDeposit = (float) DepositApplication::where('invoice_id', $invoice->getKey())->lockForUpdate()->sum('amount');
 
+                // A PARTIAL write-off nets off here too. `total` is what was billed; the part
+                // already relieved to bad debt is no longer receivable, and capping at the raw
+                // total let a 20,000 receipt fit a 20,000 invoice with 5,000 written off — AR
+                // relieved 25,000 for a 20,000 debt. `WriteOffInvoiceService` nets prior write-offs
+                // when it caps a SECOND write-off; this is the same netting on the settlement side,
+                // which is the half that was never done.
+                // Locking, for the same reason as its three neighbours.
+                $writtenOff = (float) $invoice->writeOffs()->lockForUpdate()->sum('amount');
+
                 $fittable = max(0.0, round(
                     (float) $invoice->total
+                        - $writtenOff
                         - (float) $invoice->credit_applied_amount
                         - $appliedTenantCredit
                         - $appliedDeposit

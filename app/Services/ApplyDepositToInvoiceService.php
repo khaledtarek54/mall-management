@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DepositApplication;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Support\InvoiceSettlement;
 use App\Support\PostingDate;
 use App\Support\ReversalReason;
 use Carbon\CarbonImmutable;
@@ -47,10 +48,14 @@ class ApplyDepositToInvoiceService
             throw new InvalidArgumentException('That invoice belongs to a different lease.');
         }
 
-        // Cancelled and written-off invoices claim no AR, so there is nothing for a deposit to
-        // settle — and applying to one would credit AR that was already relieved.
-        if (in_array($invoice->status, ['cancelled', 'written_off'], true)) {
-            throw new InvalidArgumentException('A cancelled or written-off invoice has no balance to settle.');
+        // An invoice whose AR has already been relieved claims nothing, so there is nothing for a
+        // deposit to settle. `InvoiceSettlement` rather than a local list: this one named cancelled
+        // and written_off and therefore permitted a DRAFT, where nothing was ever posted — netting a
+        // deposit onto one credits AR the journalizer never debited and flips the draft to
+        // partially_paid, so an unissued document becomes live without passing through
+        // IssueInvoiceService.
+        if (! InvoiceSettlement::accepts($invoice)) {
+            throw new InvalidArgumentException('An invoice whose receivable has already been relieved has no balance to settle.');
         }
 
         $on = ($on ?? CarbonImmutable::now())->startOfDay();
@@ -150,7 +155,7 @@ class ApplyDepositToInvoiceService
 
         $open = Invoice::query()
             ->where('lease_id', $lease->id)
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->acceptingSettlement()
             ->where('balance', '>', 0)
             ->orderBy('due_date')
             ->orderBy('id')

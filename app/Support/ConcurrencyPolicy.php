@@ -172,7 +172,7 @@ final class ConcurrencyPolicy
         // Locking the invoice row serialises two writers; it does not let either SEE the other's
         // allocation, because under REPEATABLE READ a plain read is served from the snapshot taken
         // before the wait. Measured with two processes: the guard passed on a fully-settled invoice.
-        'app/Models/Payment.php' => 8,
+        'app/Models/Payment.php' => 10,
         'app/Services/ApplyDepositToInvoiceService.php' => 1,
         'app/Services/Banking/MatchBankStatementLineService.php' => 1,
         // One row lock on the lease, re-read inside the txn. The shortfall is check-then-act over

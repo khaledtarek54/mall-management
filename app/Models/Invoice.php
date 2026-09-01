@@ -16,6 +16,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\InvoiceSettlement;
 use App\Support\OpsLog;
 use App\Support\PropertySettings;
 use App\Support\Translate;
@@ -150,6 +151,19 @@ class Invoice extends Model
     public function unitOwnership(): BelongsTo
     {
         return $this->belongsTo(UnitOwnership::class);
+    }
+
+    /**
+     * Invoices that may RECEIVE a settlement — the query half of {@see InvoiceSettlement}.
+     *
+     * Four channels settle an invoice and five call sites had five different opinions about which
+     * invoices are eligible. Two of them ask this as a QUERY — the payment picker and its
+     * auto-suggest, the PDC series sweep — and the rest ask it as a row cap; both come from the one
+     * registry so they cannot drift again.
+     */
+    public function scopeAcceptingSettlement(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', InvoiceSettlement::relievedStatuses());
     }
 
     /**

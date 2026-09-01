@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PostDatedCheque;
 use App\Models\User;
+use App\Support\InvoiceSettlement;
 use App\Support\PostingDate;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -70,7 +71,15 @@ class PostDatedChequeService
                 // credited past the receivable, negative AR in the GL). The lock serialises them,
                 // mirroring every other payment path (audit M33 F-1).
                 $invoice = Invoice::whereKey($cheque->invoice_id)->lockForUpdate()->first();
-                $allocate = $invoice ? min(round((float) $cheque->amount, 2), round((float) $invoice->balance, 2)) : 0.0;
+                // Capped by `InvoiceSettlement`, not by `balance`. The link is checked when the
+                // cheque is LODGED and never re-asked when it CLEARS, and months pass in between —
+                // so a link-time filter cannot answer a clear-time question. A write-off deliberately
+                // leaves `balance` standing, so this cap saw nothing: clearing a cheque against an
+                // invoice written off in the meantime relieved AR a second time, leaving AR at
+                // −11,400 for one debt with the bad-debt expense standing for money that was in fact
+                // collected — and `billing:reconcile --deep` permanently red, which blocks the next
+                // deploy. `cancelled` was safe here only by accident (its balance is forced to 0).
+                $allocate = $invoice ? min(round((float) $cheque->amount, 2), InvoiceSettlement::settleableAmount($invoice)) : 0.0;
                 if ($allocate > 0) {
                     // The cheque's payment settles the tenant's OWN invoice — never another
                     // tenant's, even in the same property. Belt to the model's link-time guard
@@ -125,7 +134,7 @@ class PostDatedChequeService
         $open = Invoice::query()
             ->where('tenant_id', $cheque->tenant_id)
             ->where('asset_id', $cheque->asset_id)
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->acceptingSettlement()
             ->where('balance', '>', 0)
             ->orderBy('due_date')
             ->orderBy('id')
@@ -140,7 +149,13 @@ class PostDatedChequeService
                 break;
             }
 
-            $allocate = round(min($remaining, round((float) $invoice->balance, 2)), 2);
+            // `settleableAmount()`, not the raw balance. On a PARTIAL write-off the invoice stays
+            // LIVE with its whole balance standing, so allocating the balance would relieve the
+            // forgiven slice a second time — and would then be REFUSED by
+            // assertInvoicesNotOverAllocated() below, rolling the entire clearing back. A series
+            // cheque offers the operator no way to choose a smaller allocation, so that refusal
+            // would make a legitimate cheque impossible to clear.
+            $allocate = round(min($remaining, InvoiceSettlement::settleableAmount($invoice)), 2);
 
             if ($allocate <= 0) {
                 continue;

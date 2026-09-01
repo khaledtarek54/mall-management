@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CreditNote;
 use App\Models\CreditNoteApplication;
 use App\Models\Invoice;
+use App\Support\InvoiceSettlement;
 use App\Support\PostingDate;
 use App\Support\ReversalReason;
 use Illuminate\Support\Facades\Auth;
@@ -90,15 +91,31 @@ class CreditNoteService
             }
 
             $available = (float) $note->balance;
-            $owed = (float) $invoice->balance;
+            // `settleableAmount()`, not the raw balance: on a PARTIAL write-off the balance still
+            // stands for the forgiven part, and a credit note applied there would relieve AR the
+            // bad-debt entry already relieved — the same double-relief the cash channel was fixed
+            // for, through the one door that still capped at `balance`. `glTieOut()` would not
+            // catch it, because it subtracts the written-off amount either way.
+            $owed = InvoiceSettlement::settleableAmount($invoice);
 
             if ($available <= 0 || $owed <= 0) {
                 return 0.0;
             }
 
-            // Only apply to a live, payable invoice — applying to a cancelled / credited / disputed /
-            // draft / paid invoice would consume the credit against a row that isn't collecting.
-            if (! in_array($invoice->status, ['issued', 'partially_paid', 'overdue'], true)) {
+            // The shared floor first: an invoice whose AR has already been relieved takes nothing
+            // from any channel. That is what was missing — `written_off` and `draft` reached this
+            // through the old allowlist's edges.
+            if (! InvoiceSettlement::accepts($invoice)) {
+                return 0.0;
+            }
+
+            // …and then this channel's OWN, narrower rule, which is deliberate and is NOT a
+            // disagreement to be flattened. A tenant may PAY a disputed invoice — that is their
+            // choice, and `PaymentForm` has always allowed it. An operator applying CREDIT to one is
+            // a different act: it consumes a credit note's balance against a row whose amount is
+            // still being argued about, and if the dispute resolves downward the credit has been
+            // spent on money that was never owed. Resolve the dispute, then apply.
+            if ($invoice->status === 'disputed') {
                 return 0.0;
             }
 

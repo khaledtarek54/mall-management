@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Models\TenantCreditApplication;
+use App\Support\InvoiceSettlement;
 use App\Support\PostingDate;
 use App\Support\ReversalReason;
 use DomainException;
@@ -31,7 +32,15 @@ class ApplyTenantCreditService
         return DB::transaction(function () use ($invoice, $requested) {
             /** @var Invoice|null $invoice */
             $invoice = Invoice::query()->lockForUpdate()->find($invoice->id);
-            if (! $invoice || $invoice->status === 'cancelled' || round((float) $invoice->balance, 2) <= 0) {
+            // `InvoiceSettlement`, not a lone `cancelled` test. That test was inert: `cancelled` is
+            // the ONE relieved status the `balance <= 0` term beside it already caught, because
+            // recomputeTotals() forces a cancelled balance to zero. Every status that actually needed
+            // refusing — written_off above all — walked straight through, and the `apply_credit`
+            // button on EditInvoice gates on balance and available credit rather than on status, so
+            // it was reachable in one click on a written-off debt.
+            $settleable = $invoice ? InvoiceSettlement::settleableAmount($invoice) : 0.0;
+
+            if (! $invoice || $settleable <= 0) {
                 return 0.0;
             }
 
@@ -66,7 +75,10 @@ class ApplyTenantCreditService
             $available = $tenant->creditBalance([$assetId]);
             $globalAvailable = $tenant->creditBalance(null);
 
-            $cap = min(round((float) $invoice->balance, 2), round($available, 2), round($globalAvailable, 2));
+            // `$settleable`, not the raw balance: on a PARTIAL write-off the balance still stands
+            // for the forgiven part, and capping there would let credit settle a slice the bad-debt
+            // entry has already relieved.
+            $cap = min($settleable, round($available, 2), round($globalAvailable, 2));
             if ($requested !== null) {
                 $cap = min($cap, round(max(0.0, $requested), 2));
             }

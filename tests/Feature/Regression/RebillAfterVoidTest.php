@@ -4,6 +4,7 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Services\MonthlyBillingService;
+use App\Services\WriteOffInvoiceService;
 use Carbon\CarbonImmutable;
 
 /**
@@ -79,7 +80,13 @@ it('does not re-bill a month whose invoice was written off', function () {
 
     // A written-off debt was RIGHTLY billed and is still on the books as bad debt — re-billing it
     // would charge the tenant twice. Deliberately not in the exclusion, unlike `cancelled`.
-    $first['invoice']->update(['status' => 'written_off']);
+    //
+    // Through the SERVICE, not by writing the status: `Invoice::updating` refuses a hand-typed
+    // write-off (it is an accounting act that posts Dr Bad Debt / Cr AR against an InvoiceWriteOff
+    // row), so the old fixture wrote a state no real path can produce.
+    app(WriteOffInvoiceService::class)->write($first['invoice']->fresh(), ['reason' => 'tenant_insolvent']);
+
+    expect($first['invoice']->fresh()->status)->toBe('written_off');
 
     expect($svc->generateForLease($this->lease->fresh(), $this->period)['status'])->toBe('skipped');
 });

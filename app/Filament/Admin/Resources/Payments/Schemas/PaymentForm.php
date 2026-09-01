@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
+use App\Support\InvoiceSettlement;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -175,7 +176,18 @@ class PaymentForm
                                             // expense stays booked for a debt that was in fact
                                             // collected. The sibling picker in PostDatedChequeForm
                                             // has always filtered status; this one never did.
-                                            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
+                                            //
+                                            // Now the shared predicate rather than a literal list.
+                                            // The list was a denylist that answered "has something
+                                            // already relieved this?" and grew by whichever status
+                                            // prompted each incident — so it never mentioned DRAFT,
+                                            // which fails a different test: nothing was relieved
+                                            // because nothing was ever posted. Allocating cash to a
+                                            // draft credits AR the journalizer never debited, and
+                                            // then flips the draft to paid, so an unissued document
+                                            // becomes a live one without passing through
+                                            // IssueInvoiceService at all.
+                                            ->acceptingSettlement()
                                             // Oldest due first: an allocation screen works the
                                             // arrears, so the invoice that has been outstanding
                                             // longest belongs at the top.
@@ -221,10 +233,17 @@ class PaymentForm
                                         }
                                         $remainingPayment = max(0, round($paymentAmount - $usedElsewhere, 2));
 
-                                        $apply = min((float) $invoice->balance, $remainingPayment);
+                                        // `settleableAmount()`, not the raw balance: a PARTIAL
+                                        // write-off leaves the invoice live with its whole balance
+                                        // standing, and prefilling that figure would offer a number
+                                        // the model-level guard then refuses — which presents as the
+                                        // page being broken rather than as a refusal.
+                                        $settleable = InvoiceSettlement::settleableAmount($invoice);
+                                        $apply = min($settleable, $remainingPayment);
                                         if ($apply <= 0) {
-                                            // No payment amount yet (or fully allocated) — fall back to invoice balance.
-                                            $apply = (float) $invoice->balance;
+                                            // No payment amount yet (or fully allocated) — fall back
+                                            // to what may still be settled.
+                                            $apply = $settleable;
                                         }
 
                                         $set('allocated_amount', round($apply, 2));
@@ -263,7 +282,10 @@ class PaymentForm
                                                     ->where('payment_id', $paymentId)
                                                     ->value('allocated_amount') ?: 0.0;
                                             }
-                                            $cap = round((float) $invoice->balance + $existingAllocation, 2);
+                                            // Same cap the model-level backstop applies, so the form
+                                            // refuses with a figure rather than letting the save
+                                            // throw.
+                                            $cap = round(InvoiceSettlement::settleableAmount($invoice) + $existingAllocation, 2);
                                             if ((float) $value > $cap + 0.005) {
                                                 $fail(__('admin.payment.allocation_exceeds_balance', [
                                                     'invoice' => $invoice->number,
@@ -366,9 +388,11 @@ class PaymentForm
 
         $invoices = Invoice::where('tenant_id', $tenantId)
             ->where('balance', '>', 0)
-            // Same status filter as the picker above — auto-suggest must not pre-fill an
-            // allocation the picker would refuse to let an operator make by hand.
-            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
+            // Same predicate as the picker above — auto-suggest must not pre-fill an allocation the
+            // picker would refuse to let an operator make by hand. One registry, so the two cannot
+            // drift again; they had already drifted apart from the PDC picker and from three
+            // services.
+            ->acceptingSettlement()
             // Scope to the active property set, mirroring the invoice picker above —
             // otherwise auto-suggest would pre-fill a shared tenant's out-of-scope
             // (other-property) invoices for a restricted user in All-Properties mode.
@@ -380,7 +404,7 @@ class PaymentForm
             if ($remaining <= 0) {
                 break;
             }
-            $apply = min((float) $invoice->balance, $remaining);
+            $apply = min(InvoiceSettlement::settleableAmount($invoice), $remaining);
             $rows[] = [
                 'invoice_id' => $invoice->id,
                 'allocated_amount' => round($apply, 2),
