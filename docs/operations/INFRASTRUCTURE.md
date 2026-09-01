@@ -550,6 +550,36 @@ AWS_USE_PATH_STYLE_ENDPOINT=true
 
 ---
 
+## 8.1 PHP opcache — measured, 2026-09-01
+
+Debian's defaults are sized for a small app and this one is not. Measured on the staging box under
+real load:
+
+| | Shipped | Set to | Why |
+|---|---|---|---|
+| `opcache.memory_consumption` | 128 MB | **256 MB** | 103 MB of 128 was in use (**81%**) with 3,287 scripts cached. A full opcache does not fail loudly — it stops caching NEW files, so the symptom is a gradual slowdown nobody can attribute to a cause. |
+| `opcache.interned_strings_buffer` | 8 MB | **32 MB** | **Measured at 16.7 MB in use once the ceiling was raised — so the 8 MB buffer was being exhausted.** Filament interns an enormous number of strings across 66 resources. |
+
+Lives in `/etc/php/8.4/fpm/conf.d/99-atriom-opcache.ini`; needs `systemctl reload php8.4-fpm`.
+
+> **Stated honestly: no page-level speedup was demonstrated from this.** The login page measured
+> 0.111s before and 0.150s after, which is noise — the per-minute scheduler shares the box and the
+> spread across 15 requests was 0.084–0.296s. The change is justified by the two measurements
+> above, not by a timing win, and it is a *cliff* being removed rather than a gain being made.
+>
+> `validate_timestamps` is deliberately left **on** (revalidating every 2s). Turning it off is the
+> usual production tuning and would mean `deploy.sh` must also reload FPM, or a release silently
+> serves the previous version's code. Not worth the trap on a box that deploys several times a day.
+
+**Where the time actually goes** — the same measurement, and this is the useful half. Per admin
+list page, on demo data: SQL is a small fraction and PHP is most of it. The `tenants` list issues
+**five aggregate queries per row** — an invoice `exists`, a collectable-balance sum, a credit-note
+sum, a payments fetch and a tenant-credit sum — i.e. the four settlement channels computed per row
+rather than eager-loaded. `facility-work-orders` is the slowest page and its SQL is only ~119ms, so
+it is PHP-bound, not query-bound. Neither is fixed by server tuning.
+
+---
+
 ## 9. Server hardening
 
 - **UFW:** default-deny inbound; allow **only** SSH (`22/tcp`) from your admin IP. No 80/443 needed —
