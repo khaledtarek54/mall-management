@@ -281,6 +281,7 @@ return [
         // distinction more than English does.
         'subheading' => ':leases · :area m² · :monthly per month · EGP :per_sqm /m²/yr · as at :as_of',
         'lease_count' => '{0} No leases|{1} 1 lease|[2,*] :count leases',
+        'search_placeholder' => 'Unit, tenant or lease reference',
         'area' => 'Area',
         'base_rent' => 'Base rent',
         'per_sqm' => 'EGP/m²/yr',

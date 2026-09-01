@@ -27,6 +27,7 @@
 
 use App\Filament\Admin\Pages\RentRoll;
 use App\Services\Reports\ReportService;
+use App\Support\Filament\ReportSearch;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -114,4 +115,55 @@ it('is written in Arabic too', function () {
         // file, which is the realistic failure when a key is added in one pass.
         ->and(preg_match('/\p{Arabic}/u', $ar))->toBe(1)
         ->and($ar)->not->toContain('commences');
+});
+
+/*
+|--------------------------------------------------------------------------
+| …and you can find a shop on it without paging
+|--------------------------------------------------------------------------
+| The other half of the same report. C-16 was row 34 of 34 at a default page
+| size of 25 — on page two, with the search box switched off. Filament offers
+| the search state to a `->records()` closure and filters NOTHING itself, so
+| `->searchable(false)` was honest: there was nothing to search with.
+*/
+
+it('finds a lease by unit code, brand or reference', function () {
+    $rows = app(ReportService::class)->rentRoll(CarbonImmutable::parse('2026-09-16'), $this->asset->id);
+
+    expect(ReportSearch::apply($rows, 'RR-02', ['unit', 'units', 'tenant', 'reference'])->pluck('unit')->all())
+        ->toBe(['RR-02'])
+        ->and(ReportSearch::apply($rows, 'Starts Later', ['unit', 'units', 'tenant', 'reference'])->pluck('unit')->all())
+        ->toBe(['RR-02'])
+        // Words AND, so a second word narrows rather than widens.
+        ->and(ReportSearch::apply($rows, 'Starts RR-01', ['unit', 'units', 'tenant', 'reference'])->count())
+        ->toBe(0)
+        // A query that folds to nothing means "do not search", never "match all"
+        // — and never "match none", which would empty the report on a stray keystroke.
+        ->and(ReportSearch::apply($rows, '  ...  ', ['unit', 'units', 'tenant', 'reference'])->count())
+        ->toBe($rows->count());
+});
+
+it('folds both sides, so an Arabic spelling still matches', function () {
+    $rows = collect([
+        ['unit' => 'K-01', 'units' => 'K-01', 'tenant' => 'شركه الغرير', 'reference' => 'LSE-1'],
+    ]);
+
+    // The two spellings of the same word. Folding only one side matches nothing,
+    // which is the trap a raw-column search key is banned for elsewhere.
+    expect(ReportSearch::apply($rows, 'شركة', ['unit', 'units', 'tenant', 'reference'])->count())->toBe(1);
+});
+
+/*
+| Driven through the real page, not by asserting a flag: `->searchable()` is
+| only half of it — Filament renders the box and filters nothing unless the
+| `->records()` closure uses the search it is handed, so a flag assertion would
+| pass on a box that does nothing.
+*/
+it('actually filters the page when you type in the box', function () {
+    Livewire::withQueryParams(['asOf' => '2026-09-16'])
+        ->test(RentRoll::class)
+        ->assertSee('RR-01')
+        ->searchTable('RR-02')
+        ->assertSee('RR-02')
+        ->assertDontSee('RR-01');
 });

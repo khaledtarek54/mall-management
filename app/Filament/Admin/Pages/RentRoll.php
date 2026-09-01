@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
 use App\Support\Modules;
 use App\Support\ReportFilters;
+use App\Support\Filament\ReportSearch;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -185,8 +186,17 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn (): Collection => $this->rows())
-            ->searchable(false)
+            // Filament offers the search state to this closure and searches NOTHING on its own for
+            // an array-backed table, so the box only works because ReportSearch is applied here.
+            // Without it the only way to find one shop on a two-hundred-shop roll is paging.
+            ->records(fn (?string $search): Collection => ReportSearch::apply(
+                $this->rows(),
+                $search,
+                // What an operator actually types: a unit code, a brand, or a lease reference.
+                ['unit', 'units', 'tenant', 'reference'],
+            ))
+            ->searchable()
+            ->searchPlaceholder(__('admin.rent_roll.search_placeholder'))
             ->paginated([25, 50, 100, 'all'])
             ->columns([
                 TextColumn::make('units')
