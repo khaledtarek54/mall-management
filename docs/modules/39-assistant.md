@@ -1,6 +1,6 @@
-# 39 · Ask Atriom — the in-app assistant (A0 + A1)
+# 39 · Ask Atriom — the in-app assistant (A0 · A1 · A2)
 
-**Status: A0 and A1 shipped.** No language model is involved. See
+**Status: A0, A1 and A2 shipped.** No language model is involved. See
 [docs/integrations/AI-ASSISTANT.md](../integrations/AI-ASSISTANT.md) for the full design, the later
 phases, and what a model would cost if one is ever added.
 
@@ -24,6 +24,9 @@ screen held it, which is precisely what a new operator does not know.
 | `AssistantCorpus` | `app/Support/Assistant` — the searchable index, **derived** from two registries |
 | `AssistantEntry` | one screen or report, with its folded word → weight map |
 | `AssistantRecords` | finds the RECORDS a question named, through the global search |
+| `AssistantDocChunk` | `assistant_doc_chunks` — the operator-facing documentation, chunked by heading |
+| `DocCorpus` | WHICH documentation may be quoted, and the chunker |
+| `AssistantDocs` | the documentation tier — consulted only when the guides had nothing |
 | `AnswerQuestionService` | `app/Services/Assistant` — fold, score, filter by access, record |
 | `Assistant` (page) | `/admin/ask` |
 
@@ -78,6 +81,37 @@ worse than none** — the reader follows it, finds the wrong screen, and conclud
 work. Silence is honest, costs one more search, and lands the question on the unanswered list where
 it becomes the next screen guide.
 
+## Three tiers, in order
+
+1. **Records** — the thing the question named.
+2. **Screens and reports** — the guides and the report catalogue.
+3. **Documentation** — *only when tier 2 found nothing.*
+
+The third tier is a **fallback, not a peer**, and that is the load-bearing rule. A screen guide
+answers *"how do I do X"* with the screen that does X and a link to it; a paragraph of prose answers
+with words. When both exist the guide is strictly better, so ranking them together would let a
+well-written chapter push the actual screen off the top of the page. Tier 3 runs exactly where A0
+recorded a miss.
+
+## Which documentation may be quoted
+
+`docs/` is not one audience. `docs/modules/` is 1.77 MB written for whoever changes the code —
+quoting it to a retail manager answers a business question with an implementation, which reads as
+though no business answer exists. So `DocCorpus::SOURCES` is an **allowlist**, and every top-level
+directory under `docs/` is either indexed or in `NOT_INDEXED` **with a reason**;
+`TheAssistantReachesPastTheScreenGuidesTest` fails the build on one that is neither, and on a stale
+entry.
+
+Indexed: **`docs/visual/`** (the handbook — bilingual, and already published at `/handbook`, so its
+chunks carry a real URL) and **`docs/training/`** (the walkthroughs, whose own README says they are
+*"written for someone new to the BUSINESS — not to the codebase"*; published nowhere, so the
+excerpt **is** the answer rather than a pointer). 530 sections, 405 English and 125 Arabic.
+
+Rebuilt by **`php artisan atriom:rebuild-assistant-index`**, which is a **deploy step in
+`deploy.sh`, not a scheduled job** — a correction to the original design. These files change when
+the repository changes and at no other time, so a nightly run would rewrite an identical table 365
+times a year. It sits beside `atriom:rebuild-search`, which is there for the same reason.
+
 ## Which words become a record search
 
 The global search ANDs its words, so handing it *"how much does Zara owe"* matches nothing. The
@@ -131,6 +165,19 @@ link, and the report shows its own period selector.
 - **A translation key built by interpolation is invisible to the parity gate** — it resolves to the
   PREFIX, so every leaf under it is unchecked in both locales. The result-kind labels are spelled
   out for that reason.
+- **A documentation match requires EVERY word**, not the best few. Hundreds of pages of prose
+  contain almost every common word somewhere, so partial-overlap scoring answered every question
+  with the longest chapter. One relaxation pass (all-but-one word) runs only when the strict pass
+  found nothing, and carries a penalty so a relaxed hit can never outrank a strict one.
+- **`AssistantDocChunk::stem()` widens a word, and is safe only because the blob is matched with
+  `LIKE %stem%`** — a shorter stem matches MORE, never fewer, and precision is taken back by the
+  all-words AND. It is deliberately NOT applied to the screen corpus, which matches whole words
+  against a curated vocabulary where "lease" and "leases" are not the same signal. A separate `es`
+  rule was removed rather than reordered: it turned "bounces" into "bounc", and this domain's
+  plurals are almost all of nouns already ending in `e`.
+- **`|| warn` in `deploy.sh` would have aborted every release.** The script defines exactly one
+  helper (`step`) and runs under `set -Eeuo pipefail`, so an undefined function returns non-zero
+  and takes the deploy down — over a search index. It is `|| printf`, which always succeeds.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and
@@ -147,7 +194,8 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 
 ## Tests
 
-`tests/Feature/Scenarios/AskingAtriomFindsTheScreenThatAnswersTest.php` — 18 cases. Every refusal is
+`AskingAtriomFindsTheScreenThatAnswersTest` (18 cases) and
+`TheAssistantReachesPastTheScreenGuidesTest` (9). Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.
 
@@ -162,4 +210,6 @@ the stop list, the locale switch, and the page's own render.
 - **Changing a weight or the floor**: re-measure against real questions before and after
   (`AssistantCorpus::entries()` plus the service is enough for a scratch script), and add the case
   that moved you to the test file. The floor moved once already and only measurement justified it.
+- **A new documentation area** must be added to `DocCorpus::SOURCES` or `NOT_INDEXED` with a
+  reason — the gate will insist.
 - **Do not add a second corpus.** If the guides are thin, the fix is the guides.

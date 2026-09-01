@@ -200,6 +200,23 @@ else
   php artisan atriom:rebuild-search
 fi
 
+# The assistant's documentation index, rebuilt from the markdown this release just pulled.
+#
+# A DEPLOY step and deliberately NOT a scheduled one: these files change when the repository
+# changes and at no other time, so a nightly run would rewrite an identical table 365 times a year.
+# Same reasoning, and the same place, as the search re-fold above.
+#
+# Not gated behind --skip-search: that flag exists to skip a pass over every business record, and
+# this is a few hundred rows read off disk. Failing here is reported and does not stop the release
+# — the assistant simply keeps answering from the screen guides, which is a degraded answer rather
+# than a broken one.
+step "Rebuilding the assistant's documentation index"
+# `|| printf` and not `|| warn`: this script defines exactly one helper (`step`) and runs under
+# `set -Eeuo pipefail`, so calling an undefined function here would return non-zero and abort the
+# whole release over a search index. printf always succeeds, which is the point.
+php artisan atriom:rebuild-assistant-index \
+  || printf '\033[1;33m  ! the assistant index did not rebuild; it will answer from the screen guides only\033[0m\n'
+
 # ---------------------------------------------------------------------------
 # The preflight is the deploy's own verdict. It is reported, not enforced: a stopped worker or a
 # stale backup is a real problem but not a reason to roll back a release that deployed correctly,

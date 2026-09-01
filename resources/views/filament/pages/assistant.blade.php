@@ -25,6 +25,13 @@
             // guide, so "the first result" would expand nothing and leave the screen that answers
             // the question collapsed underneath.
             $firstScreenIndex = collect($results)->search(fn (array $r): bool => $r['kind'] === 'screen');
+
+            // With no screen among the results — a records-only or documentation-only answer —
+            // nothing would be expanded and the page would read as a list of collapsed headings
+            // with the answer hidden inside them.
+            if ($firstScreenIndex === false) {
+                $firstScreenIndex = 0;
+            }
         @endphp
 
         <div class="mt-6 space-y-4">
@@ -50,9 +57,16 @@
                         {{ match ($result['kind']) {
                             'report' => __('admin.assistant.kind_report'),
                             'record' => __('admin.assistant.kind_record'),
+                            'doc' => __('admin.assistant.kind_doc'),
                             default => __('admin.assistant.kind_screen'),
                         } }}@if ($result['kind'] === 'record') · {{ $result['key'] }}@endif
                     </x-slot>
+
+                    @if ($result['kind'] === 'doc')
+                        <p class="text-sm text-gray-600 dark:text-gray-300">
+                            {{ $result['excerpt'] ?? '' }}…
+                        </p>
+                    @endif
 
                     @if ($guide)
                         <p class="text-sm text-gray-600 dark:text-gray-300">
@@ -83,9 +97,11 @@
                     @if ($url)
                         <div class="mt-4">
                             <x-filament::link :href="$url">
-                                {{ $result['kind'] === 'record'
-                                    ? __('admin.assistant.open_record')
-                                    : __('admin.assistant.open_screen', ['screen' => $result['title']]) }}
+                                {{ match ($result['kind']) {
+                                    'record' => __('admin.assistant.open_record'),
+                                    'doc' => __('admin.assistant.read_more'),
+                                    default => __('admin.assistant.open_screen', ['screen' => $result['title']]),
+                                } }}
                             </x-filament::link>
                         </div>
                     @endif

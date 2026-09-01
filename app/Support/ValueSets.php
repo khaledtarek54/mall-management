@@ -132,12 +132,17 @@ class ValueSets
         // which language a question was ASKED in, so the unanswered list can say whether the gap is
         // in the English guides or the Arabic ones.
         'assistant_questions.locale' => [SetLocale::class, 'SUPPORTED'],
+        // The seventh, and the gate asked for it before anyone had to remember. Here it records
+        // which language a documentation chunk is written in, which decides whose question it
+        // may answer — a mistyped value would quietly make a whole language's handbook
+        // unreachable while every row still looked indexed.
+        'assistant_doc_chunks.locale' => [SetLocale::class, 'SUPPORTED'],
 
         // What the assistant matched a question to. Classification-shaped (`kind`), so the sweep
         // would demand it anyway — and it must be a closed set, because the unanswered-question
         // analysis groups on it and a typo'd value would silently form a third bucket that nobody
         // reads.
-        'assistant_questions.top_kind' => ['screen', 'report', 'record'],
+        'assistant_questions.top_kind' => ['screen', 'report', 'record', 'doc'],
 
         // What an operator-defined field can hold (D-7 / EG-32). Registered because a mistyped type
         // does not error — `CustomFieldsSchema::input()` falls through its `match` to a plain text

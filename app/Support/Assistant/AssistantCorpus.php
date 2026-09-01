@@ -74,7 +74,7 @@ final class AssistantCorpus
         'all', 'any', 'no', 'nothing', 'anything', 'something', 'each', 'every', 'both', 'other',
         'same', 'such', 'own', 'very', 'just', 'here', 'now', 'been', 'being', 'were', 'had',
         'would', 'should', 'could', 'may', 'must', 'we', 'us', 'our', 'he', 'she', 'him', 'her',
-        'his',
+        'his', 'happens', 'happen', 'want', 'need', 'know', 'tell', 'show', 'give',
         // Arabic (folded — see SearchText::normalize)
         'من', 'في', 'على', 'الى', 'عن', 'مع', 'هذا', 'هذه', 'ذلك', 'التي', 'الذي', 'ما', 'ماذا',
         'كيف', 'اين', 'متى', 'هل', 'او', 'ثم', 'كل', 'بعد', 'قبل', 'عند', 'يتم', 'ان', 'انا',

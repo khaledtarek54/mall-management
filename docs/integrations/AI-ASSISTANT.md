@@ -1,6 +1,6 @@
 # The in-app assistant — design
 
-**Status: PHASES A0 AND A1 SHIPPED (2026-09-01); A2 onward not built.** The question box is live at
+**Status: THE WHOLE A PHASE SHIPPED (2026-09-01). No B phase is built, and none is scheduled.** The question box is live at
 `/admin/ask` — see [modules/39](../modules/39-assistant.md). No language model is involved and no
 Anthropic dependency is in `composer.json`; every B phase below is still a decision, not a plan.
 
@@ -350,7 +350,7 @@ by then the logs say whether it is needed.**
 |---|---|---|---|
 | **A0** ✅ | The "Ask Atriom" box: fold the question with `SearchText`, score it against the 112 screen guides and the 26 reports' `keywords`, show the guide. Module switch, permission, activity logging. | $0 | 2 days |
 | **A1** ✅ | Route a question to a **record** through `AtriomGlobalSearchProvider`, and to a report at the **year** it named. Deep links, not answers. Note: no report declares a tenant parameter, so "pre-filtered" means period, never counterparty. | $0 | done |
-| **A2** | `atriom:dump-assistant-index` + the doc-chunk table + FULLTEXT over `docs/`, so the box reaches past the guides. Nightly rebuild. | $0 | 2 days |
+| **A2** ✅ | `atriom:rebuild-assistant-index` + the doc-chunk table, so the box reaches past the guides — 530 sections, 405 EN / 125 AR. Two corrections to this row: it is a **deploy** step, not a nightly one (the files change only when the repo does), and it uses the project's own folded `LIKE` rather than FULLTEXT, which is driver-specific and this suite runs on SQLite. | $0 | done |
 | **—** | **Ship, and read the logs for a month.** What was asked, what matched nothing. That miss list is the only honest input to the next decision. | $0 | — |
 | **B0** | The model as a **wording layer only**, on the passage A0–A2 already found: `AssistantModel` interface, `none` + `anthropic` drivers, monthly ceiling, answer cache. | ~200 EGP/mo | 2 days |
 | **B1** | Give the model the tools (`run_report`, `find_records`, `open_record`) so it can answer what retrieval alone cannot. Row caps, `AssistantFields` registry + gate. | ~400–1,000 EGP/mo | 3–4 days |

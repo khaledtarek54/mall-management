@@ -22,6 +22,7 @@ return [
         'kind_screen' => 'Screen',
         'kind_report' => 'Report',
         'kind_record' => 'Record',
+        'kind_doc' => 'From the handbook',
 
         'steps' => 'How it is done',
         'affects' => 'What this changes elsewhere',
@@ -29,6 +30,7 @@ return [
 
         'open_screen' => 'Open :screen',
         'open_record' => 'Open this record',
+        'read_more' => 'Read the full section',
 
         'no_answer_heading' => 'No answer for that one',
         'no_answer_body' => 'Try the words you would use on the screen itself — a tenant, a document or a number. Your question has been recorded, and questions nothing answers are what we use to fill the gaps.',

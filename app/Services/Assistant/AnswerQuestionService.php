@@ -5,6 +5,7 @@ namespace App\Services\Assistant;
 use App\Http\Middleware\SetLocale;
 use App\Models\AssistantQuestion;
 use App\Support\Assistant\AssistantCorpus;
+use App\Support\Assistant\AssistantDocs;
 use App\Support\Assistant\AssistantEntry;
 use App\Support\Assistant\AssistantRecords;
 use App\Support\ReportCatalogue;
@@ -115,8 +116,18 @@ class AnswerQuestionService
 
         $records = AssistantRecords::find($unknown);
 
+        $screens = $this->mergeDuplicateDestinations($results);
+
+        // THE DOCUMENTATION TIER, and only when the guides had nothing. A screen guide answers
+        // with the screen that does the job and a link to it; a paragraph of prose answers with
+        // words, so ranking them together would let a well-written chapter push the actual screen
+        // off the top. This runs exactly where A0 recorded a miss.
+        $docs = $screens === []
+            ? AssistantDocs::find($words, $readerLocale)
+            : [];
+
         $results = array_slice(
-            array_merge($records, $this->mergeDuplicateDestinations($results)),
+            array_merge($records, $screens, $docs),
             0,
             self::MAX_RESULTS,
         );
