@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\BillableAgreement;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
@@ -149,6 +150,57 @@ class Invoice extends Model
     public function unitOwnership(): BelongsTo
     {
         return $this->belongsTo(UnitOwnership::class);
+    }
+
+    /**
+     * The agreement that raised this invoice — a lease, or a unit ownership.
+     *
+     * **Ask for this, never for `->lease`.** `invoices.lease_id` became nullable when module 37
+     * introduced a party who holds no lease, and every read that still assumes it is set is a fatal
+     * on exactly the rows that module added. `LateFeeService` was one: it resolved the lease's
+     * payment terms with `$invoice->lease->paymentTermsDays()` under a comment stating the column
+     * was NOT NULL — so `billing:apply-late-fees` threw on the first overdue owner assessment it
+     * met, and a scheduled command that throws is the quietest failure there is. Nobody sees an
+     * error; the late fees for every lease behind it in the run simply never happen. Measured on
+     * the demo books: **48 invoices carry no lease, and all 48 are in an overdue-eligible status**.
+     *
+     * Both kinds answer the whole `BillableAgreement` contract — `paymentTermsDays()`,
+     * `prorationMethod()`, the property, the debtor — so a caller that takes the agreement rather
+     * than the lease needs no branch of its own.
+     *
+     * **`withTrashed()`, for the reason {@see deriveAssetId()} states beside it:** both agreements
+     * soft-delete, `belongsTo` applies the default scope, and an invoice raised against an agreement
+     * that was later trashed is still a real receivable. Reading it through the plain relation would
+     * hand back null on a row whose invariant holds perfectly — and a caller that treats null as
+     * "nothing to do here" would then skip exactly the debts nobody is watching.
+     *
+     * The loaded relation is preferred when there is one, so the nightly sweep does not pay for a
+     * query per invoice on a path that already knows the answer.
+     *
+     * Null means the row names no agreement at all, which
+     * {@see assertBelongsToExactlyOneAgreement()} refuses on save — so it is reachable only for an
+     * unsaved instance, and it is returned rather than thrown so a caller can ask before the row
+     * exists. It is NOT the "trashed agreement" case; that is what the paragraph above prevents.
+     *
+     * Call it — `$invoice->agreement()`. There is no `->agreement` property: Eloquent routes an
+     * unknown attribute to a same-named method and demands a relation back, so property access
+     * raises a `LogicException`.
+     */
+    public function agreement(): ?BillableAgreement
+    {
+        if ($this->lease_id !== null) {
+            return $this->relationLoaded('lease') && $this->lease !== null
+                ? $this->lease
+                : Lease::withTrashed()->whereKey($this->lease_id)->first();
+        }
+
+        if ($this->unit_ownership_id !== null) {
+            return $this->relationLoaded('unitOwnership') && $this->unitOwnership !== null
+                ? $this->unitOwnership
+                : UnitOwnership::withTrashed()->whereKey($this->unit_ownership_id)->first();
+        }
+
+        return null;
     }
 
     /**

@@ -82,9 +82,15 @@ trait ActsAsBillableAgreement
                 : (float) PropertySettings::get('billing.late_fee_minimum', $assetId),
             // The clause's ceiling, on the same three tiers (EG-35). 0 = no cap at every tier,
             // which is what every install had before the column existed. It MUST be returned here
-            // and not only in `LateFeeService`'s detached-invoice fallback: `invoices.lease_id` is
-            // NOT NULL, so that branch never runs for a real invoice and a cap defined only there
-            // would be read as an undefined key on every fee the sweep charges.
+            // and not only in `LateFeeService`'s fallback, or a cap defined only there would be read
+            // as an undefined key on every fee the sweep charges against a LEASE — which is almost
+            // all of them.
+            //
+            // (That fallback was described here as reachable only by a detached fixture, on the
+            // grounds that `invoices.lease_id` is NOT NULL. It is nullable since module 37, and the
+            // branch is the real path for an owner assessment: an ownership states no clause of its
+            // own, so its terms resolve at the property tier. Corrected 2026-09-01, with the
+            // property actually being passed — it was not.)
             'maximum' => $this->late_fee_maximum !== null
                 ? (float) $this->late_fee_maximum
                 : (float) PropertySettings::get('billing.late_fee_maximum', $assetId),

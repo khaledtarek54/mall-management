@@ -64,7 +64,10 @@ class LateFeeService
         $stats = ['considered' => $ids->count(), 'applied' => 0, 'skipped' => 0, 'failed' => 0];
 
         foreach ($ids->chunk(static::CHUNK) as $chunk) {
-            $invoices = Invoice::query()->whereIn('id', $chunk)->with('lease')->get();
+            // Both agreements eager-loaded: an invoice carries a lease OR a unit ownership, and
+            // loading only the lease left every owner assessment issuing a query per row for the
+            // other half.
+            $invoices = Invoice::query()->whereIn('id', $chunk)->with(['lease', 'unitOwnership'])->get();
 
             foreach ($invoices as $invoice) {
                 try {
@@ -100,17 +103,29 @@ class LateFeeService
     public function applyTo(Invoice $invoice, ?CarbonImmutable $today = null): bool
     {
         $today = $today ?? CarbonImmutable::now()->startOfDay();
-        // No lease means no property, so this backstop can only answer at the portfolio tier —
-        // which is exactly what a null asset id asks `PropertySettings` for. `invoices.lease_id` is
-        // NOT NULL, so in practice `lateFeeTerms()` always wins; this stays for a detached fixture.
+        // The AGREEMENT's terms, falling back to the tiers `PropertySettings` already resolves.
+        //
+        // An owner assessment states no late-fee clause of its own — a unit ownership has no
+        // negotiated grace or rate — so the fallback is its real path, not a fixture allowance. The
+        // note that used to sit here said `invoices.lease_id` was NOT NULL and that this branch only
+        // ran for a detached fixture; that stopped being true when module 37 shipped.
+        //
+        // **The property is `$invoice->asset_id`, and passing null here was a real defect.** All
+        // five keys are `PropertySettings::OVERRIDABLE`, so a null asset id answers at the PORTFOLIO
+        // tier and silently discards the mall's own clause — and `grace_days` decides *whether* a
+        // fee is charged at all, not merely how much. The invoice carries the property directly
+        // (`Invoice::creating` refuses to save without one), which is exactly what denormalising it
+        // was for. This is the same defect `BillBouncedChequeFeeService` records having fixed:
+        // reading the property through a lease that owner invoices do not have, and pricing every
+        // fee from the portfolio default.
         $terms = $invoice->lease?->lateFeeTerms() ?? [
-            'percent' => (float) PropertySettings::get('billing.late_fee_percent', null),
-            'grace_days' => (int) PropertySettings::get('billing.late_fee_grace_days', null),
-            'minimum' => (float) PropertySettings::get('billing.late_fee_minimum', null),
+            'percent' => (float) PropertySettings::get('billing.late_fee_percent', $invoice->asset_id),
+            'grace_days' => (int) PropertySettings::get('billing.late_fee_grace_days', $invoice->asset_id),
+            'minimum' => (float) PropertySettings::get('billing.late_fee_minimum', $invoice->asset_id),
             // 0 = no ceiling, which is what every install had before EG-35 and therefore what an
             // unset value must keep meaning.
-            'maximum' => (float) PropertySettings::get('billing.late_fee_maximum', null),
-            'recurrence_days' => (int) PropertySettings::get('billing.late_fee_recurrence_days', null),
+            'maximum' => (float) PropertySettings::get('billing.late_fee_maximum', $invoice->asset_id),
+            'recurrence_days' => (int) PropertySettings::get('billing.late_fee_recurrence_days', $invoice->asset_id),
         ];
 
         $percent = $terms['percent'];
@@ -198,12 +213,40 @@ class LateFeeService
             // period is THIS month because that is when the fee was incurred; `late_fee` is
             // excluded from `MonthlyBillingService`'s already-billed probe so it cannot suppress
             // the month's rent (the trap that bit `nsf_fee`).
-            // `lease_id` is NOT NULL on invoices, so the lease is always there; the fallback is for
-            // a lease that states no payment terms of its own.
-            $dueInDays = $locked->lease->paymentTermsDays();
+            // The AGREEMENT, not the lease. `invoices.lease_id` stopped being NOT NULL when module
+            // 37 introduced a party who holds no lease, and the comment that used to sit here said
+            // the opposite — so this line threw on every overdue owner assessment the sweep reached.
+            //
+            // `runForToday()` catches per invoice, so the run itself survived and the others were
+            // still charged: what was lost was the OWNER's fee, every night, for ever, counted as
+            // `failed` in a 04:00 log line that names an invoice id and no reason. A debt that is
+            // never chased and never reported is the failure nobody opens a ticket for. Measured on
+            // the demo books: 48 invoices carry no lease and every one of them would reach this line
+            // the day it falls due.
+            //
+            // `agreement()` answers a lease or an ownership and both implement the whole
+            // `BillableAgreement` contract, so nothing below needs a branch: the fee invoice is
+            // raised against whichever agreement owed the money.
+            $agreement = $locked->agreement();
+
+            if ($agreement === null) {
+                // A saved row always names an agreement (`assertBelongsToExactlyOneAgreement`) and
+                // `Invoice::agreement()` reads it `withTrashed()`, so this is unreachable in
+                // practice. It is LOGGED rather than silently skipped anyway, because `false` means
+                // "nothing to charge here" to the caller and would file a real defect under
+                // `skipped` — turning the loud failure this whole change is about into a quiet one.
+                OpsLog::error('Late fee skipped: invoice names no agreement', [
+                    'invoice_id' => $locked->id,
+                    'number' => $locked->number,
+                ]);
+
+                return false;
+            }
+
+            $dueInDays = $agreement->paymentTermsDays();
 
             $feeInvoice = app(IssueInvoiceService::class)->issue(
-                agreement: $locked->lease,
+                agreement: $agreement,
                 items: [[
                     // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
                     // the charge instead of seeing a bare "Late Fee" amount. It now also names the
