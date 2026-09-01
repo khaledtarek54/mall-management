@@ -14,36 +14,6 @@ use App\Support\ConcurrencyPolicy;
  * holds, so one dropped in a refactor fails the build. `Tests\Support\LockSpy` goes further for the
  * `PROVEN` set by making the lock observable on SQLite, so those are tested rather than declared.
  */
-/**
- * PHP source with every comment, docblock and string LITERAL removed, so a gate reads code.
- *
- * A lock call cannot live inside a string, so dropping their contents costs nothing and closes the
- * other half of the same false positive: `Health` mentions `Cache::lock()` once in a docblock and
- * once inside an operator-facing message, and was registered as taking two locks while taking none.
- */
-function sourceWithoutComments(string $source): string
-{
-    $out = '';
-
-    foreach (token_get_all($source) as $token) {
-        if (! is_array($token)) {
-            $out .= $token;
-
-            continue;
-        }
-
-        if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-            continue;
-        }
-
-        $out .= in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_INLINE_HTML], true)
-            ? "''"
-            : $token[1];
-    }
-
-    return $out;
-}
-
 function lockingFilesOnDisk(): array
 {
     $files = [];
@@ -65,7 +35,7 @@ function lockingFilesOnDisk(): array
         // rather than fixed.
         $count = preg_match_all(
             '/(?:->|::)(?:lockForUpdate|sharedLock)\(|Cache::lock\(/',
-            sourceWithoutComments((string) file_get_contents($file->getPathname()))
+            sourceWithoutCommentsOrStrings($file->getPathname())
         );
 
         if ($count > 0) {

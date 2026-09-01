@@ -817,3 +817,62 @@ function rmActionChains(string $code, string $action): array
 
     return $chains;
 }
+
+/**
+ * A PHP file's source with every comment and docblock removed.
+ *
+ * `token_get_all` is exact where a regex would guess: it never mistakes a `//` inside a string
+ * literal for a comment. Shared, because two conformance gates read source and this project's own
+ * rule is that a helper declared in two test files is a FATAL redeclaration on any single-process
+ * run — invisible under `--parallel`, and it exits the suite 255 with no output at all.
+ */
+function sourceWithoutComments(string $path): string
+{
+    $out = '';
+
+    foreach (token_get_all((string) file_get_contents($path)) as $token) {
+        if (is_array($token)) {
+            if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+            $out .= $token[1];
+
+            continue;
+        }
+        $out .= $token;
+    }
+
+    return $out;
+}
+
+/**
+ * The same, with string LITERALS blanked as well — for a gate that must read code and not prose.
+ *
+ * A gate matching on source text counts a sentence as if it were a call. The concurrency registry
+ * carried a phantom entry for years because `Health` mentions `Cache::lock()` once in a docblock and
+ * once inside an operator-facing message, and the scanner counted both; `Unit`'s docblock names the
+ * lock it is explaining. Neither is code. Nothing that a lock/gate scanner looks for can legitimately
+ * live inside a string, so blanking them costs nothing.
+ */
+function sourceWithoutCommentsOrStrings(string $path): string
+{
+    $out = '';
+
+    foreach (token_get_all((string) file_get_contents($path)) as $token) {
+        if (! is_array($token)) {
+            $out .= $token;
+
+            continue;
+        }
+
+        if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        $out .= in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_INLINE_HTML], true)
+            ? "''"
+            : $token[1];
+    }
+
+    return $out;
+}

@@ -41,28 +41,6 @@ beforeEach(function () {
 // `filamentSources()` lives in tests/Pest.php — ManufacturedLabelConformanceTest needs it too, and
 // two file-scope copies were a fatal redeclaration whenever one process loaded both files.
 
-/** Source with comments stripped — a comment naming the clamp must never satisfy the gate. */
-function sourceWithoutComments(string $path): string
-{
-    $out = '';
-
-    // token_get_all is exact where a regex would guess: it never mistakes a `//` inside a
-    // string literal for a comment.
-    foreach (token_get_all(file_get_contents($path)) as $token) {
-        if (is_array($token)) {
-            if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-            $out .= $token[1];
-
-            continue;
-        }
-        $out .= $token;
-    }
-
-    return $out;
-}
-
 /**
  * The argument text of every `->where(...)` call, extracted with a paren-balanced scan.
  *
