@@ -56,6 +56,26 @@ class VoidPaymentService
                 // refund that carries an unallocated surplus.
                 $assetIds = $payment->invoices()->pluck('invoices.asset_id')
                     ->filter()->unique()->values()->all();
+
+                // A receipt with NO allocations at all still has a property, and it is the one this
+                // guard must ask about. `[]` used to fall through to `creditBalance(null)` — the
+                // GLOBAL balance the comment above explicitly forbids — so an unrelated credit at
+                // another mall let the void through on a receipt whose own surplus was already
+                // spent here: the money is refunded AND still settling AR, and the tenant's credit
+                // goes negative for the difference.
+                //
+                // A zero-allocation receipt is the ordinary case, not an exotic one: a cleared
+                // SERIES cheque names no invoice, which is the Egyptian norm. `originatingAssetId()`
+                // is where its property lives — the same fact `Tenant::creditBalance()` already
+                // reaches for through `clearedCheque` when it attributes that credit, so asking it
+                // here keeps the two halves of one question on one answer.
+                if ($assetIds === [] && ($originating = $payment->originatingAssetId()) !== null) {
+                    $assetIds = [$originating];
+                }
+
+                // Still `null` only when the receipt has no allocations AND no cheque to name a
+                // property — nothing in the data says which mall it belongs to, and a global
+                // balance is then the honest answer rather than a fabricated scope.
                 $available = (float) $tenant->creditBalance($assetIds !== [] ? $assetIds : null);
                 if (round($available - $remainder, 2) < -0.005) {
                     throw new \DomainException(__('admin.payment.refund_blocked_credit_applied'));
