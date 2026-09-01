@@ -82,6 +82,28 @@ Livewire property and Livewire takes what the payload says, not what the `Select
 > run somebody else's property scope. It also means a schedule **stops** when access is withdrawn,
 > which is right: a schedule is not a standing grant, and nobody revisits schedules.
 >
+> **…and in the PROPERTY it was saved in — which it did not, until 2026-09-01.** Rendering as the
+> right person is only half the context. Most report pages carry no `$assetId`: they scope with
+> `TenantScope::currentAssetId()`, which reads the mall the operator is **standing in**. There is no
+> Filament tenant in a queue worker, so that answered `null` — and every scoped query reads null as
+> *no property filter*. A rent roll saved in one mall was therefore delivered every month as the
+> **whole portfolio**: tenant names, contracted rents, rates per square metre and security deposits,
+> in a CSV with no property column and a filename naming no mall. The recipients are routinely
+> outside the business — the field's own help text invites the owner's accountant and the auditor,
+> *because* they have no login here, which is equally why they could not tell whose tenants they
+> were reading.
+>
+> `ReportParameters::PROPERTY_KEY` makes the standing property part of what a saved view
+> reproduces, captured by `snapshot()` for every report rather than only the ones that happen to
+> declare an `$assetId`, and the delivery re-establishes it as the Filament tenant around the render
+> — so **every** report page is scoped correctly without each one needing a parameter. A view that
+> records no property is **refused and logged**, never delivered as the portfolio: one saved before
+> this was captured is indistinguishable from one deliberately spanning every mall, and only one of
+> those is safe to email. The owner's access to that mall is re-checked at delivery for the same
+> reason their `canAccess()` is. (`ADeliveredReportStaysInItsOwnMallTest` — its fixture puts a lease
+> in each of two malls, because with one property's data present a portfolio-scoped render and a
+> correctly-scoped one produce the same file and the test cannot fail.)
+>
 > **Idempotent, because the scheduler is not.** `last_delivered_on` is a DATE, claimed under a lock
 > and re-checked inside the transaction — the pattern every scheduled scan here uses. A retry or a
 > catch-up after downtime re-sends nothing. A monthly schedule on the 31st fires on the last day of

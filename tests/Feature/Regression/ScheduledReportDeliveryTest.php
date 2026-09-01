@@ -18,6 +18,7 @@
 |      A month-end pack that arrives three times is how an operator learns to filter the sender.
 */
 
+use App\Support\ReportParameters;
 use App\Mail\SavedReportDelivered;
 use App\Models\SavedReport;
 use App\Models\User;
@@ -40,10 +41,19 @@ beforeEach(function () {
 
 function scheduledView(User $owner, array $attributes = []): SavedReport
 {
+    // The owner must be able to OPEN the mall the view is scoped to, or the delivery refuses — an
+    // unassigned account cannot enter a property's URL at all, so it could never have saved a report
+    // there. Without this the fixture describes a user production cannot produce.
+    $owner->assignedAssets()->syncWithoutDetaching([test()->asset->id]);
+
     return SavedReport::create($attributes + [
         'report' => 'trial_balance',
         'name' => 'Month-end trial balance',
-        'parameters' => ['year' => 2026],
+        // The property the view was saved in, exactly as `ReportParameters::snapshot()` records it
+        // on the real path. A report page scopes by the Filament tenant, which does not exist in a
+        // queue worker, so a view that names no property is REFUSED rather than delivered as the
+        // whole portfolio (`ADeliveredReportStaysInItsOwnMallTest`).
+        'parameters' => ['year' => 2026, ReportParameters::PROPERTY_KEY => test()->asset->id],
         'user_id' => $owner->id,
         'is_shared' => false,
         'frequency' => SavedReport::MONTHLY,

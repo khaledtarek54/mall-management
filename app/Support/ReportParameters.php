@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Services\Reports\DeliverSavedReportService;
 use Filament\Pages\Page;
 use ReflectionClass;
 use ReflectionNamedType;
@@ -35,6 +36,40 @@ use ReflectionProperty;
 class ReportParameters
 {
     /**
+     * The property the view was saved in — a reserved key, not a page property.
+     *
+     * Most report pages carry no `$assetId`: they scope with `TenantScope::currentAssetId()`, which
+     * reads the property the operator is STANDING in. That is right on screen and unreproducible
+     * off it — a scheduled delivery runs in a queue worker where there is no Filament tenant, so
+     * `currentAssetId()` answers **null**, which every scoped query reads as *no property filter*.
+     * A rent roll saved in one mall then delivered every month as the WHOLE PORTFOLIO, to whatever
+     * addresses the schedule names — and the field's own help text invites the owner's external
+     * accountant and auditor, who have no login here and no way to tell whose tenants they are
+     * reading.
+     *
+     * So the standing property is part of what reproduces a view, exactly as its filters are, and it
+     * is captured with them. The double underscore keeps it out of the declared-property namespace:
+     * {@see apply()} skips any key the page does not declare, so this one can never be written onto
+     * a page as a filter.
+     */
+    public const PROPERTY_KEY = '__asset_id';
+
+    /**
+     * The property a saved view was taken in, if it recorded one.
+     *
+     * Null means the view pre-dates this being captured. It is deliberately NOT read as "the whole
+     * portfolio": {@see DeliverSavedReportService} refuses to deliver such a
+     * view rather than guessing, because the two are indistinguishable here and one of them emails
+     * another mall's rent roll to somebody outside the business.
+     */
+    public static function propertyOf(?array $parameters): ?int
+    {
+        $value = $parameters[self::PROPERTY_KEY] ?? null;
+
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    /**
      * The filter values this page is currently carrying.
      *
      * @return array<string, scalar|null>
@@ -52,6 +87,15 @@ class ReportParameters
             if ($value !== null) {
                 $values[$name] = $value;
             }
+        }
+
+        // The property the operator is standing in, captured for every report rather than only for
+        // the ones that happen to declare an `$assetId`. A page that scopes through
+        // `TenantScope::currentAssetId()` reproduces nothing off-screen without it (see
+        // self::PROPERTY_KEY), and one that DOES declare `$assetId` is unaffected: its own value is
+        // already in `$values` above and is what the page validates and reads.
+        if (($assetId = TenantScope::currentAssetId()) !== null) {
+            $values[self::PROPERTY_KEY] = $assetId;
         }
 
         return $values;

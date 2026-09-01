@@ -50,7 +50,15 @@ it('snapshots exactly the filters a report declares', function () {
 
     $snapshot = ReportParameters::snapshot($page);
 
-    expect($snapshot)->toBe(['bucket' => 'd_61_90', 'asOf' => '2026-03-31']);
+    // Plus the property the view was taken in — a reserved key, not a declared filter. Most report
+    // pages carry no `$assetId` and scope by the Filament tenant instead, which reproduces nothing
+    // in a queue worker; capturing it here is what lets a scheduled delivery render the mall the
+    // operator was standing in rather than the whole portfolio.
+    expect($snapshot)->toBe([
+        'bucket' => 'd_61_90',
+        'asOf' => '2026-03-31',
+        ReportParameters::PROPERTY_KEY => $this->asset->id,
+    ]);
 });
 
 it('re-opens a report on the filters that were saved', function () {
