@@ -87,10 +87,10 @@ none, because it reads as current.
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-033** | open | high | M | Nightly leases:expire strands every unconverted holdover: no offered path to convert, renew, or terminate an 'expired' lease | `Filament/Admin/Actions/LeaseActions:795` |
+| **SW-033** | ✅ **fixed** `e6d9f699` | high | M | Nightly leases:expire strands every unconverted holdover: no offered path to convert, renew, or terminate an 'expired' lease | `Filament/Admin/Actions/LeaseActions:795` |
 | **SW-034** | open | high | M | 'End charge' / 'End assessment' with a future stop date silently stops billing immediately — the intervening months are never invoiced | `Filament/Admin/RelationManagers/ChargeScheduleRelationManager:508` |
-| **SW-035** | open | high | — | `leases:expire` empties the holdover queue every morning, making the whole LE-04 holdover conversion permanently unreachable | `Console/Commands/ExpireLeasesCommand:84` |
-| **SW-036** | open | high | M | leases:expire makes holdover conversion unreachable — the entire LE-04 workflow is dead after the first night | `Console/Commands/ExpireLeasesCommand:87` |
+| **SW-035** | ✅ **fixed** `e6d9f699` | high | — | `leases:expire` empties the holdover queue every morning, making the whole LE-04 holdover conversion permanently unreachable | `Console/Commands/ExpireLeasesCommand:84` |
+| **SW-036** | ✅ **fixed** `e6d9f699` | high | M | leases:expire makes holdover conversion unreachable — the entire LE-04 workflow is dead after the first night | `Console/Commands/ExpireLeasesCommand:87` |
 | **SW-037** | open | high | — | Clicking a report filter's clear (×) 500s the page — the bound property is non-nullable and Livewire unsets it | `Filament/Admin/Pages/BillingRunPreview:62` |
 | **SW-038** | open | high | — | Portal lease list shows DRAFT and PENDING_APPROVAL leases — the tenant reads terms nobody has approved | `Filament/Portal/Resources/Leases/LeaseResource:100` |
 | **SW-039** | open | high | S | Writing off a partially-paid billed deposit erases the PAID portion from depositHeld — tenant's deposit silently kept at move-out | `Models/Lease:674` |
