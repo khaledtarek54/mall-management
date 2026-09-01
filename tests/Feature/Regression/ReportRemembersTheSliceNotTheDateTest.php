@@ -23,6 +23,7 @@
 
 use App\Filament\Admin\Pages\IncomeStatement;
 use App\Models\ReportPreference;
+use App\Support\ReportParameters;
 use App\Support\ReportPreferences;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -199,4 +200,37 @@ it('opens at today even though the operator last looked at an old period', funct
 
     Livewire::test(IncomeStatement::class)
         ->assertNotSet('period', '2020-03');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Two consumers of one snapshot, and only one of them wants the tenant
+|--------------------------------------------------------------------------
+| `ReportParameters::snapshot()` feeds both a SAVED VIEW (re-rendered later by a queue worker with
+| no Filament tenant) and a PREFERENCE (re-applied on this operator's next visit, always on-screen
+| with a tenant already selected). The standing property is part of what reproduces the first and is
+| meaningless to the second — `apply()` skips any key the page does not declare, so it can never be
+| re-applied to a preference at all.
+|
+| Adding it to `snapshot()` therefore reached the wrong consumer AND broke its clearing rule:
+| `remember()` deletes the row when nothing is left, because "I deselected the property" is itself
+| the preference, and a snapshot carrying one guaranteed key is never empty. Measured: an operator
+| who stepped out of a mall kept a preference row pointing at it, and three tests here went red for
+| a week because CI is paused and a red push is silent.
+|
+| Asserted as a PAIR, in both directions, so the split cannot quietly collapse back: routing the
+| preference path through `snapshotForSavedView()` breaks the first, and dropping the key from
+| `snapshotForSavedView()` breaks the second.
+*/
+it('keeps the standing property out of a preference and inside a saved view', function () {
+    $page = new IncomeStatement;
+    $page->assetId = 7;
+
+    // A tenant IS selected — without one the key would be absent from both and this proves nothing.
+    expect(Filament::getTenant())->not->toBeNull();
+
+    expect(ReportParameters::snapshot($page))
+        ->not->toHaveKey(ReportParameters::PROPERTY_KEY)
+        ->and(ReportParameters::snapshotForSavedView($page))
+        ->toHaveKey(ReportParameters::PROPERTY_KEY);
 });

@@ -47,8 +47,9 @@ class ReportParameters
      * accountant and auditor, who have no login here and no way to tell whose tenants they are
      * reading.
      *
-     * So the standing property is part of what reproduces a view, exactly as its filters are, and it
-     * is captured with them. The double underscore keeps it out of the declared-property namespace:
+     * So the standing property is part of what reproduces a view, exactly as its filters are, and
+     * {@see snapshotForSavedView()} captures it with them. The double underscore keeps it out of the
+     * declared-property namespace:
      * {@see apply()} skips any key the page does not declare, so this one can never be written onto
      * a page as a filter.
      */
@@ -89,11 +90,36 @@ class ReportParameters
             }
         }
 
-        // The property the operator is standing in, captured for every report rather than only for
-        // the ones that happen to declare an `$assetId`. A page that scopes through
-        // `TenantScope::currentAssetId()` reproduces nothing off-screen without it (see
-        // self::PROPERTY_KEY), and one that DOES declare `$assetId` is unaffected: its own value is
-        // already in `$values` above and is what the page validates and reads.
+        return $values;
+    }
+
+    /**
+     * The same, PLUS the property the operator was standing in — for a view that must reproduce
+     * itself off-screen.
+     *
+     * **Two consumers, and only one of them wants this.** `SavesReportViews` saves something a queue
+     * worker will later re-render with no Filament tenant, so the standing property is part of what
+     * reproduces it; `ReportPreferences::remember()` stores what to re-apply on the operator's own
+     * NEXT VISIT, which is always on-screen with a tenant already selected.
+     *
+     * Adding it in `snapshot()` therefore reached the wrong consumer, and did two things there. It
+     * was pure noise — {@see apply()} skips any key the page does not declare, so it can never be
+     * re-applied to a preference — and it silently broke that consumer's clearing rule: `remember()`
+     * deletes the row when nothing is left, because *"I deselected the property"* is itself the
+     * preference, and a snapshot that always carries one key is never empty. An operator who stepped
+     * out of a mall kept a preference row for it for ever.
+     *
+     * A page that DOES declare `$assetId` still gets both, deliberately: its own value is a report
+     * PARAMETER the page validates and reads, and this is the tenant context the delivery has to
+     * re-establish before that parameter means anything. They agree in practice because
+     * `PropertyField` pins the declared one to the selected mall.
+     *
+     * @return array<string, scalar|null>
+     */
+    public static function snapshotForSavedView(Page $page): array
+    {
+        $values = self::snapshot($page);
+
         if (($assetId = TenantScope::currentAssetId()) !== null) {
             $values[self::PROPERTY_KEY] = $assetId;
         }

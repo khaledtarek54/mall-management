@@ -75,7 +75,7 @@ trait SavesReportViews
                     // the page's own public scalar properties and deliberately excludes
                     // trait-provided ones, so Filament's `$tableColumns` is invisible to it — a
                     // saved report remembered its filters and reset its columns.
-                    'parameters' => ReportParameters::snapshot($this) + $this->savedReportColumnLayout(),
+                    'parameters' => ReportParameters::snapshotForSavedView($this) + $this->savedReportColumnLayout(),
                     'user_id' => Auth::id(),
                     'is_shared' => (bool) ($data['is_shared'] ?? false),
                 ]);

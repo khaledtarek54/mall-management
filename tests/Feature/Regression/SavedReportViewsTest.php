@@ -48,12 +48,18 @@ it('snapshots exactly the filters a report declares', function () {
     $page->bucket = 'd_61_90';
     $page->asOf = '2026-03-31';
 
-    $snapshot = ReportParameters::snapshot($page);
+    $snapshot = ReportParameters::snapshotForSavedView($page);
 
     // Plus the property the view was taken in — a reserved key, not a declared filter. Most report
     // pages carry no `$assetId` and scope by the Filament tenant instead, which reproduces nothing
     // in a queue worker; capturing it here is what lets a scheduled delivery render the mall the
     // operator was standing in rather than the whole portfolio.
+    //
+    // It is on `snapshotForSavedView()` and NOT on `snapshot()`, because the plain one also feeds
+    // `ReportPreferences::remember()` — where the key is unreachable (`apply()` skips anything the
+    // page does not declare) and actively harmful: that consumer deletes its row when the snapshot
+    // comes back empty, so a key that is always present meant an operator who deselected the mall
+    // kept a preference for it for ever.
     expect($snapshot)->toBe([
         'bucket' => 'd_61_90',
         'asOf' => '2026-03-31',

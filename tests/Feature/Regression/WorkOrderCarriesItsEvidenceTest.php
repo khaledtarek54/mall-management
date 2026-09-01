@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Actions\EvidenceUpload;
 /*
 |--------------------------------------------------------------------------
 | A finished job could show nothing for itself (2026-08-19)
@@ -181,6 +182,20 @@ it('lets a technician attach the evidence their own completion requires', functi
     $action = substr($source, strpos($source, "Action::make('attachEvidence')"));
     $action = substr($action, 0, strpos($action, "Action::make('complete')"));
 
+    // The GATE is a fact about this action, so it is read here…
     expect($action)->toContain('self::canComplete()')
-        ->and($action)->toContain("collection('evidence')");
+        // …and the FIELD is not: `collection('evidence')` moved into `App\Filament\Actions\EvidenceUpload`
+        // when the append-only fix gave the operator's door and the contractor's door one definition
+        // (42e21d0b). This assertion went red on that commit and stayed red, because CI is paused and
+        // a red push here is silent rather than a red check.
+        //
+        // Rather than chase the string into its new file, the two halves are now asserted where each
+        // is actually true: that this action composes the shared definition, and that the shared
+        // definition targets the evidence collection. That is stronger than the original — a source
+        // match on `collection('evidence')` would be satisfied by a second, private upload component
+        // beside the shared one, which is precisely the drift the extraction removed.
+        ->and($action)->toContain('EvidenceUpload::make()');
+
+    expect(EvidenceUpload::make()->getCollection())->toBe('evidence')
+        ->and(EvidenceUpload::make()->isMultiple())->toBeTrue();
 });

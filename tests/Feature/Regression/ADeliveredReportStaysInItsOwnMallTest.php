@@ -1,6 +1,8 @@
 <?php
 
+use App\Filament\Admin\Pages\RentRoll;
 use App\Mail\SavedReportDelivered;
+use App\Models\Asset;
 use App\Models\SavedReport;
 use App\Services\Reports\DeliverSavedReportService;
 use App\Support\ReportParameters;
@@ -43,18 +45,21 @@ beforeEach(function () {
 });
 
 /** Save the rent roll the way the screen does — through the real snapshot. */
-function savedRentRollIn(App\Models\Asset $mall): SavedReport
+function savedRentRollIn(Asset $mall): SavedReport
 {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($mall, isQuiet: true);
 
-    $page = app(App\Filament\Admin\Pages\RentRoll::class);
+    $page = app(RentRoll::class);
     $page->mount();
 
     $saved = SavedReport::create([
         'report' => 'rent_roll',
         'name' => 'Monthly rent roll',
-        'parameters' => ReportParameters::snapshot($page),
+        // `snapshotForSavedView()`, not `snapshot()` — the same call `SavesReportViews` makes. The
+        // difference IS the subject of this file: only that one records the property the view was
+        // saved in, and without it the delivery has nothing to re-establish the tenant from.
+        'parameters' => ReportParameters::snapshotForSavedView($page),
         'user_id' => test()->operator->id,
         'recipients' => ['owners-accountant@outside.test'],
         'frequency' => 'monthly',
