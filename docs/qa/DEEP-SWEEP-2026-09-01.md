@@ -36,6 +36,10 @@ a matching line in [gap-analysis §6](../gap-analysis/README.md#6-declined--with
 **Update the row in the same commit as the fix.** A status column nobody maintains is worse than
 none, because it reads as current.
 
+> ### Where this stands — 9 closed, 195 open (updated 2026-09-01)
+>
+> Plus the four fixed on the day of the sweep, listed above and not in the table.
+
 **Severity** — `critical` wrong money, lost data, or something confidential leaving the building ·
 `high` an operator blocked, or data quietly wrong · `medium` real friction · `low` polish.
 **Fix** is the adjudicating agent's own estimate: XS under an hour, S a morning, M a day, L longer.
