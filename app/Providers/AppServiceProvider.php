@@ -9,6 +9,9 @@ use App\Notifications\Channels\PushChannel;
 use App\Observers\LeaseObserver;
 use App\Services\Eta\Signing\EtaDocumentSigner;
 use App\Services\Eta\Signing\UnsignedEtaSigner;
+use App\Contracts\AssistantModel;
+use App\Services\Assistant\Models\ClaudeAssistantModel;
+use App\Services\Assistant\Models\NullAssistantModel;
 use App\Services\Paymob\PaymobClient;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\NullPushSender;
@@ -62,6 +65,24 @@ class AppServiceProvider extends ServiceProvider
         // to build it through the fromConfig factory so controllers + actions
         // can typehint it directly.
         $this->app->singleton(PaymobClient::class, fn () => PaymobClient::fromConfig());
+
+        // The assistant's optional model tier. `none` is the default and means the question box
+        // behaves exactly as phase A built it — so this binding is what makes "we have not paid for
+        // a model" a first-class, tested state rather than a broken feature.
+        //
+        // Bound `scoped`, never `singleton`: the driver holds the token usage of its LAST call, and
+        // a queue worker outlives the request that made it.
+        $this->app->scoped(AssistantModel::class, function (): AssistantModel {
+            if (config('assistant.driver') !== 'anthropic') {
+                return new NullAssistantModel;
+            }
+
+            return new ClaudeAssistantModel(
+                apiKey: config('assistant.anthropic.api_key'),
+                model: (string) config('assistant.anthropic.model'),
+                maxTokens: (int) config('assistant.anthropic.max_tokens'),
+            );
+        });
 
         // The activity log's vocabulary MUST be one instance per request, because its whole
         // performance story is a cache: `preloadReferences()` resolves a page's foreign keys in

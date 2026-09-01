@@ -5,12 +5,16 @@ namespace App\Services\Assistant;
 use App\Http\Middleware\SetLocale;
 use App\Models\AssistantQuestion;
 use App\Support\Assistant\AssistantCorpus;
+use App\Contracts\AssistantModel;
+use App\Support\Assistant\AssistantBudget;
 use App\Support\Assistant\AssistantDocs;
 use App\Support\Assistant\AssistantEntry;
 use App\Support\Assistant\AssistantRecords;
 use App\Support\ReportCatalogue;
+use App\Support\ScreenGuides;
 use App\Support\ReportParameters;
 use App\Support\Search\SearchText;
+use Illuminate\Support\Facades\Cache;
 use App\Support\TenantScope;
 use Illuminate\Support\Facades\Auth;
 
@@ -132,7 +136,87 @@ class AnswerQuestionService
             self::MAX_RESULTS,
         );
 
-        return $this->record($question, $results, $readerLocale, $assetId);
+        // THE WORDING LAYER (phase B), and it is the LAST thing that happens.
+        //
+        // Everything above already produced a usable answer; this only puts it into a sentence. So
+        // it can be off, unconfigured, over budget or broken and the screen still works — which is
+        // the property that let phase B ship before anyone decided to pay for it.
+        $worded = $this->word($question, $results, $readerLocale);
+
+        return $this->record($question, $results, $readerLocale, $assetId, $worded);
+    }
+
+    /**
+     * Put the answer into a sentence, if a model is configured and there is budget left.
+     *
+     * **Cached on the question and on what retrieval found**, not on the question alone: if the
+     * documentation is re-indexed or a screen guide is rewritten, the passages change and so must
+     * the answer. Keyed by fold, so six people asking "izzay a3mel credit note" in six spellings
+     * pay once — the cheapest question is the one that never reaches the API.
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     * @return array{text: string|null, input: int, output: int}
+     */
+    private function word(string $question, array $results, string $locale): array
+    {
+        $none = ['text' => null, 'input' => 0, 'output' => 0];
+
+        $model = app(AssistantModel::class);
+
+        if ($results === [] || ! $model->isConfigured()) {
+            return $none;
+        }
+
+        $passages = [];
+
+        foreach ($results as $result) {
+            $body = $result['excerpt'] ?? null;
+
+            if ($body === null && ($result['kind'] ?? null) === 'screen') {
+                // A screen's guide IS its passage — the same four fields the panel renders.
+                $body = implode(' ', array_merge(
+                    [ScreenGuides::purpose($result['key'])],
+                    ScreenGuides::steps($result['key']),
+                    ScreenGuides::rules($result['key']),
+                ));
+            }
+
+            if (filled($body)) {
+                $passages[] = ['title' => (string) $result['title'], 'body' => (string) $body];
+            }
+        }
+
+        if ($passages === []) {
+            return $none;
+        }
+
+        $key = 'assistant:answer:'.md5(implode('|', [
+            $locale,
+            SearchText::normalize($question),
+            implode(',', array_column($results, 'key')),
+        ]));
+
+        if (($hit = Cache::get($key)) !== null) {
+            // A cached answer cost nothing this time, and must not be counted against the ceiling
+            // a second time — the tokens were already recorded on the row that paid for them.
+            return ['text' => $hit, 'input' => 0, 'output' => 0];
+        }
+
+        // Checked BEFORE the call, so the ceiling is a wall and not a report. Deliberately after
+        // the cache, so a month that has hit its limit still answers every question it has already
+        // paid for.
+        if (! AssistantBudget::allowsAnotherCall()) {
+            return $none;
+        }
+
+        $text = $model->word($question, $passages, $locale);
+        $usage = $model->lastUsage();
+
+        if ($text !== null) {
+            Cache::put($key, $text, now()->addHours((int) config('assistant.cache_hours')));
+        }
+
+        return ['text' => $text, 'input' => (int) $usage['input'], 'output' => (int) $usage['output']];
     }
 
     /**
@@ -318,7 +402,7 @@ class AnswerQuestionService
      * @param  array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>  $results
      * @return array{results: array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>, matched: bool, locale: string}
      */
-    private function record(string $question, array $results, string $locale, ?int $assetId): array
+    private function record(string $question, array $results, string $locale, ?int $assetId, ?array $worded = null): array
     {
         $top = $results[0] ?? null;
 
@@ -337,12 +421,16 @@ class AnswerQuestionService
             'top_key' => $top['key'] ?? null,
             'top_score' => $top['score'] ?? 0,
             'result_count' => count($results),
+            'model_answer' => $worded['text'] ?? null,
+            'model_input_tokens' => $worded['input'] ?? 0,
+            'model_output_tokens' => $worded['output'] ?? 0,
         ]);
 
         return [
             'results' => $results,
             'matched' => $top !== null,
             'locale' => $locale,
+            'answer' => $worded['text'] ?? null,
         ];
     }
 }

@@ -48,6 +48,12 @@
         "note": null
     },
     {
+        "model": "AssistantDocChunk",
+        "label": "Assistant Doc Chunk",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "AssistantQuestion",
         "label": "Assistant Question",
         "classification": "owned",

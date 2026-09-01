@@ -19,6 +19,20 @@
         </div>
     </form>
 
+    {{-- The worded answer, when a model is configured. It sits ABOVE the sources and never
+         replaces them: the passages are what it was written from, and a reader who wants to check
+         it must be able to. With no model configured this renders nothing at all. --}}
+    @if ($asked && filled($answer))
+        <x-filament::section class="mt-6">
+            <x-slot name="heading">{{ __('admin.assistant.answer_heading') }}</x-slot>
+            <x-slot name="description">{{ __('admin.assistant.answer_caveat') }}</x-slot>
+
+            <div class="prose prose-sm max-w-none text-gray-950 dark:text-white">
+                {!! nl2br(e($answer)) !!}
+            </div>
+        </x-filament::section>
+    @endif
+
     @if ($asked)
         @php
             // Which result gets its guide opened in full. Records rank above screens and have no

@@ -1,6 +1,7 @@
-# 39 · Ask Atriom — the in-app assistant (A0 · A1 · A2)
+# 39 · Ask Atriom — the in-app assistant
 
-**Status: A0, A1 and A2 shipped.** No language model is involved. See
+**Status: the A phase shipped, and phase B0 shipped SWITCHED OFF.** With the default
+`ASSISTANT_DRIVER=none` no language model is involved and nothing leaves the server. See
 [docs/integrations/AI-ASSISTANT.md](../integrations/AI-ASSISTANT.md) for the full design, the later
 phases, and what a model would cost if one is ever added.
 
@@ -27,6 +28,8 @@ screen held it, which is precisely what a new operator does not know.
 | `AssistantDocChunk` | `assistant_doc_chunks` — the operator-facing documentation, chunked by heading |
 | `DocCorpus` | WHICH documentation may be quoted, and the chunker |
 | `AssistantDocs` | the documentation tier — consulted only when the guides had nothing |
+| `AssistantModel` (contract) | the optional wording layer — `none` and `anthropic` drivers |
+| `AssistantBudget` | month-to-date spend against a hard ceiling |
 | `AnswerQuestionService` | `app/Services/Assistant` — fold, score, filter by access, record |
 | `Assistant` (page) | `/admin/ask` — the question box |
 | `AssistantQuestions` (page) | `/admin/assistant-questions` — the miss list |
@@ -81,6 +84,46 @@ sentence, presented with the same confidence as a title match scoring 16. **A wr
 worse than none** — the reader follows it, finds the wrong screen, and concludes the box does not
 work. Silence is honest, costs one more search, and lands the question on the unanswered list where
 it becomes the next screen guide.
+
+## Phase B — the model as a WORDING layer
+
+**It ships off.** `config/assistant.php` defaults to `driver => none`, which binds
+`NullAssistantModel` and makes the whole A phase the shipped behaviour. Turning it on is one env
+line plus a key.
+
+**It never chooses anything.** Retrieval has already found the passages — filtered by what this
+reader may open — and the model is handed those and nothing else. No tools, no database handle, no
+say in what it sees. So it cannot reach a record its reader could not, cannot run a query, and
+cannot move anything: the worst outcome available to it is a wrong sentence printed above the
+correct source, which stays on screen underneath it.
+
+That is also why it is affordable. The expensive design is the one where the model reads a
+catalogue of 26 reports and 113 screens and decides; this one reads three paragraphs — about
+**$0.006 a question**, ~200 EGP/month for an office of fifteen.
+
+**Four cost controls, in the order they bite:**
+
+1. `driver => none` — the default. Costs nothing.
+2. The **answer cache**, keyed on the FOLD of the question *and* on what retrieval found — so six
+   people asking one thing six ways pay once, and a re-indexed handbook correctly re-asks.
+3. The **ceiling**, checked BEFORE every call so it is a wall rather than a report. Spend is
+   derived from tokens recorded on `assistant_questions`, so it survives a cache flush and can be
+   audited from the same rows the miss list ranks. `0` means "never spend" — a supported way to
+   stop the spending without deleting the key.
+4. A small `max_tokens`: a short answer is the product, since the passages are on screen below it.
+
+**Why the ceiling lives in config and not in Settings:** only whoever can deploy can set the API
+key, so only they can enable spending at all. A ceiling an operator could raise without being able
+to set the key would be a control over nothing.
+
+**Why Haiku 4.5 by default:** on this design the model does not choose, so its whole job is *"answer
+this question from this text, in this language"* — the workload where the cheapest current model is
+closest to the most expensive, at roughly a fifth of the price. Configurable; the miss list is how
+you would know it needed raising.
+
+**Every failure leaves phase A working.** No key, over budget, provider outage, rate limit, a
+non-text block first in the response: each returns null, and the screen shows the sources exactly as
+it did before phase B existed.
 
 ## The miss list is the point
 
@@ -199,6 +242,18 @@ link, and the report shows its own period selector.
 - **`|| warn` in `deploy.sh` would have aborted every release.** The script defines exactly one
   helper (`step`) and runs under `set -Eeuo pipefail`, so an undefined function returns non-zero
   and takes the deploy down — over a search index. It is `|| printf`, which always succeeds.
+- **A new column must be added to `$fillable` or `create()` drops it SILENTLY.** The model's
+  answer vanished and the spend ceiling read zero for ever — the same defect this codebase records
+  for `recurring_expenses.recurring_expense_id`. Three tests failed at once, which is only because
+  the budget is derived from those columns rather than from a counter.
+- **The passages are DATA and the system prompt says so.** They carry operator-typed text — a
+  trading name, a lease note, a work-order comment — that a party outside the company could have
+  influenced. They are fenced and labelled, and instructions inside them are to be reported rather
+  than followed. That is a mitigation, not a guarantee: the real defence is that the layer has no
+  tools to abuse.
+- **No prompt caching on this route, deliberately.** Haiku 4.5's minimum cacheable prefix is 4,096
+  tokens and this request is a fraction of that, so a `cache_control` marker would silently do
+  nothing. The answer cache is the lever that pays at this volume.
 - **Every non-grouped column in the miss list is an aggregate**, because MySQL runs
   `ONLY_FULL_GROUP_BY` and would reject a bare column while SQLite silently picks an arbitrary row
   and the suite stays green. `MAX(id)` also gives Filament a real record key, so the table
@@ -222,8 +277,10 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 
 ## Tests
 
-`AskingAtriomFindsTheScreenThatAnswersTest` (18), `TheAssistantReachesPastTheScreenGuidesTest` (9)
-and `TheMissListIsTheDeliverableTest` (6) — 33 in all. Every refusal is
+`AskingAtriomFindsTheScreenThatAnswersTest` (18), `TheAssistantReachesPastTheScreenGuidesTest` (9),
+`TheMissListIsTheDeliverableTest` (6) and `TheModelOnlyWordsWhatRetrievalFoundTest` (11) — 44 in
+all. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
+the ceiling, the cache and the default-off were each mutation-proved. Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.
 

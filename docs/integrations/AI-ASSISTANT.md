@@ -1,6 +1,9 @@
 # The in-app assistant — design
 
-**Status: THE WHOLE A PHASE SHIPPED (2026-09-01). No B phase is built, and none is scheduled.** The question box is live at
+**Status: THE A PHASE SHIPPED, AND B0 SHIPPED SWITCHED OFF (2026-09-01).** The wording layer is
+built, tested and inert: `ASSISTANT_DRIVER=none` is the default, so nothing leaves the server and
+nothing is billed until somebody sets a key. B1 (giving the model tools) is NOT built and should
+not be, until the miss list says retrieval is the limit. The question box is live at
 `/admin/ask` — see [modules/39](../modules/39-assistant.md). No language model is involved and no
 Anthropic dependency is in `composer.json`; every B phase below is still a decision, not a plan.
 
@@ -353,7 +356,7 @@ by then the logs say whether it is needed.**
 | **A2** ✅ | `atriom:rebuild-assistant-index` + the doc-chunk table, so the box reaches past the guides — 530 sections, 405 EN / 125 AR. Two corrections to this row: it is a **deploy** step, not a nightly one (the files change only when the repo does), and it uses the project's own folded `LIKE` rather than FULLTEXT, which is driver-specific and this suite runs on SQLite. | $0 | done |
 | **A3** ✅ | The miss list as a screen — `/admin/assistant-questions`, grouped and ranked, with its own `assistant.review` permission. | $0 | done |
 | **—** | **Ship, and read the miss list for a month.** What was asked, what matched nothing. That list is the only honest input to the next decision, and it no longer needs a database client to read. | $0 | — |
-| **B0** | The model as a **wording layer only**, on the passage A0–A2 already found: `AssistantModel` interface, `none` + `anthropic` drivers, monthly ceiling, answer cache. | ~200 EGP/mo | 2 days |
+| **B0** ✅ | The model as a **wording layer only**, on the passage A0–A2 already found: `AssistantModel` interface, `none` + `anthropic` drivers, monthly ceiling, answer cache. Ships OFF. | 0 EGP until enabled, then ~200 EGP/mo | done |
 | **B1** | Give the model the tools (`run_report`, `find_records`, `open_record`) so it can answer what retrieval alone cannot. Row caps, `AssistantFields` registry + gate. | ~400–1,000 EGP/mo | 3–4 days |
 | **B2** | Evaluation set of ~50 real questions from the A-phase logs, with expected answers. Run before each release. | — | 2 days |
 | **later** | The tenant portal assistant — scoped to one tenant, no cross-tenant reach, drafts hidden. Highest risk surface; do it last, on its own. | — | — |

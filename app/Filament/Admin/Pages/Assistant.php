@@ -52,6 +52,9 @@ class Assistant extends Page
 
     public bool $asked = false;
 
+    /** What the model made of it, when one is configured. Null is the shipped default. */
+    public ?string $answer = null;
+
     public function mount(): void
     {
         $this->form->fill();
@@ -100,6 +103,7 @@ class Assistant extends Page
         $answer = $service->answer($question);
 
         $this->results = $answer['results'];
+        $this->answer = $answer['answer'] ?? null;
         $this->asked = true;
     }
 

@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Models\AssistantQuestion;
+use App\Contracts\AssistantModel;
+use App\Support\Assistant\AssistantBudget;
 use App\Support\Modules;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -174,8 +176,35 @@ class AssistantQuestions extends Page implements HasTable
         return __('admin.assistant.review.page_title');
     }
 
+    /**
+     * The subheading carries the MODEL's state, and this is where it belongs.
+     *
+     * Deliberately not a `ConfigurationHealth` row: its four categories are all about the books
+     * being set up, and a BLOCKING row there decides `atriom:preflight`'s exit code — an unpaid
+     * optional feature must never stop a release. An ADVISORY row would need a whole new category
+     * for one line nobody opens that screen to read.
+     *
+     * Here it is read by exactly the person it is for: whoever is deciding whether the model tier
+     * earns its money is already looking at this list. It shows the spend the ceiling is measured
+     * against, so "am I close to the cap" and "is it answering anything" are one glance.
+     */
     public function getSubheading(): ?string
     {
-        return __('admin.assistant.review.subheading');
+        $base = __('admin.assistant.review.subheading');
+
+        if (config('assistant.driver') === 'none') {
+            return $base.' '.__('admin.assistant.review.model_off');
+        }
+
+        if (! app(AssistantModel::class)->isConfigured()) {
+            // The silent-inert failure: a driver switched on with no key answers nothing and looks
+            // exactly like a quiet week.
+            return $base.' '.__('admin.assistant.review.model_unconfigured');
+        }
+
+        return $base.' '.__('admin.assistant.review.model_spend', [
+            'spent' => number_format(AssistantBudget::spentThisMonth(), 2),
+            'ceiling' => number_format(AssistantBudget::ceiling(), 2),
+        ]);
     }
 }

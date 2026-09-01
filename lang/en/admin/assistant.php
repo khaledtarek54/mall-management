@@ -32,6 +32,9 @@ return [
         'open_record' => 'Open this record',
         'read_more' => 'Read the full section',
 
+        'answer_heading' => 'Short answer',
+        'answer_caveat' => 'Written from the sources below. Check them before acting on a figure.',
+
         'no_answer_heading' => 'No answer for that one',
         'review' => [
             'nav_label' => 'Assistant questions',
@@ -46,6 +49,9 @@ return [
             'last_asked' => 'Last asked',
             'unanswered_only' => 'Answered by nothing',
             'empty_heading' => 'Nobody has asked anything yet',
+            'model_off' => 'No language model is configured — answers come from the guides alone, at no cost.',
+            'model_unconfigured' => 'A model is switched on but has no API key, so nothing is being worded. Answers still come from the guides.',
+            'model_spend' => 'Model spend this month: $:spent of $:ceiling.',
             'empty_body' => 'Questions appear here as people use Ask Atriom. The ones nothing answered are the list worth reading.',
         ],
 

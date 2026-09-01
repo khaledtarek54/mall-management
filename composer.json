@@ -13,6 +13,7 @@
         "ext-intl": "*",
         "ext-mbstring": "*",
         "ext-zip": "*",
+        "anthropic-ai/sdk": "^0.45.0",
         "filament/filament": "^4.0",
         "filament/spatie-laravel-media-library-plugin": "^4.0",
         "laravel/framework": "^13.7",

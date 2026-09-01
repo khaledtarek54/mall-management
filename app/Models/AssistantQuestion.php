@@ -36,6 +36,13 @@ class AssistantQuestion extends Model
         'top_key',
         'top_score',
         'result_count',
+        // Phase B. `create()` drops an unfillable key SILENTLY — the model answer vanished and the
+        // spend ceiling read zero for ever, which is the same defect this codebase already records
+        // for `recurring_expenses.recurring_expense_id`. Three tests caught it at once because the
+        // budget is derived from these columns rather than from a counter.
+        'model_answer',
+        'model_input_tokens',
+        'model_output_tokens',
     ];
 
     /**
@@ -46,6 +53,8 @@ class AssistantQuestion extends Model
         'matched' => false,
         'top_score' => 0,
         'result_count' => 0,
+        'model_input_tokens' => 0,
+        'model_output_tokens' => 0,
     ];
 
     protected function casts(): array
@@ -54,6 +63,8 @@ class AssistantQuestion extends Model
             'matched' => 'boolean',
             'top_score' => 'integer',
             'result_count' => 'integer',
+            'model_input_tokens' => 'integer',
+            'model_output_tokens' => 'integer',
         ];
     }
 

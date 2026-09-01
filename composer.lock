@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2b6bf3b169b5c0f140f0b85ae47581cf",
+    "content-hash": "ef6002eedd34174a0a6228c3d2a6bfdf",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -70,6 +70,69 @@
                 "source": "https://github.com/AnourValar/eloquent-serialize/tree/1.3.10"
             },
             "time": "2026-06-20T14:30:25+00:00"
+        },
+        {
+            "name": "anthropic-ai/sdk",
+            "version": "v0.45.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/anthropics/anthropic-sdk-php.git",
+                "reference": "0139cbc17d6db576478ea794e52aa91bc0747e3c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/anthropics/anthropic-sdk-php/zipball/0139cbc17d6db576478ea794e52aa91bc0747e3c",
+                "reference": "0139cbc17d6db576478ea794e52aa91bc0747e3c",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.1",
+                "php-http/discovery": "^1",
+                "psr/http-client": "^1",
+                "psr/http-client-implementation": "^1",
+                "psr/http-factory-implementation": "^1",
+                "psr/http-message": "^1|^2",
+                "standard-webhooks/standard-webhooks": "^1"
+            },
+            "require-dev": {
+                "aws/aws-sdk-php": "^3.368",
+                "friendsofphp/php-cs-fixer": "^3",
+                "google/auth": "^1.49",
+                "guzzlehttp/guzzle": "^7",
+                "mcp/sdk": "^0.7.1",
+                "nyholm/psr7": "^1",
+                "pestphp/pest": "^3",
+                "php-http/mock-client": "^1",
+                "phpstan/extension-installer": "^1",
+                "phpstan/phpstan": "2.2.1",
+                "phpstan/phpstan-phpunit": "^2",
+                "phpunit/phpunit": "^11",
+                "symfony/http-client": "^7"
+            },
+            "suggest": {
+                "aws/aws-sdk-php": "Allows using the AWS Bedrock, AWS gateway, and Bedrock Mantle SDKs",
+                "google/auth": "Allows using the Google Vertex and Google Cloud gateway SDKs",
+                "mcp/sdk": "Required to use the BetaMcp helpers for integrating MCP servers with the Anthropic SDK"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/Version.php"
+                ],
+                "psr-4": {
+                    "Anthropic\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Anthropic PHP SDK",
+            "support": {
+                "issues": "https://github.com/anthropics/anthropic-sdk-php/issues",
+                "source": "https://github.com/anthropics/anthropic-sdk-php/tree/v0.45.0"
+            },
+            "time": "2026-08-31T14:55:40+00:00"
         },
         {
             "name": "bacon/bacon-qr-code",
@@ -8312,6 +8375,51 @@
                 }
             ],
             "time": "2026-03-23T22:56:56+00:00"
+        },
+        {
+            "name": "standard-webhooks/standard-webhooks",
+            "version": "v1.0.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/standard-webhooks/standard-webhooks.git",
+                "reference": "a1773d7ffc577d730e2bf4d4bd740a82a42aa904"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/standard-webhooks/standard-webhooks/zipball/a1773d7ffc577d730e2bf4d4bd740a82a42aa904",
+                "reference": "a1773d7ffc577d730e2bf4d4bd740a82a42aa904",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.0 || ^10.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "StandardWebhooks\\": "libraries/php/src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Standard Webhooks - Open source tools and guidelines for sending webhooks easily, securely, and reliably",
+            "homepage": "https://www.standardwebhooks.com",
+            "keywords": [
+                "hmac",
+                "signature",
+                "standard-webhooks",
+                "verification",
+                "webhooks"
+            ],
+            "support": {
+                "issues": "https://github.com/standard-webhooks/standard-webhooks/issues",
+                "source": "https://github.com/standard-webhooks/standard-webhooks/tree/v1.0.2"
+            },
+            "time": "2026-02-18T19:02:27+00:00"
         },
         {
             "name": "stephenjude/filament-two-factor-authentication",
