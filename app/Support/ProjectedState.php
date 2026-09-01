@@ -82,6 +82,16 @@ final class ProjectedState
             // `expired` is reached by the sweep, not by an operator: typing it would skip the acts
             // that a real ending performs (settle the deposit, credit unearned billing, close the
             // schedule), which is why `terminated` and `renewed` are not offered on the form either.
+            //
+            // REVERSIBLE, and it is the only one of the three that needed saying (2026-09-01). The
+            // projected value `expired` is ALSO a member of `Lease::TERMINAL_STATUSES` — a machine's
+            // guess about today, written into a column whose other values are decisions that closed
+            // the record — so every downstream predicate read the guess as a decision. Its two
+            // siblings here each carve out a human's statement (`maintenance`, `out_of_service`) and
+            // this one had none: the sweep's candidate set is exactly the holdover-conversion
+            // candidate set, so at 05:15 it made the whole LE-04 workflow unreachable, permanently.
+            // `Lease::isResumingFromExpiry()` is that carve-out, recognised by the SHAPE of the
+            // write rather than by trusting a caller.
             'projector' => 'hasExpiredTerm',
             'sweep' => 'leases:expire',
             'stale_when' => 'the expiry date passes with nobody renewing, terminating or holding over',

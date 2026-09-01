@@ -83,6 +83,13 @@ final class ConcurrencyPolicy
     ];
 
     public const PROVEN = [
+        'app/Services/ConvertLeaseToHoldoverService.php' => [
+            'locks' => 1,
+            'protects' => 'The unit. Resuming an expired lease makes it ACTIVE on that shop again, so '.
+                'this is the third writer that can put an active lease on a unit. The hole is '.
+                'sequential rather than a race: the nightly sweep vacates the unit, leasing re-lets '.
+                'it, and the old lease is converted weeks later — two active leases, both billing.',
+        ],
         'app/Services/LeaseCreationService.php' => [
             'locks' => 1,
             'protects' => 'The unit. Two leases signed on the same vacant unit at once — the race that '.
@@ -262,9 +269,12 @@ final class ConcurrencyPolicy
         // A BLOCKING cache lock around every numbered-document insert, so two concurrent creates
         // cannot take the same number. Not a row lock — the thing being protected is a sequence.
         'app/Models/Concerns/AllocatesDocumentNumber.php' => 1,
-        // Not a critical section: the health check ACQUIRES a lock to prove the cache driver can,
-        // which is a probe. Registered so the file is classified rather than silently exempt.
-        'app/Support/Health.php' => 2,
+        // `app/Support/Health.php` was registered here at 2 locks, described as a probe that
+        // acquires one to prove the cache driver can. It acquires NONE — it mentions `Cache::lock()`
+        // once in a docblock and once inside an operator-facing message, and the scanner was
+        // counting those two sentences. A registry entry for a file that is not a critical section
+        // is worse than no entry: it reports coverage of a guard that does not exist. Removed when
+        // the scanner learnt to read code rather than prose (2026-09-01).
     ];
 
     /** @return array<string, int> file => expected lock count, across both tiers */

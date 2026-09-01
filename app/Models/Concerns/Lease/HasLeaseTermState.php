@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns\Lease;
 
+use App\Models\LeaseEvent;
 use Carbon\CarbonImmutable;
 // Imported for the `@param Builder` docblocks below: without it they resolve to
 // App\Models\Concerns\Lease\Builder, a class that does not exist — a type annotation naming
@@ -81,7 +82,64 @@ trait HasLeaseTermState
      */
     public function scopeHoldoverNeedingAction($query)
     {
-        return $this->scopeHoldover($query)->whereNull('holdover_from');
+        // Deliberately NOT composed from `scopeHoldover()` any more, and that is the fix.
+        //
+        // `holdover()` requires `status = 'active'`, which really means "the 05:15 `leases:expire`
+        // sweep has not reached this lease yet". That sweep's candidate set — active, past expiry,
+        // `holdover_from` null — is EXACTLY the holdover-conversion candidate set, so every morning
+        // it emptied this card, hid the Convert button and made the service refuse. The whole LE-04
+        // workflow was reachable between midnight and 05:15 on the single morning after a term
+        // ended, and never again.
+        //
+        // `expired` is a PROJECTION (`ProjectedState::PROJECTIONS['lease.term']`) — a machine's guess
+        // about today — and it is also a member of `TERMINAL_STATUSES`, a decision that closed the
+        // record. The two other projections in that registry both carve out a human's statement
+        // (`units.status = 'maintenance'`, `rentable_items.status = 'out_of_service'`); this one had
+        // no carve-out and no way back. Whether the tenant is still trading is the one fact only a
+        // person holds, which `ConvertLeaseToHoldoverService`'s own docblock says in writing.
+        //
+        // So the decision is outstanding on an `active` lease past its term AND on one the sweep has
+        // since projected as `expired` — but never on a tenancy somebody has actually CLOSED, which
+        // is derived from the immutable termination event and from the renewal chain rather than
+        // from a new column.
+        return $query
+            ->whereIn('status', ['active', 'expired'])
+            ->whereNull('holdover_from')
+            ->whereNotNull('expiry_date')
+            ->whereDate('expiry_date', '<', now()->toDateString())
+            ->whereDoesntHave('events', fn ($e) => $e->where('type', LeaseEvent::TYPE_TERMINATION))
+            // …and never a shop that has since been RE-LET. The unit went vacant when the sweep
+            // projected this lease as expired, so leasing may legitimately have signed a new tenant
+            // in the meantime — and converting then would put two active leases on one shop, both
+            // billing. Excluded here as well as refused in the service, so the card cannot offer
+            // work the service will decline.
+            ->whereNotExists(fn ($q) => $q
+                ->selectRaw('1')
+                ->from('leases as relet')
+                ->join('lease_unit as ru', 'ru.lease_id', '=', 'relet.id')
+                ->whereColumn('ru.unit_id', 'leases.unit_id')
+                ->where('relet.status', 'active')
+                ->whereColumn('relet.id', '!=', 'leases.id'));
+    }
+
+    /**
+     * The row half of {@see scopeHoldoverNeedingAction()} — is a holdover decision still outstanding?
+     *
+     * Kept beside its SQL twin for the reason this file's docblock gives about the other four pairs:
+     * a predicate answered one way by the dashboard's query and another way by the button's
+     * `visible()` is how a card offers work an operator then cannot do.
+     */
+    public function awaitsHoldoverDecision(): bool
+    {
+        return in_array($this->status, ['active', 'expired'], true)
+            && $this->holdover_from === null
+            && $this->expiry_date !== null
+            && $this->expiry_date->startOfDay()->lt(now()->startOfDay())
+            && ! $this->events()->where('type', LeaseEvent::TYPE_TERMINATION)->exists()
+            // …and the shop has not been re-let. See the scope for why: the sweep vacates the unit,
+            // so a new tenant may legitimately hold it now, and converting would make two leases
+            // active on one shop.
+            && ! ($this->unit?->isActivelyLeased($this->id) ?? false);
     }
 
     public function isHoldover(): bool

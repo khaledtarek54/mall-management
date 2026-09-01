@@ -120,6 +120,38 @@
 > (renew, holdover, terminate, final account) — beside Generate invoice.
 > `LeaseActionTopologyTest` fails the build if a bespoke `Action::make()` reappears on a row, or if a
 > group smuggles in an action the registry does not own.
+
+> **⚠️ The nightly sweep used to make the holdover decision unreachable (fixed 2026-09-01).**
+> `leases:expire` runs at 05:15 and projects every active lease past its term to `expired` — and that
+> candidate set is *exactly* the holdover-conversion candidate set. Four doors shut at once: the
+> service refused anything but `active`, the button's `visible()` asked `isHoldover()` (which
+> requires `active`), the ActionRequired card's scope did the same, and `expired` is in
+> `TERMINAL_STATUSES` so the immutability hook refused every commercial write. The whole LE-04
+> workflow was reachable between midnight and 05:15 on the single morning after a term ended, and
+> never again.
+>
+> The root cause is that **`expired` is a PROJECTION and a TERMINAL STATUS at the same time** — a
+> machine's guess about today, written into a column whose other values are decisions that closed the
+> record. `ProjectedState`'s two other projections each carve out a human's statement
+> (`units.status = 'maintenance'`, `rentable_items.status = 'out_of_service'`); this one had none.
+> Whether the tenant is still trading is the one fact only a person holds, and the sweep was
+> asserting the opposite on their behalf before anyone was at their desk.
+>
+> `Lease::awaitsHoldoverDecision()` (and its SQL twin `scopeHoldoverNeedingAction()`) is now the one
+> predicate the service, the button and the card all read; it spans `active` **and** `expired`, and
+> excludes a tenancy somebody really closed — derived from the immutable termination event, never a
+> new column. Conversion writes `status => 'active'` back, or it would succeed and still bill
+> nothing (`isBillableForPeriod()` requires it). `Lease::isResumingFromExpiry()` lifts the
+> immutability hook for that one write, recognised by its **shape** rather than by trusting a caller:
+> `expired` → `active`, `holdover_from` null → set, and nothing dirty among the commercial terms in
+> `HOLDOVER_RESUMPTION_FORBIDS`. `terminated`, `cancelled` and `renewed` stay absolutely immutable.
+>
+> **It locks the UNIT**, because resuming makes a lease active on a shop again and this is the third
+> writer that can do that. The hole it closes is sequential rather than a race: the sweep vacates the
+> unit, leasing legitimately re-lets it, and the old lease is converted weeks later — two active
+> leases on one shop, both billing, with `Unit::recomputeStatus()` reporting `occupied` either way.
+> A re-let shop is excluded from the predicate too, so the card cannot offer work the service will
+> decline. (`AnExpiredLeaseCanStillBeHeldOverTest`, mutation-proved.)
 >
 > **And the premises field stopped being a second, lossy path.** `EditLease::afterSave()` feeds
 > `additional_unit_ids` to `syncUnits()`, which is a `sync()` — so REMOVING a unit there **detached

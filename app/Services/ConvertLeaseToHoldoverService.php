@@ -2,11 +2,12 @@
 
 namespace App\Services;
 
-use App\Support\LeaseEventNarrative;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
+use App\Models\Unit;
 use App\Settings\BillingSettings;
+use App\Support\LeaseEventNarrative;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -39,9 +40,16 @@ class ConvertLeaseToHoldoverService
      */
     public function convert(Lease $lease, array $data): Lease
     {
-        if ($lease->status !== 'active') {
+        // `awaitsHoldoverDecision()`, not `status === 'active'`. The nightly `leases:expire` sweep
+        // projects exactly this candidate set to `expired` at 05:15, so an `active`-only guard made
+        // the whole workflow reachable on one morning and never again. `expired` is a PROJECTION —
+        // the machine's guess that nobody continued the tenancy — and converting to holdover is the
+        // operator asserting the opposite, which is the one fact only a person holds. A tenancy
+        // somebody really did close (a termination event, or a renewal) is excluded by the predicate
+        // and stays refused.
+        if (! $lease->awaitsHoldoverDecision()) {
             throw new InvalidArgumentException(
-                "Lease #{$lease->id} is '{$lease->status}'; only an active lease can hold over."
+                "Lease #{$lease->id} is '{$lease->status}' and has no outstanding holdover decision."
             );
         }
 
@@ -83,6 +91,28 @@ class ConvertLeaseToHoldoverService
         }
 
         return DB::transaction(function () use ($lease, $rate, $effectiveFrom, $expiry, $data) {
+            // Lock the UNIT, and re-ask under the lock — the third writer that makes a lease active
+            // on a shop, and the two that came before it (`LeaseCreationService`,
+            // `LeaseRenewalService`) both do exactly this for exactly this reason.
+            //
+            // It is not only a race. The sweep OPENS the hole sequentially: the term ends, the lease
+            // is projected `expired`, the unit re-projects to vacant, leasing re-lets it — and weeks
+            // later somebody works the ActionRequired card and converts the old lease. Both would be
+            // `active` on one shop, both would bill, and `Unit::recomputeStatus()` would report
+            // `occupied` either way. Before this change it could not happen, because the conversion
+            // required `active` and an active lease blocks the re-let.
+            //
+            // A LOCKING read: the row lock serialises the writers, and only a locking read can see
+            // what the one that went first committed (MySQL REPEATABLE READ answers a plain read
+            // from the snapshot taken before the wait).
+            $unit = Unit::query()->lockForUpdate()->find($lease->unit_id);
+
+            if ($unit && $unit->isActivelyLeasedForUpdate($lease->id)) {
+                throw new InvalidArgumentException(
+                    "Unit {$unit->code} has been re-let since this lease expired, so it cannot hold over."
+                );
+            }
+
             // The last rent actually in force — read at EXPIRY, not today. A schedule with a step
             // dated after the term ended (a projected escalation the lease never reached) must not
             // become the basis of the holdover rent.
@@ -144,6 +174,13 @@ class ConvertLeaseToHoldoverService
             ]);
 
             $lease->update([
+                // Back to `active`, because the tenant IS still in the unit — which is the whole
+                // assertion this act makes. Without it the conversion would succeed and still bill
+                // nothing: `isBillableForPeriod()` and `scopeBillableForPeriod()` both require
+                // `active`, so the LE-04 defect would simply move one layer down. Stable under the
+                // sweep, too — `holdover_from` is now set, so the candidate query excludes it and a
+                // second run changes nothing.
+                'status' => 'active',
                 'holdover_rate_pct' => $rate,
                 'holdover_from' => $effectiveFrom->toDateString(),
                 // The rent in force really is the holdover rent now — the dashboard, the rent roll

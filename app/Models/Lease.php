@@ -297,11 +297,78 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 // terminated lease and changing its rent/status/dates) without freezing housekeeping.
                 $allowed = ['notes', 'metadata', 'updated_at', 'deleted_at'];
                 $blocked = collect($lease->getDirty())->keys()->reject(fn ($k) => in_array($k, $allowed, true));
-                if ($blocked->isNotEmpty()) {
+                if ($blocked->isNotEmpty() && ! $lease->isResumingFromExpiry()) {
                     throw new \DomainException(__('admin.refusals.immutable_lease', ['status' => Translate::orHumanized("admin.statuses.lease.{$original}", $original)]));
                 }
             }
         });
+    }
+
+    /**
+     * The commercial terms a resumption may NOT touch — a denylist, deliberately.
+     *
+     * The first version listed what the service writes and refused anything else, which looked
+     * tighter and was wrong: `getDirty()` is read AFTER every `saving` hook has run, and
+     * `Lease::saving` recomputes `security_deposit` whenever `base_rent_monthly` moves. The uplift
+     * moves it, so the hook dirtied a column the allowlist did not mention and the conversion threw
+     * — for every lease carrying `security_deposit_months`, which the lease form DEFAULTS from the
+     * property setting. Measured: identical leases, only that column differing, one converted and
+     * one refused. `HasSearchText` folds `search_text` in `saving` too, so a row with a stale blob
+     * would have failed the same way.
+     *
+     * An allowlist over derived columns is a list of "what the service writes" being used as "what
+     * may be dirty", and those are different questions. Naming the terms instead states the actual
+     * rule: a resumption may not re-negotiate the deal — not the term, not the premises, not the
+     * price basis, not the counterparty.
+     */
+    public const HOLDOVER_RESUMPTION_FORBIDS = [
+        'tenant_id',
+        'unit_id',
+        'start_date',
+        'commencement_date',
+        'expiry_date',
+        'base_rent_rate_per_sqm_year',
+        'rent_pricing_basis',
+        'security_deposit_months',
+        'previous_lease_id',
+        'deleted_at',
+    ];
+
+    /**
+     * The one write that may lift `expired` — recognised BY SHAPE, never by trusting the caller.
+     *
+     * `expired` is unlike its three siblings in `TERMINAL_STATUSES`. `terminated`, `cancelled` and
+     * `renewed` are each a person's act with a successor document; `expired` is a PROJECTION written
+     * by the nightly `leases:expire` sweep — a machine's guess that nobody continued the tenancy.
+     * Converting to holdover is the operator asserting the opposite, and it is the one fact only a
+     * person holds.
+     *
+     * So the carve-out is not "the holdover service may write here" — a service cannot be trusted
+     * by a model, and a crafted Livewire payload does not announce which service it came from. It is
+     * the SHAPE of the write: `expired` → `active`, `holdover_from` moving from null to set, and
+     * nothing else dirty outside the resumption columns. No other operation in the system has that
+     * shape, and `terminated`, `cancelled` and `renewed` stay absolutely immutable because each fails
+     * the first clause.
+     *
+     * The bound is {@see HOLDOVER_RESUMPTION_FORBIDS} — the commercial terms — rather than a list of
+     * the columns the service happens to write. The realistic risk here is not an attacker borrowing
+     * the shape (`holdover_from` is on no form, and Filament drops undeclared keys); it is a
+     * LEGITIMATE write growing a derived column and being refused, which is exactly what happened.
+     */
+    public function isResumingFromExpiry(): bool
+    {
+        if ($this->getOriginal('status') !== 'expired' || $this->status !== 'active') {
+            return false;
+        }
+
+        if ($this->getOriginal('holdover_from') !== null || $this->holdover_from === null) {
+            return false;
+        }
+
+        return collect($this->getDirty())
+            ->keys()
+            ->intersect(self::HOLDOVER_RESUMPTION_FORBIDS)
+            ->isEmpty();
     }
 
     /**

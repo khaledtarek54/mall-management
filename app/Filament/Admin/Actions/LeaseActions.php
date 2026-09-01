@@ -792,7 +792,11 @@ class LeaseActions
                 ->icon('heroicon-o-clock')
                 ->color('gray')
                 ->requiresConfirmation()
-                ->visible(fn (Lease $record) => $record->isHoldover() && ! $record->isConvertedHoldover() && LeaseResource::canEdit($record))
+                // `awaitsHoldoverDecision()`, the same predicate the service and the dashboard card
+                // use. `isHoldover()` is the STATE and requires `active` — i.e. "the 05:15 sweep has
+                // not reached it yet" — so this button vanished from every expired lease overnight,
+                // which is precisely when the decision is outstanding.
+                ->visible(fn (Lease $record) => $record->awaitsHoldoverDecision() && LeaseResource::canEdit($record))
                 ->authorize(fn () => auth()->user()?->can('leases.edit') ?? false)
                 ->modalHeading(fn (Lease $record) => __('admin.actions.convert_to_holdover_modal_heading', ['ref' => $record->reference]))
                 ->modalDescription(__('admin.actions.convert_to_holdover_modal_description'))
