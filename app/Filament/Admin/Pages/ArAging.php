@@ -86,11 +86,37 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
         ReportPreferences::restore($this);
     }
 
-    /** Parse a client-supplied `Y-m-d`, falling back to today. */
+    /**
+     * Parse a client-supplied date, falling back to today.
+     *
+     * **Lenient on purpose, and it was strict for the whole of its life.** This read
+     * `createFromFormat('Y-m-d', …)` — which accepts a bare date and NOTHING else — inside a
+     * `catch (\Throwable)` that returns today. Filament's date picker writes its state back
+     * through JS that uses three formats (`YYYY-MM-DD`, `YYYY-MM-DD HH:mm:ss` and
+     * `YYYY-MM-DDTHH:mm:ss`), so the moment it sent either of the last two, every one of the six
+     * reports that share this parser threw the operator's date away and reported on TODAY.
+     *
+     * Nothing looked wrong. The picker kept showing the chosen date (it holds the real state), the
+     * Livewire request fired and succeeded, no error was raised anywhere — the report simply went
+     * on answering a different question from the one on screen. Reported as "I change the As of and
+     * nothing happens", and it survived because every test set a clean `Y-m-d`, and typing
+     * `?asOf=2026-09-16` into the URL by hand works perfectly.
+     *
+     * A DATE-ONLY report, so the time is discarded rather than honoured: `endOfDay()` is what makes
+     * "as at the 16th" include the 16th.
+     *
+     * The fallback stays — a report must render rather than 500 on a malformed query string — but
+     * it is now reached only by something genuinely unparseable, not by the picker's own output.
+     * {@see ReportFilters::asOf()} normalises at the boundary so the stored value stays `Y-m-d`.
+     */
     public static function parseAsOf(mixed $value): CarbonImmutable
     {
+        if (blank($value)) {
+            return CarbonImmutable::now()->endOfDay();
+        }
+
         try {
-            return CarbonImmutable::createFromFormat('Y-m-d', (string) $value)->endOfDay();
+            return CarbonImmutable::parse((string) $value)->endOfDay();
         } catch (\Throwable) {
             return CarbonImmutable::now()->endOfDay();
         }
