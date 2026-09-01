@@ -104,7 +104,7 @@ class CreatePayment extends CreateRecord
             PostingDate::assertOpen($data['payment_date'] ?? null, __('admin.fields.payment_date'));
         } catch (\DomainException $e) {
             Notification::make()->title($e->getMessage())->danger()->send();
-            $this->halt();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
 
         // A receipt with NO allocation is orphaned money: it posts as an unearned-revenue advance
@@ -159,7 +159,7 @@ class CreatePayment extends CreateRecord
                 ->danger()
                 ->send();
 
-            $this->halt();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
     }
 
@@ -176,7 +176,7 @@ class CreatePayment extends CreateRecord
                 ->danger()
                 ->send();
 
-            $this->halt();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
     }
 

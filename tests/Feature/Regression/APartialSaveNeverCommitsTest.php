@@ -79,10 +79,14 @@ it('makes every refusing halt roll back, because halt() commits by default', fun
     // claim resting on prose alone — and red-over-correct-code in the other, because a page that
     // legitimately stops halting (throwing instead, which this app prefers) would fail a
     // `toContain('shouldRollbackDatabaseTransaction: true')`.
+    // `App\Filament\` — the relative path is taken from `app/Filament`, so it does NOT carry the
+    // `Filament` segment. Prepending only `App\` produced `App\Admin\Resources\…`, which
+    // `class_exists()` answers false for, so this swept NOTHING and passed on the single class that
+    // had been prepended by hand. The premise assertion below could not see it, because that one
+    // class made the collection non-empty — a sweep can be vacuous and still look populated.
     $transactional = collect(File::allFiles(app_path('Filament')))
         ->filter(fn ($f): bool => str_ends_with($f->getFilename(), '.php'))
-        ->map(fn ($f): string => 'App\\'.str_replace(['/', '.php'], ['\\', ''], $f->getRelativePathname()))
-        ->prepend('App\\Filament\\Admin\\Resources\\Leases\\Pages\\EditLease')
+        ->map(fn ($f): string => 'App\\Filament\\'.str_replace(['/', '.php'], ['\\', ''], $f->getRelativePathname()))
         ->unique()
         ->filter(fn (string $class): bool => class_exists($class)
             && is_subclass_of($class, Page::class)
@@ -97,7 +101,15 @@ it('makes every refusing halt roll back, because halt() commits by default', fun
         ->values();
 
     // The premise, asserted before anything is concluded from it.
-    expect($transactional)->not->toBeEmpty('no transactional pages found — the sweep measured nothing');
+    // The premise, and strong enough to catch a broken class map: the four pages known to be
+    // transactional must ALL be in the swept set. `not->toBeEmpty()` alone was satisfied by one
+    // hand-prepended class while the discovery found none.
+    expect($transactional->all())->toContain(
+        CreateLease::class,
+        EditLease::class,
+        CreatePayment::class,
+        EditPayment::class,
+    );
 
     $offenders = $transactional
         ->map(fn (string $class): string => (new ReflectionClass($class))->getFileName())
