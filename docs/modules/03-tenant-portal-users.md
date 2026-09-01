@@ -41,6 +41,22 @@ Before this module, a Tenant company had a single password stored on the `Tenant
 
 **Scoping to the company is not the same question as what that company may SEE (2026-08-16).** The
 invoice table filtered on `tenant_id` correctly and still showed **draft** invoices — the column's
+> **⚠️ A DRAFT lease was visible to the tenant (fixed 2026-09-02).** The portal's `LeaseResource`
+> scoped by `tenant_id` alone — which answers *whose row is this* and not *has it been put to them*
+> — so a retailer read their own rent, term and deposit off terms still being written, and would
+> reasonably treat them as settled. Registered in `App\Support\TenantVisibility::HIDDEN` rather
+> than fixed with a `whereNotIn` on the resource: that registry is the ONE definition, and the
+> hand-rolled version would not have covered `LoginTenantAction`, which lists leases from a
+> different query and was leaking the same drafts to the **mobile login picker** — id, mall, unit
+> number and term dates. *The portal and `/api/v1` are the same surface with different renderers.*
+>
+> **`pending_approval` is deliberately NOT hidden**, and the reasoning is the useful part. It reads
+> like "not agreed yet", but twelve places treat it as a LIVE tenancy: it may be terminated, given
+> rent relief, extended, re-priced, space-changed, take a CAM estimate, hold a parking bay *and mark
+> it off-market*, it makes the unit `reserved`, and it counts as committed revenue. Nobody grants
+> rent relief on terms nobody agreed — so hiding it would leave a retailer holding a bay under a
+> lease they cannot see. (`PortalLeaseVisibilityTest`.)
+
 DEFAULT status — because "whose row is this?" and "has this document been raised?" are two
 questions and only the first was being asked. The table now also narrows with `visibleToTenant()`;
 the registry is `App\Support\TenantVisibility` and it is shared with the mobile API, because the

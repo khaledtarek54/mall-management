@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Services\GrantCustodyService;
 use App\Support\ActivityLogging;
@@ -27,6 +28,32 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: GrantCustodyService::class)]
 class Custody extends Model
 {
+    /**
+     * A custody date may not be MOVED into a closed period.
+     *
+     * `GrantCustodyService` asserts it on the grant, and the register named that service — but the
+     * Edit form reached the same column with no guard, so an un-settled عهدة could be back-dated
+     * into a closed month: the row saves, the operator reads "Saved", and the GL re-post is refused
+     * inside the best-effort sync that only logs.
+     *
+     * **The guard belongs on the MODEL, not on the page**, and the first attempt at this put it on
+     * `EditCustody::mutateFormDataBeforeSave()` — which broke every settled custody. `CustodyForm`
+     * disables `custody_date` once anything has been spent against it, a disabled field is not
+     * dehydrated, so `$data['custody_date']` was ABSENT and the guard refused a date that had not
+     * moved. Editing only the purpose of a settled عهدة became impossible — the very thing this
+     * model's own docblock promises stays editable.
+     *
+     * `GuardsPostingDate` is dirty-only and `filled()`-guarded for exactly those two reasons, and
+     * being on the model it also covers the importer, the console and the API, which a form hook
+     * never could.
+     */
+    use GuardsPostingDate;
+
+    public static function postingDateColumn(): string
+    {
+        return 'custody_date';
+    }
+
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [

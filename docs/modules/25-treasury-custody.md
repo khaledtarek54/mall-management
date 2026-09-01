@@ -182,3 +182,17 @@ button reappears on a money record.
 | `DepositTransaction` | **Never deletable** | reverse the deposit transaction |
 | `Custody` | Deletable (super_admin) | operational: settled through SettleCustodyService |
 | `CustodyTransaction` | Deletable (super_admin) | parent-managed: removed on settlement |
+
+> **⚠️ A custody date could be back-dated into a CLOSED period from the Edit form (fixed 2026-09-02).**
+> `Custody` declared `#[PostingDateGuardedBy(GrantCustodyService::class)]` and that service does
+> assert it — but the edit form reached the same column unguarded, so an un-settled عهدة could be
+> moved into a closed month: the row saves, the operator reads "Saved", and the GL re-post is
+> refused inside the best-effort sync that only logs.
+>
+> **The guard belongs on the MODEL, and the first attempt put it on the page — which broke every
+> settled custody.** `CustodyForm` disables `custody_date` once anything has been spent against it,
+> a disabled field is not dehydrated, so `$data['custody_date']` was ABSENT and the hook refused a
+> date that had not moved. Editing only the *purpose* of a settled عهدة became impossible — exactly
+> what this model's own docblock promises stays editable, and 28 custody tests were green over it.
+> `GuardsPostingDate` is dirty-only and `filled()`-guarded for precisely those two reasons, and on
+> the model it also covers the importer, the console and the API, which a form hook never could.

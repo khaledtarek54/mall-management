@@ -45,7 +45,11 @@ class LoginTenantAction
 
         // All leases (active + historical) with unit/asset context. Share the
         // already-loaded tenant onto each so the resource doesn't re-query.
-        $leases = $tenant->leases()->with('unit.asset')->get()
+        // `visibleToTenant()`: the portal and /api/v1 are the same surface with different
+        // renderers, and this is the lease query that is not `activeLeases()`. Without it the
+        // mobile login screen offered a lease-picker entry for a DRAFT — the tenant's own rent,
+        // term and unit, off terms still being written.
+        $leases = $tenant->leases()->visibleToTenant()->with('unit.asset')->get()
             ->each->setRelation('tenant', $tenant);
 
         return [

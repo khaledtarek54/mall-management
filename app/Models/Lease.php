@@ -6,6 +6,7 @@ use App\Contracts\BillableAgreement;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\HidesDraftsFromTenant;
 use App\Models\Concerns\Lease\ActsAsBillableAgreement;
 use App\Models\Concerns\Lease\DeterminesFitOutGrace;
 use App\Models\Concerns\Lease\HasCamTerms;
@@ -39,7 +40,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PropertyOwned(via: 'unit')]
 class Lease extends Model implements BillableAgreement, HasMedia
 {
-    use ActsAsBillableAgreement, AllocatesDocumentNumber, DeterminesFitOutGrace, HasCamTerms, HasFactory, HasLeasePremises, HasLeaseTermState, HasRenewalLineage, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
+    use ActsAsBillableAgreement, AllocatesDocumentNumber, DeterminesFitOutGrace, HasCamTerms, HasFactory, HasLeasePremises, HasLeaseTermState, HasRenewalLineage, HasSearchText, HidesDraftsFromTenant, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
     use HasCustomFields;
 
     /** The signed contract + supporting paperwork. */

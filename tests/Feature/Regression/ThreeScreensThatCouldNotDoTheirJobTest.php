@@ -2,9 +2,10 @@
 
 use App\Filament\Admin\Actions\ServicePlanActions;
 use App\Models\AccountingPeriod;
+use App\Models\Custody;
+use App\Models\Employee;
 use App\Models\Lease;
 use App\Services\Accounting\FiscalCalendar;
-use App\Support\PostingDate;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -63,30 +64,52 @@ it('never shows a tenant a lease nobody has agreed', function () {
         ->and($visible)->toContain($ended->id);
 });
 
-it('refuses to back-date a custody into a closed period from the edit form', function () {
+it('lets a SETTLED custody keep being edited, and still refuses a back-date', function () {
+    // Both halves, because the first attempt at this fix broke the first one. The guard was put on
+    // `EditCustody::mutateFormDataBeforeSave()`, and `CustodyForm` DISABLES `custody_date` once
+    // anything has been spent — a disabled field is not dehydrated, so `$data['custody_date']` was
+    // absent, `?? null` handed null to `assertOpen()`, and it threw "a date is required" on a date
+    // that had not moved. Editing only the purpose of a settled عهدة became impossible: exactly
+    // what `Custody`'s own docblock promises stays editable. 28 custody tests were green over it.
+    //
+    // `GuardsPostingDate` is the prescribed seam and is dirty-only + `filled()`-guarded for those
+    // two reasons — and on the model it covers the importer, the console and the API too.
     app(FiscalCalendar::class)->ensureYear((int) CarbonImmutable::now()->year);
 
-    // The page's own hook is what closes this — `Custody` declares
-    // `#[PostingDateGuardedBy(GrantCustodyService::class)]`, and the edit form reached the same
-    // column with no guard at all.
-    $source = sourceWithoutComments(base_path(
-        'app/Filament/Admin/Resources/Custodies/Pages/EditCustody.php'
-    ));
+    $employee = Employee::create([
+        'asset_id' => $this->asset->id,
+        'name' => 'Site engineer',
+        'code' => 'EMP-'.substr(uniqid(), -6),
+        'status' => 'active',
+        'hire_date' => CarbonImmutable::now()->subYear()->toDateString(),
+        'base_salary' => 12000,
+        'payment_method' => 'bank',
+    ]);
 
-    expect($source)->toContain('mutateFormDataBeforeSave')
-        ->and($source)->toContain('PostingDate::assertOpen');
+    $custody = Custody::create([
+        'asset_id' => $this->asset->id,
+        'employee_id' => $employee->id,
+        'amount' => 5000,
+        'custody_date' => CarbonImmutable::now()->toDateString(),
+        'purpose' => 'Site consumables',
+        'status' => 'open',
+    ]);
 
     AccountingPeriod::forDate(CarbonImmutable::now())->update(['status' => 'closed']);
 
-    // …and the guard it calls really refuses a closed period.
-    expect(fn () => PostingDate::assertOpen(
-        CarbonImmutable::now()->toDateString(),
-        __('admin.fields.custody_date'),
-    ))->toThrow(DomainException::class);
+    // The date has NOT moved — editing anything else must still work, closed period or not.
+    $custody->fresh()->update(['purpose' => 'Site consumables and PPE']);
 
-    // The control: a period that is merely MISSING is still allowed — only a closed one refuses.
-    expect(fn () => PostingDate::assertOpen(
-        CarbonImmutable::now()->addYears(5)->toDateString(),
-        __('admin.fields.custody_date'),
-    ))->not->toThrow(DomainException::class);
+    expect($custody->fresh()->purpose)->toBe('Site consumables and PPE');
+
+    // Moving it WITHIN the closed period is what is refused. A day in the previous month would
+    // land in a period that is still open and prove nothing — the arithmetic has to stay inside the
+    // month that was closed.
+    $elsewhereInTheClosedMonth = CarbonImmutable::now()->endOfMonth()->startOfDay();
+
+    expect(AccountingPeriod::forDate($elsewhereInTheClosedMonth)->isOpen())->toBeFalse();
+
+    expect(fn () => $custody->fresh()->update([
+        'custody_date' => $elsewhereInTheClosedMonth->toDateString(),
+    ]))->toThrow(DomainException::class);
 });

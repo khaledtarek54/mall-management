@@ -35,6 +35,18 @@ final class TenantVisibility
     public const HIDDEN = [
         'invoices' => ['draft'],
         'credit_notes' => ['draft'],
+        // A lease the tenant can see is one that was actually put to them. `draft` is terms still
+        // being written — the retailer reading their own rent, term and deposit off a negotiation
+        // and reasonably treating it as settled.
+        //
+        // `pending_approval` is deliberately NOT hidden, and that is the interesting half. It reads
+        // like "not agreed yet", but twelve places treat it as a LIVE tenancy: it may be terminated,
+        // granted rent relief, extended, re-priced, space-changed, take a CAM estimate, hold a
+        // parking bay (and mark it off-market), it makes the unit `reserved`, and it counts as
+        // committed revenue. Hiding it would leave a retailer holding a bay under a lease they
+        // cannot see. Nobody grants rent relief on terms nobody agreed — so whatever the name
+        // suggests, the system already treats it as real.
+        'leases' => ['draft'],
     ];
 
     /** Statuses a tenant may never see for this table. Empty when the table isn't registered. */

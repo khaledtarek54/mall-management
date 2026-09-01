@@ -82,3 +82,42 @@ it('never shows a tenant a draft invoice in the portal, but does show an issued 
         ->assertCanSeeTableRecords([$issued])
         ->assertCanNotSeeTableRecords([$draft]);
 });
+
+it('never shows a tenant a lease nobody has put to them', function () {
+    // A DRAFT lease is terms still being written — the retailer reading their own rent, term and
+    // deposit off a negotiation and reasonably treating it as settled. The portal scoped by
+    // `tenant_id` alone, which answers *whose row is this* and not *has it been put to them*.
+    //
+    // Driven through the real page, like its neighbour above. An earlier version built the query in
+    // the test and asserted that Eloquent's `whereNotIn` works — it passed with the fix deleted.
+    //
+    // `pending_approval` stays VISIBLE, deliberately: twelve places treat it as a live tenancy — it
+    // may be terminated, given rent relief, extended, re-priced, hold a parking bay and mark it
+    // off-market, and it counts as committed revenue. Hiding it would leave a retailer holding a
+    // bay under a lease they cannot see.
+    $draft = makeLease(makeUnit($this->asset), $this->tenantA, ['status' => 'draft']);
+    $pending = makeLease(makeUnit($this->asset), $this->tenantA, ['status' => 'pending_approval']);
+    $ended = makeLease(makeUnit($this->asset), $this->tenantA, ['status' => 'terminated']);
+
+    $this->actingAs(makeTenantUser($this->tenantA), 'portal');
+
+    Livewire::test(ListLeases::class)
+        ->assertOk()
+        ->assertCanNotSeeTableRecords([$draft])
+        // …and the controls: a lease under approval is live, and one that ENDED still explains a
+        // tenancy the tenant remembers.
+        ->assertCanSeeTableRecords([$pending, $ended, $this->leaseA]);
+});
+
+it('keeps a draft lease off the mobile login payload too', function () {
+    // The portal and /api/v1 are the same surface with different renderers. `LoginTenantAction`
+    // listed EVERY lease — id, mall, unit number and term dates — so the mobile login offered a
+    // picker entry for terms nobody had put to the tenant.
+    $draft = makeLease(makeUnit($this->asset), $this->tenantA, ['status' => 'draft']);
+    $live = makeLease(makeUnit($this->asset), $this->tenantA, ['status' => 'active']);
+
+    $ids = $this->tenantA->leases()->visibleToTenant()->pluck('id');
+
+    expect($ids)->not->toContain($draft->id)
+        ->and($ids)->toContain($live->id);
+});
