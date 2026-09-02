@@ -191,6 +191,20 @@ class RecurringExpense extends Model
      *
      * The day is CLAMPED to the month's length, so a schedule set to the 31st does not skip the
      * seven months that are shorter — the same trap `BillingDay` records.
+     *
+     * **A PERIOD IS A MONTH, NOT A DATE, AND THE STAMP MUST BE READ THAT WAY.** The walk used to
+     * compare the cursor against `last_generated_on` as a plain date, so moving `day_of_month` from
+     * the 1st to the 15th on a schedule already generated for September made every cursor in the
+     * series land LATER than the stamp — 15 September is after 1 September — and the run that
+     * night booked September a second time. The `(recurring_expense_id, expense_date)` UNIQUE index
+     * cannot catch it, because the two documents carry two different dates: that is the whole point
+     * of the edit. Real money, on a statutory cost, in the direction nobody re-reads.
+     *
+     * Every frequency here spans at least one whole month, so a calendar month holds at most one
+     * period and the month IS the identity of the period. Comparing months makes the day a matter
+     * of WHEN in the period it books rather than WHETHER, which is what an operator moving the day
+     * means — and it leaves the retroactive direction alone: an earlier `starts_on` still does not
+     * back-book months the schedule has already passed.
      */
     public function nextDueOn(CarbonImmutable $on): ?CarbonImmutable
     {
@@ -209,7 +223,8 @@ class RecurringExpense extends Model
             }
 
             $alreadyDone = $this->last_generated_on !== null
-                && ! $cursor->greaterThan(CarbonImmutable::instance($this->last_generated_on));
+                && ! $cursor->startOfMonth()->greaterThan(
+                    CarbonImmutable::instance($this->last_generated_on)->startOfMonth());
 
             if (! $alreadyDone) {
                 return $cursor->greaterThan($on) ? null : $cursor;

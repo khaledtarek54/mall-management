@@ -753,7 +753,7 @@ journalizer.
 **Booking a statutory cost twice is real money**, so the generator is belt and braces: the schedule
 row is taken with `lockForUpdate()`, the due date is re-derived INSIDE the transaction *after* the
 lock (a value read before the wait answers from a snapshot taken before the other writer committed),
-and `expenses.(recurring_expense_id, expense_date)` is UNIQUE underneath. It also catches up ONE
+and `expenses.(recurring_expense_id, expense_date)` is UNIQUE underneath — a backstop keyed on the DATE, so it does **not** catch a duplicate raised on a different day of the same month; `nextDueOn()` compares MONTHS, which is what makes a period the unit of idempotency. It also catches up ONE
 period per run, so a schedule reactivated after six months cannot post six back-dated entries into
 periods that may be closed.
 

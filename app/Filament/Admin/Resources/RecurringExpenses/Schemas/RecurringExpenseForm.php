@@ -14,9 +14,11 @@ use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Carbon\CarbonImmutable;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -141,7 +143,7 @@ class RecurringExpenseForm
                 // posting role — so a mall banking in two places needs this or both banks' money
                 // lands in one chart account.
                 EntitySelect::make('bank_account_id')
-                    ->label(__('admin.fields.bank_account'))
+                    ->label(__('admin.fields.bank_account_id'))
                     ->entity(BankAccount::class)
                     ->visible(fn (Get $get): bool => ($get('paid_from') ?? 'cash') !== 'cash'),
 
@@ -157,10 +159,44 @@ class RecurringExpenseForm
                     ->default(true)
                     ->helperText(__('admin.recurring_expenses.help.is_active')),
 
+                // **WHERE THE SCHEDULE STANDS, ON THE SCREEN THE OPERATOR CHANGES IT FROM.** The
+                // LIST has shown the next booking since EG-33; the edit form — the one place the
+                // day, the frequency and the end date are actually moved — showed neither it nor
+                // the last booked period, so the consequence of an edit was inferable only from a
+                // helper sentence. It reads the same `nextDueOn()` the list and the nightly run
+                // read, so the three cannot disagree about what happens next.
+                Text::make(fn (?RecurringExpense $record): string => self::standing($record))
+                    ->columnSpanFull(),
+
                 Textarea::make('notes')
                     ->label(__('admin.fields.notes'))
                     ->rows(2)
                     ->columnSpanFull(),
             ]);
+    }
+
+    /**
+     * Where the schedule stands, in one line — read from the same `nextDueOn()` the list column and
+     * the nightly run read, so the three cannot disagree about what happens next.
+     */
+    private static function standing(?RecurringExpense $record): string
+    {
+        if ($record === null) {
+            return __('admin.recurring_expenses.fields.next_due_on_save');
+        }
+
+        $next = $record->nextDueOn(CarbonImmutable::now()->addYears(2))?->toDateString();
+
+        $line = $next === null
+            ? __('admin.recurring_expenses.fields.nothing_due')
+            : __('admin.recurring_expenses.fields.next_due_is', ['date' => $next]);
+
+        if ($record->last_generated_on !== null) {
+            $line .= ' — '.__('admin.recurring_expenses.fields.last_booked', [
+                'date' => $record->last_generated_on->toDateString(),
+            ]);
+        }
+
+        return $line;
     }
 }

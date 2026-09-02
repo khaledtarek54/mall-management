@@ -25,7 +25,14 @@ use Illuminate\Support\Facades\Schema;
  * The scheduled sweep runs daily. Without a link back to the schedule the only way to ask "has this
  * period already been generated" is to match on a description and a date, which is exactly the kind
  * of guess that double-books a statutory cost — real money, in the GL, on a government levy nobody
- * re-reads. The unique index makes the second attempt impossible rather than unlikely.
+ * re-reads. The unique index makes a second attempt ON THE SAME DATE impossible rather than
+ * unlikely.
+ *
+ * **It is a backstop, not the guard, and the difference has bitten** (2026-09-02): the index keys on
+ * the DATE, and a period is a MONTH. Moving `day_of_month` from the 1st to the 15th on a schedule
+ * already booked for the month made every cursor land later than `last_generated_on`, so the run
+ * booked the period again on a different date — two documents, both unique, both posted.
+ * `RecurringExpense::nextDueOn()` compares MONTHS for exactly that reason.
  *
  * ## What this deliberately does NOT model
  *
@@ -88,9 +95,9 @@ return new class extends Migration
             $table->foreignId('recurring_expense_id')->nullable()->after('asset_id')
                 ->constrained()->nullOnDelete();
 
-            // One expense per schedule per period. The sweep is idempotent by design; this makes a
-            // double-generation impossible rather than merely unlikely, which is the standard a
-            // statutory cost deserves.
+            // One expense per schedule per DATE — the backstop, not the guard. Which PERIOD is
+            // outstanding is `RecurringExpense::nextDueOn()`'s question and it compares months,
+            // because two documents a fortnight apart are both unique and both wrong.
             $table->unique(['recurring_expense_id', 'expense_date'], 'expenses_recurring_period_unique');
         });
     }

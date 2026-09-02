@@ -2012,7 +2012,7 @@ return [
             'An expense is created automatically when each period arrives, and it posts to the ledger like any other expense — so the P&L, the cash position and any CAM pool that recovers this account all move without anyone typing.',
             'The expense carries the schedule that made it, so a cost on the P&L can always be traced back to the arrangement that caused it.',
             'A cost booked to an account inside a CAM pool starts being recovered from tenants through that pool. Choosing the category is therefore a decision about what tenants pay, not only about where the cost sits.',
-            'Nothing is ever booked twice: one expense per schedule per period, enforced by the database rather than by the code being careful.',
+            'Nothing is booked twice for a period, and a period is a MONTH. The database refuses a second document on the same DATE; the schedule itself is what refuses a second document for the same period, which is why moving the booking day does not re-book a month already done.',
         ],
         'rules' => [
             'The schedule books ONE outstanding period per night. A schedule switched back on after six months catches up a month at a time rather than posting six back-dated entries at once.',
