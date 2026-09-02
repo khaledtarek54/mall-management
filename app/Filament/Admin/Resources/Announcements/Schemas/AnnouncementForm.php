@@ -125,6 +125,18 @@ class AnnouncementForm
                         ->label(__('admin.announcements.fields.expires_at'))
                         ->seconds(false)
                         ->native(false)
+                        // **A WINDOW THAT IS ALREADY SHUT SENDS EVERY TENANT TO A 404.** The blast
+                        // goes out — push, bell, `announcement_recipients` — and the portal's own
+                        // scope then hides the notice, so the deep link lands on nothing. And there
+                        // is no repair: a sent notice is evidence and `isEditable()` refuses it.
+                        //
+                        // Bounded by the notice's own start, not by `now()`: a SCHEDULED notice
+                        // published next Tuesday may legitimately expire the Wednesday after, which
+                        // a `minDate(now())` would allow and a `after(publish_at)` gets right. The
+                        // fallback covers "send immediately", where the start is the moment of
+                        // sending.
+                        ->minDate(fn ($get) => $get('publish_at') ?: now())
+                        ->after(fn ($get) => $get('publish_at') ?: 'now')
                         ->helperText(__('admin.announcements.fields.expires_at_hint')),
 
                     Toggle::make('is_pinned')

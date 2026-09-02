@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 62 closed, 166 open (updated 2026-09-01)
+> ### Where this stands — 63 closed, 168 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -252,11 +252,11 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Portals · mobile API
 
-*5 open — 1 high, 1 medium, 3 low.*
+*4 open — 1 medium, 3 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-151** | open | high | — | An announcement's expires_at is unvalidated, so a broadcast can deep-link every tenant to a 404 — and the record is immutable the moment it sends | `Filament/Admin/Resources/Announcements/Schemas/AnnouncementForm:124` |
+| **SW-151** | ✅ fixed | high | — | An announcement's expires_at is unvalidated, so a broadcast can deep-link every tenant to a 404 — and the record is immutable the moment it sends | `Filament/Admin/Resources/Announcements/Schemas/AnnouncementForm:124` |
 | **SW-152** | ✅ **fixed** `bae3a170` | high | — | Retiring a catalogue code makes every record already carrying it permanently unsavable — the half of the deposit bug that was never fixed | `Filament/Admin/Resources/TenantRequests/Schemas/TenantRequestForm:139` |
 | **SW-153** | ✅ **fixed** `92681f33` | high | — | A unit owner cannot raise a tenant request: the screen is offered, the required Unit picker has zero options | `Filament/Portal/Resources/TenantRequests/Schemas/TenantRequestForm:59` |
 | **SW-154** | ✅ **fixed** `ce038ed8` | high | — | `GET /me/statement?to=` prints the window it was asked for and ignores it — the statement lists rows after its own stated end date | `Services/TenantStatementPdfService:98` |
@@ -328,7 +328,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Tax
 
-*14 open — 3 high, 8 medium, 3 low.*
+*17 open — 4 high, 10 medium, 3 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -350,6 +350,9 @@ which is the same failure this repo gates for generated doc blocks.
 | **SW-204** | open | medium | S | *(found by the review of SW-114.)* `ScanWorkOrderSlaBreachesCommand::alertBreach()` holds an X lock on `facility_work_orders` across a SYNCHRONOUS mail send — `WorkOrderSlaBreachedNotification` is not `ShouldQueue` and its `via()` is `['mail','database']` — so the hourly scan blocks facility writers for one MailerSend round-trip per recipient | `Console/Commands/ScanWorkOrderSlaBreachesCommand:320` |
 | **SW-205** | open | medium | M | *(found by the review of SW-152.)* `CatalogueAwareSelect` keys on the RECORD's table, so five pickers that write a CHILD table from an action modal or a relation manager resolve to the wrong registry key — `employee_advance_repayments.method`, `deposit_transactions.method` (LeaseActions), `vendor_bill_payments.method`, `disbursements.method`, `custody_transactions.category`. All create-only today, so nothing is broken; the claim "covers every Select" is not yet true and no gate ties `catalogueWidenedColumns()` to the pickers that write those columns. `Radio`/`ToggleButtons`/`CheckboxList` derive `Rule::in` identically and are unbound | `Support/Filament/CatalogueAwareSelect:120` |
 | **SW-206** | open | medium | S | *(found by the review of SW-152.)* `ValueSets::widen()` reads `codes()`, which is `is_active = true` only — so retiring an operator-added code REMOVES it from the accepted set, and any path that rewrites the column (importer, `replicate()`, a service `update()`) is refused at the model layer. It does not bite on a plain edit because `guard()` short-circuits on `! isDirty()`. The widen docblock claims it "only ever WIDENS… must never invalidate the documents that already name it", which is false for an operator-added code | `Support/ValueSets:widen` |
+| **SW-207** | open | high | M | *(found by the review of SW-176.)* `ClauseRegister`, `ActivityLog` and `RevenueForecast` define no `mount()`, and `DeliverSavedReportService:112` calls it — so delivery throws `BadMethodCallException` for all three. `DeliverScheduledReportsCommand:75` stamps `last_delivered_on` BEFORE `deliver()`, so the day is burned and the schedule never retries; all three render `saveViewAction()`, so the panel invites an operator to schedule a report whose delivery is 100% dead | `Services/Reports/DeliverSavedReportService:112` |
+| **SW-208** | open | medium | S | *(found by the review of SW-176.)* `IncomeStatement::$spread` is kept as "shape" but `spreadGroups()` returns null for `ytd` unless `hasSelectedMonth()` — which reads `$period`. A month-end pack saved with `spread=ytd` + `comparison=prior_period` loses its whole column structure when the period moves to a whole-year shape. A kept parameter that is a function of a moved one | `Filament/Admin/Pages/IncomeStatement:212` |
+| **SW-209** | open | medium | S | *(found by the review of SW-176.)* `ScopesLedgerReport::hydrateLedgerScopeFromQuery()` validates `period` against `/^\d{4}-\d{2}$/`, so `WithholdingTaxReturn`'s quarter-shaped `2026-Q1` is rejected and a saved Form 41 view reopens on the full YEAR in the browser — the one surface the delivery fix deliberately leaves untouched | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:74` |
 | **SW-201** | open | medium | S | Deleting the last rate rung of an ACTIVE tax code silently re-rates billing to the 14% VAT floor | `Filament/Admin/Resources/TaxCodes/RelationManagers/RatesRelationManager:111` |
 | **SW-202** | open | low | — | Clearing the Tax depreciation year renders a full schedule of zeros for year 0 | `Filament/Admin/Pages/TaxDepreciation:84` |
 | **SW-203** | open | low | XS | Insurable-wage ceiling rule gte:insurable_wage_floor refuses a rung with a ceiling and a blank floor, though a null floor is legal ('no bound') | `Filament/Admin/Resources/PayrollRates/Schemas/PayrollRateForm:50` |

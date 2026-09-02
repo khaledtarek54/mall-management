@@ -49,7 +49,7 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * @see docs/modules/37-unit-owners.md
  */
-#[DeletableWhenUnused(blockedBy: ['invoices', 'charges'], instead: 'transfer the ownership — that is the documented end of a holding, and it keeps the assessment history and the arrears at handover')]
+#[DeletableWhenUnused(blockedBy: ['camAllocations', 'invoices', 'charges'], instead: 'transfer the ownership — that is the documented end of a holding, and it keeps the assessment history and the arrears at handover')]
 // A unit sale belongs to the mall the unit stands in. `asset_id` is carried directly rather
 // than reached through `unit`, deliberately: the assessment sweep asks for every live
 // ownership in one property, and a join per row is the N+1 the CAM path already had to fix.
@@ -237,6 +237,22 @@ class UnitOwnership extends Model implements BillableAgreement
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * This owner's share of a reconciled CAM pool — and what stops the row being deleted under one.
+     *
+     * `Lease` has listed `camAllocations` in its own `blockedBy` since the beginning; an ownership
+     * did not, so a pending allocation was no obstacle to deleting the ownership behind it. Measured
+     * on a 100,000 pool: delete the ownership, regenerate, and the pool reported
+     * `Σ allocated 100,000 + unrecovered 50,000 = 150,000` — the orphan row allocated to nobody,
+     * and un-cleanable, because the stale-row sweep is gated on `! $isRerun`.
+     *
+     * @return HasMany<CamAllocation, $this>
+     */
+    public function camAllocations(): HasMany
+    {
+        return $this->hasMany(CamAllocation::class);
     }
 
     /**

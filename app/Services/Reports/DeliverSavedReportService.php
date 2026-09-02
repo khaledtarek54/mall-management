@@ -9,8 +9,8 @@ use App\Models\SavedReport;
 use App\Support\ReportCatalogue;
 use App\Support\ReportCsv;
 use App\Support\ReportParameters;
+use App\Support\ReportPeriod;
 use Filament\Facades\Filament;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -111,15 +111,19 @@ class DeliverSavedReportService
             $instance = app($page);
             $instance->mount();
 
-            // **THE PERIOD FOLLOWS THE SCHEDULE, NOT THE DAY THE VIEW WAS SAVED.** `mount()` has
-            // just derived this report's period from `now()`; re-applying the snapshot on top of it
-            // put the frozen one back, so "send every month" emailed September's figures in October,
-            // November and for ever. Nothing errors and the CSV arrives on time — the only tell is
-            // that the numbers never move, which is the failure a recipient notices last if at all.
+            // **THE PERIOD FOLLOWS THE SCHEDULE, NOT THE DAY THE VIEW WAS SAVED.** Re-applying the
+            // snapshot whole put the frozen period back, so "send every month" emailed September's
+            // figures in October, November and for ever. Nothing errors and the CSV arrives on time
+            // — the only tell is that the numbers never move, which is the failure a recipient
+            // notices last if at all.
             //
-            // DROPPED rather than rewritten: `apply()` skips a key it is not given, so the page keeps
-            // the default its own `mount()` produced. One definition of what "this month" means, on
-            // the page that owns the question.
+            // REWRITTEN in its own shape, not dropped. Dropping was the first repair and it was
+            // worse than the bug for the seven ledger reports: a null `period` does not mean "this
+            // month" on `ScopesLedgerReport`, it means the whole fiscal year — so a monthly VAT
+            // return came out as the year's cumulative figure, on a document Egypt files monthly,
+            // with no period line in its rows at all. `ReportPeriod::advance()` moves a month-shaped
+            // period to last month, a quarter to last quarter, and a `from`/`to` window forward
+            // keeping its LENGTH.
             //
             // Every other saved parameter is kept — the ageing bucket, the ledger account, the
             // comparison basis — because those are the operator's SHAPE rather than their moment.
@@ -127,7 +131,7 @@ class DeliverSavedReportService
             // as saved, because a link is a moment and a schedule is a cadence.
             ReportParameters::apply(
                 $instance,
-                Arr::except($saved->parameters ?? [], ReportCatalogue::reportingPeriodOf($page)),
+                ReportPeriod::advance($page, $saved->parameters ?? []),
             );
 
             $csv = $instance->reportCsv();

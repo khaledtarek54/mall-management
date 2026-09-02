@@ -1110,10 +1110,25 @@ November, and every month after that.
 failure a recipient notices last, if at all, and the recipients here are routinely outside the
 business, invited precisely because they have no login and therefore no other way to check.
 
-The period is **DROPPED** at delivery, never rewritten: `ReportParameters::apply()` skips a key it is
-not given, so the page keeps the default its own `mount()` just derived from today. One definition of
-what "this month" means, on the page that owns the question — the alternative is a second copy of
-every report's period arithmetic living in the delivery service.
+The period is **REWRITTEN in its own shape** — `App\Support\ReportPeriod::advance()`.
+
+**Dropping it was the first repair and it was worse than the bug for the seven ledger reports.** A
+null `period` does not mean "this month" on `ScopesLedgerReport`; it means *the whole fiscal year*.
+Measured: a monthly VAT return saved for March delivered as `vat-return-2026.csv` carrying the
+year's cumulative `net_payable` — on a document Egypt files monthly, whose CSV rows carry no period
+line at all, so the filename is the only statement of the window. A stale return is the wrong month;
+that is the wrong **amount**, and it looks fresh, which is what makes it likelier to be filed. Form
+41 went from a quarter to a year, and the balance sheet's *as at* became 31 December — a future date
+on every delivery until December.
+
+| shape | advance |
+|---|---|
+| `asOf` | today. A point has no length to preserve. |
+| `from` + `to` | the same **span**, ending today. Dropping them reset a one-quarter vendor scorecard to the page's hardcoded rolling twelve months — four times the volume. |
+| `year` + `period`, month-shaped | the month just **ended** — what a monthly statutory return is filed for, and the one thing no page's `mount()` can produce. |
+| `year` + `period`, quarter-shaped | the quarter just ended. |
+| `year` + `period`, null | the current year. Null **is** a shape. |
+| anything else | left exactly as saved. Better a stale period a recipient can spot than a confidently rewritten one in a shape nobody parsed. |
 
 **Every other saved parameter is kept**, because it is the operator's SHAPE rather than their moment:
 the ageing bucket, the ledger account, whether to include zero balances, the comparison basis. **And

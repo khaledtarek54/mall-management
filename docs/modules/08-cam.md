@@ -1567,20 +1567,44 @@ But it skipped the row out of the **SUM** as well as out of the write. `$allocat
 `landlord_unrecovered_amount = total_actual_expense − $allocatedTotal`, so every already-billed
 share was reported as money the landlord bore itself.
 
-**A re-run exists precisely to push a revised expense through a pool that has already billed**, so
-this is the ordinary path rather than an edge. On a 100,000 pool with one of two 50,000 shares
-billed, the re-run wrote `landlord_unrecovered_amount = 50,000`: the landlord's own P&L reads a
-common cost it never carried, and `Σ allocated + unrecovered = total` — the identity
-`billing:reconcile` checks, and therefore `atriom:preflight` — fails by the whole billed total on a
-pool where nothing is actually wrong.
+**What triggers it is pressing *Generate allocations* again** — `CamExpensePoolActions::canGenerate()`
+keeps that button live in `reconciling`, which is exactly the status a partly-billed pool sits in —
+and the scheduled `cam:reconcile` sweep, which regenerates every `draft|reconciling` pool of the year
+unattended, so the wrong figure was re-applied on a timer.
 
-The billed row contributes its **OWN stored figure**, never a recomputed one, for the same reason it
-is not rewritten. It is also marked present in `$touched`, which turns no test red today (the
-stale-row cleanup is guarded on `! $isRerun`, and a billed row is what makes it a re-run) and is
-kept on the same footing as the `pending` clause in that cleanup: standing insurance against a guard
-fifteen lines away moving, where what it prevents is deleting the document a tenant was invoiced
-from.
+*(The first version of this section said a re-run exists "to push a revised expense through a pool
+that has already billed". **That is not true and the code refuses it**: `CamExpensePool::booted()`
+throws `cam_basis_locked_after_billing` on a dirty `total_actual_expense` while any allocation is
+non-pending — the very rule stated at §8 of this document. The claim was inherited from a comment in
+the service that named `CamScenarioTest` as pinning the revision, and that test bills nothing. Both
+have been corrected.)*
+
+On a 100,000 pool with one of two 50,000 shares billed, the re-run wrote
+`landlord_unrecovered_amount = 50,000`: the landlord's own P&L reads a common cost it never carried,
+and `Σ allocated + unrecovered = total` — the identity `billing:reconcile` checks, and therefore
+`atriom:preflight` — fails by the whole billed total on a pool where nothing is actually wrong.
+
+### It is derived from the pool's OWN rows, not from an accumulator
+
+The first repair added the billed row's figure to the running total. That closed one exit and left
+two, because the accumulator can only ever see the participants a pass happened to visit — and there
+are **three** ways a row is not visited:
+
+1. an allocation already **billed**;
+2. a participant whose share rounds to zero, skipped before the row is even loaded;
+3. an allocation whose participant is **gone** — a `UnitOwnership` could be deleted with a pending
+   allocation against it, because `camAllocations` was missing from its `blockedBy` where `Lease` has
+   always had it. Measured: `Σ allocated 100,000 + unrecovered 50,000 = 150,000`, and the orphan can
+   never be cleaned up either, because the stale-row sweep is gated on `! $isRerun`.
+
+Three bugs, one symptom — and patching them one at a time is how the second and third survived the
+first. `landlord_unrecovered_amount` now reads `total_actual_expense − Σ(the pool's own allocations)`,
+which is the same set the tie-out reads, so the identity is true rather than approximately true.
+`UnitOwnership` also blocks deletion on `camAllocations` now, so the orphan cannot be created.
 
 Tests: `ARerunCountsWhatWasAlreadyBilledTest` — the tie-out through a re-run, the billed row left
 byte-identical (a fix that simply stopped skipping would satisfy the first and rewrite a document),
-and the billed row surviving a lease that has left the pool.
+the deleted participant, and the deletion block itself. Mutation-proved two ways. *(The original
+third case — "a billed allocation is never deleted" — was removed: it could not fail under any
+mutation, because a re-run rebuilds its participant set from the existing rows and skips the cleanup
+wholesale, so three independent constructions guaranteed it.)*

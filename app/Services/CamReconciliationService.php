@@ -116,8 +116,17 @@ class CamReconciliationService
         //
         // Re-using the stored `grossed_up_expense` here would have been the obvious shortcut and it
         // was wrong: the frozen-share guard freezes the AREA basis so a unit-area edit cannot
-        // re-cut anybody's share, but a REVISED POOL EXPENSE is exactly what a re-run exists to
-        // push through. Caught by `CamScenarioTest`, which pins that revision.
+        // re-cut anybody's share, while the EXPENSE is recomputed.
+        //
+        // **This used to say a revised pool expense "is exactly what a re-run exists to push
+        // through", and that is not true once anything is billed** — `CamExpensePool::booted()`
+        // throws `cam_basis_locked_after_billing` on a dirty `total_actual_expense` while any
+        // allocation is non-pending, so the revision is refused before it can reach a re-run. The
+        // test it named, `CamScenarioTest`, bills nothing, which is why the claim survived. What a
+        // re-run genuinely serves is a pool still being worked: pressing *Generate allocations*
+        // again, which `CamExpensePoolActions::canGenerate()` keeps live in `reconciling`, and the
+        // scheduled `cam:reconcile` sweep, which regenerates every `draft|reconciling` pool of the
+        // year unattended.
         $referenceSqm = $isRerun ? (float) $pool->denominator_used_sqm : $totalSqm;
 
         $occupancyPct = $referenceSqm > 0
@@ -194,7 +203,6 @@ class CamReconciliationService
 
         return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis, $statedShares, $existing, $carvedOutShare) {
             $count = 0;
-            $allocatedTotal = 0.0;
             $touched = [];
 
             foreach ($leases as $lease) {
@@ -359,31 +367,22 @@ class CamReconciliationService
                     ->lockForUpdate()
                     ->first();
 
-                // Never re-touch an allocation that's already been billed.
+                // Never re-touch an allocation that's already been billed. That row is evidence:
+                // the tenant was invoiced from it, and re-deriving it against a denominator that has
+                // since moved is exactly what `basisFrozen()` exists to prevent.
                 //
-                // **BUT IT STILL COUNTS TOWARD WHAT THE POOL RECOVERED.** `$allocatedTotal` feeds
-                // `landlord_unrecovered_amount = total_actual_expense − $allocatedTotal`, and
-                // skipping the row out of the SUM as well as out of the write told the books that
-                // every already-billed share was money the landlord bore itself. On a re-run —
-                // which exists precisely to push a revised expense through a pool that has already
-                // billed — the unrecovered figure came back inflated by the whole billed total: the
-                // landlord's own P&L reads a common cost it never carried, and
-                // `Σ allocated + unrecovered = total` fails in the direction the tie-out reads as
-                // drift, on a pool where nothing is actually wrong.
+                // It still COUNTS toward what the pool recovered — but that is no longer this
+                // loop's business, because `landlord_unrecovered_amount` is now derived from the
+                // pool's own allocation rows after the loop rather than from an accumulator that
+                // only sees the participants this pass happened to visit. See below.
                 //
-                // Its OWN stored figure, not a recomputed one: that allocation is evidence, the
-                // tenant was invoiced from it, and re-deriving it here against a denominator that
-                // has since moved is the exact thing `basisFrozen()` exists to prevent.
+                // **What actually triggers this is pressing *Generate allocations* again**, which
+                // `CamExpensePoolActions::canGenerate()` keeps live in `reconciling` — the status a
+                // partly-billed pool sits in — and the scheduled `cam:reconcile` sweep, which
+                // regenerates every `draft|reconciling` pool of the year unattended, so the wrong
+                // figure was re-applied on a timer. It is NOT a revised expense: the pool's own
+                // `updating` guard refuses that outright while anything is billed.
                 if ($allocation && $allocation->status !== 'pending') {
-                    $allocatedTotal += (float) $allocation->allocated_amount;
-
-                    // Marked present, though nothing today can delete it: the stale-row cleanup is
-                    // guarded on `! $isRerun`, and a billed row is what MAKES it a re-run. Kept for
-                    // the reason the `pending` clause in that cleanup is kept — mutation-proved to
-                    // turn no test red, and standing insurance against a guard fifteen lines away
-                    // moving. What it prevents is deleting the document a tenant was invoiced from.
-                    $touched[] = self::agreementKeyFor($lease);
-
                     continue;
                 }
 
@@ -414,7 +413,6 @@ class CamReconciliationService
                     'status' => 'pending',
                 ]);
                 $allocation->save();
-                $allocatedTotal += $allocated;
                 $touched[] = self::agreementKeyFor($lease);
                 $count++;
             }
@@ -467,7 +465,31 @@ class CamReconciliationService
                 'grossed_up_expense' => round($basis, 2),
                 // Measured against what the landlord ACTUALLY SPENT, never against the grossed
                 // basis: gross-up changes how the cost is shared, not how much of it exists.
-                'landlord_unrecovered_amount' => round((float) $pool->total_actual_expense - $allocatedTotal, 2),
+                // **DERIVED FROM THE POOL'S OWN ROWS, NOT FROM AN ACCUMULATOR.**
+                //
+                // It used to sum what this pass ALLOCATED, which is not the same set as what the
+                // pool holds — and every row the loop failed to visit was silently reported as
+                // money the landlord bore itself. Three exits produced that, and only one of them
+                // was obvious:
+                //
+                //  - an allocation already BILLED, skipped above;
+                //  - a participant whose share rounds to zero, skipped before the row is even
+                //    loaded;
+                //  - an allocation whose participant is GONE — a `UnitOwnership` could be deleted
+                //    with a pending allocation against it, because `camAllocations` was missing
+                //    from its `blockedBy`. Measured: a 100,000 pool reported
+                //    `Σ allocated 100,000 + unrecovered 50,000 = 150,000`, and the orphan could
+                //    never be cleaned up either, because the stale-row sweep is gated on
+                //    `! $isRerun`.
+                //
+                // Each of those is a different bug with one symptom, and patching them one at a
+                // time is how the second and third survived the first. The pool's own rows are the
+                // set the tie-out reads, so reading the same set is the only thing that makes
+                // `Σ allocated + unrecovered = total` true rather than approximately true.
+                'landlord_unrecovered_amount' => round(
+                    (float) $pool->total_actual_expense - (float) $pool->allocations()->sum('allocated_amount'),
+                    2,
+                ),
             ];
 
             if (! $isRerun) {

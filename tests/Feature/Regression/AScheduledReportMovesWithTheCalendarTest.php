@@ -1,14 +1,19 @@
 <?php
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\ArAging;
+use App\Filament\Admin\Pages\IncomeStatement;
+use App\Filament\Admin\Pages\VatReturn;
+use App\Filament\Admin\Pages\VendorScorecard;
+use App\Filament\Admin\Pages\WithholdingTaxReturn;
+use App\Mail\SavedReportDelivered;
 use App\Models\SavedReport;
 use App\Services\Reports\DeliverSavedReportService;
 use App\Support\ReportCatalogue;
 use App\Support\ReportParameters;
+use App\Support\ReportPeriod;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Arr;
 use Database\Seeders\RolesPermissionsSeeder;
-use App\Mail\SavedReportDelivered;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -75,22 +80,78 @@ it('emails the CURRENT period, three months after the view was saved', function 
     CarbonImmutable::setTestNow();
 });
 
-it('drops the frozen period and keeps everything else', function () {
-    // The parameters as the delivery applies them — which is the whole of the change, and the only
-    // place the answer is visible without inflating a CSV.
-    $saved = [
+it('moves the period and keeps everything else', function () {
+    $applied = ReportPeriod::advance(ArAging::class, [
         'asOf' => '2026-09-15',
         'bucket' => 'd_31_60',
         ReportParameters::PROPERTY_KEY => $this->asset->id,
-    ];
+    ], CarbonImmutable::parse('2026-12-01'));
 
-    $applied = Arr::except($saved, ReportCatalogue::reportingPeriodOf(ArAging::class));
-
-    expect($applied)->not->toHaveKey('asOf')
+    expect($applied['asOf'])->toBe('2026-12-01')
         // The operator's SHAPE survives: the ageing bucket they chose is not a moment.
-        ->and($applied)->toHaveKey('bucket')
         ->and($applied['bucket'])->toBe('d_31_60')
         ->and($applied)->toHaveKey(ReportParameters::PROPERTY_KEY);
+});
+
+it('keeps a MONTHLY ledger period monthly — the repair that dropping it got wrong', function () {
+    // **Dropping the period was worse than the staleness it fixed.** A null `period` does not mean
+    // "this month" on `ScopesLedgerReport` — it means the whole fiscal year. So a monthly VAT return
+    // saved for March came out as the YEAR's cumulative net payable, on a document Egypt files
+    // monthly, whose CSV rows carry no period line at all: the wrong amount, looking fresh, which is
+    // what makes it likelier to be filed than a stale one.
+    $applied = ReportPeriod::advance(VatReturn::class, [
+        'year' => 2026,
+        'period' => '2026-03',
+    ], CarbonImmutable::parse('2026-12-01'));
+
+    // The month just ENDED, which is what a monthly statutory return is filed for — and no page's
+    // own mount() can produce it.
+    expect($applied['period'])->toBe('2026-11')
+        ->and($applied['year'])->toBe(2026);
+});
+
+it('keeps a QUARTERLY period quarterly, and a whole-year one whole-year', function () {
+    // Form 41 is quarterly, and `SavedReport::isDueOn()` only knows weekly and monthly — so a
+    // quarterly return is necessarily on a monthly schedule, which is exactly where dropping the
+    // period turned a quarter into a year.
+    $quarterly = ReportPeriod::advance(WithholdingTaxReturn::class, [
+        'year' => 2026, 'period' => '2026-Q1',
+    ], CarbonImmutable::parse('2026-12-01'));
+
+    expect($quarterly['period'])->toBe('2026-Q3')
+        ->and($quarterly['year'])->toBe(2026);
+
+    // Null IS a shape — the whole year — and it moves to the current year rather than becoming a
+    // month.
+    $annual = ReportPeriod::advance(IncomeStatement::class, [
+        'year' => 2025, 'period' => null,
+    ], CarbonImmutable::parse('2026-12-01'));
+
+    expect($annual['period'])->toBeNull()
+        ->and($annual['year'])->toBe(2026);
+});
+
+it('moves a from/to window forward and keeps its LENGTH', function () {
+    // Dropping these reset a one-quarter vendor scorecard to the page's hardcoded rolling twelve
+    // months — roughly four times the volume. The operator's shape went out with their moment.
+    $applied = ReportPeriod::advance(VendorScorecard::class, [
+        'from' => '2026-01-01', 'to' => '2026-03-31',
+    ], CarbonImmutable::parse('2026-12-01'));
+
+    expect($applied['to'])->toBe('2026-12-01')
+        // 89 days, the same span, ending today.
+        ->and($applied['from'])->toBe('2026-09-03');
+});
+
+it('leaves a period shape it does not understand exactly as saved', function () {
+    // Better a stale period a recipient can spot than a confidently rewritten one in a shape nobody
+    // here parsed.
+    $applied = ReportPeriod::advance(IncomeStatement::class, [
+        'year' => 2026, 'period' => 'H1-2026',
+    ], CarbonImmutable::parse('2026-12-01'));
+
+    expect($applied['period'])->toBe('H1-2026')
+        ->and($applied['year'])->toBe(2026);
 });
 
 it('leaves the page carrying the period its own mount() derived', function () {
@@ -102,11 +163,11 @@ it('leaves the page carrying the period its own mount() derived', function () {
     // The control: a fresh mount is already on today.
     expect($page->asOf)->toBe('2026-12-01');
 
-    // Applying the delivery-filtered parameters must not move it back to September.
-    ReportParameters::apply($page, Arr::except([
+    // Applying the delivery's parameters must not move it back to September.
+    ReportParameters::apply($page, ReportPeriod::advance(ArAging::class, [
         'asOf' => '2026-09-15',
         'bucket' => 'd_31_60',
-    ], ReportCatalogue::reportingPeriodOf(ArAging::class)));
+    ]));
 
     expect($page->asOf)->toBe('2026-12-01')
         ->and($page->bucket)->toBe('d_31_60');
@@ -135,11 +196,14 @@ it('classifies every deliverable report — period, or a stated reason for havin
     // of the registry is that the next one cannot ship undecided.
     $unclassified = [];
     $stale = [];
+    $examined = 0;
 
     foreach (ReportCatalogue::REPORTS as $page => $meta) {
-        if (! is_a($page, App\Contracts\DeliverableReport::class, true)) {
+        if (! is_a($page, DeliverableReport::class, true)) {
             continue;
         }
+
+        $examined++;
 
         $hasPeriod = array_key_exists($page, ReportCatalogue::REPORTING_PERIOD);
         $hasReason = array_key_exists($page, ReportCatalogue::NO_REPORTING_PERIOD);
@@ -167,6 +231,10 @@ it('classifies every deliverable report — period, or a stated reason for havin
         ->and($stale)->toBe([], 'These period parameters no longer exist on their page, so they are '
             .'no longer dropped at delivery: '.implode(', ', $stale));
 
-    // The sweep must have found something — an empty catalogue would satisfy both assertions.
-    expect(count(ReportCatalogue::REPORTING_PERIOD))->toBeGreaterThan(10);
+    // **What the LOOP examined, not what the constant holds.** Counting the registry would stay
+    // green if `is_a($page, DeliverableReport::class, true)` ever answered false for everything —
+    // the interface renamed, or moved — and the sweep then classifies nothing while both assertions
+    // above pass on empty arrays. That is the "a gate can report on a set it has silently stopped
+    // collecting" shape this project has recorded three times.
+    expect($examined)->toBeGreaterThan(15);
 });

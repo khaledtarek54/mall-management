@@ -275,3 +275,34 @@ was never sent returns **404, never 403** (no existence enumeration).
 ---
 
 **Document version:** 2026-08-15 | Laravel 13 + Filament 4
+
+
+## A notice is never broadcast into a closed window (SW-151, fixed 2026-09-02)
+
+`expires_at` was accepted unvalidated, so a notice could be sent with an end date already in the past
+— or before its own `publish_at`. **The blast still goes out**: every tenant gets the push and the
+bell, `announcement_recipients` records who was reached, and then the portal's own scope
+(`whereNull('expires_at')->orWhere('expires_at', '>=', now())`) excludes it. The deep link every one
+of them taps lands on nothing.
+
+**And there is no way back.** `isEditable()` is false the moment a notice is sent — correctly,
+because it is evidence: tenants hold a notification quoting its text, and
+`announcement_recipients` records who. So the only repair is composing a SECOND notice to explain the
+first, which is a worse thing to have to send than the original.
+
+Two layers, and the second is the one that matters:
+
+- **The form** bounds `expires_at` by the notice's own start (`publish_at`, falling back to now),
+  not by `now()` alone: a scheduled notice published next Tuesday may legitimately expire the
+  Wednesday after, which `minDate(now())` would allow and `after(publish_at)` gets right.
+- **`SendAnnouncementAction`** refuses outright. That is where it has to be, because of the scheduled
+  sweep: an `expires_at` that was in the FUTURE when the notice was scheduled can be in the past by
+  the time the sweep reaches it, which no form rule can see.
+
+The idempotency guard still runs first, deliberately: a notice that HAS been sent and has since
+expired is the ordinary end state of every notice ever, and re-entering the send path for it returns
+the recorded count rather than throwing.
+
+Tests: `ANoticeIsNotBroadcastIntoAClosedWindowTest` — the refusal with nothing recorded as sent, an
+open window, no end date at all, a scheduled notice whose window shut while it waited, and the
+already-sent case.

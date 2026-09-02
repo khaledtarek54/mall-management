@@ -21,6 +21,7 @@
 
 return [
     'refusals' => [
+        'announcement_window_closed' => 'This notice ends :expired, which has already passed — every tenant would be sent to a notice they cannot open, and a sent notice cannot be corrected. Move the end date forward first.',
         'tenant_request_needs_a_unit' => 'This account has no shop to report against — a lease that has ended, or a purchase not yet handed over. Ask the operator to check the record.',
         'bank_account_is_a_posting_role' => 'Account :account is a posting role — it is where documents that name no bank account land. Pointing a real bank at it merges the two, so every unattributed entry would be offered when reconciling this bank. Give this account its own chart leaf.',
         'bank_account_shares_a_chart_account' => 'That chart account already belongs to :other. Two banks on one account means reconciling either one offers the other\'s entries as matches — a wrong match that still balances. Each bank needs its own.',

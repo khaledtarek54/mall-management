@@ -16,10 +16,17 @@ use Carbon\CarbonImmutable;
  * `landlord_unrecovered_amount = total_actual_expense − $allocatedTotal`, so every already-billed
  * share was reported as money the landlord bore itself.
  *
- * A re-run exists precisely to push a revised expense through a pool that has already billed, so
- * this is the ordinary path, not an edge: the landlord's own P&L reads a common cost it never
- * carried, and `Σ allocated + unrecovered = total` — the identity `billing:reconcile` checks, and
- * therefore `atriom:preflight` — fails by the whole billed total on a pool where nothing is wrong.
+ * **What triggers it is pressing *Generate allocations* again** — `CamExpensePoolActions::canGenerate()`
+ * keeps that button live in `reconciling`, which is exactly the status a partly-billed pool sits in
+ * — and the scheduled `cam:reconcile` sweep, which regenerates every `draft|reconciling` pool of the
+ * year unattended, so the wrong figure was re-applied on a timer. (It is NOT a revised expense: the
+ * pool's own `updating` guard refuses that outright while anything is billed. The first version of
+ * this file said otherwise, inheriting a claim from a comment in the service that named a test which
+ * bills nothing.)
+ *
+ * The landlord's own P&L then reads a common cost it never carried, and `Σ allocated + unrecovered =
+ * total` — the identity `billing:reconcile` checks, and therefore `atriom:preflight` — fails by the
+ * whole billed total on a pool where nothing is wrong.
  *
  * The billed row contributes its OWN stored figure, never a recomputed one, for the same reason it
  * is not rewritten.
@@ -103,26 +110,71 @@ it('leaves the billed allocation itself untouched', function () {
         ->and((float) $this->pool->fresh()->landlord_unrecovered_amount)->toBe(1_000.0);
 });
 
-it('never deletes a billed allocation, even when its lease has stopped qualifying', function () {
-    // The property, not the mechanism. Today it holds because the stale-row cleanup is guarded on
-    // `! $isRerun` and a billed row is what MAKES it a re-run — so marking the row present in
-    // `$touched` turns no test red on its own, which is stated in the service rather than dressed up
-    // as a proof here. What is worth pinning either way is the outcome: the document a tenant was
-    // invoiced from survives a re-run in which the lease behind it has left the pool.
+it('ties out when a participant has been deleted out from under its allocation', function () {
+    // **The same corruption, the exit nobody had closed.** The accumulator only ever saw the
+    // participants a pass visited, so a row whose participant is GONE was reported as money the
+    // landlord bore — and a `UnitOwnership` could be deleted with a pending allocation against it,
+    // because `camAllocations` was missing from its `blockedBy` where `Lease` has always had it.
+    //
+    // Deriving the figure from the pool's OWN rows closes it, the billed exit and the zero-share
+    // exit in one move, which is the point: three bugs with one symptom, and patching them one at a
+    // time is how the second and third survived the first.
+    $owner = makeTenant();
+    $ownership = App\Models\UnitOwnership::create([
+        'asset_id' => $this->asset->id,
+        'unit_id' => makeUnit($this->asset, ['area_sqm' => 100])->id,
+        'tenant_id' => $owner->id,
+        'tenure_type' => 'freehold',
+        'status' => App\Enums\UnitOwnershipStatus::HandedOver,
+        'assessment_basis' => 'area',
+        'ownership_share_pct' => 100,
+        'started_at' => '2027-01-01',
+        'handover_date' => '2027-01-01',
+        'currency' => 'EGP',
+    ]);
+
     $this->svc->generateAllocations($this->pool);
 
+    expect(poolTieOut($this->pool))->toBe(100_000.0);
+
+    // Bill one lease so the next pass is a re-run, then delete the owner's row out from under its
+    // pending allocation — which the deletion policy now refuses, and used to allow.
     CamAllocation::query()
         ->where('cam_expense_pool_id', $this->pool->id)
         ->where('lease_id', $this->a->id)
         ->update(['status' => 'billed']);
 
-    // The lease stops qualifying — its term ends before the pool's year.
-    $this->a->update(['expiry_date' => '2027-06-30']);
+    App\Models\UnitOwnership::withoutEvents(fn () => $ownership->delete());
 
     $this->svc->generateAllocations($this->pool->fresh());
 
-    expect(CamAllocation::query()
-        ->where('cam_expense_pool_id', $this->pool->id)
-        ->where('lease_id', $this->a->id)
-        ->exists())->toBeTrue();
+    // The orphan row is still in the pool, so it is still recovered money — and it can never be
+    // cleaned up either, because the stale-row sweep is gated on `! $isRerun`.
+    expect(poolTieOut($this->pool))->toBe(100_000.0);
+});
+
+it('refuses to delete an ownership that carries an allocation at all', function () {
+    // The other half, and the one that stops the orphan existing. `Lease` has listed
+    // `camAllocations` in its own `blockedBy` from the beginning; an ownership did not.
+    $owner = makeTenant();
+    $ownership = App\Models\UnitOwnership::create([
+        'asset_id' => $this->asset->id,
+        'unit_id' => makeUnit($this->asset, ['area_sqm' => 100])->id,
+        'tenant_id' => $owner->id,
+        'tenure_type' => 'freehold',
+        'status' => App\Enums\UnitOwnershipStatus::HandedOver,
+        'assessment_basis' => 'area',
+        'ownership_share_pct' => 100,
+        'started_at' => '2027-01-01',
+        'handover_date' => '2027-01-01',
+        'currency' => 'EGP',
+    ]);
+
+    $this->svc->generateAllocations($this->pool);
+
+    expect($ownership->fresh()->camAllocations()->exists())->toBeTrue()
+        // The registry names the relation, and the gate separately proves the relation EXISTS — a
+        // typo'd one blocks nothing and looks identical to a working guard.
+        ->and(App\Support\DeletionPolicy::blockingRelationsFor(App\Models\UnitOwnership::class))
+        ->toContain('camAllocations');
 });

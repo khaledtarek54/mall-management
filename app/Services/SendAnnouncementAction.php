@@ -7,6 +7,7 @@ use App\Models\Announcement;
 use App\Models\Tenant;
 use App\Notifications\AnnouncementNotification;
 use App\Support\OpsLog;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -32,6 +33,27 @@ class SendAnnouncementAction
     {
         if ($announcement->sent_at !== null) {
             return (int) $announcement->recipients_count;
+        }
+
+        // **A BROADCAST INTO A CLOSED WINDOW REACHES A 404.** `expires_at` was accepted unvalidated,
+        // so a notice could be sent with an end date already in the past — or before its own
+        // `publish_at`. The blast still goes out: every tenant gets the push and the bell,
+        // `announcement_recipients` records who, and then the portal's own scope
+        // (`whereNull('expires_at')->orWhere('expires_at', '>=', now())`) excludes it, so the deep
+        // link every one of them taps lands on nothing.
+        //
+        // And there is no way back. `isEditable()` is false the moment a notice is sent — correctly,
+        // because it is evidence: tenants hold a notification quoting its text. So the only repair
+        // is composing a second notice to explain the first, which is a worse thing to have to send
+        // than the notice itself.
+        //
+        // Guarded HERE rather than only on the form: the scheduled sweep sends without a form, and
+        // an `expires_at` that was in the FUTURE when the notice was scheduled can be in the past by
+        // the time the sweep reaches it — which no form rule can see.
+        if ($announcement->expires_at !== null && $announcement->expires_at->isPast()) {
+            throw new DomainException(__('admin.refusals.announcement_window_closed', [
+                'expired' => $announcement->expires_at->format('d/m/Y H:i'),
+            ]));
         }
 
         $tenants = Tenant::query()
