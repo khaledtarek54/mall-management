@@ -98,7 +98,7 @@ class ReportCatalogue
         WeeklySpend::class => ['category' => self::FINANCIAL, 'key' => 'weekly_spend', 'keywords' => ['spend', 'cost', 'week', 'expenses', 'المصروفات الأسبوعية', 'الإنفاق', 'التكاليف']],
 
         // ---- Receivables ----
-        ArAging::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging', 'keywords' => ['ageing', 'aging', 'overdue', 'debtors', 'arrears', 'أعمار الديون', 'الذمم المدينة', 'المتأخرات', 'المديونية', 'المستحقات', 'فلوس', 'owes', 'owing', 'owed', 'debt']],
+        ArAging::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging', 'keywords' => ['ageing', 'aging', 'overdue', 'debtors', 'arrears', 'أعمار الديون', 'الذمم المدينة', 'المتأخرات', 'المديونية', 'المستحقات', 'مستحقات', 'فلوس', 'owes', 'owing', 'owed', 'debt']],
         ArAgingByType::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging_by_type', 'keywords' => ['ageing', 'charge type', 'rent', 'service charge', 'أعمار حسب النوع', 'رسوم الخدمة', 'الإيجار']],
         ArCollections::class => ['category' => self::RECEIVABLES, 'key' => 'ar_collections', 'keywords' => ['collections', 'paid', 'recovery', 'التحصيل', 'المحصل', 'السداد']],
         BillingRunPreview::class => ['category' => self::RECEIVABLES, 'key' => 'billing_run_preview', 'keywords' => ['billing', 'run', 'preview', 'dry run', 'معاينة الفوترة', 'تشغيل الفوترة', 'الفوترة الشهرية']],

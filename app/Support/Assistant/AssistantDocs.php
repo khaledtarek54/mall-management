@@ -110,7 +110,7 @@ final class AssistantDocs
             $scored = [];
 
             foreach ($chunks as $chunk) {
-                $headingWords = SearchText::words($chunk->heading);
+                $headingWords = AssistantCorpus::tokenise($chunk->heading);
                 $hits = count(array_intersect($words, $headingWords));
 
                 // A heading hit is the strongest signal, but most chunks have none — and with

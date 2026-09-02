@@ -198,6 +198,17 @@ final class AssistantCorpus
             $terms = [];
 
             self::addTerms($terms, self::titleOf($screen), self::WEIGHT_TITLE);
+
+            // THE WORDS OPERATORS USE, which are not always the words the screen is called.
+            //
+            // "Record a receipt" went to the tenant register because the payment screen is called
+            // Payments and nothing connected it to "receipt"; "log a complaint" went to Tenants for
+            // the same reason. Reports have carried curated synonyms since day one, which is
+            // exactly why report questions were already the most accurate tier. This gives screens
+            // and tasks the same thing, per language — «إيصال» is not a translation of "receipt",
+            // it is the word an Egyptian operator types.
+            self::addTerms($terms, self::synonyms($key), self::WEIGHT_KEYWORD, stem: false);
+
             self::addTerms($terms, ScreenGuides::purpose($key), self::WEIGHT_PURPOSE);
 
             foreach ([ScreenGuides::steps($key), ScreenGuides::affects($key), ScreenGuides::rules($key)] as $lines) {
@@ -263,6 +274,39 @@ final class AssistantCorpus
     }
 
     /**
+     * Operator vocabulary for a screen, or an empty string when nobody has curated any.
+     *
+     * Deliberately a translation key rather than a PHP registry: the words differ per language and
+     * a bilingual list belongs where every other bilingual list in this system lives.
+     */
+    public static function synonyms(string $key): string
+    {
+        $path = "admin.assistant.synonyms.{$key}";
+
+        return trans()->has($path) ? (string) __($path) : '';
+    }
+
+    /**
+     * Tokenise the way the assistant matches, which is not quite the way the search box indexes.
+     *
+     * A HYPHEN is a word boundary here. `SearchText::words()` welds one — right for its own job,
+     * where «الأهلي» / "Al-Ahly" is one name an operator typed and half of it should not match every
+     * other tenant — and wrong for natural language, where **Month-End Close** indexes as the single
+     * token `monthend` and nobody typing the screen's own name in words can reach it. Measured: on
+     * "month end close" the Accounting Periods screen out-ranked it, on a tie Month-End Close should
+     * have won three matched words to one.
+     *
+     * Applied to BOTH sides — the corpus and the question — because folding one side matches
+     * nothing, which is the rule this codebase already states for every other search.
+     *
+     * @return array<int, string>
+     */
+    public static function tokenise(?string $phrase): array
+    {
+        return SearchText::words(str_replace(['-', '\u{2013}', '\u{2014}'], ' ', (string) $phrase));
+    }
+
+    /**
      * Fold a phrase and fold its weights into the map, keeping the HIGHEST weight per word.
      *
      * Highest rather than summed: a word appearing eleven times in a long guide would otherwise
@@ -273,7 +317,7 @@ final class AssistantCorpus
      */
     private static function addTerms(array &$terms, ?string $phrase, int $weight, bool $stem = true): void
     {
-        foreach (SearchText::words($phrase) as $word) {
+        foreach (self::tokenise($phrase) as $word) {
             if (in_array($word, self::STOP_WORDS, true)) {
                 continue;
             }

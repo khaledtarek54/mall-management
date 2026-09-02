@@ -56,6 +56,39 @@ dataset('leads_with', [
     'vat return' => ['vat return', 'vat_return', 'en'],
     'rent roll' => ['rent roll', 'rent_roll', 'en'],
     'trial balance' => ['trial balance', 'trial_balance', 'en'],
+
+    // ── The operator's own words, measured against docs/training/OPERATOR-PLAYBOOK.md ─────────
+    //
+    // Thirty-three real operating tasks were driven through retrieval and SEVEN went confidently
+    // to the wrong place — because operators say "receipt", "complaint", "reading", "bad debt",
+    // and the screens are called Payments, Requests, Utility Meters, Invoices. Reports had had
+    // curated keywords since day one, which is exactly why report questions were already the most
+    // accurate tier. These are the seven, pinned so the vocabulary cannot quietly rot back.
+    'a receipt is a payment' => ['record a receipt from a tenant', 'payments', 'en'],
+    'a complaint is a request' => ['log a tenant complaint', 'tenant_requests', 'en'],
+    'a reading is a meter' => ['record a meter reading', 'utility_meters', 'en'],
+    // Submitting one IS creating one, so the FORM is the right answer here — it used to lead with
+    // New Owner Request, which is a different module and a different reader entirely.
+    'a purchase request is procurement' => ['submit a purchase request', 'App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource', 'en'],
+    'closing a period' => ['close the accounting period', 'accounting_periods', 'en'],
+    'a rent free period is a lease term' => ['record a rent free period', 'leases', 'en'],
+
+    // A hyphen used to weld the screen's own name into one token (`monthend`), so the words in the
+    // title could not find the title.
+    'month end close' => ['month end close', 'month_end_close', 'en'],
+
+    // ── Arabic, where a one-word overlap decides it ───────────────────────────────────────────
+    //
+    // A work order is «أمر شغل» and a permit to work is «تصريح عمل»: «اصدار امر عمل» matched one
+    // word of each, tied, and the alphabetical tie-break handed a breakdown to the permit form.
+    'ar work order not permit' => ['اصدار امر عمل', 'work_orders', 'ar'],
+    'ar a receipt is a payment' => ['تسجيل ايصال من مستاجر', 'payments', 'ar'],
+    'ar a complaint is a request' => ['تسجيل شكوى مستاجر', 'tenant_requests', 'ar'],
+    'ar closing a period' => ['اقفال الفترة المحاسبية', 'accounting_periods', 'ar'],
+
+    // «مستحقات» means what is OWED, in either direction — so it belongs to receivables, and a
+    // payables synonym claiming it sent "who owes us money" to the supplier bills.
+    'ar dues are receivable' => ['من عليه مستحقات', 'ar_aging', 'ar'],
 ]);
 
 it('leads with the right source', function (string $question, string $expected, string $locale) {

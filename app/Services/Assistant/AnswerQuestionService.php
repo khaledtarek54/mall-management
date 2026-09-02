@@ -174,8 +174,26 @@ class AnswerQuestionService
             ? AssistantDocs::find($words, $readerLocale)
             : [];
 
+        // RECORDS LEAD ONLY WHEN THE QUESTION NAMES SOMETHING.
+        //
+        // "How much does Cilantro owe" is about a record and should lead with it. "Record a receipt
+        // from a tenant" is about an ACT, and putting a record first answered it with the tenant
+        // register instead of the payment form. Measured against the operator playbook's real
+        // month: seven of thirty-three tasks were misrouted this way, all with the same shape — a
+        // secondary noun in the question matched a record while the verb named the thing to do.
+        //
+        // A question carrying create, count or compare intent is describing an act, so the acts go
+        // first and the records follow as context rather than as the answer.
+        $describesAnAct = $this->describesAnAct($words)
+            || RecordCount::isCounting($words)
+            || PeriodCompare::isComparing($words);
+
+        $ordered = $describesAnAct
+            ? array_merge($screens, $records, $docs)
+            : array_merge($records, $screens, $docs);
+
         $results = array_slice(
-            $this->withoutRepeatedTitles(array_merge($records, $screens, $docs)),
+            $this->withoutRepeatedTitles($ordered),
             0,
             self::MAX_RESULTS,
         );
@@ -471,7 +489,7 @@ class AnswerQuestionService
     private function meaningfulWords(string $question): array
     {
         $words = array_values(array_filter(
-            SearchText::words($question),
+            AssistantCorpus::tokenise($question),
             fn (string $word): bool => ! in_array($word, AssistantCorpus::STOP_WORDS, true),
         ));
 
@@ -725,9 +743,45 @@ class AnswerQuestionService
      */
     private function looksLikeCreating(array $words): bool
     {
-        $verbs = SearchText::words((string) __('admin.assistant.task.verbs'));
+        return array_intersect($words, $this->verbs('admin.assistant.task.verbs')) !== [];
+    }
 
-        return array_intersect($words, $verbs) !== [];
+    /**
+     * Does this question ask how to DO something, rather than about a thing?
+     *
+     * A verb is the tell, and it decides ORDER, never score: an act leads with the screen that
+     * performs it, everything else leads with the record it names. Measured on the operator
+     * playbook — "close the accounting period" led with the Accounting *department* and with the
+     * user accounting@mall.test, because a directory register matches ordinary vocabulary and a
+     * record hit carries no score to lose a tie-break with.
+     *
+     * @param  array<int, string>  $words
+     */
+    private function describesAnAct(array $words): bool
+    {
+        return $this->looksLikeCreating($words)
+            || array_intersect($words, $this->verbs('admin.assistant.act_verbs')) !== [];
+    }
+
+    /**
+     * A verb list, folded, in EVERY supported language at once.
+     *
+     * Reading only the reader's locale would mean an operator with the panel in Arabic who types
+     * "close the period" in English gets a different ORDERING from the one who types it in Arabic —
+     * the same split the corpus already carries a cross-locale fallback for. A verb is a handful of
+     * words either way, so the union is free.
+     *
+     * @return array<int, string>
+     */
+    private function verbs(string $key): array
+    {
+        $words = [];
+
+        foreach (SetLocale::SUPPORTED as $locale) {
+            $words = array_merge($words, SearchText::words((string) __($key, [], $locale)));
+        }
+
+        return array_values(array_unique($words));
     }
 
     /**

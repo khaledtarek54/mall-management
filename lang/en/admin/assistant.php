@@ -77,6 +77,59 @@ return [
             'gone_line' => ':label — had a figure in :year and none now.',
         ],
 
+        // The verbs of OPERATING the mall, beyond the creation ones above.
+        //
+        // A question that leads with a verb is asking how to DO something, so the SCREEN that does
+        // it must beat any record whose name happens to collide. Measured on the operator playbook:
+        // "close the accounting period" led with the Accounting *department* and the user
+        // accounting@mall.test, and "write off a bad debt" led with the posting-map row
+        // `bad_debt_expense` — with the screens that answer both sitting third and fourth.
+        //
+        // Deliberately SEPARATE from task.verbs, which lifts create FORMS: closing a period is an
+        // act and is not the making of a new record, so one list would boost the wrong screens.
+        'act_verbs' => 'close closing settle clear approve reject renew terminate cancel void refund apply allocate write writeoff off post reverse submit send deliver run process reconcile chase remind lock unlock let assign dispatch complete escalate collect pay',
+
+        // ── Operator vocabulary ───────────────────────────────────────────────────────────
+        //
+        // The words people type, keyed by screen guide. NOT translations of the screen name — the
+        // words somebody says out loud when they are trying to get something done. Curated the same
+        // way `ReportCatalogue::keywords` is, and for the same measured reason: report questions
+        // were the most accurate tier precisely because they had this and nothing else did.
+        //
+        // THE ONE RULE: a synonym must SELECT this screen. Two things break it, and both were
+        // shipped here first and measured out:
+        //
+        //   * A VERB. "raise" under Invoices sent "how do I raise a new invoice" to the invoice
+        //     LIST instead of the form. Verbs live in `act_verbs` and `task.verbs`, where they
+        //     decide the KIND of answer and never which screen.
+        //   * A UBIQUITOUS NOUN. «مستأجر» / "tenant" appears in most questions in this domain, so
+        //     it discriminates nothing — it only adds noise. Listing it under Tenants sent
+        //     «المتأخرات على المستأجرين» ("tenant arrears") to the tenant register instead of the
+        //     AR aging report. Tenants has no entry at all for that reason; its own name is enough.
+        'synonyms' => [
+            'payments' => 'receipt receipts collection remittance',
+            'invoices' => 'bill billing charge charges',
+            'credit_notes' => 'discount rebate adjustment',
+            'tenant_requests' => 'complaint complaints ticket issue fault helpdesk',
+            'work_orders' => 'job repair fix breakdown callout',
+            'utility_meters' => 'reading readings meter meters consumption electricity water usage submeter',
+            'purchase_requests' => 'purchase requisition procurement buying',
+            'deposits' => 'security deposit guarantee',
+            'accounting_periods' => 'closing lock the books',
+            'leases' => 'contract agreement renewal termination holdover grace rent free',
+            'units' => 'shop space store premises',
+            'payrolls' => 'salary salaries wages payslip',
+            'custodies' => 'petty cash float imprest',
+            'vendor_bills' => 'supplier payable creditor',
+            'violations' => 'fine penalty breach infringement house rules',
+            'rentable_items' => 'parking bay kiosk storage signage',
+            'sales_declarations' => 'turnover declaration percentage',
+            'service_plans' => 'preventive ppm planned maintenance',
+            'work_permits' => 'permit safety clearance hot work',
+            'announcements' => 'notice circular broadcast',
+            'cam' => 'service charge common recovery apportionment',
+        ],
+
         'answer_heading' => 'Short answer',
         'answer_caveat' => 'Written from the sources below. Check them before acting on a figure.',
 

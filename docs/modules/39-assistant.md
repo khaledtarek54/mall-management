@@ -85,6 +85,73 @@ worse than none** — the reader follows it, finds the wrong screen, and conclud
 work. Silence is honest, costs one more search, and lands the question on the unanswered list where
 it becomes the next screen guide.
 
+## The words operators actually use
+
+Ranking cannot fix a vocabulary gap. Thirty-three real operating tasks were taken from
+[docs/training/OPERATOR-PLAYBOOK.md](../training/OPERATOR-PLAYBOOK.md) — the documented daily,
+weekly, monthly and yearly rhythm — and driven through retrieval with no model attached. All 33
+returned something and **seven went confidently to the wrong place**: *"record a receipt from a
+tenant"* answered the tenant register, *"log a tenant complaint"* answered the tenant register,
+*"submit a purchase request"* answered **New Owner Request** (a different module and a different
+reader), *"write off a bad debt"* answered the posting-map row `bad_debt_expense`, and *"close the
+accounting period"* answered the **Accounting department** and the user `accounting@mall.test`.
+
+None of that is a scoring bug. Operators say *receipt*, *complaint*, *reading*, *bad debt*; the
+screens are called Payments, Requests, Utility Meters, Invoices. Reports have carried curated
+`ReportCatalogue::keywords` since day one, **which is exactly why report questions were already the
+most accurate tier** — they were the only tier with an operator vocabulary. Screens and create forms
+had none.
+
+`admin.assistant.synonyms` is that vocabulary, keyed by screen-guide key, in both languages,
+indexed at KEYWORD weight beside the screen's own title.
+
+**THE ONE RULE: a synonym must SELECT the screen.** Two things break it and both were shipped here
+first and measured out:
+
+* **A VERB.** `raise` under Invoices sent *"how do I raise a new invoice"* to the invoice **list**
+  instead of the form. Verbs belong in `act_verbs` / `task.verbs`, where they decide the KIND of
+  answer and never which screen.
+* **A UBIQUITOUS NOUN.** «مستأجر» / *tenant* appears in most questions in this domain, so it
+  discriminates nothing and only adds noise — listing it under Tenants sent «المتأخرات على
+  المستأجرين» to the tenant register instead of the AR aging report. **Tenants has no entry at all**
+  for that reason; its own name is enough.
+
+Two structural fixes fell out of the same measurement:
+
+* **A verb decides ORDER.** `admin.assistant.act_verbs` — *close, settle, approve, renew, terminate,
+  refund, reverse, write off, reconcile…* — is deliberately separate from the creation verbs: a
+  question that leads with a verb is asking how to DO something, so a screen leads and a record
+  follows. Closing a period is an act and is not the making of a new record, so one list would lift
+  the wrong screens. It is read in **every** supported language at once, or the same question typed
+  in English on an Arabic panel would rank differently from the Arabic one.
+* **A create form inherits its screen's vocabulary**, at `WEIGHT_PURPOSE` — enough to break a tie
+  between two forms, never enough to put a form ahead of the register that owns the word. It has to
+  be that small: at keyword weight, «تسجيل شكوى مستاجر» started answering *New request* instead of
+  the requests list, and «تجديد عقد ايجار» answered *New lease*, which is the wrong act on a
+  contract that already exists.
+
+**A hyphen is a word boundary here.** `SearchText::words()` welds one — right for a search box,
+where «الأهلي» is one name an operator typed — and wrong for natural language: **Month-End Close**
+indexed as the single token `monthend`, so nobody typing the screen's own name in words could reach
+it. `AssistantCorpus::tokenise()` splits it, on **both** sides of the fold, because folding one side
+matches nothing.
+
+After all of it: **47 of 47** operating questions — 33 English, 14 Arabic — land on a destination
+their reader can act on.
+
+### The gate
+
+`AssistantVocabularyConformanceTest`. A synonym under a key that is not a real screen key is
+**silently inert** — `AssistantCorpus::synonyms()` asks `trans()->has()`, gets false, returns an
+empty string, and the entry reads as configuration while doing nothing. Three of the first
+twenty-two were exactly that (`facility_work_orders` for `work_orders`, `deposit_transactions` for
+`deposits`, `cam_pools` for `cam`), and the only symptom was a question routing badly —
+indistinguishable from the vocabulary merely being incomplete. The gate also pins EN/AR key parity,
+requires Arabic script in the Arabic file, and asserts the two verb lists **resolve** with
+`Lang::has(..., fallback: false)` rather than merely being non-empty: a missing key returns the KEY,
+which is truthy, and an editing pass that dropped `act_verbs` from the English file left this test
+green while every act-ordering question regressed. Mutation-proved in all three directions.
+
 ## Phase B — the model as a WORDING layer
 
 **It ships off.** `config/assistant.php` defaults to `driver => none`, which binds
@@ -549,17 +616,30 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 
 ## Tests
 
-`AskingAtriomFindsTheScreenThatAnswersTest` (18), `TheAssistantReachesPastTheScreenGuidesTest` (9),
-`TheMissListIsTheDeliverableTest` (6) and `TheModelOnlyWordsWhatRetrievalFoundTest` (11) — 44 in
-all. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
+`AskingAtriomFindsTheScreenThatAnswersTest`, `TheAssistantReachesPastTheScreenGuidesTest`,
+`TheAssistantHelpsYouDoTheThingTest`, `TheAssistantQuotesRealFiguresTest`,
+`TheFloatingAssistantIsAChatTest`, `AssistantFieldsConformanceTest`,
+`TheModelOnlyWordsWhatRetrievalFoundTest`, the evaluation set
+(`TheAssistantAnswersTheseQuestionsTest`) and `AssistantVocabularyConformanceTest` — **118 in
+all**, green together. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
 the ceiling, the cache and the default-off were each mutation-proved. Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.
 
+**The evaluation set is where a bad answer becomes a permanent guard.** It calls no model, so it is
+free and deterministic: it pins WHICH SOURCE a question lands on, which is the half that decides
+whether an answer can be right at all — good prose cannot rescue the wrong screen. The locale is
+part of each case rather than scaffolding, because the corpus is built per language.
+
 ## Extension points — how to change it safely
 
-- **A screen is found more easily → widen its guide**, not this module. The `purpose` sentence is
-  weight 3 per word and is the intended lever.
+- **A screen is found more easily → add an `admin.assistant.synonyms` entry**, in both languages,
+  under the screen's own guide key. This is the intended lever and the first one to reach for. It
+  must SELECT the screen: never a verb (those go in `act_verbs`), never a word that appears in most
+  questions in this domain. Widening the guide's `purpose` sentence is the weaker second lever, at
+  weight 3 per word.
+- **An operator's verb the assistant does not know** → `admin.assistant.act_verbs`, both languages.
+  It decides ORDER only — screen before record — never which screen.
 - **A report is found more easily → add a `keywords` entry** in `ReportCatalogue::REPORTS`, in both
   languages. That list is also what the report hub's own filter reads, so the improvement lands
   twice.

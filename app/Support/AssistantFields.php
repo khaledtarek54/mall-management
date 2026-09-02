@@ -70,9 +70,6 @@ final class AssistantFields
         Vendor::class => [
             'columns' => ['code', 'name', 'status'],
         ],
-        LedgerAccount::class => [
-            'columns' => ['code', 'name_en', 'name_ar', 'type'],
-        ],
     ];
 
     /**
@@ -111,6 +108,7 @@ final class AssistantFields
         Area::class => 'A routing zone for work orders. Its fields are a name and a property; the answer to any question about it is which zone a job went to, which the work order itself states.',
         Department::class => 'An organisational unit. It groups people and approvals, and neither of those is a fact worth quoting out of context — the approval ladder and the employee register are the screens that mean something.',
         BankAccount::class => 'Account details are a payment instruction. The reconciliation screens are where balances belong.',
+        LedgerAccount::class => 'A chart row, and its NAME is ordinary business vocabulary — "Accounting", "Bad debts", "Rent". Measured against the operator playbook, that hijacked conceptual questions: "write off a bad debt" returned account 51109 and "close the accounting period" returned an account called Accounting, instead of the act and the screen. The ledger reports are how anybody asks about an account.',
         Warehouse::class => 'A stock location. The figure anybody wants is what is IN it, which is a stock level the inventory screens compute rather than a column on this row.',
         InventoryItem::class => 'A catalogue row; the figure that matters is stock on hand.',
         Equipment::class => 'An asset register row read on its own screen with its service history.',

@@ -2,6 +2,7 @@
 
 namespace App\Support\Assistant;
 
+use App\Support\ScreenGuides;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\File;
@@ -84,6 +85,31 @@ final class TaskCorpus
             // that answers the question directly.
             $terms = [];
             self::add($terms, $label, AssistantCorpus::WEIGHT_TITLE);
+
+            // THE OPERATOR'S OWN WORD REACHES THE FORM, not just the list.
+            //
+            // The label is what selects WHICH task, and an operator's word for the same thing
+            // selects it exactly as well — so the screen's synonyms belong here too. This is not
+            // the shared verb list rejected above: those are per-RESOURCE, so they discriminate
+            // rather than flattening all sixty-one entries onto one score.
+            //
+            // Measured in Arabic, where it is unmissable: a work order is «أمر شغل» and a permit is
+            // «تصريح عمل», so «اصدار امر عمل» matched ONE word of each, tied at title weight, and
+            // the alphabetical tie-break handed the permit form to somebody reporting a breakdown.
+            self::add(
+                $terms,
+                AssistantCorpus::synonyms(ScreenGuides::SCREENS[$resource] ?? ''),
+                // PURPOSE weight, not KEYWORD, and the difference is the whole behaviour.
+                //
+                // At keyword weight a synonym scores what the screen's own synonym scores, and the
+                // create lift then puts the FORM ahead of the register on every question — measured,
+                // «تسجيل شكوى مستاجر» ("log a tenant complaint") started answering "New request"
+                // instead of the requests list, and «تجديد عقد ايجار» ("renew a lease") answered
+                // "New lease", which is the wrong act on a contract that already exists. It only has
+                // to break a TIE between two forms, so it is deliberately the smallest weight that
+                // does.
+                AssistantCorpus::WEIGHT_PURPOSE,
+            );
 
             foreach ($fields as $field) {
                 self::add($terms, $field['label'], AssistantCorpus::WEIGHT_BODY);
@@ -263,7 +289,7 @@ final class TaskCorpus
      */
     private static function add(array &$terms, ?string $phrase, int $weight): void
     {
-        foreach (\App\Support\Search\SearchText::words($phrase) as $word) {
+        foreach (AssistantCorpus::tokenise($phrase) as $word) {
             if (in_array($word, AssistantCorpus::STOP_WORDS, true)) {
                 continue;
             }

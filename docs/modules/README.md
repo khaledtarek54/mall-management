@@ -78,7 +78,7 @@ Read these in order — each one assumes the one before it.
 | 20 | [Mobile API](20-mobile-api.md) | `/api/v1` — Sanctum against `Tenant`. Endpoint reference in [api/MOBILE-API.md](../api/MOBILE-API.md) |
 | 34 | [Search](34-search.md) | The folded `search_text` blob, the pickers, and why both sides must be folded |
 | 38 | [Custom fields](38-custom-fields.md) | The operator's own fields on five record types — stored in each record's `metadata`, no deploy |
-| 39 | [Ask Atriom](39-assistant.md) | The in-app question box. Type a question in Arabic or English; it points at the screen or report that answers it, filtered to what you may open. No language model — it searches the screen guides and the report catalogue. |
+| 39 | [Ask Atriom](39-assistant.md) | The floating assistant. Ask in Arabic or English how to do something, and it answers with the screen, the create form, the report or the record that does it — filtered to what you may open, and with the property's own figures where the question asks for a number. Retrieval decides; the model only words the answer, and ships off. |
 
 ---
 
