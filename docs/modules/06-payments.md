@@ -757,6 +757,39 @@ column on 2026-09-02 with no relation, no guard and a bare `EntitySelect`, so a 
 another mall's account and stamp it onto every cost it generated. That made the sweep **seven**
 documents, not six. (`ABankRailSaysWhichAccountItMovedThroughTest`, mutation-proved both ways.)
 
+**A DOCUMENT HAS MORE THAN ONE DOOR, and the first pass only reached six of eight.** A deposit
+movement is recorded from the deposit register **and** from the lease's own Security deposit tab —
+and the tab is where an operator actually records one. `LeaseActions::recordDeposit()` did not get
+the field, so every deposit taken from the lease page recorded no bank account at all. **Reported
+from the panel, not by the suite**, a day after a change whose entire subject was that column, and
+with a suite full of green deposit tests — because every one of them drove the model or the register.
+CLAUDE.md already stated the rule, about this very pot: *enumerate the doors onto a pot by grepping
+the pot, never from the diff that fixed one of them.* **A sentence is not a gate.**
+
+`App\Support\MoneyDocumentDoors` is the gate. **A door is DERIVED, never listed**: a Filament schema
+that collects the document's rail as a FORM FIELD — `Select::make('method')` / `('paid_from')`, the
+column that document itself names — because that is the observable signal a screen is *recording*
+money movement rather than listing it (a `TextColumn` or a `SelectFilter` reads the same column and
+records nothing). A registry of doors would go stale the moment somebody adds a screen, which is the
+failure being caught, so it must not rest on the same person remembering. Attribution is by whether
+the file NAMES one of the seven documents — not an exemption list — so the petty-cash screens that
+legitimately collect a rail and have no bank account (`Custody`, employee advances, marketing spend)
+are correct *by being what they are*, and a new one is too. Eight doors found; both teeth
+mutation-proved.
+
+**The second tooth is the field that records nothing.** A door that builds its row inline must pass
+`bank_account_id` through — a field on a modal the write does not carry renders, validates, and saves
+none of it, which is *worse* than not offering it, because the operator has been told the answer was
+taken. Already pinned for the two SERVICE writers; this is the same trap one layer up.
+
+**Two traps in testing this.** The action's schema is a CLOSURE, so a test that enumerates actions
+proves nothing about what their modals contain — drive the action. And the behavioural test's first
+version **passed with the write deleted**: it named the property's *default* account, which
+`RecordsBankAccount` fills in on create, so the row was right for a reason that had nothing to do
+with the modal. It now names a second, non-default account, so the fallback cannot stand in for the
+thing under test. **Billing a deposit is deliberately NOT a door** — `BillSecurityDepositService`
+raises an INVOICE, and the bank account arrives with the payment that settles it.
+
 **Reading it back.** `App\Support\Filament\BankAccountColumn` and `…\BankAccountFilter` are the
 read half of `BankAccountField`. The field shipped write-only — no column, no infolist entry, no
 filter anywhere — so an operator could set the account and never see it again, and *"which documents

@@ -20,6 +20,7 @@ use App\Services\LeaseTerminationService;
 use App\Services\MoveOutStatementService;
 use App\Services\SettleMoveOutService;
 use App\Settings\BillingSettings;
+use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
 use App\Support\LeaseTerm;
 use App\Support\RentableItemOptions;
@@ -208,7 +209,22 @@ class LeaseActions
                         // into income, so asking "by what method" would be a question with no answer.
                         ->visible(fn (Get $get) => $get('type') !== 'forfeit')
                         ->requiredUnless('type', 'forfeit')
+                        ->live()
                         ->native(false),
+
+                    // WHICH bank account the deposit moved through — the same field, the same
+                    // default and the same requirement as the deposit register's own form, because
+                    // this modal writes the same row. It reached the register and not here, which is
+                    // the door-counting failure CLAUDE.md states for this very pot: enumerate the
+                    // doors by grepping the pot, never from the diff that fixed one of them.
+                    //
+                    // A forfeit hides it for the reason it hides the rail: nothing moves through a
+                    // bank, the liability simply becomes income. Hiding is safe HERE and not on an
+                    // Edit form — this modal builds a NEW row from `$data`, so a hidden field is
+                    // absent rather than stale.
+                    BankAccountField::for(DepositTransaction::class)
+                        ->visible(fn (Get $get) => $get('type') !== 'forfeit'),
+
                     TextInput::make('amount')
                         ->label(__('admin.fields.amount'))
                         ->prefix('EGP')
@@ -276,6 +292,12 @@ class LeaseActions
                             'type' => $data['type'],
                             'status' => 'recorded',
                             'method' => $data['type'] === 'forfeit' ? null : ($data['method'] ?? null),
+                            // Passed through explicitly. A field on the modal that the write does
+                            // not carry is a control that saves NOTHING — it renders, it validates,
+                            // the operator picks an account and the document records none. Pinned
+                            // in `TwoBanksInOneMallReconcileSeparatelyTest` for the two SERVICE
+                            // writers; this is the same trap one layer up.
+                            'bank_account_id' => $data['type'] === 'forfeit' ? null : ($data['bank_account_id'] ?? null),
                             'amount' => $amount,
                             'transaction_date' => $data['transaction_date'],
                             'notes' => $data['notes'] ?? null,

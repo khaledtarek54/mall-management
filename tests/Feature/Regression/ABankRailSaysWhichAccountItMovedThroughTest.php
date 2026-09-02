@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Expenses\Pages\CreateExpense;
 use App\Models\BankAccount;
 use App\Models\DepositTransaction;
@@ -9,6 +10,7 @@ use App\Models\PaymentMethod;
 use App\Models\Payroll;
 use Database\Seeders\PaymentMethodSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 /**
@@ -323,4 +325,66 @@ it('banks a payroll run where salaries leave from', function () {
         ->and(Payroll::bankAccountPurpose())->toBe(BankAccount::PURPOSE_PAYROLL)
         ->and(Payment::bankAccountPurpose())->toBe(BankAccount::PURPOSE_OPERATING)
         ->and(DepositTransaction::bankAccountPurpose())->toBe(BankAccount::PURPOSE_DEPOSITS);
+});
+
+/**
+ * The DOOR the operator actually uses.
+ *
+ * A deposit is taken from the lease's Security deposit tab, not from the deposit register — and when
+ * `bank_account_id` became a real question, six forms got it and this modal did not. Every unit test
+ * above was green throughout, because they all drove the model and the register. Reported from the
+ * panel, a day later.
+ *
+ * So this drives the ACTION: the field is on the modal, and the value the operator picks reaches the
+ * row. The second half is not redundant — a field the write does not carry renders, validates, and
+ * records nothing, which is worse than not offering it, because the operator has been told the
+ * answer was taken.
+ */
+it('asks where the money banked on the lease page, and records the answer', function () {
+    ensureAllPropertiesAsset();
+    $this->actingAs(makeUser('super_admin', [$this->asset->id]));
+    // `recordDeposit` gates on `LeaseResource::canEdit()`, which resolves through the panel — without
+    // this the action is simply not visible and the test would report a missing FIELD when what is
+    // missing is the panel.
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+    $lease = makeLease(makeUnit($this->asset), makeTenant(), [
+        'status' => 'active',
+        'security_deposit' => 30000,
+    ]);
+
+    // Driving the ACTION itself, which is the pattern `LeaseDepositActionActuallySavesTest` already
+    // uses for this exact modal: its schema is a CLOSURE, so it does not exist until something
+    // builds it — which is why a test that merely enumerates actions proves nothing about what their
+    // modals contain, and why this bug survived a suite full of deposit tests.
+    //
+    // That the field is OFFERED at all is the static half, pinned and mutation-proved by
+    // `EveryDoorOntoAMoneyDocumentAsksWhereItBankedTest`. This is the half that proves the value
+    // survives the round trip: a field the write does not carry renders, validates and records
+    // nothing — worse than not offering it, because the operator has been told the answer was taken.
+    // A SECOND account, deliberately NOT the default. The first version of this passed the default
+    // account and stayed green with the write deleted: `RecordsBankAccount` fills the default in on
+    // create, so the row ended up correct for a reason that had nothing to do with the modal. A
+    // behavioural test whose expected value is also the fallback cannot see the thing it is for.
+    $elsewhere = BankAccount::create([
+        'asset_id' => $this->asset->id,
+        'name' => 'NBE — second account',
+        'account_number' => 'BR-OP-0009',
+        'purpose' => BankAccount::PURPOSE_OPERATING,
+        'is_default' => false,
+    ]);
+
+    $action = collect(LeaseActions::all())->firstWhere(fn ($a) => $a->getName() === 'recordDeposit');
+    $action->record($lease);
+
+    $action->call(['data' => [
+        'type' => 'receipt',
+        'method' => 'bank',
+        'bank_account_id' => $elsewhere->id,
+        'amount' => 30000,
+        'transaction_date' => now()->toDateString(),
+        'notes' => null,
+    ]]);
+
+    expect(DepositTransaction::sole()->bank_account_id)->toBe($elsewhere->id);
 });
