@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\TenantRequestType;
+use App\Enums\UnitOwnershipStatus;
 use App\Models\Department;
 use App\Models\Lease;
 use App\Models\SlaPolicy;
@@ -85,6 +86,39 @@ class TenantRequestService
             $unit = $requestedUnitId !== null
                 ? ($lease?->units()->whereKey($requestedUnitId)->first() ?? $lease?->unit)
                 : $lease?->unit;
+
+            // **A UNIT OWNER HOLDS NO LEASE, AND COULD THEREFORE REPORT NOTHING.** Module 37's rule
+            // is that an owner IS a `tenants` row, and every other portal surface treats them as
+            // one — they receive assessments, pay them and read their own statement. Here the clamp
+            // resolved through LEASES alone, so an owner who has taken handover of a shop had
+            // `$unit` come back null: the insert then failed on a NOT NULL column, or (before this
+            // service existed) the request was filed against nothing. The picker was empty for the
+            // same reason, which is what made it read as missing data rather than as a bug.
+            //
+            // The clamp is unchanged in kind — the unit is still resolved from the TENANT's own
+            // rows, never from the client — and `handed_over` AND covering today is the same
+            // predicate the assessment run bills from, so the two cannot disagree about which shops
+            // are theirs. A `contracted` shop has not been given to them yet and a `transferred` one
+            // is somebody else's now.
+            if ($unit === null) {
+                $ownedUnitIds = $tenant->unitOwnerships()
+                    ->where('status', UnitOwnershipStatus::HandedOver)
+                    ->covering()
+                    ->pluck('unit_id');
+
+                $unit = $requestedUnitId !== null && $ownedUnitIds->contains($requestedUnitId)
+                    ? Unit::find($requestedUnitId)
+                    : Unit::find($ownedUnitIds->first());
+            }
+
+            // **A REFUSAL, NOT A 500.** `tenant_requests.unit_id` is NOT NULL, so a party with no
+            // lease and no handed-over shop — a tenant whose lease ended, an owner still waiting for
+            // handover — hit an integrity-constraint violation and the operator got the error page.
+            // A `DomainException` renders as its own message (`bootstrap/app.php`), which is what a
+            // person can act on.
+            if ($unit === null) {
+                throw new DomainException(__('admin.refusals.tenant_request_needs_a_unit'));
+            }
 
             $type = isset($data['request_type'])
                 ? TenantRequestType::from($data['request_type'])

@@ -539,3 +539,37 @@ property of the proration model, not of the window.
 Tests: `AnAssessmentRecordsTheDaysItActuallyBilledTest` — the leading edge, the trailing edge
 (`ended_at`, which the first pass left entirely unproven), the issue date, the VAT date, the
 no-double-billing control and a whole-month control. Mutation-proved four ways.
+
+
+## A unit owner can report a fault (SW-153, fixed 2026-09-02)
+
+Module 37's rule is that **an owner IS a `tenants` row**, and every other portal surface treats them
+as one — they receive assessments, pay them, read their own statement. The tenant-request form did
+not: both the Unit picker and the service's write clamp resolved through **LEASES alone**, so an
+owner who had taken handover of a shop and held no lease saw an EMPTY dropdown on a `required()`
+field, and a crafted submit produced a NOT NULL violation on `tenant_requests.unit_id`.
+
+**That is the worst available shape of failure**: nothing errors, nothing is refused, and an empty
+picker reads as *"no such record"* rather than as a bug — so it is reported as missing data, or not
+at all. The fault they were trying to report came in by telephone instead.
+
+Both halves moved, and the write clamp is the one that matters (the picker only scopes the
+rendering; the mobile API reaches the same service):
+
+- `TenantRequestForm::reportableUnitIds()` unions the tenant's leased units with their owned ones.
+- `TenantRequestService::create()` falls back to the owned set when no lease resolves the unit.
+
+**The predicate is `handed_over` AND covering today** — the same one the assessment run bills from,
+so the two cannot disagree about which shops are theirs. A `contracted` or `reserved` shop has not
+been given to them yet and a `transferred` one is somebody else's now; neither is a place they can
+report a fault in. Leases still go through the PIVOT, because a multi-unit lease keeps its extra
+units there and only the master in `leases.unit_id`.
+
+**And a party with no shop at all now gets a REFUSAL, not a 500.** `tenant_requests.unit_id` is NOT
+NULL, so a tenant whose lease has ended or an owner still waiting for handover hit an
+integrity-constraint violation and the error page. A `DomainException` renders as its own message,
+which is what a person can act on.
+
+Tests: `AUnitOwnerCanReportAFaultTest` — the owner's own shop, one not yet handed over, one since
+sold, an ordinary retailer (the control), and the empty-handed refusal. Mutation-proved on both
+halves.

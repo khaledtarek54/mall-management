@@ -258,7 +258,7 @@ which is the same failure this repo gates for generated doc blocks.
 |---|---|---|---|---|---|
 | **SW-151** | open | high | — | An announcement's expires_at is unvalidated, so a broadcast can deep-link every tenant to a 404 — and the record is immutable the moment it sends | `Filament/Admin/Resources/Announcements/Schemas/AnnouncementForm:124` |
 | **SW-152** | ✅ **fixed** `bae3a170` | high | — | Retiring a catalogue code makes every record already carrying it permanently unsavable — the half of the deposit bug that was never fixed | `Filament/Admin/Resources/TenantRequests/Schemas/TenantRequestForm:139` |
-| **SW-153** | open | high | — | A unit owner cannot raise a tenant request: the screen is offered, the required Unit picker has zero options | `Filament/Portal/Resources/TenantRequests/Schemas/TenantRequestForm:59` |
+| **SW-153** | ✅ fixed | high | — | A unit owner cannot raise a tenant request: the screen is offered, the required Unit picker has zero options | `Filament/Portal/Resources/TenantRequests/Schemas/TenantRequestForm:59` |
 | **SW-154** | ✅ **fixed** `ce038ed8` | high | — | `GET /me/statement?to=` prints the window it was asked for and ignores it — the statement lists rows after its own stated end date | `Services/TenantStatementPdfService:98` |
 | **SW-155** | open | medium | — | A tenant request's zone silently goes stale when its unit is corrected on the Edit page, under a field labelled "auto" | `Filament/Admin/Resources/TenantRequests/Schemas/TenantRequestForm:227` |
 | **SW-156** | open | low | — | The two overdue scans re-check their stamp under the lock but not the balance, so a payment landing mid-run produces a dunning notice on a settled invoice | `Console/Commands/RemindOverdueTenantsCommand:99` |

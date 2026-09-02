@@ -21,6 +21,9 @@
 
 return [
     'refusals' => [
+        'tenant_request_needs_a_unit' => 'This account has no shop to report against — a lease that has ended, or a purchase not yet handed over. Ask the operator to check the record.',
+        'bank_account_is_a_posting_role' => 'Account :account is a posting role — it is where documents that name no bank account land. Pointing a real bank at it merges the two, so every unattributed entry would be offered when reconciling this bank. Give this account its own chart leaf.',
+        'bank_account_shares_a_chart_account' => 'That chart account already belongs to :other. Two banks on one account means reconciling either one offers the other\'s entries as matches — a wrong match that still balances. Each bank needs its own.',
         'payment_credit_overdrawn' => 'This receipt cannot be re-allocated in full: :shortfall of it has already been applied to another invoice as on-account credit. Reverse that application first.',
         'credit_note_void_is_terminal' => 'A voided credit note is closed for good — its ledger entry has been reversed. Raise a new note if credit is due.',
         'credit_note_status_is_an_act' => 'A credit note is issued or voided by its own button, not by picking a status. Those acts check the accounting period, post to the ledger and record why — use Issue or Void.',

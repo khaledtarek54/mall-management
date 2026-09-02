@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\TenantRequests\Schemas;
 
 use App\Enums\TenantRequestType;
+use App\Enums\UnitOwnershipStatus;
 use App\Models\Tenant;
 use App\Models\TenantRequestSubcategory;
 use App\Models\Unit;
@@ -64,19 +65,10 @@ class TenantRequestForm
                         // the column alone hid half a tenant's space and they could not report a
                         // fault in it. This IS the scope in the portal: `visibleAssetIds()` is null
                         // for a TenantUser, so nothing else narrows it.
-                        ->modifyOptionsQuery(fn ($query) => $query->whereIn(
-                            'id',
-                            Portal::tenant()?->leases()->with('units')->get()
-                                ->flatMap(fn ($lease) => $lease->units)->pluck('id')->unique() ?? [],
-                        ))
+                        ->modifyOptionsQuery(fn ($query) => $query->whereIn('id', self::reportableUnitIds()))
                         ->required()
                         ->columnSpanFull()
-                        ->default(function () {
-                            /** @var Tenant|null $tenant */
-                            $tenant = Portal::tenant();
-
-                            return $tenant?->activeLeases()->first()?->unit_id;
-                        }),
+                        ->default(fn (): ?int => self::reportableUnitIds()->first()),
                     Textarea::make('description')
                         ->label(__('admin.fields.description'))
                         ->required()
@@ -106,5 +98,47 @@ class TenantRequestForm
                         ->columnSpanFull(),
                 ]),
         ]);
+    }
+
+    /**
+     * Every unit this portal account may report a fault in — LEASED **or OWNED**.
+     *
+     * **A unit owner could not raise a request at all.** Module 37's own rule is that an owner IS a
+     * `tenants` row, and every other portal surface treats them as one — they receive assessments,
+     * pay them, and read their own statement. This picker drew from LEASES only, so an owner who has
+     * taken handover of a shop and has no lease saw an EMPTY dropdown on a `required()` field: the
+     * screen was offered, the form could not be completed, and an empty picker reads as "no such
+     * record" rather than as a bug, which is how it survived. The fault they were trying to report
+     * came in by telephone instead.
+     *
+     * **Leases go through the PIVOT**, because a multi-unit lease keeps its extra units there and
+     * only the master in `leases.unit_id` — listing the column alone hid half a tenant's space.
+     * **Ownerships are `handed_over` and COVERING today**: `contracted` or `reserved` means the shop
+     * has not been given to them yet, and a `transferred` one is somebody else's now, so neither is
+     * a place they can report a fault in. Same predicate the assessment run bills from, so the two
+     * cannot disagree about which shops are theirs.
+     *
+     * This IS the scope in the portal — `TenantScope::visibleAssetIds()` is null for a `TenantUser`,
+     * so nothing else narrows it.
+     *
+     * @return \Illuminate\Support\Collection<int, int>
+     */
+    private static function reportableUnitIds(): \Illuminate\Support\Collection
+    {
+        $tenant = Portal::tenant();
+
+        if (! $tenant instanceof Tenant) {
+            return collect();
+        }
+
+        $leased = $tenant->leases()->with('units')->get()
+            ->flatMap(fn ($lease) => $lease->units)->pluck('id');
+
+        $owned = $tenant->unitOwnerships()
+            ->where('status', UnitOwnershipStatus::HandedOver)
+            ->covering()
+            ->pluck('unit_id');
+
+        return $leased->concat($owned)->filter()->unique()->values();
     }
 }
