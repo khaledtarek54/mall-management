@@ -4,8 +4,6 @@ namespace App\Support;
 
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\ActivityLog;
-use App\Filament\Admin\Pages\Assistant;
-use App\Filament\Admin\Pages\AssistantQuestions;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -142,8 +140,6 @@ class ReportCatalogue
         Handbook::class => 'The manual, not a measurement. Every report here answers a question about this portfolio\'s data and changes when the data changes; the handbook explains how the system works and reads identically on an empty database. Listing it beside the rent roll would send an operator looking for a number to a page that has none.',
         Budget::class => 'Configuration, and an INPUT screen — it pastes what each P&L account is expected to do. Every report here answers a question about what happened; this states what is planned, and the report that compares the two is the income statement. Same reasoning as Settings and PropertyOverrides above.',
         OpeningBalances::class => 'Cutover data entry — it loads the accountant\'s opening trial balance and creates a DRAFT journal entry. It writes the books rather than reporting on them, and it is used once per go-live rather than per month.',
-        AssistantQuestions::class => 'It reports on the SOFTWARE, not on the portfolio — which questions operators typed and which the system could not answer. Every report here changes when the business changes; this one changes when the guides do. Same reasoning as Configuration health above.',
-        Assistant::class => 'A way to FIND a report, not one of them. Every report here answers a question about this portfolio\'s data and changes when the data changes; this searches the guides and this very catalogue, and reads identically on an empty database. Listing it beside the rent roll would send an operator looking for a number to a search box. Same reasoning as the Handbook above.',
         NotificationCenter::class => 'One reader\'s own alert history. Every report here answers a question about the BUSINESS and reads the same for any two operators with the same permissions; this reads differently for every single person, because it is scoped to their own notifications. It is mail, not a report — and listing it in the report hub would promise a portfolio answer and deliver an inbox.',
     ];
 

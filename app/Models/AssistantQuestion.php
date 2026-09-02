@@ -44,6 +44,7 @@ class AssistantQuestion extends Model
         'model_answer',
         'model_input_tokens',
         'model_output_tokens',
+        'was_helpful',
     ];
 
     /**
@@ -66,6 +67,7 @@ class AssistantQuestion extends Model
             'result_count' => 'integer',
             'model_input_tokens' => 'integer',
             'model_output_tokens' => 'integer',
+            'was_helpful' => 'boolean',
         ];
     }
 

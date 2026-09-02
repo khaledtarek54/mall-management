@@ -3,6 +3,7 @@
 namespace App\Services\Assistant;
 
 use App\Http\Middleware\SetLocale;
+use App\Models\AssistantDocChunk;
 use App\Models\AssistantQuestion;
 use App\Support\Assistant\AssistantCorpus;
 use App\Contracts\AssistantModel;
@@ -360,10 +361,23 @@ class AnswerQuestionService
      */
     private function meaningfulWords(string $question): array
     {
-        return array_values(array_filter(
+        $words = array_values(array_filter(
             SearchText::words($question),
             fn (string $word): bool => ! in_array($word, AssistantCorpus::STOP_WORDS, true),
         ));
+
+        // The stem travels WITH the word, never instead of it — so an exact match still scores full
+        // weight and this can only add a way in. The corpus indexes both sides (see
+        // AssistantCorpus::addTerms), which is what lets «إشعارات» meet «اشعار» and back again.
+        foreach ($words as $word) {
+            $stem = AssistantDocChunk::stem($word);
+
+            if ($stem !== $word && $stem !== '' && ! in_array($stem, $words, true)) {
+                $words[] = $stem;
+            }
+        }
+
+        return $words;
     }
 
     /**
@@ -389,6 +403,10 @@ class AnswerQuestionService
                 'entry' => $entry,
                 'score' => $result['score'],
                 'hits' => $result['hits'],
+                // The rarest word this entry matched on. Two entries can score identically and not
+                // be equally good: matching a word used by one screen says more than matching one
+                // used by thirty. Lower is better, so it is negated in the sort key.
+                'rarity' => $this->rarestMatch($entry, $words, $locale),
             ];
         }
 
@@ -421,8 +439,8 @@ class AnswerQuestionService
         }
 
         usort($scored, function (array $a, array $b): int {
-            return [$b['score'], $b['hits'], $a['entry']->title]
-                <=> [$a['score'], $a['hits'], $b['entry']->title];
+            return [$b['score'], $b['hits'], $a['rarity'], $a['entry']->title]
+                <=> [$a['score'], $a['hits'], $b['rarity'], $b['entry']->title];
         });
 
         return array_map(
@@ -530,6 +548,24 @@ class AnswerQuestionService
     }
 
     /**
+     * How rare the rarest word this entry matched on is. Lower is more distinctive.
+     *
+     * @param  array<int, string>  $words
+     */
+    private function rarestMatch(AssistantEntry $entry, array $words, string $locale): int
+    {
+        $rarest = PHP_INT_MAX;
+
+        foreach ($words as $word) {
+            if (($entry->terms[$word] ?? 0) > 0) {
+                $rarest = min($rarest, AssistantCorpus::documentFrequency($locale, $word));
+            }
+        }
+
+        return $rarest;
+    }
+
+    /**
      * Where a result leads — and for a report, at the year the question named.
      *
      * A YEAR is the only parameter safe to lift out of a question without guessing: four digits in
@@ -625,7 +661,7 @@ class AnswerQuestionService
     {
         $top = $results[0] ?? null;
 
-        AssistantQuestion::create([
+        $row = AssistantQuestion::create([
             'conversation_id' => $conversationId,
             // The panel's tenant when the caller did not state one. Passed explicitly rather than
             // read here so a console replay of the miss list can attribute rows honestly.
@@ -651,6 +687,10 @@ class AnswerQuestionService
             'matched' => $top !== null,
             'locale' => $locale,
             'answer' => $worded['text'] ?? null,
+            // The turn's own id, so a rating lands on the answer it judges rather than on
+            // "the most recent question", which is a different row the moment two people ask at
+            // once.
+            'id' => $row->id,
         ];
     }
 }

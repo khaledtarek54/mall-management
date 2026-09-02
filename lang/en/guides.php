@@ -14,46 +14,6 @@
  * at and what happens if I touch it".
  */
 return [
-    'assistant_questions' => [
-        'purpose' => 'Every question people typed into Ask Atriom, grouped and counted, most-asked first. It exists to answer two things you cannot otherwise know: which screens need a better explanation, and whether the box is earning its place.',
-        'steps' => [
-            'Read the rows marked Never under Answered. Those are questions the system had nothing to say to.',
-            'For each one, ask whether the screen that SHOULD have answered it has a thin guide — that is the usual cause, and the fix is free.',
-            'Filter to Answered by nothing to see only those, and switch language to check whether the gap is in the English guides or the Arabic ones.',
-            'A question answered some of the time is a different problem: the wording matched sometimes and not others. That is a ranking issue, not a missing guide.',
-            'Ignore one-off oddities. The count is the point — a question asked once is noise, one asked eleven times is a missing screen guide.',
-        ],
-        'affects' => [
-            'Nothing in the business. This screen only reads, and no invoice, lease or figure depends on it.',
-            'What you change because of it does: improving a screen guide reaches Ask Atriom immediately, because the guides are what it searches.',
-            'It shows this property only. Questions are free text somebody typed and can name a tenant, so they are scoped like any other property-owned record.',
-        ],
-        'rules' => [
-            'Questions are grouped after folding, so «فاتورة» and «فاتوره» count as one question, and so do "Credit Note" and "credit note".',
-            'Answered means the box found something to offer, not that the answer was right. A wrong answer looks the same as a good one here.',
-            'Nothing is deleted from this screen. The list is pruned on a retention period like the other transient records.',
-        ],
-    ],
-    'assistant' => [
-        'purpose' => 'One box you can type a question into, in Arabic or English, and be pointed at the screen or report that answers it. It searches this system\'s own guides — the same four-field explanation you are reading now, written for all 112 screens — plus the report catalogue. Nothing is sent anywhere; there is no AI service behind it.',
-        'steps' => [
-            'Type the question the way you would say it. It does not have to match a screen name — "who owes us money" finds the AR aging.',
-            'Either language works, and so does mixing them. Typing "credit note" while the panel is in Arabic still finds the right screen, and the answer comes back in Arabic.',
-            'The first result opens in full — what the screen is for, how the task is done, what it changes elsewhere, and the rules. The others are one line each; open the one you want.',
-            'Follow the link to go straight to the screen.',
-            'If nothing is found, try the words that appear on the screen itself — a document name, a tenant, a number.',
-        ],
-        'affects' => [
-            'Nothing. This screen only reads — it changes no record, no money and no setting.',
-            'Your question is recorded, with whether anything answered it. The unanswered ones are reviewed to find where the guides have a gap.',
-            'It only ever offers screens you are allowed to open. Two people asking the same question can get different answers, and that is correct — it will not send you to a screen that would refuse you.',
-        ],
-        'rules' => [
-            'It points at answers; it does not compute them. For a figure, it takes you to the report that produces it, so the number you read is the same number the report shows.',
-            'It knows what the guides and the report catalogue say. A screen whose guide is thin will be found less often — that is what the unanswered-question list is for.',
-            'It is not a chat. Each question is asked on its own; it does not remember the previous one.',
-        ],
-    ],
     'holidays' => [
         'purpose' => 'The days your people are not at work. Egypt\'s holidays cannot be calculated — the Eids move with the moon and a mid-week holiday is often shifted to the Thursday beside it — so this list is yours to keep, once a year.',
         'steps' => [

@@ -203,8 +203,6 @@ final class TableSortPolicy
         // ── SEQUENCE ──────────────────────────────────────────────────────────
         // The order IS the content: a thread, a schedule read forward, a statement's own line order,
         // an append-only feed.
-        // The miss list is a PRIORITY list: most-asked first, or it is a feed nobody re-reads.
-        'Admin/Pages/AssistantQuestions' => self::RANKED,
         'Admin/Pages/ActivityLog' => self::SEQUENCE,
         'Admin/RelationManagers/ActivitiesRelationManager' => self::SEQUENCE,
         'Admin/RelationManagers/ChargeScheduleRelationManager' => self::SEQUENCE,

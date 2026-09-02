@@ -125,13 +125,20 @@ you would know it needed raising.
 non-text block first in the response: each returns null, and the screen shows the sources exactly as
 it did before phase B existed.
 
-## Two surfaces, one service
+## ONE surface
 
-| | `/admin/ask` | The floating bubble |
-|---|---|---|
-| Shows | what retrieval **found** — screens, reports, records, handbook sections, ranked | what the model **said**, with sources shrunk to citations |
-| For | looking something up | a conversation |
-| Where | its own screen | **every admin page**, via the panel's `BODY_END` render hook |
+The floating bubble, on every admin page. The standalone `/admin/ask` screen and the
+`/admin/assistant-questions` miss list were **removed** (2026-09-02): two places to ask one question
+is two rankings to keep in step, and the one that drifted would be the one nobody used. The
+statistics moved to a command — `php artisan atriom:assistant-report` — because a second screen
+about the SOFTWARE, in a panel about a mall, is a page an operator opens once.
+
+## The chat
+
+It shows what the model **said**, with the sources shrunk to citations beneath it. Mounted on the
+panel's `BODY_END` render hook, which is also where the module switch is consulted — **a Livewire
+component has no `shouldRender()` convention**, so the gate the component used to carry was dead
+code and the toggle hid nothing.
 
 **Side is not branched.** The bubble sits bottom-**right** in English and bottom-**left** in Arabic
 because the view uses `inset-inline-end`, a CSS logical property, and the panel's own `dir` decides
@@ -305,6 +312,27 @@ four digits in a plausible range are unambiguous in both languages, where *"last
 Zara"* links to the record **and** to the report, rather than to a report pre-filtered in a way it
 does not support. Even a wrong year is recoverable in a way a wrong figure would not be: it is a
 link, and the report shows its own period selector.
+
+## Judging it
+
+**The miss list stopped being a signal, and that is measured rather than feared.** Of 45 real
+questions, **zero** matched nothing: with 189 corpus entries and 1,050 documentation sections
+something always matches. "Did it find anything" can no longer tell a good answer from a confident
+wrong one, so `was_helpful` — 👍/👎 on each answer — is the replacement. Nullable and three-valued:
+`null` is *not asked*, and treating silence as a negative would make the first useful metric a lie.
+
+**`atriom:assistant-report`** leads with the ratings, then the misses, then spend.
+
+**`TheAssistantAnswersTheseQuestionsTest` is the evaluation set** — 12 questions with the source each
+must LEAD with, plus three that must match nothing. No model is called, so it is free and
+deterministic: the wording varies, but which source a question lands on is ours and decides whether
+the answer can be right at all. **When somebody reports a bad answer it becomes a row here** — that
+is what turns one complaint into a permanent guard. It caught two real ranking bugs on its first
+run.
+
+**Cost is not the problem and the numbers say so:** 776 input tokens and 66 output on average, which
+is ~$0.001 a question even on paid Haiku — about 1,000 questions per $1.10. Trimming prompts further
+would save fractions of a cent; ranking is where the value is.
 
 ## Gotchas
 

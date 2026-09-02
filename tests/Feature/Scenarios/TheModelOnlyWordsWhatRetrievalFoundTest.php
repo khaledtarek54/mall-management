@@ -1,7 +1,6 @@
 <?php
 
 use App\Contracts\AssistantModel;
-use App\Filament\Admin\Pages\Assistant;
 use App\Models\AssistantDocChunk;
 use App\Models\AssistantQuestion;
 use App\Services\Assistant\AnswerQuestionService;
@@ -225,10 +224,15 @@ it('shows the answer above its sources, never instead of them', function () {
     $this->actingAs(makeUser('super_admin'));
     app()->instance(AssistantModel::class, fakeModel('Issue it from the Credit Notes screen.'));
 
+    // Through the CHAT, which is now the only assistant surface — the standalone page was removed
+    // so there is one place to ask rather than two that can drift.
     asTenant($asset, function () {
-        Livewire::test(Assistant::class)
+        Livewire::test(App\Livewire\AssistantChat::class)
             ->assertOk()
-            ->fillForm(['question' => 'credit note'])
+            // Opened first: a closed panel renders the bubble and nothing else, so every assertion
+            // about the thread would pass or fail for the wrong reason.
+            ->call('toggle')
+            ->set('question', 'credit note')
             ->call('ask')
             ->assertSee('Issue it from the Credit Notes screen.')
             // The source stays on screen: a reader who wants to check the sentence must be able to.

@@ -134,10 +134,6 @@ it('carries its own screen guide and its own chrome in BOTH languages', function
     // `Lang::has()` FALLS BACK to English by default, so the obvious parity check passes for every
     // key that exists in English only — the exact failure this is meant to catch.
     $keys = [
-        'guides.assistant.purpose',
-        'admin.assistant.nav_label',
-        'admin.assistant.page_title',
-        'admin.assistant.subheading',
         'admin.assistant.question_label',
         'admin.assistant.ask',
         'admin.assistant.no_answer_heading',
@@ -205,32 +201,21 @@ it('finds a report by its ARABIC name, not only its English one', function () {
     expect(askAtriomKeys('المتأخرات'))->toContain('ar_aging');
 });
 
-it('renders the real page, takes a question and shows the answer', function () {
+
+it('disappears from every page when the module is switched off', function () {
     $asset = makeAsset();
-    $this->actingAs(makeUser('super_admin'));
+    $this->actingAs(makeUser('super_admin', [$asset->id]));
 
-    // Driven through the real Livewire component, not the service. A Filament page builds its form
-    // in a CLOSURE that only runs on mount, and its view only renders on a real request — which is
-    // where this codebase's undefined-variable and missing-import fatals have repeatedly hidden
-    // behind a green service test.
-    asTenant($asset, function () {
-        Livewire\Livewire::test(App\Filament\Admin\Pages\Assistant::class)
-            ->assertOk()
-            ->fillForm(['question' => 'who owes us money'])
-            ->call('ask')
-            ->assertHasNoFormErrors()
-            ->assertSee('AR aging');
-    });
-});
+    // Asserted through a REAL page, because the switch is consulted in the panel's render hook. A
+    // Livewire component has no `shouldRender()` convention — Livewire never calls one — so the
+    // gate the chat used to carry was dead code and the toggle hid nothing.
+    $url = App\Filament\Admin\Pages\Dashboard::getUrl(tenant: $asset);
 
-it('is refused when the module is switched off', function () {
-    $this->actingAs(makeUser('super_admin'));
-
-    expect(App\Filament\Admin\Pages\Assistant::canAccess())->toBeTrue();
+    $this->get($url)->assertOk()->assertSee('assistant-chat');
 
     app(App\Settings\ModulesSettings::class)->fill(['assistant' => false])->save();
 
-    expect(App\Filament\Admin\Pages\Assistant::canAccess())->toBeFalse();
+    $this->get($url)->assertOk()->assertDontSee('assistant-chat');
 });
 
 // ── A1: records, and the links that carry a parameter ──────────────────────────────────────────

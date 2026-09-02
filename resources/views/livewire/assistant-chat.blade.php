@@ -55,6 +55,34 @@
                                 {!! nl2br(e($message['text'])) !!}
                             </div>
 
+                            {{-- The rating. Two buttons and nothing else: a comment box asks for
+                                 effort nobody spends mid-task, and a five-star scale asks a
+                                 question ("how good, exactly?") that no two people answer the same
+                                 way. Useful / not useful is the one judgement a reader can make
+                                 without stopping work. --}}
+                            @if ($message['id'] ?? null)
+                                <div class="flex items-center gap-1 px-1">
+                                    <button type="button" wire:click="rate({{ $message['id'] }}, true)"
+                                        @class([
+                                            'rounded p-1 transition',
+                                            'text-success-600' => ($message['helpful'] ?? null) === true,
+                                            'text-gray-400 hover:text-gray-600' => ($message['helpful'] ?? null) !== true,
+                                        ])
+                                        title="{{ __('admin.assistant.chat.helpful') }}">
+                                        <x-filament::icon icon="heroicon-o-hand-thumb-up" class="h-3.5 w-3.5" />
+                                    </button>
+                                    <button type="button" wire:click="rate({{ $message['id'] }}, false)"
+                                        @class([
+                                            'rounded p-1 transition',
+                                            'text-danger-600' => ($message['helpful'] ?? null) === false,
+                                            'text-gray-400 hover:text-gray-600' => ($message['helpful'] ?? null) !== false,
+                                        ])
+                                        title="{{ __('admin.assistant.chat.not_helpful') }}">
+                                        <x-filament::icon icon="heroicon-o-hand-thumb-down" class="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            @endif
+
                             @if (filled($message['sources']))
                                 <div class="flex flex-wrap gap-1.5 px-1">
                                     @foreach ($message['sources'] as $source)

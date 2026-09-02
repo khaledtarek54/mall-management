@@ -469,13 +469,6 @@ class RolesPermissionsSeeder extends Seeder
         'activity_log' => [
             'activity_log.view' => 'View the activity log',
         ],
-        // The assistant BOX has no permission — every result it offers is already filtered through
-        // the target screen's own canAccess(), so a right there would grant what the reader already
-        // holds. Reviewing what OTHER PEOPLE typed is a different act: the questions are free text
-        // and can name a tenant, so it is granted rather than assumed.
-        'assistant' => [
-            'assistant.review' => 'Review the questions asked of the assistant',
-        ],
         'inventory' => [
             'inventory.view' => 'View warehouses, items & stock movements',
             'inventory.create' => 'Create warehouses / items & receive stock',

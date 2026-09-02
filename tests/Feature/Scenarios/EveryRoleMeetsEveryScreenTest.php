@@ -133,7 +133,6 @@ it('never shows a role a sidebar link it would be refused', function () {
 const UNIVERSAL_SCREENS = [
     'Dashboard' => 'The landing page. Its widgets are individually gated by DashboardLayout, so what a role sees there is already decided per widget.',
     'Handbook' => 'The documentation panel — it renders the built handbook site, not a single record.',
-    'Assistant' => 'The "Ask Atriom" question box. It searches the screen guides and the report catalogue — documentation, not data — and every result it offers is filtered through that screen\'s own canAccess(), so it can never name a record or a screen its reader could not already reach.',
     'NotificationCenter' => 'The reader\'s OWN notification bell. It is scoped to the authenticated user by definition.',
 ];
 

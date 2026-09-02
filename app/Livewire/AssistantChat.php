@@ -58,16 +58,6 @@ class AssistantChat extends Component
 
     private const SESSION_CONVERSATION = 'assistant.chat.conversation';
 
-    /**
-     * Whether to render at all.
-     *
-     * Same gate as the full screen: the module switch and being signed in. Nothing here can show a
-     * reader anything they could not already open, so there is no separate right to hold.
-     */
-    public function shouldRender(): bool
-    {
-        return Modules::enabled('assistant') && Auth::check();
-    }
 
     /**
      * Pick the thread back up, wherever the operator has navigated to.
@@ -107,8 +97,10 @@ class AssistantChat extends Component
             ->get();
 
         foreach ($turns as $turn) {
-            $messages[] = ['role' => 'user', 'text' => $turn->question, 'sources' => []];
+            $messages[] = ['id' => null, 'helpful' => null, 'role' => 'user', 'text' => $turn->question, 'sources' => []];
             $messages[] = [
+                'id' => $turn->id,
+                'helpful' => $turn->was_helpful,
                 'role' => 'assistant',
                 'text' => $turn->model_answer ?? __('admin.assistant.chat.no_model_answer'),
                 // Sources are not replayed: they were links to what was found AT THE TIME, and a
@@ -138,7 +130,7 @@ class AssistantChat extends Component
             return;
         }
 
-        $this->messages[] = ['role' => 'user', 'text' => $question, 'sources' => []];
+        $this->messages[] = ['id' => null, 'helpful' => null, 'role' => 'user', 'text' => $question, 'sources' => []];
         $this->question = '';
 
         $answer = $service->answer($question, conversationId: $this->conversationId);
@@ -152,6 +144,8 @@ class AssistantChat extends Component
         );
 
         $this->messages[] = [
+            'id' => $answer['id'] ?? null,
+            'helpful' => null,
             'role' => 'assistant',
             // Falls back to a plain sentence rather than silence when the model is off, out of
             // quota or unreachable. The citations below it are still useful, so the turn is not
@@ -160,6 +154,31 @@ class AssistantChat extends Component
             'text' => $answer['answer'] ?? __('admin.assistant.chat.no_model_answer'),
             'sources' => $sources,
         ];
+    }
+
+    /**
+     * Mark an answer helpful or not.
+     *
+     * **This is the signal that replaces the miss list.** Measured on 45 real questions, ZERO
+     * matched nothing — with 189 corpus entries and 1,050 documentation sections something always
+     * matches, so "did it find anything" can no longer tell a good answer from a confident wrong
+     * one. Whether the reader found it useful is the only thing that can.
+     *
+     * Scoped to the reader's own row: a rating is a judgement on the answer somebody was given, and
+     * a crafted payload must not let one person rate another's.
+     */
+    public function rate(int $id, bool $helpful): void
+    {
+        AssistantQuestion::query()
+            ->whereKey($id)
+            ->where('user_id', Auth::id())
+            ->update(['was_helpful' => $helpful]);
+
+        foreach ($this->messages as $i => $message) {
+            if (($message['id'] ?? null) === $id) {
+                $this->messages[$i]['helpful'] = $helpful;
+            }
+        }
     }
 
     /**

@@ -3,8 +3,6 @@
 namespace App\Support;
 
 use App\Filament\Admin\Pages\ActivityLog;
-use App\Filament\Admin\Pages\Assistant;
-use App\Filament\Admin\Pages\AssistantQuestions;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -168,10 +166,6 @@ final class Navigation
      */
     public const TOP_LEVEL = [
         Dashboard::class,
-        // Not in a group, deliberately. Every group in this sidebar is a module an operator works
-        // IN; "Ask Atriom" is about the whole system, so filing it under one of them would say it
-        // belongs to whoever owns that group. Same reasoning as the notification centre below.
-        Assistant::class,
         NotificationCenter::class,
     ];
 
@@ -358,7 +352,6 @@ final class Navigation
             UserResource::class,
             RoleResource::class,
             ActivityLog::class,
-            AssistantQuestions::class,
             Handbook::class,
         ],
     ];

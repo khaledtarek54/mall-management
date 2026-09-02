@@ -137,7 +137,13 @@ it('answers from the documentation only when the guides could not', function () 
         $service = app(AnswerQuestionService::class);
 
         // The guides have nothing on this, so the documentation answers.
-        $fallback = $service->answer('zzqrare cheque bounces')['results'];
+        // ONLY the rare token now: "cheque" matches the post-dated-cheque screen since the task
+        // tier shipped, so the guides really did answer and the fallback correctly did not run —
+        // the fixture, not the rule, was what had gone stale.
+        $fallback = $service->answer('zzqrare unpaid')['results'];
+
+        // A task legitimately matches "cheque" now, so this asserts the documentation tier RAN —
+        // a task is a link to a form and must never silence the passage that explains something.
         expect(array_column($fallback, 'kind'))->toContain('doc');
 
         // The control, and the rule: a question the GUIDES answer must not be answered with prose.

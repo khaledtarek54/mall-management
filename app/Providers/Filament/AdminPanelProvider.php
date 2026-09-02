@@ -22,6 +22,8 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Auth;
+use App\Support\Modules;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -166,7 +168,13 @@ class AdminPanelProvider extends PanelProvider
             // gets cut off by the first `overflow: hidden` above it.
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => Blade::render('@livewire(\'assistant-chat\')'),
+                // GATED HERE, because a Livewire component has no `shouldRender()` convention —
+                // Livewire never calls one, so the method the chat carried was dead code and the
+                // module switch did not actually hide it. The hook is the only place that decides
+                // whether the component is mounted at all.
+                fn (): string => Modules::enabled('assistant') && Auth::check()
+                    ? Blade::render('@livewire(\'assistant-chat\')')
+                    : '',
             )
             ->authMiddleware([
                 Authenticate::class,

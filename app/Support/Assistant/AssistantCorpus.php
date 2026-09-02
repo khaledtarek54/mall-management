@@ -2,6 +2,7 @@
 
 namespace App\Support\Assistant;
 
+use App\Models\AssistantDocChunk;
 use App\Support\ReportCatalogue;
 use App\Support\ScreenGuides;
 use App\Support\Search\SearchText;
@@ -129,11 +130,46 @@ final class AssistantCorpus
     }
 
     /**
+     * How many entries carry each term — the corpus's own idea of which words are distinctive.
+     *
+     * @var array<string, array<string, int>>
+     */
+    private static array $frequency = [];
+
+    /**
+     * How many entries use this word. Lower means more discriminating.
+     *
+     * The problem it solves, caught by the evaluation set: «المتأخرات على المستأجرين» — arrears on
+     * the tenants — tied AR AGING against TENANT SALES at 8 apiece, because each matched exactly
+     * one title word, and the tie fell to alphabetical order. But «المتأخرات» appears in ONE entry
+     * and «المستأجرين» in dozens, so the two matches are not worth the same: one identified a
+     * screen, the other identified a subject area. Preferring the rarer word is the ordinary
+     * information-retrieval answer and fixes the whole class, not this question.
+     */
+    public static function documentFrequency(string $locale, string $word): int
+    {
+        if (! isset(self::$frequency[$locale])) {
+            $counts = [];
+
+            foreach (self::entries($locale) as $entry) {
+                foreach (array_keys($entry->terms) as $term) {
+                    $counts[$term] = ($counts[$term] ?? 0) + 1;
+                }
+            }
+
+            self::$frequency[$locale] = $counts;
+        }
+
+        return self::$frequency[$locale][$word] ?? 0;
+    }
+
+    /**
      * Drop the memo. Only the tests need this — a request has one locale and one corpus.
      */
     public static function flush(): void
     {
         self::$memo = [];
+        self::$frequency = [];
     }
 
     /**
@@ -203,7 +239,15 @@ final class AssistantCorpus
             self::addTerms($terms, $title, self::WEIGHT_TITLE);
 
             foreach ($meta['keywords'] ?? [] as $keyword) {
-                self::addTerms($terms, $keyword, self::WEIGHT_KEYWORD);
+                // NOT stemmed, unlike titles and guide prose.
+                //
+                // These are hand-picked exact synonyms, and several are English words living in
+                // BOTH language corpora because the catalogue is not localised. Stemming them made
+                // the trial balance's keyword "credits" match the English phrase "credit note"
+                // typed into an ARABIC panel — a strong keyword hit in the reader's own locale,
+                // which then blocked the cross-locale fallback that would have found the credit-note
+                // screen. Curated terms are meant to match exactly; that is what curating them is.
+                self::addTerms($terms, $keyword, self::WEIGHT_KEYWORD, stem: false);
             }
 
             $entries[] = new AssistantEntry(
@@ -227,14 +271,35 @@ final class AssistantCorpus
      *
      * @param  array<string, int>  $terms
      */
-    private static function addTerms(array &$terms, ?string $phrase, int $weight): void
+    private static function addTerms(array &$terms, ?string $phrase, int $weight, bool $stem = true): void
     {
         foreach (SearchText::words($phrase) as $word) {
             if (in_array($word, self::STOP_WORDS, true)) {
                 continue;
             }
 
-            $terms[$word] = max($terms[$word] ?? 0, $weight);
+            // THE STEM REPLACES THE WORD, and "beside" was a real scoring bug.
+            //
+            // Indexing both while the QUERY also stems means one concept matches twice: «المستأجرين»
+            // scored 8 for itself and 8 again for «مستاجرين», so Tenant Sales came back at 16 where
+            // every other screen scored 8 — and it out-ranked AR aging on a question about arrears.
+            // Caught by the evaluation set on its first run, which is precisely what it is for.
+            //
+            // Both sides stem through the same function, so an exact match is unchanged: «اشعار» and
+            // «إشعارات» reduce to one term and score once, at full weight.
+            //
+            // The measured gap, and the one that mattered most because Arabic is half the readers:
+            // this corpus matches WHOLE words, so «اشعار» — the bare noun an operator types — never
+            // met «إشعارات الخصم», the plural in the screen's own title, and the question landed on
+            // the withholding-tax return instead. The documentation tier already solved this with
+            // `AssistantDocChunk::stem()`; it just was not applied here.
+            $indexed = $stem ? AssistantDocChunk::stem($word) : $word;
+
+            if ($indexed === '') {
+                $indexed = $word;
+            }
+
+            $terms[$indexed] = max($terms[$indexed] ?? 0, $weight);
         }
     }
 

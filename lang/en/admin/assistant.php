@@ -29,7 +29,7 @@ return [
             'create' => 'New :thing',
             // Read ONLY as a tie-break (AnswerQuestionService::looksLikeCreating), never scored:
             // as scoring terms these tied all 61 tasks on any question containing a common verb.
-            'verbs' => 'create add new make raise issue generate register enter',
+            'verbs' => 'create add new make raise issue generate register enter record log file',
             'required_fields' => 'The form requires: :fields.',
             'optional_fields' => 'It also offers: :fields.',
             'and_more' => 'and :count more.',
@@ -51,6 +51,8 @@ return [
             'thinking' => 'Thinking…',
             'clear' => 'Clear the conversation',
             'close' => 'Close',
+            'helpful' => 'This helped',
+            'not_helpful' => 'This did not help',
             'no_model_answer' => 'I could not write an answer just now. The sources below are what I found.',
         ],
 
