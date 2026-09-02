@@ -22,11 +22,234 @@
 > *adds* something it never said, or flags a **backend gap** that is ours to close, not yours to
 > work around.
 
-**When this document is fully implemented, the app is in sync with the backend.** Work through
-Parts 1 → 4 in order; Part 9 is the same list re-cut by screen so you can hand it to a sprint board.
+**When this document is fully implemented, the app is in sync with the backend.**
+
+> ### 👉 Start at [PART A](#part-a--what-to-do-read-this-first)
+>
+> **A1** is the work as 18 numbered tasks · **A2** is all 67 endpoints ·
+> **A3** is what all 16 payloads look like · **A4** is the five rules that are not obvious.
+> Everything after it — Parts 0 to 13 — is the reasoning behind each line, and Part 9 re-cuts the
+> same work by screen for a sprint board.
 
 ---
 
+# PART A — What to do (read this first)
+
+> **Everything below Part A is the *why*. Part A is the *what*.**
+> 18 tasks, 67 endpoints, 16 payload shapes. Nothing here is waiting on the backend.
+
+## A1. The work, in order
+
+Each row links to the detail. **Do 1–7 first: without them the app is showing wrong numbers today.**
+
+| # | Do this | Where | Detail |
+|---|---|---|---|
+| 1 | Decode invoice lines as **`vatRate` / `vatAmount`** (the old doc printed snake_case) | Invoice detail | [B1](#b1--invoice-line-items-are-camelcase-the-doc-printed-them-snake_case) |
+| 2 | Decode **every money field** as `(x as num).toDouble()` — a whole value arrives as an `int` | Everywhere | [12.10](#1210-what-did-not-change) |
+| 3 | Put **`payableAmount`** on the Pay button, not `balance` | Invoice, Pay | [C2](#c2--the-gateway-charges-less-than-the-balance-you-display-when-part-of-the-invoice-is-written-off) · [12.3](#123-money--mebalance-mesummary-meinvoices) |
+| 4 | Gate Pay on **`paymentLinkUrl != null`**, never on `balance > 0` | Invoice list | [C3](#c3--paymentlinkurl-is-null-for-more-invoices-than-before-gate-the-pay-button-on-it) |
+| 5 | On **403**: wipe the token, go to Blocked. Never retry | HTTP layer | [B6](#b6--a-403-now-revokes-the-token-retrying-is-permanent-failure) |
+| 6 | Make **`errors` optional** on a 422 — business refusals send only `message` | HTTP layer | [B7](#b7--a-422-does-not-always-carry-errors) |
+| 7 | Treat **`data: []` on login** as a valid signed-in state | Login | [B5](#b5--a-draft-lease-no-longer-appears-in-the-login-lease-picker--data-can-legitimately-be) |
+| 8 | Fetch **`GET /me/vocabulary`** on launch, cache on `version`, **delete your own EN/AR label tables** | App start | [Part 13](#13--the-api-is-bilingual-to-the-panels-standard) |
+| 9 | Fetch **`GET /me/request-types`** on launch — stop hardcoding categories | App start | [12.8](#128-get-merequest-types--stop-hardcoding-the-categories) |
+| 10 | Show **`depositOutstanding`** when `> 0`. Nothing else ever asks the tenant for it | Lease | [12.2](#122-get-meleases--20-new-fields) |
+| 11 | Show **`creditOnAccount`** as its own row — never summed with `creditAvailable` | Home | [12.3](#123-money--mebalance-mesummary-meinvoices) |
+| 12 | Build the **CAM screen** — 3 endpoints + statement PDF | New screen | [12.6](#126-get-mecam-allocations) |
+| 13 | Build **unit-owner support** — empty leases + non-empty ownerships | New screen | [12.7](#127-get-meunit-ownerships) |
+| 14 | Show **`units[]` + `totalAreaSqm`** on a multi-unit lease | Lease | [12.2](#122-get-meleases--20-new-fields) |
+| 15 | Show **`rentableItems[]`** (bay + rate) under the parking invoice line | Lease | [12.2](#122-get-meleases--20-new-fields) |
+| 16 | Route **every notification tap through `link`** — never infer from `type` | Notifications | [Part 5](#5-notifications--the-complete-inventory) |
+| 17 | Wire the language toggle to **`PATCH /me {locale}`** as well as `Accept-Language` | Settings | [12.9](#129-get-me--patch-me--locale) |
+| 18 | Add the missing screens: signed lease, receipt PDF, mall news, devices, confirm/dispute | Various | [Part 4](#4-endpoints-the-app-is-probably-not-calling-yet) |
+
+**Do NOT build:** an ETA / tax-filing badge (module 16 is frozen), an in-app "dispute this charge"
+form (operator-only — use `POST /me/requests` with `requestType: "billing"`), or a demo-pay button
+in a build you would show the client ([B4](#b4--post-meinvoicesidpay-demo-now-409s-on-staging-not-just-when-paymob-is-live)).
+
+## A2. Every endpoint (67)
+
+`🔒` needs `Authorization: Bearer <token>` · `🔓` public · **bold = new on 2026-09-02**
+
+### Auth & profile
+| | Endpoint | What |
+|---|---|---|
+| 🔓 | `POST /auth/login` | → `{data:[leases], accessToken, tokenType}`. `data` may be `[]` |
+| 🔓 | `POST /auth/forgot-password` · `POST /auth/reset-password` | Two-step, token-verified |
+| 🔒 | `POST /auth/logout` · `POST /auth/change-password` | |
+| 🔒 | `GET /auth/me` | Alias of `GET /me` |
+| 🔒 | `GET /me` · `PATCH /me` | Profile. PATCH takes `phone, whatsapp, contactPerson, contactPersonPhone, address,` **`locale`** |
+| 🔒 | `GET /me/balance` | `outstanding, overdue, openCount,` **`creditOnAccount`**`, isDelinquent` |
+| 🔒 | `GET /me/summary` | **The home screen — one call.** Balance + open work + badges |
+| 🔒 | `GET /me/leases` | Full lease terms. Not paginated |
+| 🔒 | **`GET /me/leases/{id}/document`** | Signed lease PDF. Gate on `hasDocument` |
+| 🔒 | **`GET /me/unit-ownerships`** | Shops the party OWNS. Not paginated. `[]` for a retailer |
+
+### Money
+| | Endpoint | What |
+|---|---|---|
+| 🔒 | `GET /me/invoices` | `?status= &period_from= &period_until= &page= &perPage=` |
+| 🔒 | `GET /me/invoices/{id}` | + `items[]`, **`payableAmount`**, **`unitCode`**, **`notes`**, **`unitOwnership`** |
+| 🔒 | `GET /me/invoices/{id}/pdf` | `?lang=en\|ar` |
+| 🔒 | `GET /me/statement` | `?from= &to= &lang=` — the range is now honoured |
+| 🔒 | `POST /me/invoices/{id}/paymob-session` | Card payment. Idempotent 45 min |
+| 🔒 | `POST /me/invoices/{id}/pay-demo` | Debug builds only — 409s on staging |
+| 🔒 | `GET /me/payments` | `?method= &status= &from= &to=` |
+| 🔒 | `GET /me/payments/{id}` | + **`chequeNumber`**, **`chequeClearanceDate`**, **`gatewayTransactionId`**, **`notes`** |
+| 🔒 | `GET /me/payments/{id}/receipt` | Receipt PDF. Gate on `receiptAt != null`. `?lang=` |
+| 🔒 | `GET /me/credit-notes` · `GET /me/credit-notes/{id}` | `?status=`. Detail adds **`items[]`** |
+| 🔒 | **`GET /me/cam-allocations`** | `?status= &period_year=` |
+| 🔒 | **`GET /me/cam-allocations/{id}`** | One year's share |
+| 🔒 | **`GET /me/cam-allocations/{id}/statement`** | Service-charge statement PDF. `?lang=` |
+
+### Requests
+| | Endpoint | What |
+|---|---|---|
+| 🔒 | **`GET /me/request-types`** | The type + sub-category catalogue, both languages |
+| 🔒 | `GET /me/requests` · `POST /me/requests` | `?status=`. POST is multipart when attaching |
+| 🔒 | `GET /me/requests/{id}` | + `comments[]` |
+| 🔒 | `GET /me/requests/{id}/attachments/{media}` | Photo/PDF stream — **needs the auth header** |
+| 🔒 | `POST /me/requests/{id}/comments` · `/cancel` · `/rate` | Gate on `canCancel` / `canRate` |
+| 🔒 | `POST /me/requests/{id}/confirm` · `/dispute` | Gate on `canConfirm`. Show **both** or neither |
+
+### Sales, news, notifications, devices
+| | Endpoint | What |
+|---|---|---|
+| 🔒 | `GET /me/sales-declarations` · `POST` | `?status=`. POST is multipart, 1–5 files |
+| 🔒 | `GET /me/sales-declarations/{id}` · `/attachments/{media}` | |
+| 🔒 | `GET /me/announcements` · `/{id}` · `POST /{id}/read` · `GET /{id}/hero/{media}` | `?unread=1`. Hero needs the auth header |
+| 🔒 | `GET /me/notifications` · `/unread-count` · `POST /{id}/read` · `POST /read-all` | `?unread=1` |
+| 🔒 | `GET /me/devices` · `POST /me/devices` · `DELETE /me/devices/{id}` | Register on launch, revoke on sign-out |
+| 🔒 | **`GET /me/vocabulary`** | Every code, both languages. Cache on `version` |
+
+### Retailer's own offers · visitor app
+| | Endpoint | What |
+|---|---|---|
+| 🔒 | `GET /me/feed` | What's on at the malls you trade in |
+| 🔒 | `GET /me/marketing-posts` · `POST` · `GET/POST/DELETE /{id}` · `/{id}/submit` · `/{id}/withdraw` | 404 = module off |
+| 🔓 | `GET /public/malls` · `/{code}/posts` · `/{code}/posts/{id}` · `POST /{id}/click` | Visitor app. 120/min |
+| 🔓 | `GET /public/malls/{code}/stores` · `/stores/{id}` | `?category=` |
+
+## A3. What the payloads look like
+
+Every key is **camelCase**. Every money value is a JSON number that is an **`int` when whole**.
+`null` is used and means *unknown / not applicable* — never a sentinel.
+
+```jsonc
+// GET /me                                          ← profile screen
+{ id, code, name, legalName, type, email, phone, whatsapp,
+  contactPerson, contactPersonPhone, address, status, taxId, logoUrl, locale }
+
+// GET /me/summary                                  ← the WHOLE home screen, one call
+{ outstanding, overdue, openInvoices, creditAvailable, creditOnAccount, isDelinquent,
+  openMaintenance, disputedDeclarations, canDeclareSales,
+  unreadNotifications, unreadAnnouncements, currency }
+
+// GET /me/leases[]                                 ← lease card
+{ id, reference, status, commencementDate, expiryDate, rentCommencementDate, termMonths,
+  billingFrequency, baseRentMonthly, serviceChargeMonthly, totalMonthlyAmount, currency,
+  securityDeposit, depositHeld, depositOutstanding,
+  hasMarketingLevy, marketingLevyRate,
+  escalationType, escalationRate, escalationAmount,
+  escalationFloorRate, escalationCeilingRate, nextEscalationDate,
+  hasPercentageRent, percentageRentRate, percentageRentThreshold, percentageRentFrequency,
+  parkingSpots, rentableItems:[{id,code,type,monthlyRate,effectiveFrom}],
+  unit:{id,code,floor,category,areaSqm,asset:{id,name,code}},
+  units:[{id,code,floor,category,areaSqm,isMaster}], totalAreaSqm, hasDocument }
+
+// GET /me/unit-ownerships[]                        ← owner screen
+{ id, reference, status, tenureType, managementMode, ownershipSharePct,
+  assessmentBasis, participationPct, purchaseDate, handoverDate, startedAt, endedAt,
+  currency, unit:{id,code,floor,category,areaSqm}, property:{id,code,name} }
+
+// GET /me/invoices[] / {id}                        ← invoice
+{ id, number, status, issueDate, dueDate, periodStart, periodEnd,
+  subtotal, vatAmount, total, paidAmount, creditAppliedAmount,
+  balance,            // what was OWED — reconcile against this
+  payableAmount,      // what checkout takes — put THIS on the button
+  currency, paidAt, isOverdue, daysOverdue, paymentLinkUrl, notes, unitCode,
+  lease:{id,reference,unit:{id,code,floor}} | null,
+  unitOwnership:{id,reference,unit:{id,code,floor}} | null,
+  items:[{ id, description, type, amount, vatRate, vatAmount, total,
+           disputedAt, disputedReason }] }        // items only on {id}
+
+// GET /me/payments[] / {id}                        ← payment
+{ id, reference, amount, currency, method, status, paymentDate, gateway, channel, receiptAt,
+  chequeNumber, chequeClearanceDate, gatewayTransactionId, notes,
+  allocations:[{invoiceId, invoiceNumber, allocatedAmount}] }
+
+// GET /me/credit-notes[] / {id}                    ← credit note
+{ id, number, status, reason, subtotal, vatAmount, total, appliedAmount, balance,
+  currency, issueDate, appliedAt, invoice:{id,number}|null,
+  items:[{id, description, amount, vatRate, vatAmount, total}] }
+
+// GET /me/cam-allocations[]                        ← service charge
+{ id, status, periodYear, totalActualExpense, proRataSharePct,
+  allocatedAmount, estimatedPaid, trueUpAmount,   // trueUp>0 owed, <0 credit coming
+  currency, property:{id,code,name}, unit:{id,code,floor},
+  agreement:{kind:"lease"|"ownership", reference} }
+
+// GET /me/requests[] / {id}                        ← request
+{ id, reference, requestType, title, description, status, priority, category, channel,
+  isOpen, isOverdue, canCancel, canRate, canConfirm, confirmedAt,
+  csatRating, csatComment, submittedAt, acknowledgedAt, resolvedAt, closedAt,
+  targetResolutionAt, resolutionNotes,
+  requiresDecision, decision, decisionReason, decidedAt,   // NEVER infer approval from status
+  validFrom, validTo, scheduledFrom, scheduledTo,
+  unit:{id,code,floor},
+  attachments:[{id,name,mimeType,size,url}],
+  comments:[{id,body,authorKind,authorName,createdAt}] }   // comments only on {id}
+
+// GET /me/sales-declarations[]                     ← turnover
+{ id, periodStart, periodEnd, periodLabel,
+  declaredSales,              // null = nobody has looked yet. 0 = an answer.
+  calculatedPercentageRent,   // same rule
+  status, isLocked, declaredAt, lockedAt, hasReport,
+  lease:{id,reference,unit:{id,code}},
+  attachments:[{id,name,mimeType,size,url}] }
+
+// GET /me/announcements[]                          ← mall news
+{ id, category, title, titleAr, body, bodyAr, heroUrl, isPinned,
+  sentAt, expiresAt, read, readAt, property:{code,name} }
+
+// GET /me/notifications[]                          ← inbox
+{ id, type, data:{title, body, ...}, link:{target,id}|null, read, readAt, createdAt }
+
+// GET /me/devices[]        { id, platform, deviceName, createdAt }
+// POST /me/invoices/{id}/paymob-session
+{ paymentToken, iframeUrl, iframeId, orderId, paymentId, expiresAt, reused }
+
+// GET /me/vocabulary                               ← fetch once, cache on version
+{ version, openCatalogues:[...],
+  vocabularies:{ "invoice.status": { "overdue": {en, ar}, ... }, ... } }
+
+// GET /me/request-types                            ← fetch once
+{ types:[{ code, label, labelAr, requiresDecision, hasSla,
+           subcategories:[{code,label,labelAr}] }],
+  priorities:["low","medium","high","urgent"] }
+```
+
+**Lists** return `{data:[...], meta:{currentPage,lastPage,perPage,total,from,to}, links:{...}}`.
+Page off `meta`, never `links`. Default 25, max 100. `GET /me/leases`, `/me/unit-ownerships` and
+`/me/devices` are **not** paginated — bare `{data:[...]}`.
+
+**Errors** are `{message, statusCode}` — plus `errors:{field:[...]}` on *field* validation only.
+
+## A4. The five rules that are not obvious
+
+1. **`balance` ≠ `payableAmount`.** `balance` is what was owed; `payableAmount` is what may still be
+   collected. They differ when the operator forgave part of the debt — exactly when charging the
+   wrong one takes money that was never owed.
+2. **Never infer an approval from `status`.** `resolved` looks identical whether staff approved or
+   refused. Use `requiresDecision` + `decision` + `decisionReason`.
+3. **Never infer a destination from a notification `type`.** Use `link`; `null` means render it
+   unclickable.
+4. **Never hardcode a code list.** Five vocabularies are rows the operator edits between releases —
+   `/me/vocabulary` and `/me/request-types` are the answer.
+5. **`null` is information.** `declaredSales: null` means *nobody has reviewed it*; `0` means
+   *reviewed, nothing due*. Rendering both as `0` states the opposite of one of them.
+
+---
 ## 0. How to read this
 
 | Tag | Meaning | What it costs you |
