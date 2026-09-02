@@ -6,6 +6,7 @@ use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
+use App\Services\LeaseTerminationService;
 use App\Services\VoidInvoiceService;
 use App\Services\WriteOffInvoiceService;
 use Database\Seeders\AccountMappingSeeder;
@@ -24,8 +25,8 @@ use Livewire\Livewire;
  * channels and a write-off is not one of them.
  *
  * `VoidInvoiceService` knew nothing about that row. Measured on a 10,000 invoice with 4,000 written
- * off, the posted books after the void read **AR −14,000** — the void's own reversal, plus the
- * write-off's credit with nothing left to relieve — and **4,000 of bad-debt expense against a
+ * off, the books after the void read **AR −4,000** — the invoice's own debit reversed, with the
+ * write-off's credit left standing against nothing — and **4,000 of bad-debt expense against a
  * document that no longer exists**. Negative receivables for one debt, and a loss recognised on
  * money that was never owed.
  *
@@ -57,12 +58,25 @@ beforeEach(function () {
     app(LedgerPoster::class)->sync($this->invoice);
 });
 
-/** Net movement per account code across every POSTED entry, in debit-minus-credit. */
-function postedNetByCode(): array
+/**
+ * Net movement per account code across every REPORTABLE entry, in debit-minus-credit.
+ *
+ * `JournalEntry::REPORTABLE_STATUSES` is `['posted', 'void']`, and that is what every financial read
+ * uses — `LedgerReportService`, `VatReturnService`, the CAM sync, the bank reconciliation.
+ * `LedgerPoster` says so in writing: *"Contrast REPORTABLE_STATUSES, which governs SUMS."* Voiding
+ * does not erase an entry; it posts a sign-flipped reversal and marks the original `void`, so both
+ * halves must be counted or the reversal is read without the thing it reverses.
+ *
+ * The first version of this helper filtered `status = 'posted'` alone and reported AR at −14,000 —
+ * and the tell that the CONVENTION was wrong rather than the books is that the same sum showed a
+ * **debit balance on a revenue account**, which cannot happen. The real figure is −4,000, which is
+ * still the defect, just not the one the number claimed.
+ */
+function reportableNetByCode(): array
 {
     $net = [];
 
-    foreach (JournalEntry::where('status', 'posted')->with('lines')->get() as $entry) {
+    foreach (JournalEntry::whereIn('status', JournalEntry::REPORTABLE_STATUSES)->with('lines')->get() as $entry) {
         foreach ($entry->lines as $line) {
             $net[$line->ledger_account_id] = ($net[$line->ledger_account_id] ?? 0)
                 + (float) $line->debit - (float) $line->credit;
@@ -80,8 +94,11 @@ function postedNetByCode(): array
 it('refuses to void an invoice that carries a write-off', function () {
     app(WriteOffInvoiceService::class)->write($this->invoice, ['amount' => 4000, 'reason' => 'uneconomic_to_pursue']);
 
+    // The MESSAGE, not merely the class: this path throws three different `DomainException`s — an
+    // ETA-filed invoice, captured cash, and this — and a bare class assertion cannot tell them
+    // apart, so it would pass on a refusal for the wrong reason.
     expect(fn () => app(VoidInvoiceService::class)->void($this->invoice->fresh(), 'keyed in error'))
-        ->toThrow(DomainException::class);
+        ->toThrow(DomainException::class, __('admin.refusals.invoice_void_has_write_off'));
 
     // The document is untouched — a refusal must not half-apply. (`overdue`, because the fixture's
     // due date is derived from the lease's terms and has already passed; what matters is that it is
@@ -95,7 +112,13 @@ it('keeps the books straight, which is what the refusal is for', function () {
         app(LedgerPoster::class)->sync($writeOff);
     }
 
-    rescue(fn () => app(VoidInvoiceService::class)->void($this->invoice->fresh(), 'keyed in error'), null, false);
+    // Only the refusal is swallowed. `rescue()` catches `Throwable`, so a TypeError inside `void()`
+    // would have left this green.
+    try {
+        app(VoidInvoiceService::class)->void($this->invoice->fresh(), 'keyed in error');
+    } catch (DomainException) {
+        // expected — the point of the case is what the books read afterwards
+    }
 
     app(LedgerPoster::class)->sync($this->invoice->fresh());
 
@@ -105,9 +128,9 @@ it('keeps the books straight, which is what the refusal is for', function () {
     expect($ar)->not->toBe(0)->and($badDebt)->not->toBe(0);
 
     $codes = LedgerAccount::whereIn('id', [$ar, $badDebt])->pluck('code', 'id');
-    $net = postedNetByCode();
+    $net = reportableNetByCode();
 
-    // Measured with the void allowed: AR −14,000 and 4,000 of bad debt against a document that no
+    // Measured with the void allowed: AR **−4,000** and 4,000 of bad debt against a document that no
     // longer exists. Refused, the books say what they should: 6,000 still owed, 4,000 written off.
     expect($net[$codes[$ar]] ?? 0.0)->toEqual(6000.0)
         ->and($net[$codes[$badDebt]] ?? 0.0)->toEqual(4000.0);
@@ -123,7 +146,7 @@ it('lets the void through once the write-off is reversed — the route the refus
     expect($this->invoice->fresh()->status)->toBe('cancelled');
 });
 
-it('still voids an ordinary invoice, and still refuses the ones it always refused', function () {
+it('still voids an ordinary invoice', function () {
     // The control. A guard that refused everything would satisfy the refusal above on its own.
     app(VoidInvoiceService::class)->void($this->invoice->fresh(), 'keyed in error');
 
@@ -146,4 +169,55 @@ it('hides the button while a write-off stands, so the UI and the gate cannot dri
         ->assertActionHidden('void_invoice');
 
     Filament::setTenant(null, isQuiet: true);
+});
+
+it('does not let LEASE TERMINATION cancel a written-off invoice either', function () {
+    // **The path that actually produces this**, and the service guard could not see it.
+    // `LeaseTerminationService` cancels open invoices with a direct
+    // `update(['status' => 'cancelled', 'balance' => 0])` — never through `VoidInvoiceService` — and
+    // its filter is `status in (draft, issued, partially_paid, overdue) AND balance > 0 AND
+    // paid_amount = 0`. A partially written-off invoice matches every clause **precisely because** a
+    // write-off leaves `balance` standing and is not a settlement channel, so `paid_amount` stays 0.
+    // And it is the default: the `cancel_open_invoices` tick is on.
+    //
+    // Excluded at the SELECTION, the way the query already excludes an ETA-filed invoice — the model
+    // guard below is the backstop, but this loop has no per-row catch, so a refusal there would
+    // abort the whole termination and leave the lease un-terminatable.
+    $future = makeInvoice($this->lease, [
+        'status' => 'issued',
+        'issue_date' => now()->toDateString(),
+        'period_start' => now()->addMonths(2)->startOfMonth()->toDateString(),
+        'period_end' => now()->addMonths(2)->endOfMonth()->toDateString(),
+    ]);
+    $future->items()->create([
+        'type' => 'base_rent', 'description' => 'Rent',
+        'amount' => 10000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 10000,
+    ]);
+
+    app(WriteOffInvoiceService::class)->write($future->fresh(), ['amount' => 4000, 'reason' => 'uneconomic_to_pursue']);
+
+    app(LeaseTerminationService::class)->terminate($this->lease->fresh(), [
+        'termination_date' => now()->toDateString(),
+        'reason' => 'Tenant vacated.',
+        'cancel_open_invoices' => true,
+    ]);
+
+    // Measured before: `cancelled`, with the write-off's credit left standing against nothing.
+    expect($future->fresh()->status)->not->toBe('cancelled');
+});
+
+it('refuses a direct cancel on ANY path, which is the backstop', function () {
+    // `Invoice::updating` — the same place, and the same reasoning, as the captured-cash guard that
+    // already says in writing it must hold "on EVERY path, not just VoidInvoiceService".
+    app(WriteOffInvoiceService::class)->write($this->invoice, ['amount' => 4000, 'reason' => 'uneconomic_to_pursue']);
+
+    expect(fn () => $this->invoice->fresh()->update(['status' => 'cancelled', 'balance' => 0]))
+        ->toThrow(DomainException::class, __('admin.refusals.invoice_void_has_write_off'));
+
+    // …and the control: an ordinary invoice still cancels through the same door.
+    $clean = makeInvoice($this->lease, ['status' => 'issued']);
+
+    $clean->update(['status' => 'cancelled']);
+
+    expect($clean->fresh()->status)->toBe('cancelled');
 });

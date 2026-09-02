@@ -66,14 +66,20 @@ class VoidInvoiceService
         // write-off is an accounting ACT with its own reversal, and it posts
         // `Dr bad_debt_expense / Cr accounts_receivable` against a row this void does not touch. So
         // voiding on top of it left the loss standing against a document that no longer exists:
-        // measured on a 10,000 invoice with 4,000 written off, the posted books came out
-        // **AR −14,000** (the void's own reversal plus the write-off's credit, with nothing left to
-        // relieve) and 4,000 of bad-debt expense — negative receivables for one debt, and a loss
-        // recognised twice over (SW-023).
+        // measured on a 10,000 invoice with 4,000 written off, the books came out **AR −4,000** —
+        // the invoice's own debit reversed, with the write-off's credit standing against nothing —
+        // and 4,000 of bad-debt expense. Negative receivables for one debt, and a loss recognised on
+        // money that was never owed (SW-023).
+        //
+        // Counted over `JournalEntry::REPORTABLE_STATUSES` (`posted` + `void`), which is what every
+        // financial read uses: voiding posts a sign-flipped reversal and marks the original `void`,
+        // so summing `posted` alone reads the reversal without the thing it reverses.
         //
         // Refused rather than cascaded, which is this codebase's rule for money records: correct
         // them through their OWN workflow, so an auditor can follow what happened. `Reverse
-        // write-off` is a real button (`WriteOffInvoiceService::reverse()`), and reversing it first
+        // write-off` is a real button (`WriteOffInvoiceService::reverse()`, in the *corrections*
+        // header group, on the same `invoices.void` right and with no status bar of its own), and
+        // reversing it first
         // leaves a trail that says the debt was re-opened and then the document withdrawn — which is
         // what actually happened. Cascading would silently undo an act somebody took deliberately.
         //

@@ -771,6 +771,24 @@ class Invoice extends Model
                 throw new \DomainException(__('admin.actions.cancel_blocked_captured_cash'));
             }
 
+            // **A standing WRITE-OFF blocks a cancel on every path too, and this is where it has to
+            // live** (SW-023). `VoidInvoiceService` refuses it — and `LeaseTerminationService`
+            // cancels open invoices with a direct `update(['status' => 'cancelled', …])` that never
+            // goes near the service. Its filter is `status in (draft, issued, partially_paid,
+            // overdue) AND balance > 0 AND paid_amount = 0`, and a partially written-off invoice
+            // matches every clause precisely BECAUSE a write-off leaves `balance` standing and is
+            // not a settlement channel. So the most common cancel in the system — it is the
+            // `cancel_open_invoices` tick, and it DEFAULTS to on — walked straight past the guard,
+            // leaving the write-off's `Cr AR` with no document behind it.
+            //
+            // Exactly the reasoning the captured-cash guard above states for itself: on EVERY path,
+            // and in `updating` so the write is refused rather than merely reported.
+            if ($invoice->status === 'cancelled'
+                && $invoice->getOriginal('status') !== 'cancelled'
+                && $invoice->writeOffs()->exists()) {
+                throw new \DomainException(__('admin.refusals.invoice_void_has_write_off'));
+            }
+
             // A write-off is an ACCOUNTING ACT, not a status. `WriteOffInvoiceService` posts
             // Dr Bad Debt / Cr AR against an `InvoiceWriteOff` row, records the reason, refuses a
             // closed period and enforces the outstanding cap — and it is gated on `invoices.void`.

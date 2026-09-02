@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Support\LeaseEventNarrative;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
+use App\Support\LeaseEventNarrative;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -149,6 +149,20 @@ class LeaseTerminationService
                     // EditInvoice, InvoicesTable) refuses it; the operator must handle a
                     // reported invoice through the proper ETA flow. Nulls stay cancellable.
                     ->where(fn ($q) => $q->whereNull('eta_status')->orWhere('eta_status', '!=', 'valid'))
+                    // Nor one carrying a WRITE-OFF, for the same reason and with the same shape as
+                    // the ETA clause above (SW-023). A write-off posts `Dr bad_debt / Cr AR` against
+                    // a row this cancel does not touch, so cancelling on top of it leaves the loss
+                    // standing against a document that no longer exists — and a partially
+                    // written-off invoice matches every other clause here, precisely BECAUSE a
+                    // write-off leaves `balance` standing and is not a settlement channel, so
+                    // `paid_amount` stays 0.
+                    //
+                    // EXCLUDED here rather than left to the model guard: `Invoice::updating` refuses
+                    // it on every path, which is the backstop, but this loop has no per-row catch —
+                    // one such invoice would abort the whole termination and leave the lease
+                    // un-terminatable. The invoice stays open and visible in AR, which is the honest
+                    // state; the operator reverses the write-off and voids it deliberately.
+                    ->whereDoesntHave('writeOffs')
                     ->each(function (Invoice $invoice) use (&$cancelledNumbers) {
                         $invoice->update([
                             'status' => 'cancelled',

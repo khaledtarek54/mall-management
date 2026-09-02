@@ -29,7 +29,7 @@ beforeEach(function () {
     $this->tenant = $this->lease->tenant;
 });
 
-function overdueInvoice(): Invoice
+function anOverdueInvoiceToChase(): Invoice
 {
     return makeInvoice(test()->lease, [
         'status' => 'overdue',
@@ -41,7 +41,7 @@ function overdueInvoice(): Invoice
 
 it('chases a debt that is still owed', function () {
     Notification::fake();
-    overdueInvoice();
+    anOverdueInvoiceToChase();
 
     test()->artisan(RemindOverdueTenantsCommand::class)->assertSuccessful();
 
@@ -52,7 +52,7 @@ it('chases a debt that is still owed', function () {
 
 it('does not chase an invoice the sweep would no longer select', function () {
     Notification::fake();
-    $invoice = overdueInvoice();
+    $invoice = anOverdueInvoiceToChase();
 
     // The tenant pays — a REAL captured payment, not a hand-set balance. `recomputeTotals()` is
     // the single source of truth for `paid_amount`/`balance` and recomputes both from the four
@@ -79,7 +79,7 @@ it('does not chase an invoice the sweep would no longer select', function () {
 
 it('does not chase a debt the operator has written off in full', function () {
     Notification::fake();
-    $invoice = overdueInvoice();
+    $invoice = anOverdueInvoiceToChase();
 
     app(WriteOffInvoiceService::class)->write($invoice, ['reason' => 'tenant_insolvent']);
 
@@ -95,7 +95,7 @@ it('does not chase a debt the operator has written off in full', function () {
 
 it('still chases the part of a debt that was not forgiven', function () {
     Notification::fake();
-    $invoice = overdueInvoice();
+    $invoice = anOverdueInvoiceToChase();
 
     app(WriteOffInvoiceService::class)->write($invoice, ['amount' => 6000, 'reason' => 'tenant_insolvent']);
 
@@ -125,7 +125,7 @@ it('still chases the part of a debt that was not forgiven', function () {
  */
 it('does not chase an invoice settled in the window between the query and the lock', function () {
     Notification::fake();
-    $invoice = overdueInvoice();
+    $invoice = anOverdueInvoiceToChase();
     $tenant = $this->tenant;
 
     $settled = false;

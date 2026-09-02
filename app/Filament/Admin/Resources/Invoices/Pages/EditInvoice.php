@@ -502,8 +502,9 @@ class EditInvoice extends EditRecord
                     && $this->record->capturedCashPaid() <= 0 // reversible credit (notes + tenant credit) doesn't block
                     // A standing write-off blocks it (SW-023) — the same shape as captured cash, and
                     // hidden here as well as refused in the service, so the UI and the gate cannot
-                    // drift. The operator's route out is the `Reverse write-off` button, which is
-                    // visible precisely while this one is not.
+                    // drift. The route out is `Reverse write-off`, which has no status bar of its own
+                    // and is visible whenever a write-off exists — but it sits in the *corrections*
+                    // group while this one is in *settlement*, so it is not side by side.
                     && ! $this->record->writeOffs()->exists()
                     && (Auth::user()?->can('invoices.void') ?? false))
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
