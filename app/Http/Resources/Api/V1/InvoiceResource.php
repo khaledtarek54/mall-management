@@ -31,6 +31,20 @@ class InvoiceResource extends JsonResource
             // Portion of paid_amount covered by applied credit notes (vs cash).
             'credit_applied_amount' => (float) $this->credit_applied_amount,
             'balance' => (float) $this->balance,
+            // **What the tenant will actually be charged, which is not always `balance`.**
+            //
+            // A write-off deliberately leaves `balance` standing — it is not one of the four
+            // settlement channels — so `payableAmount()` is `balance` net of anything forgiven, and
+            // it is what EVERY money path already uses: the Paymob session, the pivot allocation,
+            // the session-reuse comparison, the demo capture and the public pay page. It was on
+            // none of them until 2026-09-01 and on this payload until now, so the app could print
+            // 10,000 from `balance`, open checkout, and have the tenant charged 4,000 with nothing
+            // on screen explaining the difference.
+            //
+            // `balance` STAYS, and the two are different questions: `balance` is what was owed and
+            // is what an accountant reconciles against the invoice; this is what may still be
+            // collected. Show this one on a Pay button.
+            'payable_amount' => $this->payableAmount(),
             // **When the money arrived.** The payment-confirmation screen used to stamp the
             // DEVICE clock next to a server-polled amount and balance — on the screen tenants
             // screenshot as proof of payment — so the app dropped the line rather than print a

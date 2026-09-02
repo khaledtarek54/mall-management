@@ -34,8 +34,12 @@
                                                     "type": "number"
                                                 },
                                                 "openCount": {
-                                                    "type": "integer",
+                                                    "type": "string",
                                                     "description": "Cast the count/bool explicitly so the generated spec publishes\ninteger/boolean rather than falling back to `string` \u2014 the client\ndecodes against the spec."
+                                                },
+                                                "creditOnAccount": {
+                                                    "type": "number",
+                                                    "description": "**The tenant's own money, which this API had never mentioned.** Two different credits\nexist and the app was told about one: a CREDIT NOTE is a document the operator issued,\nwhile this is cash the tenant has already PAID that is not yet applied to an invoice \u2014\na received payment's unallocated remainder, sitting on the books as unearned revenue.\nThe portal's AccountBalance widget has always shown it, four admin surfaces read it,\nand `ApplyTenantCreditService` spends it as one of the four settlement channels. To a\ntenant who overpaid, it simply looked lost \u2014 and then an invoice was silently\npart-settled from it with nothing in the payment history to explain why."
                                                 },
                                                 "currency": {
                                                     "type": "string",
@@ -49,6 +53,7 @@
                                                 "outstanding",
                                                 "overdue",
                                                 "openCount",
+                                                "creditOnAccount",
                                                 "currency",
                                                 "isDelinquent"
                                             ]
@@ -3199,12 +3204,16 @@
                                                     "type": "number"
                                                 },
                                                 "openInvoices": {
-                                                    "type": "integer",
+                                                    "type": "string",
                                                     "description": "Counts/bools are cast explicitly so the generated spec publishes\ninteger/boolean rather than falling back to `string` \u2014 the mobile\nclient decodes against the spec."
                                                 },
                                                 "creditAvailable": {
                                                     "type": "number",
                                                     "description": "'issued' only \u2014 same filter Tenant::outstandingBalance() uses for\nspendable credit (applied/void notes carry no remaining balance)."
+                                                },
+                                                "creditOnAccount": {
+                                                    "type": "number",
+                                                    "description": "Money the tenant has PAID that is not yet applied to an invoice \u2014 distinct from\n`credit_available` above, which counts credit NOTES the operator issued. The portal\nhas always shown both; this surface showed one, so an overpayment looked lost."
                                                 },
                                                 "isDelinquent": {
                                                     "type": "boolean"
@@ -3237,6 +3246,7 @@
                                                 "overdue",
                                                 "openInvoices",
                                                 "creditAvailable",
+                                                "creditOnAccount",
                                                 "isDelinquent",
                                                 "openMaintenance",
                                                 "disputedDeclarations",
@@ -3801,6 +3811,10 @@
                     "balance": {
                         "type": "number"
                     },
+                    "payableAmount": {
+                        "type": "number",
+                        "description": "**What the tenant will actually be charged, which is not always `balance`.** A write-off deliberately leaves `balance` standing \u2014 it is not one of the four\nsettlement channels \u2014 so `payableAmount()` is `balance` net of anything forgiven, and\nit is what EVERY money path already uses: the Paymob session, the pivot allocation,\nthe session-reuse comparison, the demo capture and the public pay page. It was on\nnone of them until 2026-09-01 and on this payload until now, so the app could print\n10,000 from `balance`, open checkout, and have the tenant charged 4,000 with nothing\non screen explaining the difference.\n\n`balance` STAYS, and the two are different questions: `balance` is what was owed and\nis what an accountant reconciles against the invoice; this is what may still be\ncollected. Show this one on a Pay button."
+                    },
                     "paidAt": {
                         "type": "string",
                         "description": "**When the money arrived.** The payment-confirmation screen used to stamp the\nDEVICE clock next to a server-polled amount and balance \u2014 on the screen tenants\nscreenshot as proof of payment \u2014 so the app dropped the line rather than print a\nguess. This is the server's own answer: the date of the latest RECEIVED payment\nallocated to this invoice (`receivedPayments`, the same predicate the AR uses), or\nnull while nothing has been captured."
@@ -3881,6 +3895,7 @@
                     "paidAmount",
                     "creditAppliedAmount",
                     "balance",
+                    "payableAmount",
                     "paidAt",
                     "currency",
                     "isOverdue",

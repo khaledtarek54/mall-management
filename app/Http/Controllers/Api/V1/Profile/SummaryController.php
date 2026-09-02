@@ -20,13 +20,21 @@ class SummaryController extends ApiController
     {
         $tenant = $request->user();
 
+        // `writeOffs` eager-loaded: every figure below is COLLECTABLE, and
+        // `Invoice::collectableBalance()` prefers a loaded relation over an aggregate per row.
         $openInvoices = $tenant->invoices()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->with('writeOffs')
             ->get(['id', 'balance', 'due_date']);
 
+        // Collectable, not raw `balance`. `outstandingBalance()` nets what the operator has
+        // forgiven and these did not, so a partly written-off tenant was handed an `overdue`
+        // LARGER than their `outstanding` — a home screen contradicting itself, on the two numbers
+        // it exists to show. See BalanceController for the full note; the two must agree, which is
+        // why they are fixed together.
         $overdue = (float) $openInvoices
-            ->filter(fn ($inv) => $inv->balance > 0 && $inv->due_date && $inv->due_date->isPast())
-            ->sum('balance');
+            ->filter(fn ($inv) => $inv->collectableBalance() > 0 && $inv->due_date && $inv->due_date->isPast())
+            ->sum(fn ($inv) => $inv->collectableBalance());
 
         return $this->ok([
             // Money
@@ -35,11 +43,15 @@ class SummaryController extends ApiController
             // Counts/bools are cast explicitly so the generated spec publishes
             // integer/boolean rather than falling back to `string` — the mobile
             // client decodes against the spec.
-            'open_invoices' => (int) $openInvoices->where('balance', '>', 0)->count(),
+            'open_invoices' => $openInvoices->filter(fn ($inv) => $inv->collectableBalance() > 0)->count(),
             // 'issued' only — same filter Tenant::outstandingBalance() uses for
             // spendable credit (applied/void notes carry no remaining balance).
             'credit_available' => round((float) $tenant->creditNotes()
                 ->where('status', 'issued')->sum('balance'), 2),
+            // Money the tenant has PAID that is not yet applied to an invoice — distinct from
+            // `credit_available` above, which counts credit NOTES the operator issued. The portal
+            // has always shown both; this surface showed one, so an overpayment looked lost.
+            'credit_on_account' => round($tenant->creditBalance(), 2),
             'is_delinquent' => (bool) $tenant->isDelinquent(),
 
             // Open work.
