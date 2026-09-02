@@ -20,6 +20,15 @@ return [
         'kind_report' => 'تقرير',
         'kind_record' => 'سجل',
         'kind_doc' => 'من الدليل',
+        'kind_task' => 'نفِّذ',
+
+        'task' => [
+            'create' => 'إنشاء :thing',
+            'verbs' => 'انشاء اضافة جديد عمل اصدار توليد تسجيل ادخال اعمل اضيف اصدر',
+            'required_fields' => 'النموذج يطلب: :fields.',
+            'optional_fields' => 'ويتيح أيضًا: :fields.',
+            'and_more' => 'و:count حقلًا آخر.',
+        ],
 
         'steps' => 'طريقة التنفيذ',
         'affects' => 'ما يتغيّر في مكان آخر',

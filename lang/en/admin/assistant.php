@@ -23,6 +23,17 @@ return [
         'kind_report' => 'Report',
         'kind_record' => 'Record',
         'kind_doc' => 'From the handbook',
+        'kind_task' => 'Do it',
+
+        'task' => [
+            'create' => 'New :thing',
+            // Read ONLY as a tie-break (AnswerQuestionService::looksLikeCreating), never scored:
+            // as scoring terms these tied all 61 tasks on any question containing a common verb.
+            'verbs' => 'create add new make raise issue generate register enter',
+            'required_fields' => 'The form requires: :fields.',
+            'optional_fields' => 'It also offers: :fields.',
+            'and_more' => 'and :count more.',
+        ],
 
         'steps' => 'How it is done',
         'affects' => 'What this changes elsewhere',

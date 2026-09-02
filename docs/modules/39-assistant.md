@@ -215,11 +215,22 @@ and `manager`. **Adding it was a deploy step** — `php artisan db:seed --class=
 
 Property-scoped, like the questions themselves.
 
-## Three tiers, in order
+## Four tiers, in order
 
 1. **Records** — the thing the question named.
-2. **Screens and reports** — the guides and the report catalogue.
-3. **Documentation** — *only when tier 2 found nothing.*
+2. **Tasks** — *"New invoice"*: a link to the CREATE FORM, plus the fields it asks for.
+3. **Screens and reports** — the guides and the report catalogue.
+4. **Documentation** — *only when nothing EXPLAINED the question.*
+
+**The task tier is what makes this a helper rather than a manual.** The guides say what a screen is
+FOR and the handbook says how the system WORKS; neither names a field, and neither links to the
+form. So *"how do I raise an invoice and what does it want from me"* was answered with a paragraph
+and a link to the register — true, and two clicks short.
+
+Fields are parsed out of each resource's own form class, so they cannot drift: adding a field to
+the invoice form makes it appear on the next index. Labels come from `admin.fields.*` — the
+catalogue the forms themselves label from — so the assistant says the same word the operator reads
+on screen, in their language, for free.
 
 The third tier is a **fallback, not a peer**, and that is the load-bearing rule. A screen guide
 answers *"how do I do X"* with the screen that does X and a link to it; a paragraph of prose answers
@@ -343,6 +354,30 @@ link, and the report shows its own period selector.
   `gemini-flash-lite-latest`, whose allowance is far larger — and on this workload the model is not
   choosing anything, only wording a passage it was handed, which is the task where the cheapest
   model is closest to the best.
+- **A shared VERB list must never be scored.** "create · add · new · raise · issue · open" looked
+  like the obvious way to catch how people phrase a task. At keyword weight it gave all sixty-one
+  task entries the same score for any question containing a common verb, so "issue a credit note"
+  tied every task in the system and crowded the real answer out of five slots. The verbs are read
+  only as a create-INTENT signal, which lifts tasks that already matched and cannot introduce one.
+- **A one-pass regex that captures a chain eats the next match.** Reading "everything up to the next
+  `::make(`" consumes the following component's class name before it stops, so the scan resumes
+  mid-identifier and EVERY OTHER FIELD is silently dropped — `lease_id` and `due_date` were missing
+  from the invoice form while the list still looked plausible. Two passes: find the components,
+  then take each chain as the gap between them.
+- **A task is not an explanation.** Letting one satisfy the "did anything answer this" test made
+  "what happens when a cheque bounces" match the post-dated-cheque FORM and silence the walkthrough
+  that answers it. The documentation fallback counts screens and reports only.
+- **THE ANSWER CACHE MUST INCLUDE THE PROMPT AND THE MODEL.** Measured: the system prompt was
+  improved, the question that motivated it re-asked, and the OLD answer came back — the model was
+  never called, and the fix would not have reached anybody for the whole 168-hour TTL. A cache that
+  outlives a change to its own inputs is a stale copy with a timer. Fingerprinted rather than
+  hand-versioned, so editing the prompt IS the whole change.
+- **Task access is asked of the RESOURCE, not the create page.** A `viewer` — who may create nothing
+  anywhere — was offered "New invoice" with a link straight to the form, because the page's own
+  `canAccess()` answered true and the refusal only arrived after the click. And it is checked at
+  QUERY time, never while building the corpus: the corpus is memoised per locale and shared by
+  every request, so filtering it by the current user would hand the next reader whatever the
+  previous one was allowed to see.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and

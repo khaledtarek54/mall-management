@@ -264,9 +264,15 @@ it('sends a documentation excerpt as the passage, not the whole handbook', funct
 
         // The excerpt is capped at index time, so the prompt stays small — which is the whole
         // reason this tier costs cents rather than dollars.
-        expect($model->sawPassages)->toHaveCount(1)
-            ->and($model->sawPassages[0]['body'])->toContain('returns it unpaid')
-            ->and(mb_strlen($model->sawPassages[0]['body']))->toBeLessThan(1000);
+        //
+        // Asserted on the DOCUMENTATION passage rather than on the passage count: the question also
+        // matches the post-dated-cheque form now that tasks are indexed, and "how many passages
+        // were sent" was never the property under test — "is the doc excerpt bounded" is.
+        $doc = collect($model->sawPassages)->firstWhere('title', 'When a cheque bounces');
+
+        expect($doc)->not->toBeNull()
+            ->and($doc['body'])->toContain('returns it unpaid')
+            ->and(mb_strlen($doc['body']))->toBeLessThan(1000);
     });
 });
 

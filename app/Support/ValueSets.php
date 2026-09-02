@@ -149,7 +149,7 @@ class ValueSets
         // would demand it anyway — and it must be a closed set, because the unanswered-question
         // analysis groups on it and a typo'd value would silently form a third bucket that nobody
         // reads.
-        'assistant_questions.top_kind' => ['screen', 'report', 'record', 'doc'],
+        'assistant_questions.top_kind' => ['screen', 'report', 'record', 'doc', 'task'],
 
         // What an operator-defined field can hold (D-7 / EG-32). Registered because a mistyped type
         // does not error — `CustomFieldsSchema::input()` falls through its `match` to a plain text

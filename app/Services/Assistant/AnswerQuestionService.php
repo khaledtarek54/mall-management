@@ -7,7 +7,9 @@ use App\Models\AssistantQuestion;
 use App\Support\Assistant\AssistantCorpus;
 use App\Contracts\AssistantModel;
 use App\Support\Assistant\AssistantBudget;
+use App\Services\Assistant\Models\AssistantPrompt;
 use App\Support\Assistant\AssistantDocs;
+use App\Support\Assistant\TaskCorpus;
 use App\Support\Assistant\AssistantEntry;
 use App\Support\Assistant\AssistantRecords;
 use App\Support\ReportCatalogue;
@@ -133,7 +135,16 @@ class AnswerQuestionService
         // the top slot.
         $wording = app(AssistantModel::class)->isConfigured();
 
-        $docs = ($screens === [] || $wording)
+        // The fallback asks whether anything EXPLAINED the question, and a task explains nothing —
+        // it is a link to a form. Counting one as an answer let "what happens when a cheque
+        // bounces" match the post-dated-cheque FORM and silence the walkthrough that actually
+        // answers it.
+        $explanatory = array_filter(
+            $screens,
+            fn (array $r): bool => in_array($r['kind'] ?? '', ['screen', 'report'], true),
+        );
+
+        $docs = ($explanatory === [] || $wording)
             ? AssistantDocs::find($words, $readerLocale)
             : [];
 
@@ -187,6 +198,18 @@ class AnswerQuestionService
             // Resolved through `ScreenGuides::keyFor()` on the SCREEN CLASS rather than trusting
             // `$result['key']`: for a screen those are the same string, and for a report the key is
             // the report's own (`ar_aging`), which is only equal to the guide key by coincidence.
+            // A TASK's passage is the form itself: what it asks for, and which of it is required.
+            // That is the half no guide carries, and the reason "what fields are on an invoice"
+            // used to be answered with a paragraph about invoices.
+            if ($body === null && ($result['kind'] ?? null) === 'task') {
+                $body = trim(implode(' ', [
+                    TaskCorpus::fieldSentence((string) $result['key']),
+                    ScreenGuides::has((string) $result['key'])
+                        ? implode(' ', ScreenGuides::steps((string) ScreenGuides::keyFor((string) $result['key'])))
+                        : '',
+                ]));
+            }
+
             $guideKey = ScreenGuides::keyFor($result['screen'] ?? '');
 
             if ($body === null && $guideKey !== null) {
@@ -207,10 +230,23 @@ class AnswerQuestionService
             return $none;
         }
 
+        // THE PROMPT AND THE MODEL ARE PART OF THE KEY.
+        //
+        // Without them a cached answer outlives the thing that produced it: I improved the system
+        // prompt, re-asked the question that motivated the change, and got the old answer back —
+        // the model was never called, and the fix would not have reached anybody for the whole
+        // 168-hour TTL. A cache that survives a change to its own inputs is not a cache, it is a
+        // stale copy with a timer.
+        //
+        // Fingerprinted rather than versioned by hand, so editing the prompt is the whole change
+        // and there is no second number to remember to bump.
         $key = 'assistant:answer:'.md5(implode('|', [
             $locale,
             SearchText::normalize($question),
             implode(',', array_column($results, 'key')),
+            (string) config('assistant.driver'),
+            (string) config('assistant.'.config('assistant.driver').'.model'),
+            md5(AssistantPrompt::instructions($locale)),
         ]));
 
         if (($hit = Cache::get($key)) !== null) {
@@ -282,6 +318,31 @@ class AnswerQuestionService
         // Score, then how many of the typed words were hit, then title — the last only so the order
         // is stable. An unstable order on equal scores makes the same question answer differently
         // on two page loads, which reads as a bug in the data.
+        // A CREATE question prefers a create form, but only as a TIE-BREAK.
+        //
+        // The verbs are read here and nowhere else, deliberately. Scoring them put all sixty-one
+        // task entries on the same score for any question containing "issue" or "open", which
+        // crowded the real answer out of five slots. Ordering equals cannot crowd out anything: it
+        // only decides which of two things that already matched equally is shown first — which is
+        // exactly the difference between "How do I generate an invoice" leading with **New
+        // Invoice** and leading with **Custom fields**, both of which scored 8.
+        $wantsToCreate = $this->looksLikeCreating($words);
+
+        // A create question LIFTS the create forms, and the lift is small on purpose.
+        //
+        // It cannot introduce a match — every entry here already cleared the floor on its own
+        // terms — so it only reorders things that were all going to be shown anyway. That is the
+        // difference between "How do I generate an invoice and what fields does it need" leading
+        // with **New Invoice** and leading with **Custom fields**, which matched on the word
+        // "fields" and is a different feature entirely.
+        if ($wantsToCreate) {
+            foreach ($scored as $i => $row) {
+                if ($row['entry']->kind === 'task') {
+                    $scored[$i]['score'] += AssistantCorpus::WEIGHT_PURPOSE;
+                }
+            }
+        }
+
         usort($scored, function (array $a, array $b): int {
             return [$b['score'], $b['hits'], $a['entry']->title]
                 <=> [$a['score'], $a['hits'], $b['entry']->title];
@@ -436,6 +497,18 @@ class AnswerQuestionService
     }
 
     /**
+     * Does this question sound like somebody about to make something?
+     *
+     * @param  array<int, string>  $words
+     */
+    private function looksLikeCreating(array $words): bool
+    {
+        $verbs = SearchText::words((string) __('admin.assistant.task.verbs'));
+
+        return array_intersect($words, $verbs) !== [];
+    }
+
+    /**
      * Whether the signed-in reader could actually open this screen.
      *
      * `rescue()`d to FALSE: a `canAccess()` that throws is a screen whose access cannot be
@@ -445,7 +518,23 @@ class AnswerQuestionService
     private function readerMayOpen(AssistantEntry $entry): bool
     {
         return rescue(
-            fn (): bool => (bool) $entry->screen::canAccess(),
+            function () use ($entry): bool {
+                // A TASK is asked of the RESOURCE, not of the create page.
+                //
+                // Measured: a `viewer` — who may create nothing anywhere — was offered "New
+                // invoice" with a link straight to the form. The page's own `canAccess()` answered
+                // true, so the existing check waved it through, and the refusal only arrived after
+                // the click. `canCreate()` is the right question and the one the button itself asks.
+                //
+                // Checked HERE rather than while building the corpus deliberately: the corpus is
+                // memoised per locale and shared by every request, so filtering it by the current
+                // user would hand the next reader whatever the previous one was allowed to see.
+                if ($entry->kind === 'task') {
+                    return (bool) $entry->key::canCreate();
+                }
+
+                return (bool) $entry->screen::canAccess();
+            },
             false,
             report: false,
         );

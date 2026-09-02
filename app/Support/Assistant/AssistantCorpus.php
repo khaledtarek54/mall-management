@@ -117,6 +117,9 @@ final class AssistantCorpus
             self::$memo[$locale] = array_merge(
                 self::screenEntries(),
                 self::reportEntries(),
+                // "Create one, and here is what the form asks for" — read from the forms
+                // themselves, so it cannot drift from the screen it describes.
+                TaskCorpus::entries(),
             );
         } finally {
             app()->setLocale($previous);
