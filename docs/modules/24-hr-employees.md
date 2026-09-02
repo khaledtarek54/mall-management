@@ -539,3 +539,21 @@ request's. Blank is the normal state.
 **Do NOT add an `@page` rule to the template.** Page geometry belongs to the renderer, which is also
 the thing that knows there is a running footer; a template that sets its own margins leaves no room
 for it and the footer renders nowhere at all.
+
+> **⚠️ The payroll add-line modal asked for eight figures and kept three (fixed 2026-09-02).** It
+> renders `gross`, `allowances`, `salary_tax`, `social_insurance`, `other_deductions`,
+> `deduction_note` and `employer_social_insurance`; the create wrote the first, third and fourth. So
+> an operator entered an allowance and a deduction, pressed Add, and got a payslip that ignored both
+> — **no error, and a net figure that looked deliberate**. The employee is paid the wrong amount and
+> the only evidence is a number nobody has a reason to re-derive.
+>
+> The fields are enumerated from `PayrollLinesRelationManager::LINE_MONEY_FIELDS` now, and a gate
+> asserts that register covers everything `moneyFields()` renders — so a ninth field is carried by
+> being added to the modal rather than by anyone remembering this hook. `advance_deduction` is the
+> one deliberate exception: it is `->dehydrated(false)` and belongs to the **Deduct advance** act,
+> which has its own gate and its own GL consequence.
+>
+> *(Testing note: a relation manager's HEADER action is reached with `callTableAction()`, not
+> `callAction()` — the latter reports it as "not visible" even when the gate is satisfied, which
+> reads exactly like an authorization failure.)*
+> (`AFormThatAsksMustKeepWhatItIsToldTest`.)

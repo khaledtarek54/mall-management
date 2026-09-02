@@ -229,11 +229,25 @@ class PayrollLinesRelationManager extends RelationManager
                         // One line per employee per run — reject a duplicate before the DB
                         // unique index would throw a raw 500 (the picker also hides them).
                         abort_if($run->lines()->where('employee_id', $employee->id)->exists(), 422);
+                        // **EVERY FIELD THE MODAL RENDERED.** It showed eight and this wrote three,
+                        // so `allowances`, `other_deductions`, `deduction_note` and
+                        // `employer_social_insurance` were silently discarded: the operator typed an
+                        // allowance and a deduction, pressed Add, and got a payslip that ignored
+                        // both — with no error, and a net figure that looked deliberate.
+                        //
+                        // Enumerated from `moneyFields()` rather than listed again, so a ninth field
+                        // added to that modal is carried by being added there. `advance_deduction`
+                        // is deliberately absent: it is `->dehydrated(false)` and belongs to the
+                        // "Deduct advance" act, which has its own gate and its own GL consequence.
                         $run->lines()->create([
                             'employee_id' => $employee->id,
-                            'gross' => (float) $data['gross'],
-                            'salary_tax' => (float) ($data['salary_tax'] ?? 0),
-                            'social_insurance' => (float) ($data['social_insurance'] ?? 0),
+                            ...collect(self::LINE_MONEY_FIELDS)
+                                ->mapWithKeys(fn (string $field): array => [
+                                    $field => $field === 'deduction_note'
+                                        ? ($data[$field] ?? null)
+                                        : (float) ($data[$field] ?? 0),
+                                ])
+                                ->all(),
                         ]);
                         // recomputeFromLines() runs via the PayrollLine saved hook.
                         $this->refreshOwnerHeader();
@@ -358,6 +372,24 @@ class PayrollLinesRelationManager extends RelationManager
      *
      * @return array<int, Field>
      */
+    /**
+     * The columns the add/edit modal writes — the ONE list, read by both.
+     *
+     * `deduct_advance` owns `advance_deduction`, which is why it is not here: that field is
+     * `->dehydrated(false)` on the modal and carries its own gate and its own GL consequence.
+     *
+     * @var array<int, string>
+     */
+    private const LINE_MONEY_FIELDS = [
+        'gross',
+        'allowances',
+        'salary_tax',
+        'social_insurance',
+        'other_deductions',
+        'deduction_note',
+        'employer_social_insurance',
+    ];
+
     private function moneyFields(): array
     {
         // net = gross − tax − SI − advance installment − other deductions, must stay ≥ 0.
