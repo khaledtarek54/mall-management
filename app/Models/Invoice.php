@@ -991,7 +991,23 @@ class Invoice extends Model
         // 'written_off' joins the manual overrides: a debt accepted as uncollectible must not be
         // dragged back to 'overdue' by the next recompute. Reversing a write-off is what re-opens
         // it (WriteOffInvoiceService::reverse), not a side effect of recalculating a balance.
-        if (! in_array($this->status, ['cancelled', 'credited', 'disputed', 'written_off'])) {
+        //
+        // **And 'draft', which was the one being promoted (SW-215).** `InvoiceItem::saved` calls
+        // `syncTotalsFromItems()` → here, so writing a LINE onto a draft issued it — measured
+        // through the real create page: the operator picks Draft, the invoice is stored `issued`.
+        // That put an unissued document in front of the tenant, on the books and in the GL, and the
+        // form drops `draft` from its options once the status has moved, so there was no way back.
+        // A draft with no lines is not a document anybody wants; a draft is precisely an invoice
+        // WITH lines that has not been raised yet, so the promotion fired on the only case that
+        // matters. `InvoiceSettlement` already recorded this in writing as a reason to refuse cash
+        // against a draft — *"an unissued document becomes a live one without ever passing through
+        // IssueInvoiceService"* — as a hazard to route around rather than a thing to fix.
+        //
+        // Only the STATUS is frozen: `paid_amount` and `balance` above still recompute, so a draft
+        // that somehow carries a settlement still reports the right figures. Issuing stays an ACT —
+        // `IssueInvoiceService` states the status at create, and the panel's Select is the other
+        // door — never a side effect of saving a line.
+        if (! in_array($this->status, ['draft', 'cancelled', 'credited', 'disputed', 'written_off'])) {
             if ($this->balance <= 0 && $this->paid_amount > 0) {
                 $this->status = 'paid';
             } elseif ($this->paid_amount > 0) {

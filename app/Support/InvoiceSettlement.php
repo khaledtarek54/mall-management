@@ -52,7 +52,7 @@ final class InvoiceSettlement
      * the next status has to say which side it falls on, and why.
      */
     public const RELIEVED = [
-        'draft' => 'Never posted — InvoiceJournalizer returns early on a draft, so no AR was ever debited. Cash against a draft credits a receivable that does not exist; and because `draft` is not one of recomputeTotals() manual overrides, the same recompute flips it to partially_paid/paid, so an unissued document becomes a live one without ever passing through IssueInvoiceService.',
+        'draft' => 'Never posted — InvoiceJournalizer returns early on a draft, so no AR was ever debited. Cash against a draft credits a receivable that does not exist. (It used to also FLIP the document live: `draft` was not one of recomputeTotals() manual overrides, so the same recompute made an unissued invoice `paid` without it ever passing through IssueInvoiceService. Fixed 2026-09-02 — SW-215 — and this refusal stands on the first reason alone, which is the one that was never about a side effect.)',
         'cancelled' => 'Left the books. recomputeTotals() forces its balance to 0, which is what has silently protected this status until now — an accident of the arithmetic, not a guard.',
         'credited' => 'Settled in full by a credit note; that document already relieved the AR.',
         'written_off' => 'Relieved to bad debt (Dr Bad Debt / Cr AR). The balance deliberately STANDS, so this is the one status a balance-only cap cannot see. The remedy for a debt that pays after all is Reverse write-off — a recovery is booked as a recovery, not as a settlement stacked on top of the relief.',

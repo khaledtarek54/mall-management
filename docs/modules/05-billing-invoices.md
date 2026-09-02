@@ -813,7 +813,26 @@ should have to infer, so it is shown rather than removed.
 | `cancelled` | Manual override | ✓ (irreversible in practice) | Yes | Yes (manual) |
 | `credited` | Manual override (typically after credit note) | ✓ (irreversible) | Yes | Yes (manual) |
 
-**Automatic transitions:** Only issued/partially_paid/overdue → newer status via `recomputeTotals()` after payment/credit changes. Cancelled/disputed/credited are preserved and never auto-overwritten.
+**Automatic transitions:** Only issued/partially_paid/overdue → newer status via `recomputeTotals()` after payment/credit changes. Draft/cancelled/disputed/credited/written_off are preserved and never auto-overwritten.
+
+**`draft` joined that list on 2026-09-02 (SW-215), and it was promoting the only case that matters.**
+`InvoiceItem::saved` calls `Invoice::syncTotalsFromItems()` → `recomputeTotals()`, so writing a LINE
+onto a draft ISSUED it. Measured through the real create page: the operator picks **Draft**, the
+invoice is stored **`issued`**. A draft with no lines is not a document anybody wants — a draft is
+precisely an invoice *with* lines that has not been raised yet — so the promotion fired every time.
+
+What it cost: an unissued document went straight in front of the tenant (the subject of the
+draft-visibility invariant), onto the books and into the GL, and `InvoiceForm` drops `draft` from its
+options once the status has moved, so there was no way back. It was known and written down — the
+reason `InvoiceSettlement` gives for refusing cash against a draft says in writing that *"an unissued
+document becomes a live one without ever passing through `IssueInvoiceService`"* — recorded as a
+hazard to route around rather than as a thing to fix.
+
+Only the STATUS is frozen: `paid_amount` and `balance` still recompute, so a draft carrying a
+settlement still reports the right figures, and the derived ladder still moves an ISSUED invoice to
+`overdue` on its own. Issuing stays an ACT — `IssueInvoiceService` states the status at create and
+the panel's Select is the other door — never a side effect of saving a line.
+(`ADraftInvoiceStaysADraftTest`.)
 
 **Overdue flag:** An invoice is "overdue" if status is overdue OR (status is issued/partially_paid AND due_date < today). Method: `Invoice::isOverdue()`.
 
