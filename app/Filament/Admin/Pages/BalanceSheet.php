@@ -108,11 +108,11 @@ class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTab
     {
         $csv = app(ReportCsvExporter::class)->balanceSheet($this->report());
 
-        return [
+        return $this->withUnallocatedNotice([
             'filename' => "balance-sheet-{$this->periodSlug()}",
             'headers' => $csv['headers'],
             'rows' => $csv['rows'],
-        ];
+        ]);
     }
 
     /**

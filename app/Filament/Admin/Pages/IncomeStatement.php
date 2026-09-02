@@ -287,7 +287,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
 
         // The columns travel with the export, for the same reason the comparison does.
         if ($spread !== null) {
-            return [
+            return $this->withUnallocatedNotice([
                 'filename' => "income-statement-{$this->periodSlug()}-{$this->spread}",
                 'headers' => [
                     __('admin.reports.section'),
@@ -303,7 +303,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                         ...array_map(fn (array $span): float => (float) ($r['a_'.$span['key']] ?? 0), $spread['spans']),
                     ])
                     ->all(),
-            ];
+            ]);
         }
 
         $comparative = $this->comparative();
@@ -312,7 +312,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
         // columns and then exports WITHOUT them is a different document under the same name — and
         // the export is the copy that gets emailed, filed and argued over.
         if ($comparative !== null) {
-            return [
+            return $this->withUnallocatedNotice([
                 'filename' => "income-statement-{$this->periodSlug()}-vs-{$comparative['prior_from']}",
                 'headers' => [
                     __('admin.reports.section'),
@@ -336,16 +336,16 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                         $r['change_pct'] === null ? '' : round((float) $r['change_pct'], 1),
                     ])
                     ->all(),
-            ];
+            ]);
         }
 
         $csv = app(ReportCsvExporter::class)->incomeStatement($this->report());
 
-        return [
+        return $this->withUnallocatedNotice([
             'filename' => "income-statement-{$this->periodSlug()}",
             'headers' => $csv['headers'],
             'rows' => $csv['rows'],
-        ];
+        ]);
     }
 
     /**

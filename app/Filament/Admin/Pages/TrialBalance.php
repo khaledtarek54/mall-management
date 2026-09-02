@@ -122,11 +122,11 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
     {
         $csv = app(ReportCsvExporter::class)->trialBalance($this->report());
 
-        return [
+        return $this->withUnallocatedNotice([
             'filename' => "trial-balance-{$this->periodSlug()}",
             'headers' => $csv['headers'],
             'rows' => $csv['rows'],
-        ];
+        ]);
     }
 
     /**

@@ -377,7 +377,7 @@ class WithholdingTaxReturn extends Page implements DeliverableReport, HasSchemas
         $rows[] = ['', '', '', '', '', __('admin.reports.wht_ledger'), number_format($r['withheld_ledger'], 2, '.', '')];
         $rows[] = ['', '', '', '', '', __('admin.reports.wht_difference'), number_format($r['difference'], 2, '.', '')];
 
-        return [
+        return $this->withUnallocatedNotice([
             'filename' => "withholding-tax-return-{$this->periodSlug()}",
             'headers' => [
                 __('admin.fields.vendor'),
@@ -389,7 +389,7 @@ class WithholdingTaxReturn extends Page implements DeliverableReport, HasSchemas
                 __('admin.reports.wht_withheld'),
             ],
             'rows' => $rows,
-        ];
+        ]);
     }
 
     public function table(Table $table): Table

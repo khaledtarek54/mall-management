@@ -23,7 +23,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.trial-balance', fn (): array => [
             'report' => $this->reports->trialBalance($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds, $period, $locale);
+        ], $assetIds, $period, $locale, window: [$from, $to]);
     }
 
     public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string
@@ -31,7 +31,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.income-statement', fn (): array => [
             'report' => $this->reports->incomeStatement($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds, $period, $locale);
+        ], $assetIds, $period, $locale, window: [$from, $to]);
     }
 
     /**
@@ -52,6 +52,10 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.income-statement-spread', fn (): array => [
             'spread' => $spread,
             'meta' => $this->meta($property, $period),
+            // No window, so no notice: this method takes the spread ALREADY BUILT rather than the
+            // dates to build it from — deliberately, so the printed columns cannot differ from the
+            // ones on screen — and re-deriving a window here to count over could disagree with them.
+            // The screen it was printed from carries the warning.
         ], $assetIds, $period, $locale, landscape: count($spread['spans']) > 4);
     }
 
@@ -60,7 +64,9 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.balance-sheet', fn (): array => [
             'report' => $this->reports->balanceSheet($assetIds, $asOf),
             'meta' => $this->meta($property, $asOf->format('d/m/Y')),
-        ], $assetIds, $asOf->format('d/m/Y'), $locale);
+            // An "as at" statement reads everything up to the date, so the notice must too —
+            // warning only about a selected month would understate what the page is missing.
+        ], $assetIds, $asOf->format('d/m/Y'), $locale, window: [null, $asOf]);
     }
 
     public function cashFlow(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string
@@ -68,7 +74,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.cash-flow', fn (): array => [
             'report' => $this->reports->cashFlow($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds, $period, $locale);
+        ], $assetIds, $period, $locale, window: [$from, $to]);
     }
 
     public function filename(string $report, string $period): string
@@ -99,8 +105,26 @@ class LedgerReportPdfService
      * @param  Closure(): array<string, mixed>  $data
      * @param  array<int>|null  $assetIds  the report's property scope; one mall means one letterhead
      */
-    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale, bool $landscape = false): string
+    /**
+     * @param  array{0: CarbonInterface, 1: ?CarbonInterface}|null  $window  the period the notice counts over
+     */
+    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale, bool $landscape = false, ?array $window = null): string
     {
+        // **MONEY THE STATEMENT LEAVES OUT, ON THE COPY THAT LEAVES THE BUILDING.**
+        // Every ledger report scopes with `whereIn('je.asset_id', $ids)` and `whereIn` never matches
+        // NULL, so an entry filed against no property is invisible in all of them — which is why
+        // EG-27 put a warning on the screen. It was ONLY on the screen: the PDF, the CSV and the
+        // scheduled email omitted the same money with nothing to say so, and those are the copies an
+        // accountant, an owner and an auditor actually read.
+        //
+        // Computed HERE rather than in each statement's own data closure, and rendered by the shared
+        // layout, so a sixth statement inherits the warning instead of being the one that quietly
+        // omits money — the same reasoning that put `unallocatedNotice()` on the concern rather than
+        // on five pages.
+        $unallocated = $window === null
+            ? null
+            : $this->reports->unallocated($assetIds, $window[0], $window[1] ?? null);
+
         return PdfDocument::make($view)
             ->locale(DocumentLocale::resolve($locale))
             ->landscape($landscape)
@@ -110,7 +134,11 @@ class LedgerReportPdfService
             //
             // Scoped: a statement filtered to ONE mall carries that mall's logo; two or more, or
             // none, is a portfolio document and carries the operator's identity alone.
-            ->data(fn (): array => [...$data(), ...IssuingEntity::forViewScopedTo($assetIds)])
+            ->data(fn (): array => [
+                ...$data(),
+                ...IssuingEntity::forViewScopedTo($assetIds),
+                'unallocated' => $unallocated,
+            ])
             ->reference($period)
             ->fontSize(10)
             ->render();

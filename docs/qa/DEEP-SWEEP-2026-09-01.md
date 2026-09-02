@@ -231,7 +231,7 @@ which is the same failure this repo gates for generated doc blocks.
 |---|---|---|---|---|---|
 | **SW-131** | open | high | — | A Form 41 quarter cannot survive a link or a saved view — the screen shows the full year while the emailed CSV shows the quarter | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:67` |
 | **SW-132** | ✅ **fixed** `aa624ab1` | high | — | Clearing any report Select unsets a non-nullable Livewire property and 500s the page Same root cause as SW-037 and fixed with it. | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:130` |
-| **SW-133** | open | high | — | The unallocated-entries warning exists only on screen — the PDF, CSV, XLSX, scheduled email and owner pack omit money silently | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:270` |
+| **SW-133** | ✅ fixed | high | — | The unallocated-entries warning exists only on screen — the PDF, CSV, XLSX, scheduled email and owner pack omit money silently | `Filament/Admin/Pages/Concerns/ScopesLedgerReport:270` |
 | **SW-134** | open | high | L | Re-pointing a posting-role mapping (or a charge code's posting_role) retroactively re-derives the entire ledger history: the weekly --all sweep mass-voids/re-posts every open-period document and permanently str | `Services/Accounting/LedgerPoster:506` |
 | **SW-135** | open | high | S | On estimate_basis='billed', a unit owner's estimated_paid is always 0 — the owner is billed his full annual share again despite a year of paid assessments | `Services/SyncCamPoolFromLedgerService:278` |
 | **SW-136** | open | medium | S | Reopen-period row action bypasses the year-end close: postings land under a standing closing entry | `Filament/Admin/Resources/AccountingPeriods/Tables/AccountingPeriodsTable:104` |

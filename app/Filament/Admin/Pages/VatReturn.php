@@ -216,7 +216,7 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
     {
         $r = $this->report();
 
-        return [
+        return $this->withUnallocatedNotice([
             'filename' => "vat-return-{$this->periodSlug()}",
             'headers' => [__('admin.reports.vat_line'), __('admin.fields.amount')],
             'rows' => [
@@ -229,7 +229,7 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
                 [__('admin.reports.vat_output_documents'), number_format($r['output_vat_documents'], 2, '.', '')],
                 [__('admin.reports.vat_difference'), number_format($r['output_vat_difference'], 2, '.', '')],
             ],
-        ];
+        ]);
     }
 
     public function table(Table $table): Table

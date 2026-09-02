@@ -54,5 +54,24 @@
     </div>
 
     @yield('content')
+
+    {{-- **MONEY THE STATEMENT ABOVE LEAVES OUT.** Every ledger report scopes with
+         `whereIn('je.asset_id', $ids)` and `whereIn` never matches NULL, so a journal entry filed
+         against no property is invisible in all of them — which is why the screen carries this
+         warning (EG-27). It carried it ONLY on the screen: the PDF, the CSV and the scheduled email
+         omitted the same money with nothing to say so, and those are the copies that leave the
+         building. Here rather than in five templates, so a sixth statement inherits it. --}}
+    @if (($unallocated ?? null) && ($unallocated['count'] ?? 0) > 0)
+        <div style="margin-top:18px; padding:10px 12px; border:1px solid #E3B23C; background:#FDF6E3; font-size:9pt;">
+            <div style="font-weight:bold; color:#14213D;">{{ __('admin.journal_entries.unallocated.heading') }}</div>
+            <div style="margin-top:4px; color:#4A5163;">
+                {{ __('admin.journal_entries.unallocated.body', [
+                    'count' => number_format($unallocated['count']),
+                    'total' => number_format($unallocated['total'], 2),
+                    'currency' => config('app.currency', 'EGP'),
+                ]) }}
+            </div>
+        </div>
+    @endif
 </body>
 </html>

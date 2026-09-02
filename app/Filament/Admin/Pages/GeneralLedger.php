@@ -209,11 +209,11 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
 
         $csv = app(ReportCsvExporter::class)->generalLedger($this->statement());
 
-        return [
+        return $this->withUnallocatedNotice([
             'filename' => "general-ledger-{$account->code}-{$this->periodSlug()}",
             'headers' => $csv['headers'],
             'rows' => $csv['rows'],
-        ];
+        ]);
     }
 
     public function table(Table $table): Table

@@ -308,6 +308,47 @@ trait ScopesLedgerReport
     }
 
     /**
+     * The same warning, carried on the CSV — the copy that leaves the building.
+     *
+     * `unallocatedNotice()` was rendered by the page's blade and by nothing else, so the export, the
+     * scheduled email and the owner's pack omitted the same money with nothing on them to say so.
+     * The screen is the one surface whose reader can also see the ledger; the attachment goes to an
+     * accountant, an owner or an auditor who cannot.
+     *
+     * **Appended, and only when there is something to say.** A notice printed on clean books is
+     * trained away long before the period it matters in — the same rule the on-screen one follows —
+     * and a trailing row on every statement would be read as boilerplate.
+     *
+     * Two blank cells then the sentence, so it cannot be mistaken for a data row by a spreadsheet
+     * or by a person: the figures column stays empty.
+     *
+     * @param  array{filename: string, headers: array<int, string>, rows: array<int, array<int, string|int|float|null>>}  $csv
+     * @return array{filename: string, headers: array<int, string>, rows: array<int, array<int, string|int|float|null>>}
+     */
+    protected function withUnallocatedNotice(array $csv): array
+    {
+        $notice = $this->unallocatedNotice();
+
+        if ($notice === null || ($notice['count'] ?? 0) <= 0) {
+            return $csv;
+        }
+
+        $width = max(1, count($csv['headers']));
+        $row = array_fill(0, $width, null);
+
+        $row[0] = __('admin.journal_entries.unallocated.heading').' — '.__('admin.journal_entries.unallocated.body', [
+            'count' => number_format($notice['count']),
+            'total' => number_format($notice['total'], 2),
+            'currency' => config('app.currency', 'EGP'),
+        ]);
+
+        $csv['rows'][] = array_fill(0, $width, null);
+        $csv['rows'][] = $row;
+
+        return $csv;
+    }
+
+    /**
      * The window the notice counts over — the page's own period by default.
      *
      * Overridable because a balance sheet is an "as at" statement: it reads everything up to the

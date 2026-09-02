@@ -1603,3 +1603,37 @@ FAILURE, never a pass — `MonthEndCloseTest` asserts every row goes red when it
 genuinely outstanding, and is mutation-verified against the one instance of this bug that shipped
 (a `$check['ok']` read of a key `BooksReconciliationService` does not emit).
 
+
+## The statement says what it leaves out — on every copy (SW-133, fixed 2026-09-02)
+
+Every ledger report scopes with `whereIn('je.asset_id', $ids)`, and **`whereIn` never matches NULL**,
+so a journal entry filed against no property is invisible in all five statements. EG-27 put a notice
+beside them saying how many and how much, because the alternative — folding those rows in — shows one
+operator-wide cost in full on every mall.
+
+**It was rendered by `ledger-report.blade.php` and by nothing else.** The PDF, the CSV export, the
+scheduled email and the owner's pack omitted the same money with nothing on them to say so — and
+those are the copies that go to an accountant, an owner or an auditor, none of whom can open the
+ledger to find out. The screen is the one surface whose reader could already have seen it.
+
+Two seams, each chosen so a sixth statement inherits the warning rather than being the one that
+quietly omits money:
+
+- **PDF** — `LedgerReportPdfService::render()` computes it once from the window each statement
+  already passes, and `accounting/pdf/layout.blade.php` renders it. Not in the five templates.
+  `incomeStatementSpread()` deliberately has none: it takes the spread ALREADY BUILT rather than the
+  dates to build it from, so the printed columns cannot differ from the screen's, and re-deriving a
+  window here to count over could disagree with them.
+- **CSV** — `ScopesLedgerReport::withUnallocatedNotice()`, wrapped around each of the seven
+  `reportCsv()` returns. That per-report step is exactly the kind that gets forgotten, so
+  `AStatementSaysWhatItLeavesOutTest` sweeps for it — and its matcher has to accept
+  `use ScopesLedgerReport {` as well as `;`, because `WithholdingTaxReturn` pulls the concern in with
+  an alias block and the first version swept six files while reporting on seven.
+
+**Silent on clean books, on every surface**, for the reason the on-screen one is: a warning shown on
+a healthy period is trained away long before the period that matters, and a trailing row on every
+statement reads as boilerplate. The CSV row is two blank cells then the sentence, so a spreadsheet
+cannot mistake it for data.
+
+`atriom:audit-property-dimension` is still the thing that FIXES such a row; this only stops the books
+hiding it from the people who cannot look.

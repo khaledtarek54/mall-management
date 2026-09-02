@@ -104,11 +104,11 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
     {
         $csv = app(ReportCsvExporter::class)->cashFlow($this->report());
 
-        return [
+        return $this->withUnallocatedNotice([
             'filename' => "cash-flow-{$this->periodSlug()}",
             'headers' => $csv['headers'],
             'rows' => $csv['rows'],
-        ];
+        ]);
     }
 
     /**
