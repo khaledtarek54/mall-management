@@ -220,6 +220,54 @@ class CamExpensePool extends Model
             );
     }
 
+    /**
+     * The OTHER half of the participant set — sold units, whose owners pay the monthly صيانة.
+     *
+     * Named here beside its lease twin for the reason that one is named here: two callers need it
+     * and they must not drift. The reconciliation picks allocation targets with it, and the
+     * billed-estimate query subtracts with it — and until 2026-09-02 the estimate query had no
+     * ownership branch AT ALL. Its participant filter was `whereIn('invoices.lease_id', …)`, and an
+     * owner's assessment invoice carries a null `lease_id`, which `whereIn` never matches — so on
+     * `estimate_basis = billed` every owner's `estimated_paid` was 0.00 and the annual true-up
+     * billed him his whole year's share a second time, after twelve months of assessments he had
+     * already paid. The comment beside that query said an assessment "is exactly what this query
+     * sums"; it summed nothing.
+     *
+     * **Area-scoped, exactly as the lease twin is** — and it was not, for one draft of this change,
+     * which is the more useful half of the story. `participants()` had never area-scoped ownerships,
+     * so leaving it that way looked like the conservative choice: allocations would not move. It is
+     * the opposite. Before the ownership branch existed the estimate subtracted **nothing** for an
+     * owner, so an area pool merely over-billed him — recoverable by voiding the invoice. Unscoped,
+     * the estimate would subtract every owner in the MALL's whole year of service charge from a
+     * ZONE pool's share: measured on a 200,000 food-court pool, a 40,000 owner share against 66,000
+     * of assessments turns +40,000 owed into **−26,000**, an outbound credit note auto-applied FIFO
+     * against live AR. That is the −80,000 failure `CamPoolEstimateScopeTest` exists to prevent,
+     * re-entered through the other door, and the outbound direction is the worse one.
+     *
+     * So the scope goes on BOTH callers together. It does move allocations for an area-scoped pool —
+     * a food-court pool stops charging an owner whose unit is elsewhere, which is what
+     * `participant_scope` means.
+     *
+     * Status and tenure are the CALLER's, exactly as for leases: `participants()` narrows to
+     * handed-over ownerships, because before handover the operator still carries the unit's cost.
+     * The estimate query deliberately does not, because a unit sold on in June was still assessed
+     * for the months before it changed hands.
+     *
+     * @return Builder<UnitOwnership>
+     */
+    public function participantOwnershipQuery(): Builder
+    {
+        // Qualified, because this is used as a subquery under a join that also carries `asset_id`.
+        // MySQL resolves inner-first so a bare name is correct today; qualified it stays correct if
+        // the column ever moves, which is the failure that would silently unscope it.
+        return UnitOwnership::query()
+            ->where('unit_ownerships.asset_id', $this->asset_id)
+            ->when(
+                $this->participant_scope === self::PARTICIPANTS_AREA && $this->participant_area_id,
+                fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('units.area_id', $this->participant_area_id)),
+            );
+    }
+
     protected static function booted(): void
     {
         // Freeze the recovery basis once billing has started. If the actual-expense

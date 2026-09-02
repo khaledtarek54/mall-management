@@ -75,11 +75,56 @@ whole property participating, exactly as before.
 `participant_area_id` expresses Yardi's own example — everyone shares CAM, only the food court shares
 grease-trap cleaning — and re-answers on its own when a lease moves units.
 
-**Membership is defined once — `CamExpensePool::participantLeaseQuery()`.** Two callers need it and
-they must not drift: the reconciliation picks allocation targets with it, and the billed-estimate
-query subtracts with it. They *did* drift until 2026-08-11 — the estimate query had no participant
-filter at all, so a food-court pool subtracted the whole property's billing from the food court's
-allocation.
+**Membership is defined once — `CamExpensePool::participantLeaseQuery()` and its twin
+`participantOwnershipQuery()`.** Two callers need them and they must not drift: the reconciliation
+picks allocation targets with them, and the billed-estimate query subtracts with them. They *did*
+drift until 2026-08-11 — the estimate query had no participant filter at all, so a food-court pool
+subtracted the whole property's billing from the food court's allocation.
+
+**And the ownership half was missing entirely until 2026-09-02, so an owner paid his year twice.** A
+sold unit's owner pays a monthly صيانة, which is the same economic act as a tenant's service-charge
+estimate — recovery of common cost, billed under the same charge type — and `estimateBilledFor()` was
+supposed to subtract it. It could not: the participant filter was
+`whereIn('invoices.lease_id', …)`, an owner's assessment invoice carries a **null** `lease_id`, and
+`whereIn` never matches NULL. Every owner's `estimated_paid` was **0.00**, so the annual true-up
+billed his entire year's share a second time after twelve months of assessments he had already paid,
+and the pool's own `total_estimated_collected` omitted all of them.
+
+Nothing was loud about it: the pool still tied out (Σ allocated = actual expense by construction),
+every allocation looked right, and the true-up reads as an ordinary reconciliation charge. The
+comment beside the call asserted the opposite of what the code did — *"which is exactly what this
+query sums"* — so a reviewer reading for intent would have agreed with it. The two branches are now
+**grouped**, because AND binds tighter than OR: written flat it compiles to
+`lease_in OR (ownership_in AND status AND type AND period)`, so the branch that escapes is the
+**lease** one — every invoice of every participant lease, at any status, of any item type, in any
+year.
+
+**The question is "billed, and not reversed" — and the old status list answered neither.** It was a
+denylist of `cancelled` and `written_off`:
+
+- **`draft` was missing, and it is the column DEFAULT.** A never-issued invoice is the normal product
+  of any create that omits a status; counting one inflates what the pool believes it collected, which
+  understates the true-up or (past the pool's total) mints a credit note for money nobody was ever
+  asked for. *(A draft carrying lines is currently rare for an unrelated reason:
+  `InvoiceItem::saved` → `recomputeTotals()` promotes a draft to `issued`, which is SW-215 and its
+  own defect. The filter still has to defend rows written by an import, a migration or a
+  `saveQuietly()`.)*
+- **`credited` was counted, GROSS.** It is the terminal paid-by-credit-note state — billed, then
+  reversed — so a fully credited 100,000 service charge told the pool it had collected 100,000 it did
+  not. Now excluded, which is also the list `BooksReconciliationService` and `AssetStatementPdfService`
+  already use.
+- **`written_off` was excluded, and should not have been.** A write-off forgives a debt that WAS
+  billed and the tenant WAS asked for, so dropping it makes the true-up re-charge money the operator
+  already invoiced and then forgave — SW-135's own shape through the opposite door. Measured: 120,000
+  billed with one 10,000 invoice written off against a 150,000 share gave a true-up of **40,000**
+  where 30,000 is owed. It was a **cliff** as well as a rule, because `WriteOffInvoiceService` moves
+  the status only on a FULL write-off — 9,999.99 counted in full, 10,000.00 counted as nothing.
+
+**Still open (SW-216): a PARTIAL credit note moves no status at all**, so nothing written as a status
+filter can see one, and `credit_note_items` carries no charge code to net by line. Every mid-period
+move-out produces one against exactly these lines (`CreditUnearnedBillingService::isTimeApportioned()`
+returns true for a monthly, not-in-arrears `service_charge`), and the landlord under-recovers by the
+credited amount, silently.
 
 Three things to keep right when touching it, or `CamReconciliationService::participants()`:
 
@@ -91,7 +136,19 @@ Three things to keep right when touching it, or `CamReconciliationService::parti
   must be a live lease, but a tenant who left in July still paid six months of estimate; filtering
   them out of the *estimate* would understate collections and over-recover from whoever is still
   trading. `participantLeaseQuery()` deliberately carries no status filter — `participants()` adds
-  its own.
+  its own, and `participantOwnershipQuery()` follows the same split (handed-over + tenure is the
+  caller's, because a unit sold on in June was still assessed for the months before it changed
+  hands).
+- **`participantOwnershipQuery()` is area-scoped, exactly as its lease twin is** — and one draft of
+  this change had it unscoped, on the reasoning that mirroring what `participants()` already did was
+  the conservative choice because allocations would not move. It is the opposite. Before the
+  ownership branch existed the estimate subtracted **nothing** for an owner, so an area pool merely
+  over-billed him, which a voided invoice recovers. Unscoped, the estimate subtracts every owner in
+  the MALL's whole year from a ZONE pool's share: measured on a 200,000 food-court pool, a 40,000
+  owner share against 66,000 of assessments turns +40,000 owed into **−26,000** — an outbound credit
+  note, auto-applied FIFO against live AR. Same failure as the −80,000 tax-pool case above, through
+  the other door, and outbound is the worse direction. So the scope went on both callers together; it
+  does move allocations for an area pool, which is what `participant_scope` means.
 
 Each pool ties out on its own: `Σ allocated + landlord_unrecovered_amount = total_actual_expense`.
 

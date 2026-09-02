@@ -221,14 +221,17 @@ class SyncCamPoolFromLedgerService
     }
 
     /**
-     * What the mall actually invoiced its tenants as service charge during the year.
+     * What this pool actually invoiced its PARTICIPANTS as estimate during the year — tenants under
+     * a lease and owners under a صيانة assessment alike.
      *
-     * This is the number the reconciliation should compare against, and it was never available:
-     * the pool held one hand-typed figure that a human kept roughly equal to the billing. Cancelled
-     * and written-off invoices are excluded — nobody is being asked for that money.
+     * This is the number the reconciliation should compare against, and it was never available: the
+     * pool held one hand-typed figure that a human kept roughly equal to the billing. Never-issued,
+     * cancelled and fully credited invoices are excluded; a written-off one is NOT, because it was
+     * billed and asked for. See {@see billedServiceChargeQuery()} for why each.
      *
-     * Scoped to the pool's property through the lease's unit, the same chain
-     * `generateAllocations()` uses to pick participants.
+     * Scoped to the pool's participants, off the same two queries `generateAllocations()` picks its
+     * allocation targets with — one definition, so the estimate and the allocation cannot disagree
+     * about who is in the pool.
      */
     public function estimateFromInvoices(CamExpensePool $pool): float
     {
@@ -239,7 +242,7 @@ class SyncCamPoolFromLedgerService
     }
 
     /**
-     * The same figure for ONE lease — what this tenant was actually billed in estimates.
+     * The same figure for ONE participant — what they were actually billed in estimates.
      *
      * Used by the reconciliation when `estimate_basis = billed`, which is what makes the estimate
      * reconciled and the estimate billed the same number by construction rather than by diligence.
@@ -251,8 +254,10 @@ class SyncCamPoolFromLedgerService
 
         // Filtered by whichever agreement raised the invoices — a lease's service-charge estimate,
         // or a unit OWNER's monthly صيانة. They are the same economic act, recovery of common cost,
-        // billed under the same charge type, which is why an owner needs no separate treatment
-        // here: what he already paid toward the pool is simply what he was assessed.
+        // billed under the same charge type, which is what makes an owner a participant rather than
+        // a second parallel system — and until 2026-09-02 the query could not reach him at all,
+        // because its participant filter named `invoices.lease_id` and an assessment invoice carries
+        // a null one.
         $link = $agreement->invoiceLinkAttributes();
         $column = array_key_first(array_filter($link, fn ($v) => $v !== null));
 
@@ -292,8 +297,41 @@ class SyncCamPoolFromLedgerService
 
         return InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->whereIn('invoices.lease_id', $pool->participantLeaseQuery()->select('leases.id'))
-            ->whereNotIn('invoices.status', ['cancelled', 'written_off'])
+            // A participant is a LEASE **or an OWNERSHIP**, and the second branch was missing.
+            // An owner's assessment invoice carries a null `lease_id`, which `whereIn` never
+            // matches, so on `estimate_basis = billed` every owner's `estimated_paid` was 0.00 and
+            // the annual true-up billed his whole year's share a second time.
+            //
+            // **Grouped**, because AND binds tighter than OR: written flat this compiles to
+            // `lease_in OR (ownership_in AND status AND type AND period)`, so it is the LEASE branch
+            // that escapes — every invoice of every participant lease, at any status, of any item
+            // type, in any year. `CamPoolEstimateScopeTest`'s tax-pool case is what catches that.
+            ->where(fn ($q) => $q
+                ->whereIn('invoices.lease_id', $pool->participantLeaseQuery()->select('leases.id'))
+                ->orWhereIn('invoices.unit_ownership_id', $pool->participantOwnershipQuery()->select('unit_ownerships.id')))
+            // **The question is "billed, and not reversed" — and the old list answered neither.**
+            //
+            //  - `draft` is the COLUMN DEFAULT, so a never-issued invoice is the normal product of
+            //    any create that omits a status. Counting one inflates what the pool believes it
+            //    collected, which understates the true-up — or, past the pool's total, mints a
+            //    credit note for money nobody was ever asked for.
+            //  - `cancelled` never reached the books at all.
+            //  - `credited` is the terminal paid-by-credit-note state: billed, then REVERSED. It was
+            //    counted GROSS, so a fully credited 100,000 service charge told the pool it had
+            //    collected 100,000 it did not. Excluded, which is also the list
+            //    `BooksReconciliationService` and `AssetStatementPdfService` already use.
+            //  - **`written_off` is IN, and it was the one being excluded.** A write-off forgives a
+            //    debt that WAS billed and the tenant WAS asked for; dropping it makes the true-up
+            //    re-charge money the operator already invoiced and then forgave — SW-135's own shape
+            //    through the opposite door. Measured: 120,000 billed with one 10,000 invoice written
+            //    off against a 150,000 share gave a true-up of 40,000 where 30,000 is owed. It was a
+            //    CLIFF as well as a rule, because `WriteOffInvoiceService` only moves the status on a
+            //    FULL write-off — so 9,999.99 counted in full and 10,000.00 counted as nothing.
+            //
+            // **Still open (SW-216): a PARTIAL credit note moves no status at all**, so no filter
+            // written here can see one, and `credit_note_items` carries no charge code to net by
+            // line. Every mid-period move-out produces one against exactly these lines.
+            ->whereNotIn('invoices.status', ['draft', 'cancelled', 'credited'])
             ->whereIn('invoice_items.type', $codes)
             // Keyed on the period the invoice COVERS, not the day it was raised: a December invoice
             // issued on 2 January belongs to the year the tenant occupied, which is the year being

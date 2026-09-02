@@ -292,8 +292,13 @@ class CamReconciliationService
                 // What this participant already paid toward the pool. For an OWNER that is his
                 // monthly صيانة: an assessment and a tenant's service-charge estimate are the same
                 // economic act — recovery of common cost — billed under the same charge type, which
-                // is exactly what this query sums. That is what makes an ownership a participant
-                // rather than a second parallel system.
+                // is what this query sums. That is what makes an ownership a participant rather than
+                // a second parallel system.
+                //
+                // It did NOT sum it until 2026-09-02: the query's participant filter was
+                // `whereIn('invoices.lease_id', …)` and an assessment invoice carries a null
+                // `lease_id`, so every owner's figure was 0.00 and the true-up re-billed him a
+                // whole year he had already paid. This comment asserted the opposite.
                 $estimated = $pool->estimate_basis === CamExpensePool::BASIS_BILLED
                     ? app(SyncCamPoolFromLedgerService::class)->estimateBilledFor($pool, $lease)
                     : round((float) $pool->total_estimated_collected * $share, 2);
@@ -553,8 +558,7 @@ class CamReconciliationService
         // merely under-recover — it moved his share onto the remaining tenants, who paid it without
         // anything on any screen saying so. Only HANDED-OVER ownerships whose tenure covers the
         // reconciled year: before handover the operator still carries the unit's cost.
-        $ownerships = UnitOwnership::query()
-            ->where('asset_id', $pool->asset_id)
+        $ownerships = $pool->participantOwnershipQuery()
             ->where('status', UnitOwnershipStatus::HandedOver->value)
             ->covering(CarbonImmutable::create((int) $pool->period_year, 12, 31))
             ->with('unit')

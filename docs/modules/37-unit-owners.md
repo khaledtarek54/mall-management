@@ -260,10 +260,21 @@ An owner occupies common area, so he is a pool participant like any tenant.
 
 **The design, because it is not obvious: an owner's monthly صيانة IS his CAM estimate.** A tenant
 pays a monthly service-charge estimate and settles it annually against actuals; an owner pays a
-monthly assessment. Same economic act, same `service_charge` charge type — which is exactly what
+monthly assessment. Same economic act, same `service_charge` charge type — which is what
 `estimateBilledFor()` sums. So an ownership joins as an ordinary participant whose `estimated_paid`
 is the assessments it was billed that year, and it settles with a true-up like anybody else. No
 parallel system.
+
+**It did not sum it until 2026-09-02, and the owner paid his year twice (SW-135).** The query's
+participant filter was `whereIn('invoices.lease_id', …)`, an assessment invoice carries a **null**
+`lease_id`, and `whereIn` never matches NULL — so every owner's `estimated_paid` was **0.00** and
+the annual true-up billed his entire share a second time, after twelve months of assessments he had
+already paid. Nothing was loud about it: the pool still tied out (Σ allocated = actual expense by
+construction), every allocation looked right, and the true-up reads as an ordinary reconciliation
+charge. The paragraph above said in writing that the query summed it, which is why reading for intent
+would not have caught it either. Membership is now one definition —
+`CamExpensePool::participantOwnershipQuery()`, read by the allocator and the estimate alike — so they
+cannot drift again. See [modules/08 §2](08-cam.md).
 
 What an ownership does NOT bring is CAM **clause** machinery — ceiling, controllable carve-out,
 banked carry-forward. Those are negotiated into a lease; a sale has none, so the cap block is skipped
