@@ -836,6 +836,18 @@ is on the five standalone ones, since the vendor-bill payments relation manager 
 its own. Both are toggled/optional, and the column needs no `with()` at any call site: Filament
 eager-loads the relationship columns that are actually VISIBLE, so one toggled off costs nothing.
 
+**The empty-mall seeders lay one down too (2026-09-02).** `LearningSeeder` — and therefore
+`ValPlazaSeeder`, which extends it — seeds ONE operating bank account, default for its property, on
+a chart leaf minted through `BankAccount::mintLedgerAccount()`. A bank account is SETUP, like the
+chart and the posting map that seeder already lays down, and it adds no numbers to the screen, so it
+does not breach that seeder's rule. Without it the first receipt recorded in a demo falls to the
+generic `bank` role, the money forms' bank picker is empty, and the requirement that a bank rail
+names its account lifts itself for want of anything to offer — the demo would show the
+pre-2026-09-02 behaviour with nothing on screen to say so. Minting rather than hardcoding means no
+chart code is written into a seeder and the arrangement is one the running system would actually
+produce, so a bug in the minting shows up on the demo books instead of hiding behind seeder-specific
+wiring. (`AnEmptyMallStillBanksSomewhereTest`.)
+
 `DemoSeeder` registers two accounts on Atriom Walk — CIB operating and NBE service-charge — each on
 its **own chart leaf under `11102 Banks`** (`11102002`, `11102003`), added beside the generic
 `11102001` rather than instead of it, which stays the `bank` role for any document naming no

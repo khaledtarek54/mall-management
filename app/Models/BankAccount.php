@@ -205,7 +205,7 @@ class BankAccount extends Model
      * account with no parent. Refusing to guess is right: inventing a top-level account would put a
      * bank somewhere the accountant never agreed to.
      */
-    public static function mintLedgerAccount(string $name, ?int $assetId = null): ?LedgerAccount
+    public static function mintLedgerAccount(string $name, ?int $assetId = null, ?string $nameAr = null): ?LedgerAccount
     {
         $role = AccountMapping::query()
             ->where('key', 'bank')
@@ -239,7 +239,11 @@ class BankAccount extends Model
             // and the type — passing either here would be a second, conflicting truth.
             'code' => $parent->code.str_pad((string) $next, $width, '0', STR_PAD_LEFT),
             'name_en' => $name,
-            'name_ar' => $name,
+            // The operator's create-option form asks for ONE name, so the Arabic falls back to it
+            // rather than leaving the column blank — a chart account with no Arabic name renders as
+            // an empty cell on the Arabic panel, which reads as missing data rather than as a name
+            // nobody supplied. A caller that HAS both (a seeder) passes both.
+            'name_ar' => $nameAr ?? $name,
             'type' => 'asset',
             'is_postable' => true,
             'is_active' => true,

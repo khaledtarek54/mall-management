@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Asset;
+use App\Models\BankAccount;
 use App\Models\Floor;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -98,6 +99,9 @@ class LearningSeeder extends Seeder
     | prospect is a subclass rather than a fork. Defaults are the existing Atriom Walk values, so
     | this seeder seeds exactly what it always did.
     */
+
+    /** One number, so a re-run recognises the account it already seeded rather than adding another. */
+    private const BANK_ACCOUNT_NUMBER = '100-2003-009911';
 
     protected function assetCode(): string
     {
@@ -202,7 +206,10 @@ class LearningSeeder extends Seeder
             }
         }
 
-        // ── 4. Floors + vacant units ───────────────────────────────────────────────────────────
+        // ── 4. The operator's bank account ─────────────────────────────────────────────────────
+        $this->seedBankAccount($asset);
+
+        // ── 5. Floors + vacant units ───────────────────────────────────────────────────────────
         foreach (self::UNITS as $row) {
             Unit::updateOrCreate(
                 ['asset_id' => $asset->id, 'code' => $row['code']],
@@ -215,7 +222,7 @@ class LearningSeeder extends Seeder
             );
         }
 
-        // ── 5. Tenants, with no lease between them ─────────────────────────────────────────────
+        // ── 6. Tenants, with no lease between them ─────────────────────────────────────────────
         foreach ($this->tenants() as $i => $row) {
             $tenant = Tenant::updateOrCreate(
                 ['email' => $row['email']],
@@ -252,6 +259,76 @@ class LearningSeeder extends Seeder
         }
 
         $this->report($asset);
+    }
+
+    /**
+     * One operating bank account, on a chart leaf of its own.
+     *
+     * ## Why an EMPTY mall still gets one
+     *
+     * This seeder's rule is that an experiment's own numbers should be the only numbers on screen —
+     * and a bank account adds no numbers. It is SETUP, exactly like the chart, the posting map and
+     * the charge codes that step 1 lays down. Without it the first receipt recorded in the room
+     * falls to the generic `bank` posting role, the money-form bank picker is empty, and the
+     * requirement that a bank rail names its account lifts itself because the register has nothing
+     * to offer — so the demo silently shows the pre-2026-09-02 behaviour and nobody can tell.
+     *
+     * ## Minted through the app's own method, deliberately
+     *
+     * `BankAccount::mintLedgerAccount()` is what the ledger-account picker's *create* button calls,
+     * so the seeded arrangement is one the running system would actually produce — a bug in the
+     * minting (the wrong parent, a colliding code) shows up on the demo books instead of hiding
+     * behind seeder-specific wiring. The same reasoning as `DemoSeeder::demoBankAccountForPurpose()`
+     * resolving through `defaultFor()` rather than a second rule.
+     *
+     * It also means no chart code is written here. The leaf lands under whatever parent this
+     * install's `bank` role sits in, at the next free code and the width of its neighbours — which
+     * is the only correct answer while the real Egyptian chart is still pending.
+     *
+     * ## Its own leaf, never the role account
+     *
+     * `MatchBankStatementLineService::candidatesFor()` finds candidates BY the chart account, and
+     * the `bank` role is where documents naming NO account land — so a seeder that pointed its bank
+     * at the role would ship the exact arrangement
+     * {@see BankAccount::assertLedgerAccountIsItsOwn()} refuses, and would teach it as normal.
+     *
+     * Idempotent on `(asset_id, account_number)`, and the leaf is minted only when the account is
+     * first created — re-running must not grow a fresh chart leaf on every pass.
+     */
+    private function seedBankAccount(Asset $asset): void
+    {
+        $existing = BankAccount::query()
+            ->where('asset_id', $asset->id)
+            ->where('account_number', self::BANK_ACCOUNT_NUMBER)
+            ->first();
+
+        if ($existing !== null) {
+            return;
+        }
+
+        $leaf = BankAccount::mintLedgerAccount(
+            $this->assetName().' — operating account',
+            $asset->id,
+            'حساب '.$this->assetName().' — التشغيل',
+        );
+
+        BankAccount::create([
+            'asset_id' => $asset->id,
+            'name' => 'CIB — operating',
+            'bank_name' => 'Commercial International Bank',
+            'account_number' => self::BANK_ACCOUNT_NUMBER,
+            'currency' => 'EGP',
+            'purpose' => BankAccount::PURPOSE_OPERATING,
+            // THE property default, so the first receipt anybody records in the room arrives with
+            // its bank already filled in — the half that makes naming one a confirmation rather
+            // than a chore, and the behaviour Yardi relies on to make its cash account mandatory.
+            'is_default' => true,
+            'ledger_account_id' => $leaf?->id,
+            'is_active' => true,
+        ]);
+
+        $this->command?->info('   Seeded 1 bank account on its own chart leaf'
+            .($leaf !== null ? ' ('.$leaf->code.')' : ' — chart has no bank role, left unmapped'));
     }
 
     /**
