@@ -73,19 +73,39 @@ class AnswerQuestionService
 
     public const MAX_RESULTS = 5;
 
+    /** How many earlier exchanges the model is shown, so a follow-up makes sense. */
+    public const CONTEXT_TURNS = 3;
+
     /**
      * @return array{results: array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>, matched: bool, locale: string}
      */
-    public function answer(string $question, ?int $assetId = null): array
+    public function answer(string $question, ?int $assetId = null, ?string $conversationId = null): array
     {
         $readerLocale = app()->getLocale();
         $words = $this->meaningfulWords($question);
 
         if ($words === []) {
-            return $this->record($question, [], $readerLocale, $assetId);
+            return $this->record($question, [], $readerLocale, $assetId, null, $conversationId);
         }
 
         $results = $this->rank($words, $readerLocale);
+
+        // A FOLLOW-UP CARRIES NO NOUNS, and without this it retrieves nothing at all.
+        //
+        // "And how do I apply it?" is a perfectly ordinary second question, and every word in it is
+        // either a stop word or too weak to clear the floor — so the search found nothing, the
+        // model was never called, and the reader got "no sources" to a question the assistant had
+        // just answered the first half of. Re-asking with the PREVIOUS question's words attached is
+        // what makes it a conversation rather than a series of unrelated lookups.
+        //
+        // Only when the question alone found nothing, so a self-contained question is never
+        // polluted by whatever was asked before it.
+        if ($results === [] && $conversationId !== null) {
+            $results = $this->rank(
+                array_values(array_unique(array_merge($this->earlierWords($conversationId), $words))),
+                $readerLocale,
+            );
+        }
 
         // Nothing in the reader's language. Try the others before giving up — see the class
         // docblock. Ordered so the reader's own locale is never re-tried, and the FIRST locale that
@@ -159,9 +179,60 @@ class AnswerQuestionService
         // Everything above already produced a usable answer; this only puts it into a sentence. So
         // it can be off, unconfigured, over budget or broken and the screen still works — which is
         // the property that let phase B ship before anyone decided to pay for it.
-        $worded = $this->word($question, $results, $readerLocale);
+        $worded = $this->word($question, $results, $readerLocale, $conversationId);
 
-        return $this->record($question, $results, $readerLocale, $assetId, $worded);
+        return $this->record($question, $results, $readerLocale, $assetId, $worded, $conversationId);
+    }
+
+    /**
+     * The words of the previous question in this thread, for a follow-up that names nothing.
+     *
+     * @return array<int, string>
+     */
+    private function earlierWords(?string $conversationId): array
+    {
+        if ($conversationId === null) {
+            return [];
+        }
+
+        $previous = AssistantQuestion::query()
+            ->where('conversation_id', $conversationId)
+            ->latest('id')
+            ->value('question');
+
+        return $previous === null ? [] : $this->meaningfulWords((string) $previous);
+    }
+
+    /**
+     * The last few turns of this thread, as text the model reads the question against.
+     *
+     * **Context for the QUESTION, never a source of facts.** "And how do I issue it?" is
+     * unanswerable without knowing what "it" was, and that is all this supplies — the system prompt
+     * still forbids answering from anything but the passages, which are retrieved fresh every turn.
+     * Bounded to the last few exchanges, because an unbounded history is how a chat quietly becomes
+     * expensive on a metered model.
+     */
+    private function earlierTurns(?string $conversationId): string
+    {
+        if ($conversationId === null) {
+            return '';
+        }
+
+        $turns = AssistantQuestion::query()
+            ->where('conversation_id', $conversationId)
+            ->whereNotNull('model_answer')
+            ->latest('id')
+            ->limit(self::CONTEXT_TURNS)
+            ->get()
+            ->reverse();
+
+        if ($turns->isEmpty()) {
+            return '';
+        }
+
+        return "<earlier_in_this_conversation>\n".$turns
+            ->map(fn (AssistantQuestion $t): string => "Q: {$t->question}\nA: {$t->model_answer}")
+            ->implode("\n")."\n</earlier_in_this_conversation>";
     }
 
     /**
@@ -175,7 +246,7 @@ class AnswerQuestionService
      * @param  array<int, array<string, mixed>>  $results
      * @return array{text: string|null, input: int, output: int}
      */
-    private function word(string $question, array $results, string $locale): array
+    private function word(string $question, array $results, string $locale, ?string $conversationId = null): array
     {
         $none = ['text' => null, 'input' => 0, 'output' => 0];
 
@@ -240,9 +311,15 @@ class AnswerQuestionService
         //
         // Fingerprinted rather than versioned by hand, so editing the prompt is the whole change
         // and there is no second number to remember to bump.
+        $earlier = $this->earlierTurns($conversationId);
+
         $key = 'assistant:answer:'.md5(implode('|', [
             $locale,
             SearchText::normalize($question),
+            // A follow-up means something different after a different question. Without the thread
+            // in the key, "and how do I issue it?" would be answered from whatever the FIRST person
+            // to ask it happened to be talking about.
+            md5($earlier),
             implode(',', array_column($results, 'key')),
             (string) config('assistant.driver'),
             (string) config('assistant.'.config('assistant.driver').'.model'),
@@ -262,7 +339,7 @@ class AnswerQuestionService
             return $none;
         }
 
-        $text = $model->word($question, $passages, $locale);
+        $text = $model->word($earlier === '' ? $question : $earlier."\n\n".$question, $passages, $locale);
         $usage = $model->lastUsage();
 
         if ($text !== null) {
@@ -544,11 +621,12 @@ class AnswerQuestionService
      * @param  array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>  $results
      * @return array{results: array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>, matched: bool, locale: string}
      */
-    private function record(string $question, array $results, string $locale, ?int $assetId, ?array $worded = null): array
+    private function record(string $question, array $results, string $locale, ?int $assetId, ?array $worded = null, ?string $conversationId = null): array
     {
         $top = $results[0] ?? null;
 
         AssistantQuestion::create([
+            'conversation_id' => $conversationId,
             // The panel's tenant when the caller did not state one. Passed explicitly rather than
             // read here so a console replay of the miss list can attribute rows honestly.
             'asset_id' => $assetId ?? TenantScope::currentAssetId(),

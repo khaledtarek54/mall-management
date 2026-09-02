@@ -149,6 +149,33 @@ deciding what to bill. The citations stay visible so the answer can be checked.
 found nothing. The fallback rule is right for a LIST — a screen link beats a paragraph — and wrong
 for a chat, where more grounding is strictly better and the screen link survives as a citation.
 
+## It stays with you
+
+**Open across navigation and refresh.** The component is mounted fresh by a render hook on *every*
+page, so a public property is gone the moment the operator clicks a link — the chat used to close
+itself on every navigation and lose the thread on every refresh. `open` and the conversation id
+live in the SESSION: the smallest thing that survives both, needs no JavaScript, and is already
+per-user and per-device.
+
+**The thread is rebuilt from `assistant_questions`**, not from the session and not from a second
+table. Those rows already record every turn — question, answer, reader, property, language — so a
+`conversation_id` column groups them and the miss list keeps reading the same list. Two copies of
+one conversation is how they come to disagree.
+
+**Scoped by conversation AND reader.** A session id is not an identity; a shared or restored session
+must never hand somebody else's questions — which can name a tenant — to the next person.
+
+**"Clear" starts a new thread and deletes nothing.** Those rows ARE the miss list; deleting a
+reader's history to tidy a panel throws away the only evidence of what the guides are missing.
+
+**Follow-ups work.** The last three exchanges travel to the model as CONTEXT for reading the
+question — never as a source of facts, which still come only from passages retrieved fresh each
+turn. And when a follow-up names nothing at all — *"and how do I apply it?"*, where every word is a
+stop word — retrieval is re-run with the PREVIOUS question's words attached. Without that it found
+nothing, the model was never called, and the reader got "no sources" to the second half of a
+question the assistant had just answered. Only when the question alone found nothing, so a
+self-contained question is never polluted by what came before it.
+
 ## Switching the model on — the exact steps
 
 **Anthropic has no free tier**, so a demo takes the `openai_compatible` driver. One driver covers

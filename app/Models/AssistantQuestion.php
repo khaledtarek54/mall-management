@@ -26,6 +26,7 @@ class AssistantQuestion extends Model
     use HasFactory;
 
     protected $fillable = [
+        'conversation_id',
         'asset_id',
         'user_id',
         'question',

@@ -3,9 +3,11 @@
 namespace App\Livewire;
 
 use App\Contracts\AssistantModel;
+use App\Models\AssistantQuestion;
 use App\Services\Assistant\AnswerQuestionService;
 use App\Support\Modules;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 /**
@@ -32,6 +34,9 @@ use Livewire\Component;
  */
 class AssistantChat extends Component
 {
+    /** A long thread is scrolled, not re-read; this is a guard on the query, not a policy. */
+    public const MAX_TURNS_SHOWN = 40;
+
     public bool $open = false;
 
     public string $question = '';
@@ -39,7 +44,19 @@ class AssistantChat extends Component
     /** @var array<int, array{role: string, text: string, sources: array<int, array{title: string, url: string|null}>}> */
     public array $messages = [];
 
-    public bool $thinking = false;
+    public string $conversationId = '';
+
+    /**
+     * Where "open" and "which thread" live between page loads.
+     *
+     * The component is mounted fresh by a render hook on EVERY page, so a public property is gone
+     * the moment the operator clicks a link — the chat closed itself on every navigation and lost
+     * the thread on every refresh. The session is the smallest thing that survives both, needs no
+     * JavaScript, and is already per-user and per-device.
+     */
+    private const SESSION_OPEN = 'assistant.chat.open';
+
+    private const SESSION_CONVERSATION = 'assistant.chat.conversation';
 
     /**
      * Whether to render at all.
@@ -52,9 +69,65 @@ class AssistantChat extends Component
         return Modules::enabled('assistant') && Auth::check();
     }
 
+    /**
+     * Pick the thread back up, wherever the operator has navigated to.
+     */
+    public function mount(): void
+    {
+        $this->open = (bool) session(self::SESSION_OPEN, false);
+
+        $this->conversationId = (string) session(self::SESSION_CONVERSATION, '');
+
+        if ($this->conversationId === '') {
+            $this->conversationId = (string) Str::uuid();
+            session([self::SESSION_CONVERSATION => $this->conversationId]);
+        }
+
+        $this->messages = $this->thread();
+    }
+
+    /**
+     * The conversation so far, rebuilt from the rows that recorded it.
+     *
+     * Read back from `assistant_questions` rather than kept in the session: the session would
+     * silently drop the history on a new device, and it is the same list the miss list is built
+     * from — two copies of one conversation is how they come to disagree.
+     *
+     * @return array<int, array{role: string, text: string, sources: array<int, array{title: string, url: string|null}>}>
+     */
+    private function thread(): array
+    {
+        $messages = [];
+
+        $turns = AssistantQuestion::query()
+            ->where('conversation_id', $this->conversationId)
+            ->where('user_id', Auth::id())
+            ->orderBy('id')
+            ->limit(self::MAX_TURNS_SHOWN)
+            ->get();
+
+        foreach ($turns as $turn) {
+            $messages[] = ['role' => 'user', 'text' => $turn->question, 'sources' => []];
+            $messages[] = [
+                'role' => 'assistant',
+                'text' => $turn->model_answer ?? __('admin.assistant.chat.no_model_answer'),
+                // Sources are not replayed: they were links to what was found AT THE TIME, and a
+                // record may since have been renamed or a screen retired. The words stand; a stale
+                // link pretending to be current does not.
+                'sources' => [],
+            ];
+        }
+
+        return $messages;
+    }
+
     public function toggle(): void
     {
         $this->open = ! $this->open;
+
+        // Remembered, so the panel is still open on the next screen. "The assistant is with you"
+        // is the whole point of a floating chat; one that shuts itself on every click is a form.
+        session([self::SESSION_OPEN => $this->open]);
     }
 
     public function ask(AnswerQuestionService $service): void
@@ -68,7 +141,7 @@ class AssistantChat extends Component
         $this->messages[] = ['role' => 'user', 'text' => $question, 'sources' => []];
         $this->question = '';
 
-        $answer = $service->answer($question);
+        $answer = $service->answer($question, conversationId: $this->conversationId);
 
         // The sources become CITATIONS rather than the answer — small, secondary, and still there.
         // A chat that hides where its answer came from is one nobody can check, and on a screen
@@ -89,8 +162,19 @@ class AssistantChat extends Component
         ];
     }
 
+    /**
+     * Start a NEW conversation. Nothing is deleted.
+     *
+     * The rows stay: they are the miss list, and the questions somebody asked are exactly what the
+     * A phase exists to collect. "Clear" empties the reader's screen, not the record — deleting
+     * their history to tidy a panel would throw away the only evidence of what the guides are
+     * missing.
+     */
     public function clear(): void
     {
+        $this->conversationId = (string) Str::uuid();
+        session([self::SESSION_CONVERSATION => $this->conversationId]);
+
         $this->messages = [];
     }
 

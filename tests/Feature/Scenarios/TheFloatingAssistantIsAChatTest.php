@@ -137,3 +137,121 @@ it('clears the conversation on request', function () {
         expect($chat->call('clear')->get('messages'))->toBe([]);
     });
 });
+
+// ── It stays with you ──────────────────────────────────────────────────────────────────────────
+
+it('stays open across a page change, because a fresh component is mounted on every page', function () {
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        // Opened here…
+        Livewire::test(AssistantChat::class)->call('toggle');
+
+        // …and a NEW component instance — which is what the render hook builds on the next screen —
+        // must come up already open. A public property would be gone; the session is not.
+        expect(Livewire::test(AssistantChat::class)->get('open'))->toBeTrue();
+
+        Livewire::test(AssistantChat::class)->call('toggle');
+        expect(Livewire::test(AssistantChat::class)->get('open'))->toBeFalse();
+    });
+});
+
+it('picks the conversation back up after a refresh', function () {
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+    app()->instance(AssistantModel::class, chatModel('Raise it from the Credit Notes screen.'));
+
+    asTenant($asset, function () {
+        Livewire::test(AssistantChat::class)->set('question', 'how do I issue a credit note')->call('ask');
+
+        // A fresh mount rebuilds the thread from the rows that recorded it — not from the session,
+        // which would lose it on another device, and not from a second table, which would be a
+        // copy of the miss list free to disagree with it.
+        $reloaded = Livewire::test(AssistantChat::class)->get('messages');
+
+        expect($reloaded)->toHaveCount(2)
+            ->and($reloaded[0]['text'])->toBe('how do I issue a credit note')
+            ->and($reloaded[1]['text'])->toBe('Raise it from the Credit Notes screen.');
+    });
+});
+
+it('gives the model the earlier turns, so a follow-up makes sense', function () {
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+
+    $spy = new class implements AssistantModel
+    {
+        public string $sawQuestion = '';
+
+        public function word(string $question, array $passages, string $locale): ?string
+        {
+            $this->sawQuestion = $question;
+
+            return 'An answer.';
+        }
+
+        public function lastUsage(): array
+        {
+            return ['input' => 1, 'output' => 1];
+        }
+
+        public function isConfigured(): bool
+        {
+            return true;
+        }
+    };
+    app()->instance(AssistantModel::class, $spy);
+
+    asTenant($asset, function () use ($spy) {
+        Livewire::test(AssistantChat::class)
+            ->set('question', 'how do I issue a credit note')->call('ask')
+            ->set('question', 'and how do I apply it?')->call('ask');
+
+        // "It" is unanswerable without the previous turn. The earlier exchange travels as CONTEXT
+        // for reading the question; the facts still come only from the passages, retrieved fresh.
+        expect($spy->sawQuestion)->toContain('earlier_in_this_conversation')
+            ->and($spy->sawQuestion)->toContain('how do I issue a credit note')
+            ->and($spy->sawQuestion)->toContain('and how do I apply it?');
+    });
+});
+
+it('starts a new thread on clear, and deletes nothing', function () {
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+    app()->instance(AssistantModel::class, chatModel('An answer.'));
+
+    asTenant($asset, function () {
+        Livewire::test(AssistantChat::class)->set('question', 'vat return')->call('ask');
+        Livewire::test(AssistantChat::class)->call('clear');
+
+        // The screen empties…
+        expect(Livewire::test(AssistantChat::class)->get('messages'))->toBe([]);
+
+        // …and the record does not. Those rows ARE the miss list, and deleting somebody's history
+        // to tidy a panel throws away the only evidence of what the guides are missing.
+        expect(AssistantQuestion::count())->toBe(1);
+    });
+});
+
+it('keeps one reader\'s thread out of another\'s', function () {
+    $asset = makeAsset();
+    app()->instance(AssistantModel::class, chatModel('An answer.'));
+
+    $mine = makeUser('super_admin');
+    $this->actingAs($mine);
+
+    asTenant($asset, fn () => Livewire::test(AssistantChat::class)->set('question', 'my private question')->call('ask'));
+
+    // Same conversation id, different reader: the thread is scoped by BOTH, because a session id is
+    // not an identity and a shared or restored session must never hand somebody else's questions —
+    // which can name a tenant — to the next person.
+    $conversation = AssistantQuestion::first()->conversation_id;
+    $this->flushSession();
+    $this->actingAs(makeUser('manager'));
+    session(['assistant.chat.conversation' => $conversation]);
+
+    asTenant($asset, function () {
+        expect(Livewire::test(AssistantChat::class)->get('messages'))->toBe([]);
+    });
+});
