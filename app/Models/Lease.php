@@ -15,10 +15,10 @@ use App\Models\Concerns\Lease\HasLeaseTermState;
 use App\Models\Concerns\Lease\HasRenewalLineage;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\ActivityLogging;
+use App\Support\DepositBilling;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
-use App\Support\InvoiceItemSettlement;
 use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -731,15 +731,28 @@ class Lease extends Model implements BillableAgreement, HasMedia
     }
 
     /**
-     * Statuses whose invoice claims nothing, so a deposit billed on one is not held.
+     * Statuses whose invoice records neither a receipt nor a claim, so a deposit billed on one is
+     * neither held nor still being asked for.
      *
-     * A constant rather than two literals: {@see settledDepositBillings()} and the
-     * {@see depositBillings()} relation are the same question asked of one lease and of a page,
-     * and a filter written twice is a filter that drifts.
+     * **Both questions moved to {@see \App\Support\DepositBilling} and are answered from AMOUNTS
+     * now, not from a status.** They were one list read by both, and a status is a coarse proxy for
+     * an amount-level question: it caught only the terminal cases and missed every partial one, in
+     * both directions and both of them money. A full write-off erased what the tenant had actually
+     * paid; a partial credit note inflated the pot and refunded cash that never arrived; a partial
+     * write-off left the forgiven part counting as *already asked for*, so the shortfall could never
+     * be re-billed. The same three strings also lived as literals in `DepositHoldings`, which is why
+     * the register above the deposit list and the lease page could disagree by a whole deposit.
+     *
+     * Aliased rather than deleted because this model's five deposit reads compose their own queries
+     * (the locking twins have to, so `ConcurrencyPolicyConformanceTest` can see their locks) — but
+     * there is exactly ONE definition, and it is not here.
      *
      * @var string[]
      */
-    public const DEPOSIT_BILLING_EXCLUDED_STATUSES = ['cancelled', 'credited', 'written_off'];
+    public const DEPOSIT_RECEIPT_EXCLUDED_STATUSES = DepositBilling::EXCLUDED_STATUSES;
+
+    /** @var string[] */
+    public const DEPOSIT_CLAIM_EXCLUDED_STATUSES = DepositBilling::CLAIM_EXCLUDED_STATUSES;
 
     public function invoices(): HasMany
     {
@@ -776,9 +789,11 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function depositBillings(): HasMany
     {
         return $this->hasMany(Invoice::class)
-            ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+            ->whereNotIn('status', self::DEPOSIT_RECEIPT_EXCLUDED_STATUSES)
             ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
-            ->with('items');
+            // `writeOffs` too: `DepositBilling::claimedOn()` nets them, and a leases LIST asks this
+            // once per row — an unloaded relation is a query per invoice per row.
+            ->with(['items', 'writeOffs']);
     }
 
     /**
@@ -873,18 +888,16 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // tables in the global order.
         $invoiceIds = Invoice::query()
             ->where('lease_id', $this->id)
-            ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+            ->whereNotIn('status', self::DEPOSIT_RECEIPT_EXCLUDED_STATUSES)
             ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
             ->lockForUpdate()
             ->pluck('id');
 
         $settledBillings = round((float) Invoice::query()
             ->whereIn('id', $invoiceIds)
-            ->with('items')
+            ->with(['items', 'writeOffs'])
             ->get()
-            ->sum(fn (Invoice $invoice): float => (float) InvoiceItemSettlement::for($invoice)
-                ->where('type', 'security_deposit')
-                ->sum('settled')), 2);
+            ->sum(fn (Invoice $invoice): float => DepositBilling::heldOn($invoice)), 2);
 
         $recorded = $this->deposits()->where('status', 'recorded')->lockForUpdate()->get();
 
@@ -903,30 +916,36 @@ class Lease extends Model implements BillableAgreement, HasMedia
     /**
      * The part of any BILLED security deposit the tenant has actually settled.
      *
-     * Derived from `InvoiceItemSettlement`, the one place that answers "how much of this line has
-     * been paid" — per the money invariants, a per-item balance is never stored, because that would
-     * be a second truth about the same settlement. Cancelled and written-off invoices claim nothing.
+     * Derived through {@see \App\Support\DepositBilling}, over `InvoiceItemSettlement` — the one
+     * place that answers "how much of this line has been paid". Per the money invariants a per-item
+     * balance is never stored, because that would be a second truth about the same settlement.
+     *
+     * **A WRITTEN-OFF invoice still counts what the tenant paid**, which this docblock used to deny:
+     * a write-off forgives what was not paid, it does not un-pay what was, and reading it as a
+     * terminal exclusion erased 60,000 of somebody's security from the pot. What IS netted out is
+     * credit-note relief, because that is not money received.
      */
     public function settledDepositBillings(): float
     {
         // The SAME filter either way — an eager-loaded `depositBillings` relation applies it in
         // the database for the whole page, and an unloaded instance applies it here for one lease.
-        // Written as one constant so the two paths cannot answer differently.
+        // One constant, in one place (`DepositBilling`), so the two paths cannot answer differently
+        // — and neither can the portfolio aggregate, which reads the same seam.
         $invoices = $this->relationLoaded('depositBillings')
             ? $this->depositBillings
             : Invoice::query()
                 ->where('lease_id', $this->id)
-                ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+                ->whereNotIn('status', self::DEPOSIT_RECEIPT_EXCLUDED_STATUSES)
                 ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
-                ->with('items')
+                ->with(['items', 'writeOffs'])
                 ->get();
 
         $settled = 0.0;
 
         foreach ($invoices as $invoice) {
-            $settled += (float) InvoiceItemSettlement::for($invoice)
-                ->where('type', 'security_deposit')
-                ->sum('settled');
+            // Not the raw per-line settlement: `DepositBilling` nets credit-note relief, which is
+            // not money received and would otherwise refund at move-out what never arrived.
+            $settled += DepositBilling::heldOn($invoice);
         }
 
         return round($settled, 2);
@@ -946,29 +965,32 @@ class Lease extends Model implements BillableAgreement, HasMedia
      * twice — precisely the outcome `BillSecurityDepositService` says it exists to prevent
      * (*"no second billing path"*), one step earlier in the flow than the guard it wrote.
      *
-     * Same filter and same two paths as its twin, so an eager-loaded page and a re-read instance
-     * cannot answer differently.
+     * Same two paths as its twin, so an eager-loaded page and a re-read instance cannot answer
+     * differently. The status filter is one wider here — a DRAFT deposit invoice has asked for
+     * nothing — and everything else is an AMOUNT question, answered in `DepositBilling`: a
+     * write-off that reaches the deposit line comes off what is still claimed, because a forgiven
+     * amount will never arrive and counting it as already-asked-for is what left the shortfall
+     * permanently un-re-billable. `WriteOffInvoiceService` retires an invoice only on a FULL
+     * write-off, so a status filter could never have seen a partial one.
      */
     public function depositBilledOutstanding(): float
     {
         $invoices = $this->relationLoaded('depositBillings')
-            ? $this->depositBillings
+            ? $this->depositBillings->whereNotIn('status', self::DEPOSIT_CLAIM_EXCLUDED_STATUSES)
             : Invoice::query()
                 ->where('lease_id', $this->id)
-                ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+                ->whereNotIn('status', self::DEPOSIT_CLAIM_EXCLUDED_STATUSES)
                 ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
-                ->with('items')
+                ->with(['items', 'writeOffs'])
                 ->get();
 
         $outstanding = 0.0;
 
         foreach ($invoices as $invoice) {
-            // `outstanding` is the presenter's OWN figure, derived from `paid_amount` like every
-            // other per-line number — never re-derived here, which would be a second answer to a
-            // question one class already owns.
-            $outstanding += (float) InvoiceItemSettlement::for($invoice)
-                ->where('type', 'security_deposit')
-                ->sum('outstanding');
+            // `DepositBilling` reads the presenter's own per-line figures and then nets any
+            // write-off that reaches the deposit line — a forgiven amount will never arrive, so
+            // counting it as already-asked-for is what left the shortfall un-re-billable.
+            $outstanding += DepositBilling::claimedOn($invoice);
         }
 
         return round(max($outstanding, 0), 2);
@@ -1027,18 +1049,16 @@ class Lease extends Model implements BillableAgreement, HasMedia
     {
         $invoiceIds = Invoice::query()
             ->where('lease_id', $this->id)
-            ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+            ->whereNotIn('status', self::DEPOSIT_CLAIM_EXCLUDED_STATUSES)
             ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
             ->lockForUpdate()
             ->pluck('id');
 
         $outstanding = Invoice::query()
             ->whereIn('id', $invoiceIds)
-            ->with('items')
+            ->with(['items', 'writeOffs'])
             ->get()
-            ->sum(fn (Invoice $invoice): float => (float) InvoiceItemSettlement::for($invoice)
-                ->where('type', 'security_deposit')
-                ->sum('outstanding'));
+            ->sum(fn (Invoice $invoice): float => DepositBilling::claimedOn($invoice));
 
         return round(max((float) $outstanding, 0), 2);
     }

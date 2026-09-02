@@ -664,6 +664,59 @@
 > the reconcile check FAILS on a deliberately unposted receipt. An unmapped chart reports no
 > discrepancy rather than failing every fresh install.
 
+> **⚠️ A DEPOSIT IS HELD FOR MONEY RECEIVED — NOT FOR AN INVOICE STATUS (fixed 2026-09-02).**
+> The sentence above — *"the two can never drift apart silently again"* — was not yet true, and the
+> reason is worth the space.
+>
+> Both halves of the billed-deposit question (*what is held?* / *what is still asked for?*) were
+> answered from `invoices.status`, through a list of three strings written out **four times**: as a
+> constant on `Lease`, and as two bare literals inside `DepositHoldings`. That is the drift the
+> constant's own docblock warned about, naming only two of the four places it was written — and it
+> drifted: with a deposit invoice written off after part payment, the lease page read *"held
+> 60,000"* while the register header beside it read **0.00** under a red GL-gap stat.
+>
+> Worse, a status is a coarse proxy for what is an **amount** question. Every figure underneath comes
+> from `InvoiceItemSettlement`, which derives per-line numbers from `paid_amount`, so the status list
+> caught only the terminal cases and missed every partial one — three defects, all money:
+>
+> | | before | now |
+> |---|---|---|
+> | Deposit 100,000, paid 60,000, **remaining 40,000 written off** | invoice became `written_off`, dropped out entirely, pot read **0.00** — the move-out refunded nothing and the mall kept 60,000 | held 60,000 |
+> | Deposit 100,000, paid 60,000, **40,000 credited by note** | invoice stayed `paid` (never `credited`), pot read the full **100,000** — the move-out refunded 40,000 that never arrived, outbound, with no recovery path | held 60,000, shortfall 40,000 |
+> | Deposit 100,000, paid 60,000, **10,000 written off**, collectable 30,000 paid | the forgiven 10,000 went on counting as *already asked for*; the **Bill deposit** button stayed hidden and the service refused with *"already billed 10,000.00"* — quoting money the operator had forgiven, with no path to ask again | claimed 0, unbilled shortfall 10,000 — re-billable |
+>
+> **`App\Support\DepositBilling` is now the one seam** and both questions are answered from amounts.
+> `heldOn()` is the deposit lines' settlement less credit-note relief; `claimedOn()` is their
+> outstanding less any write-off that reaches them. The status list shrinks to the two that record
+> neither a receipt nor a claim — `cancelled` (load-bearing: `recomputeTotals()` zeroes a cancelled
+> `paid_amount`, so its deposit line would read fully OUTSTANDING and count as a live claim) and
+> `credited` (belt-and-braces for imported rows); the claim question adds `draft`. `written_off` is
+> deliberately in neither.
+>
+> **Attribution leans the safe way, and that is not the same way for both.** Credit relief comes off
+> the deposit line **first** — understating the holding shows as a shortfall an operator can see and
+> chase, overstating it refunds cash that never arrived, which is the choice
+> `InvoiceItemSettlement::TYPE_PRIORITY` already states for the deposit's position in the queue. A
+> write-off comes off the deposit line **last**, reaching it only once every other outstanding line
+> is exhausted, because understating the claim would let the deposit be billed a second time.
+>
+> The precedent was already in the repo and had not been followed here:
+> `BooksReconciliationService::arDiscrepancies()` added an explicit `InvoiceWriteOff` term for the
+> identical reason — *"the exclusion above only rescues invoices written off in FULL; every partial
+> one showed as an AR delta from the day it was booked, permanently, with no way to clear it."*
+>
+> Tests: `ADepositIsHeldOnlyForMoneyReceivedTest` — all three defects, both the loaded and unloaded
+> read paths, the locking twin, **and** the aggregate against the lease (the tooth whose absence let
+> the drift through). Mutation-proved four ways.
+>
+> **Still open (SW-201): `deposits_tie_out` is red for any written-off deposit invoice.**
+> `InvoiceWriteOffJournalizer` posts `Dr bad_debt_expense / Cr accounts_receivable` whatever the line
+> was — but a `security_deposit` line credited `deposits_held`, a LIABILITY, at issue, not revenue.
+> So writing one off books a bad-debt expense against revenue never recognised and leaves the refund
+> obligation standing at its full billed figure. That is an accounting decision for the operator's
+> accountant (relieve `deposits_held` for the deposit portion, or keep counting a written-off deposit
+> line as in flight), not a code choice, and it predates this fix.
+
 > **⚠️ The deposit was invisible on both sides (fixed 2026-08-18).** Raised by an operator: *"the
 > client doesn't know how he should pay, and the admin doesn't know how much the lease wants or the
 > shortfall."* Three separate causes:

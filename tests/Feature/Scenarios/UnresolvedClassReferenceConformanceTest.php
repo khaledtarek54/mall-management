@@ -280,6 +280,26 @@ it('resolves every class named by symbol under app/', function () {
                 continue;
             }
 
+            // `$entry->screen::getUrl()` — a PROPERTY holding a class name, not a class name. The
+            // type-declaration branch above already skips a name behind `->`; the static branch did
+            // not, so it reported `screen` as an unimported class and went red over correct code.
+            // A gate that fires on a sentence gets weakened rather than fixed; the same is true of
+            // one that fires on a property.
+            if ($isStatic) {
+                $before = $at - 1;
+
+                while ($before >= 0 && is_array($tokens[$before]) && $tokens[$before][0] === T_WHITESPACE) {
+                    $before--;
+                }
+
+                $beforeToken = $tokens[$before] ?? null;
+
+                if (is_array($beforeToken)
+                    && in_array($beforeToken[0], [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR], true)) {
+                    continue;
+                }
+            }
+
             if (in_array(strtolower($subject[1]), ['self', 'static', 'parent'], true)) {
                 continue;
             }

@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
-use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Services\Accounting\AccountResolver;
@@ -44,6 +43,11 @@ use Illuminate\Support\Facades\DB;
  * about the same money the AR invariants exist to forbid, and the same reason
  * {@see InvoiceItemSettlement} never stores a per-line balance.
  *
+ * **The per-lease answer and this one read ONE seam** ({@see DepositBilling}), which they did not
+ * until 2026-09-02: the invoice-status filter was written out four times, drifted, and the register
+ * and the lease page reported different money. That the aggregate IS the sum of the parts is now a
+ * structural property rather than a promise, and `ADepositIsHeldOnlyForMoneyReceivedTest` asks it.
+ *
  * @see Lease::depositHeld() the per-lease answer, of which this is the aggregate
  */
 class DepositHoldings
@@ -74,15 +78,20 @@ class DepositHoldings
      * Deposits billed on an invoice and SETTLED by the tenant.
      *
      * The settlement, never the line total: an unpaid deposit invoice is a receivable, not money in
-     * the bank, and counting it as held would refund at move-out what was never received. Cancelled,
-     * credited and written-off invoices claim nothing.
+     * the bank, and counting it as held would refund at move-out what was never received.
+     *
+     * **Read through {@see DepositBilling}, which is the point.** This method and its sibling below
+     * carried the status list as two LITERALS while `Lease` carried it as a constant — a third and
+     * fourth copy of the same filter — so the aggregate above the deposit register and the figure on
+     * the lease page could disagree about the same money, and did: with a deposit invoice written
+     * off after part payment the lease read *"held 60,000"* and this read **0.00**, under a red
+     * GL-gap stat on the widget beside it. The `Lease` constant's own docblock had warned that *"a
+     * filter written twice is a filter that drifts"* and named only two of the four places it was
+     * written.
      */
     public static function billedAndSettled(?array $assetIds = null): float
     {
-        $invoices = Invoice::query()
-            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
-            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
-            ->with('items');
+        $invoices = DepositBilling::receiptQuery()->with(['items', 'writeOffs']);
 
         if ($assetIds !== null) {
             $invoices->whereIn('asset_id', $assetIds);
@@ -91,9 +100,7 @@ class DepositHoldings
         $settled = 0.0;
 
         foreach ($invoices->get() as $invoice) {
-            $settled += (float) InvoiceItemSettlement::for($invoice)
-                ->where('type', 'security_deposit')
-                ->sum('settled');
+            $settled += DepositBilling::heldOn($invoice);
         }
 
         return round($settled, 2);
@@ -117,10 +124,7 @@ class DepositHoldings
      */
     public static function billedAndOutstanding(?array $assetIds = null): float
     {
-        $invoices = Invoice::query()
-            ->whereNotIn('status', ['draft', 'cancelled', 'credited', 'written_off'])
-            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
-            ->with('items');
+        $invoices = DepositBilling::claimQuery()->with(['items', 'writeOffs']);
 
         if ($assetIds !== null) {
             $invoices->whereIn('asset_id', $assetIds);
@@ -129,11 +133,10 @@ class DepositHoldings
         $outstanding = 0.0;
 
         foreach ($invoices->get() as $invoice) {
-            // The line's OWN outstanding, from the same per-item derivation `billedAndSettled()`
-            // reads — so the two can never disagree about what a part-settled deposit line means.
-            $outstanding += (float) InvoiceItemSettlement::for($invoice)
-                ->where('type', 'security_deposit')
-                ->sum('outstanding');
+            // The line's OWN outstanding, from the same derivation `billedAndSettled()` reads — so
+            // the two can never disagree about what a part-settled deposit line means — net of any
+            // write-off that reaches it, because a forgiven amount is no longer in flight.
+            $outstanding += DepositBilling::claimedOn($invoice);
         }
 
         return round($outstanding, 2);
