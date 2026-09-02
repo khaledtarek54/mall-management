@@ -271,7 +271,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-159** | ✅ fixed | high | XS | A disputed sales declaration cannot be re-locked from any screen — the void/correct/re-bill loop is a dead end | `Filament/Admin/Actions/SalesDeclarationActions:191` |
+| **SW-159** | ✅ **fixed** `8d11faff` | high | XS | A disputed sales declaration cannot be re-locked from any screen — the void/correct/re-bill loop is a dead end | `Filament/Admin/Actions/SalesDeclarationActions:191` |
 | **SW-160** | open | high | S | Re-generating a pool with billed allocations corrupts landlord_unrecovered_amount (billed rows are skipped out of the sum) | `Services/CamReconciliationService:381` |
 | **SW-161** | open | medium | S | period_year stays editable after a CAM pool is billed/reconciled — the one identity field the freeze does not cover | `Filament/Admin/Resources/CamExpensePools/Schemas/CamExpensePoolForm:110` |
 | **SW-162** | open | medium | S | CAM pool status is a free Select, bypassing the markReconciled gate and permission | `Filament/Admin/Resources/CamExpensePools/Schemas/CamExpensePoolForm:186` |
@@ -294,7 +294,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-175** | ✅ fixed | high | — | "Record payment" on the collections worklist builds /admin/{tenantId}/… — a 404, and the prefill can never fire | `Filament/Admin/Pages/ArCollections:234` |
+| **SW-175** | ✅ **fixed** `8d11faff` | high | — | "Record payment" on the collections worklist builds /admin/{tenantId}/… — a 404, and the prefill can never fire | `Filament/Admin/Pages/ArCollections:234` |
 | **SW-176** | open | high | — | "Send every month" replays the as-at date frozen at save time, for ever | `Services/Reports/DeliverSavedReportService:68` |
 | **SW-177** | open | medium | — | Vendor Scorecard: `operations` can read it but not export it — and can get the identical CSV by scheduling it to themselves | `Filament/Admin/Pages/Concerns/ExportsReport:74` |
 | **SW-178** | open | medium | — | The trial balance is the one accounting screen whose figures cannot be opened, though it already carries the account id | `Filament/Admin/Pages/TrialBalance:192` |
