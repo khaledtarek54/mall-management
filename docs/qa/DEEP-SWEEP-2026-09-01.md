@@ -256,7 +256,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-151** | ✅ fixed | high | — | An announcement's expires_at is unvalidated, so a broadcast can deep-link every tenant to a 404 — and the record is immutable the moment it sends | `Filament/Admin/Resources/Announcements/Schemas/AnnouncementForm:124` |
+| **SW-151** | ✅ **fixed** `b2958da3` | high | — | An announcement's expires_at is unvalidated, so a broadcast can deep-link every tenant to a 404 — and the record is immutable the moment it sends | `Filament/Admin/Resources/Announcements/Schemas/AnnouncementForm:124` |
 | **SW-152** | ✅ **fixed** `bae3a170` | high | — | Retiring a catalogue code makes every record already carrying it permanently unsavable — the half of the deposit bug that was never fixed | `Filament/Admin/Resources/TenantRequests/Schemas/TenantRequestForm:139` |
 | **SW-153** | ✅ **fixed** `92681f33` | high | — | A unit owner cannot raise a tenant request: the screen is offered, the required Unit picker has zero options | `Filament/Portal/Resources/TenantRequests/Schemas/TenantRequestForm:59` |
 | **SW-154** | ✅ **fixed** `ce038ed8` | high | — | `GET /me/statement?to=` prints the window it was asked for and ignores it — the statement lists rows after its own stated end date | `Services/TenantStatementPdfService:98` |
