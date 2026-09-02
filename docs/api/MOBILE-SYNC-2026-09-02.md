@@ -1268,8 +1268,8 @@ So "is the API bilingual?" is really two questions:
 2. **Can you render every CODE it sends in Arabic without maintaining your own table?**
    ❌ You could not. That is what shipped today.
 
-The app was carrying an EN+AR table for **25 vocabularies across 16 resources**, kept in step with a
-backend it cannot see. **For five of them a client-side table cannot work at all:**
+The app was carrying an EN+AR table for **32 vocabularies across 16 resources**, kept in step with a
+backend it cannot see. **For the operator-editable ones a client-side table cannot work at all:**
 
 | Vocabulary | Why a shipped table is structurally wrong |
 |---|---|
@@ -1307,7 +1307,7 @@ lists Fawry"* — reproduced on the surface the retailer actually reads.
 }
 ```
 
-**28 vocabularies**, keyed `resource.field` in camelCase — exactly the path you already hold. Where
+**32 vocabularies**, keyed `resource.field` in camelCase — exactly the path you already hold. Where
 two fields share a set the entry is repeated rather than aliased, so you never join.
 
 ### How to use it
