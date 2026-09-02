@@ -874,6 +874,42 @@
                 }
             }
         },
+        "/v1/me/leases/{id}/document": {
+            "get": {
+                "operationId": "v1.me.leases.document",
+                "tags": [
+                    "LeaseDocument"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/leases": {
             "get": {
                 "operationId": "v1.me.leases",
@@ -3871,8 +3907,15 @@
                     "expiryDate": {
                         "type": "string"
                     },
+                    "rentCommencementDate": {
+                        "type": "string",
+                        "description": "When RENT starts, which on any fit-out lease is later than the term. A tenant in\nbuild-out could not see when they begin paying without ringing the office."
+                    },
                     "termMonths": {
                         "type": "integer"
+                    },
+                    "billingFrequency": {
+                        "type": "string"
                     },
                     "baseRentMonthly": {
                         "type": "number"
@@ -3886,13 +3929,63 @@
                     "currency": {
                         "type": "string"
                     },
-                    "parkingSpots": {
-                        "type": "integer",
-                        "description": "Parking bays let alongside the premises. Already modelled as `rentableItems` (a\nbay is not lettable AREA, which is why the two relations are kept apart) \u2014 it was\nsimply never published, so the app omitted its parking-allocation card rather than\ninvent a number.",
-                        "minimum": 0
+                    "securityDeposit": {
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "description": "---- The deposit, in the three numbers the tenant needs rather than the one they had. The contracted figure alone is unreadable: a tenant who had paid 150,000 of an agreed\n180,000 saw \"180,000\" and could not tell whether that was a bill, a receipt, or a line\nfrom their contract. `deposit_outstanding` is the one that matters \u2014 nothing else in\nthis system will ever ask them for it."
+                    },
+                    "depositHeld": {
+                        "type": "number"
+                    },
+                    "depositOutstanding": {
+                        "type": "number"
+                    },
+                    "hasMarketingLevy": {
+                        "type": "boolean",
+                        "description": "---- The levy, as a rate they can check against the invoice line."
+                    },
+                    "marketingLevyRate": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "escalationType": {
+                        "type": "string",
+                        "description": "---- Escalation: when the rent steps, and by how much. Present for BOTH shapes. The portal fixed the sibling bug of keying visibility on\n`escalation_rate > 0`, which is zero on a fixed-AMOUNT lease \u2014 so a tenant whose rent\nstepped by EGP 5,000 a year was shown nothing about it. The client decides what to\nrender from `escalation_type`; the collar is included because a cap the tenant\nnegotiated is worth more to them than the headline rate."
+                    },
+                    "escalationRate": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "escalationAmount": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "escalationFloorRate": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "escalationCeilingRate": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "nextEscalationDate": {
+                        "type": "string"
                     },
                     "hasPercentageRent": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "---- Percentage rent. The RATE alone cannot answer \"do I owe anything?\" \u2014 the\nthreshold is what decides that, and the frequency is whether the breakpoint resets\nmonthly or accumulates over the year."
                     },
                     "percentageRentRate": {
                         "type": [
@@ -3900,8 +3993,61 @@
                             "null"
                         ]
                     },
+                    "percentageRentThreshold": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "percentageRentFrequency": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "parkingSpots": {
+                        "type": "integer",
+                        "description": "Kept: the COUNT of parking bays, which a released client reads. `rentable_items`\nbelow is the detail it never had. *It now asks the same question the detail does, and that is a fix.** It counted\nevery holding ever recorded, released ones included \u2014 so a tenant who gave a bay back\nwent on being told they had it. Left alone, the two keys would have contradicted each\nother in one payload: `parking_spots: 1` beside an empty `rentable_items`.",
+                        "minimum": 0
+                    },
+                    "rentableItems": {
+                        "type": "array",
+                        "description": "Every bay, store, signage panel and kiosk this lease still holds, with what each one\ncosts. Only OPEN holdings \u2014 a released bay is not something the tenant is paying for,\nand `effective_to` is how a release is recorded.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "code": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string"
+                                },
+                                "monthlyRate": {
+                                    "type": "number"
+                                },
+                                "effectiveFrom": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "The pivot has no cast \u2014 `rentable_item_holdings` is a bare `withPivot`,\nso this arrives as a raw string. `optional(...)->toDateString()` would\nsilently answer NULL on it (Optional::__call returns null for a\nnon-object), which is the shape of bug that ships looking fine."
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "code",
+                                "type",
+                                "monthlyRate",
+                                "effectiveFrom"
+                            ]
+                        }
+                    },
                     "unit": {
                         "type": "object",
+                        "description": "The MASTER unit \u2014 unchanged, because a released client reads this shape.",
                         "properties": {
                             "id": {
                                 "type": "integer"
@@ -3950,6 +4096,49 @@
                             "areaSqm",
                             "asset"
                         ]
+                    },
+                    "units": {
+                        "type": "array",
+                        "description": "EVERY unit, master included. A multi-unit lease is ordinary here \u2014 `lease_unit` is a\nDATED pivot, so this is the premises as they stand TODAY, which is what the rent on\nthis card was priced on.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "code": {
+                                    "type": "string"
+                                },
+                                "floor": {
+                                    "type": "string"
+                                },
+                                "category": {
+                                    "type": "string"
+                                },
+                                "areaSqm": {
+                                    "type": "number"
+                                },
+                                "isMaster": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "code",
+                                "floor",
+                                "category",
+                                "areaSqm",
+                                "isMaster"
+                            ]
+                        }
+                    },
+                    "totalAreaSqm": {
+                        "type": "number",
+                        "description": "The area the rent was actually derived from. Deliberately NOT the sum of `units`\nabove computed client-side: `totalAreaSqm()` is the same method the pricing uses,\nso the two cannot disagree."
+                    },
+                    "hasDocument": {
+                        "type": "boolean",
+                        "description": "Whether the operator has uploaded the signed lease. The document itself streams from\n`GET /me/leases/{id}/document` \u2014 a private disk, never a public URL."
                     }
                 },
                 "required": [
@@ -3958,13 +4147,28 @@
                     "status",
                     "commencementDate",
                     "expiryDate",
+                    "rentCommencementDate",
                     "termMonths",
+                    "billingFrequency",
                     "baseRentMonthly",
                     "serviceChargeMonthly",
                     "totalMonthlyAmount",
                     "currency",
+                    "securityDeposit",
+                    "depositHeld",
+                    "depositOutstanding",
+                    "hasMarketingLevy",
+                    "marketingLevyRate",
+                    "escalationType",
+                    "escalationRate",
+                    "escalationAmount",
+                    "escalationFloorRate",
+                    "escalationCeilingRate",
+                    "nextEscalationDate",
                     "hasPercentageRent",
-                    "percentageRentRate"
+                    "percentageRentRate",
+                    "percentageRentThreshold",
+                    "percentageRentFrequency"
                 ],
                 "title": "LeaseResource"
             },

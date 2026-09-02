@@ -17,7 +17,15 @@ class LeasesController extends ApiController
     {
         $leases = $request->user()
             ->activeLeases()
-            ->with(['unit.asset', 'rentableItems'])
+            // `units` and `media` join the eager load because the resource answers three questions
+            // off them that a released client never had: the FULL premises (a lease over two shops
+            // showed one), the area the rent was actually priced on, and whether a signed lease
+            // exists to download. `whenLoaded` means forgetting one silently omits the key rather
+            // than issuing a query per lease.
+            // `deposits` + `depositApplications` because `depositHeld()` prefers a loaded
+            // relation and queries when there is none — the difference between one query for the
+            // page and three per lease.
+            ->with(['unit.asset', 'units.floor', 'rentableItems', 'media', 'deposits', 'depositApplications'])
             ->get();
 
         return LeaseResource::collection($leases);

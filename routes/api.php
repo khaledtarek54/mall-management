@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\Payments\ListPaymentsController;
 use App\Http\Controllers\Api\V1\Payments\PaymentReceiptController;
 use App\Http\Controllers\Api\V1\Payments\ShowPaymentController;
 use App\Http\Controllers\Api\V1\Profile\BalanceController;
+use App\Http\Controllers\Api\V1\Profile\LeaseDocumentController;
 use App\Http\Controllers\Api\V1\Profile\LeasesController;
 use App\Http\Controllers\Api\V1\Profile\ShowProfileController;
 use App\Http\Controllers\Api\V1\Profile\SummaryController;
@@ -150,6 +151,10 @@ Route::prefix('v1')->group(function () {
         // Home-screen rollup — money owed + open work + things needing attention.
         Route::get('me/summary', SummaryController::class)->name('api.v1.me.summary');
         Route::get('me/leases', LeasesController::class)->name('api.v1.me.leases');
+        // The tenant's own signed lease — the portal's `downloadDocument` action, on the surface
+        // where the shop manager actually is. Private disk; see the controller.
+        Route::get('me/leases/{id}/document', LeaseDocumentController::class)
+            ->whereNumber('id')->name('api.v1.me.leases.document');
 
         // --- Invoices ---
         Route::get('me/invoices', ListInvoicesController::class)->name('api.v1.me.invoices.index');
