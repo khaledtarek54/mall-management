@@ -56,6 +56,11 @@ return [
             'no_model_answer' => 'I could not write an answer just now. The sources below are what I found.',
         ],
 
+        'report' => [
+            'empty' => 'This report has no rows for the current property and period.',
+            'truncated' => 'Showing :shown of :total rows — open the report for the rest.',
+        ],
+
         'answer_heading' => 'Short answer',
         'answer_caveat' => 'Written from the sources below. Check them before acting on a figure.',
 

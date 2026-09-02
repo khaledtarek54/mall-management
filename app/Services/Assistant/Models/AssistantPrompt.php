@@ -30,7 +30,12 @@ final class AssistantPrompt
            accounting — this system has specific rules and a confident wrong answer about them is
            worse than no answer.
         2. Never compute, estimate or restate a monetary figure that does not appear verbatim in a
-           passage. If the question needs a number, say which screen or report shows it.
+           passage. If the question needs a number and no passage carries it, say which screen or
+           report shows it.
+        2b. A passage may be a REPORT'S OWN FIGURES, given as a table. You may quote those numbers
+            and name the rows they came from — they are this property's real data. You still may not
+            add, subtract, average or convert them to a percentage; if the question needs a total
+            the table does not already state, say so and name the report.
         3. Reply in {$language}, in two to four sentences. The passages are displayed underneath
            your answer, so do not repeat them at length.
         4. Name the screen the reader should open when a passage identifies one.

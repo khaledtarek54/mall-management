@@ -7,9 +7,11 @@ use App\Models\AssistantDocChunk;
 use App\Models\AssistantQuestion;
 use App\Support\Assistant\AssistantCorpus;
 use App\Contracts\AssistantModel;
+use App\Contracts\DeliverableReport;
 use App\Support\Assistant\AssistantBudget;
 use App\Services\Assistant\Models\AssistantPrompt;
 use App\Support\Assistant\AssistantDocs;
+use App\Support\Assistant\ReportRunner;
 use App\Support\Assistant\TaskCorpus;
 use App\Support\Assistant\AssistantEntry;
 use App\Support\Assistant\AssistantRecords;
@@ -258,6 +260,11 @@ class AnswerQuestionService
         }
 
         $passages = [];
+        $ranReport = false;
+
+        // The year the question named, so "income statement 2026" reports on 2026 rather than on
+        // whatever the page defaults to.
+        $year = $this->yearIn($this->meaningfulWords($question));
 
         foreach ($results as $result) {
             $body = $result['excerpt'] ?? null;
@@ -280,6 +287,29 @@ class AnswerQuestionService
                         ? implode(' ', ScreenGuides::steps((string) ScreenGuides::keyFor((string) $result['key'])))
                         : '',
                 ]));
+            }
+
+            // THE REPORT'S ACTUAL FIGURES, for the top report only.
+            //
+            // One per question, deliberately: a report costs 1–35 ms and a few hundred characters,
+            // but running every report a question happens to touch would spend both on figures
+            // nobody asked for. The TOP one is the one retrieval decided the question was about,
+            // and that decision is pinned by the evaluation set.
+            // Asked of the PAGE, not of the kind. `mergeDuplicateDestinations()` folds a report
+            // into its screen entry and keeps the SCREEN's identity — so a page that is both, which
+            // is most of the catalogue, arrived here as kind `screen` and its figures were never
+            // fetched. The question "is this thing a report" has one honest answer and it is the
+            // contract the page implements.
+            if ($body === null && ! $ranReport && is_a((string) ($result['screen'] ?? ''), DeliverableReport::class, true)) {
+                $figures = ReportRunner::run(
+                    (string) $result['screen'],
+                    $year !== null ? ['year' => $year] : [],
+                );
+
+                if ($figures !== null) {
+                    $ranReport = true;
+                    $body = ReportRunner::asText($figures);
+                }
             }
 
             $guideKey = ScreenGuides::keyFor($result['screen'] ?? '');

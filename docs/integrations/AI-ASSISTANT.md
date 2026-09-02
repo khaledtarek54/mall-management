@@ -362,7 +362,7 @@ Haiku, and nothing on the free tier. Report results are small enough not to move
 
 | | | |
 |---|---|---|
-| **B1a** | `run_report` over the 17 that render, with citations and caps | 2–3 days |
+| **B1a** ✅ | `run_report` over the 17 that render, with caps and a stated tail. Retrieval picks the report — no tool-calling loop — and the model reads the rows. | done |
 | **B1b** | `record_summary` + the `AssistantFields` allowlist and its gate | 2 days |
 | **B1c** | `count_and_group`, structured and validated | 3 days |
 | **B1d** | `compare`, and the numeric evaluation cases | 2 days |

@@ -313,6 +313,31 @@ Zara"* links to the record **and** to the report, rather than to a report pre-fi
 does not support. Even a wrong year is recoverable in a way a wrong figure would not be: it is a
 link, and the report shows its own period selector.
 
+## It answers with the property's own numbers (B1a)
+
+When retrieval's top result is a catalogued report, the report is **run** and its rows become the
+passage — so *"show me the trial balance"* is answered from the real ledger rather than from a
+paragraph about what a trial balance is.
+
+**The model still does not choose.** Retrieval ranked the report and the evaluation set pins that
+ranking, so there is no tool-calling loop, no function-calling dialect to keep working across
+providers, and nothing for the model to get wrong about which numbers to look at. It is handed the
+rows and asked to read them.
+
+**It runs as the reader**, through the same seam scheduled delivery uses: their own `canAccess()`,
+then mount, parameters, `reportCsv()`. The report's query carries the property scope and the
+permissions, so the figures are exactly the ones on screen — an assistant that quietly disagrees
+with the AR aging page is worse than one that cannot count.
+
+**One report per question**, at 1–35 ms and a few hundred characters. **25 rows**, and the tail is
+STATED — *"showing 25 of 340"* — because "the top 25 debtors" and "your debtors" are different
+claims and an invisible cut turns the first into the second.
+
+**The model may quote those figures and may not compute with them.** No adding, averaging or
+converting to a percentage: `Invoice::recomputeTotals()` is the single source of truth for what is
+settled, and a model doing sums beside it is a second answer to the same question. A total the table
+does not already state is answered by naming the report.
+
 ## Judging it
 
 **The miss list stopped being a signal, and that is measured rather than feared.** Of 45 real
@@ -433,6 +458,13 @@ would save fractions of a cent; ranking is where the value is.
   QUERY time, never while building the corpus: the corpus is memoised per locale and shared by
   every request, so filtering it by the current user would hand the next reader whatever the
   previous one was allowed to see.
+- **Ask the PAGE whether it is a report, never the ranked kind.** `mergeDuplicateDestinations()`
+  folds a report into its screen entry and keeps the SCREEN's identity, so a page that is both —
+  most of the catalogue — arrives as kind `screen`. Checking the kind fetched figures for almost
+  nothing; checking `is_a($page, DeliverableReport::class)` is the one honest question.
+- **Two reports cannot run headlessly and are skipped BY NAME.** `ClauseRegister` and `ActivityLog`
+  are table pages whose `$table` only initialises inside a mounted Livewire component. Catching the
+  `Error` would paper over a known structural limit, which is how it stops being known.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and
