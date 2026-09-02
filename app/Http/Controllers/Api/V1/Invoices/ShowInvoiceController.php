@@ -18,7 +18,7 @@ class ShowInvoiceController extends ApiController
     {
         $invoice = $request->user()->invoices()
             ->visibleToTenant()
-            ->with(['items', 'lease.unit.asset', 'receivedPayments', 'writeOffs'])
+            ->with(['items', 'lease.unit.asset', 'unitOwnership.unit.floor', 'receivedPayments', 'writeOffs'])
             ->findOrFail($id);
 
         return new InvoiceResource($invoice);

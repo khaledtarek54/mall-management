@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Requests;
 
 use App\Enums\TenantRequestType;
+use App\Enums\UnitOwnershipStatus;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestSubcategory;
 use Closure;
@@ -54,13 +55,30 @@ class CreateTenantRequestRequest extends FormRequest
                         return;
                     }
 
-                    $ownsUnit = $this->user()->leases()
+                    $leased = $this->user()->leases()
                         ->where(fn ($q) => $q
                             ->where('unit_id', $value)
                             ->orWhereHas('units', fn ($u) => $u->whereKey($value)))
                         ->exists();
 
-                    if (! $ownsUnit) {
+                    // **A UNIT OWNER HOLDS NO LEASE.** `TenantRequestService` was taught on
+                    // 2026-09-02 to resolve a shop from `handed_over` ownerships — an owner IS a
+                    // `tenants` row and every other surface treats them as one — and this validator
+                    // was not, so an owner NAMING their own shop was refused with "the selected
+                    // unit id is invalid" while the same request with `unit_id` omitted succeeded.
+                    // The clamp is unchanged in kind: the unit is still checked against the
+                    // TENANT's own rows, never trusted from the client.
+                    //
+                    // The predicate is the service's, exactly — `handed_over` AND covering today —
+                    // so the two cannot disagree about which shops are theirs. A `contracted` shop
+                    // has not been given to them yet and a `transferred` one is somebody else's now.
+                    $owned = ! $leased && $this->user()->unitOwnerships()
+                        ->where('status', UnitOwnershipStatus::HandedOver)
+                        ->covering()
+                        ->where('unit_id', $value)
+                        ->exists();
+
+                    if (! $leased && ! $owned) {
                         $fail(__('validation.exists', ['attribute' => $attribute]));
                     }
                 },

@@ -64,6 +64,21 @@ class InvoiceResource extends JsonResource
 
             // Relations — only present on the detail endpoint (eager-loaded).
             'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
+            // **An owner's assessment carries no lease**, and until now it carried nothing else
+            // either: `invoices.lease_id` is nullable and `unit_ownership_id` exists precisely so a
+            // unit owner with no tenancy can be billed. `whenLoaded` guards the null, so nothing
+            // crashed — the invoice simply rendered with no unit, no floor and no property, and an
+            // owner of three shops saw three identical-looking bills.
+            'unit_ownership' => $this->whenLoaded('unitOwnership', fn () => [
+                'id' => (int) $this->unitOwnership->id,
+                'reference' => $this->unitOwnership->reference,
+                'unit' => $this->unitOwnership->relationLoaded('unit') && $this->unitOwnership->unit ? [
+                    'id' => (int) $this->unitOwnership->unit->id,
+                    'code' => $this->unitOwnership->unit->code,
+                    'floor' => $this->unitOwnership->unit->floor?->code,
+                ] : null,
+            ]),
+
             'lease' => $this->whenLoaded('lease', fn () => [
                 'id' => $this->lease->id,
                 'reference' => $this->lease->reference,

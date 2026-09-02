@@ -1819,6 +1819,40 @@
                 }
             }
         },
+        "/v1/me/unit-ownerships": {
+            "get": {
+                "operationId": "v1.me.unit-ownerships",
+                "tags": [
+                    "ListUnitOwnerships"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `UnitOwnershipResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/UnitOwnershipResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/auth/login": {
             "post": {
                 "operationId": "v1.auth.login",
@@ -3685,6 +3719,17 @@
                 ],
                 "title": "AnnouncementResource"
             },
+            "AssessmentBasis": {
+                "type": "string",
+                "description": "How an owner's share of the common cost is worked out \u2014 plan 08 \u00a78 Q2 as a row. Deliberately the same shape as `CamExpensePool::denominator_basis`: the apportionment METHOD is a field on the row, not a branch in the service. That is how Yardi is configurable \u2014 you add a row, you do not edit a code path \u2014 and this codebase already proved the pattern works on CAM.  **`Area` is the default because it is today's behaviour**, so a building with both leased and sold units reconciles exactly the way it already does until somebody deliberately says otherwise.\n| |\n|---|\n| `area` <br/> Share of floor area \u2014 what every CAM pool does today. |\n| `participation` <br/> The participation interest stated in the deed \u2014 Yardi's native condo basis, a percentage carried per unit that sums to 100 across the building. Reads `participation_pct`; a null there falls back to area, so an unconfigured deed is never a zero share. |\n| `purchase_value` <br/> Share of purchase price \u2014 used where the developer's contract set \u0635\u064a\u0627\u0646\u0629 against the price. |\n| `stated` <br/> A percentage the parties simply agreed. No denominator can produce a negotiated number. |",
+                "enum": [
+                    "area",
+                    "participation",
+                    "purchase_value",
+                    "stated"
+                ],
+                "title": "AssessmentBasis"
+            },
             "CamAllocationResource": {
                 "type": "object",
                 "properties": {
@@ -4207,6 +4252,45 @@
                         "items": {
                             "$ref": "#/components/schemas/InvoiceItemResource"
                         }
+                    },
+                    "unitOwnership": {
+                        "type": "object",
+                        "description": "**An owner's assessment carries no lease**, and until now it carried nothing else\neither: `invoices.lease_id` is nullable and `unit_ownership_id` exists precisely so a\nunit owner with no tenancy can be billed. `whenLoaded` guards the null, so nothing\ncrashed \u2014 the invoice simply rendered with no unit, no floor and no property, and an\nowner of three shops saw three identical-looking bills.",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "reference": {
+                                "type": "string"
+                            },
+                            "unit": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer"
+                                    },
+                                    "code": {
+                                        "type": "string"
+                                    },
+                                    "floor": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "code",
+                                    "floor"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "reference",
+                            "unit"
+                        ]
                     },
                     "lease": {
                         "type": "object",
@@ -5893,6 +5977,129 @@
                     "lockedAt"
                 ],
                 "title": "TenantSalesDeclarationResource"
+            },
+            "UnitManagementMode": {
+                "type": "string",
+                "description": "What the owner is doing with the unit \u2014 the four states of plan 08 \u00a76, and **each is a different money flow**. This is the field that decides who bills whom; `UnitTenureType` decides nothing. Every one of the four owes the service charge. What varies is the rent: whether it exists, who collects it, and whether the operator ends up owing the owner a net.\n| |\n|---|\n| `self_occupied` <br/> \u0645\u0627\u0644\u0643 \u0634\u0627\u063a\u0644 \u2014 he trades from it himself. No rent, no lease, still bound by every mall rule. |\n| `self_let` <br/> \u0645\u0627\u0644\u0643 \u0645\u0624\u062c\u0631 \u0628\u0646\u0641\u0633\u0647 \u2014 he let it himself. The tenant is real for occupancy, violations, SLA and fit-out, but the operator takes no rent, so the lease raises no rent invoice. |\n| `operator_managed` <br/> \u0645\u0627\u0644\u0643 \u0641\u064a pool \u0627\u0644\u0625\u062f\u0627\u0631\u0629 \u2014 the operator lets it for him, keeps a fee, remits the net. |\n| `vacant` <br/> \u0648\u062d\u062f\u0629 \u0641\u0627\u0636\u064a\u0629 \u0645\u0645\u0644\u0648\u0643\u0629 \u2014 owned and empty. Still owes the service charge, and with no tenant and no rent to withhold it is the hardest line in the building to collect. |",
+                "enum": [
+                    "self_occupied",
+                    "self_let",
+                    "operator_managed",
+                    "vacant"
+                ],
+                "title": "UnitManagementMode"
+            },
+            "UnitOwnershipResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Backed enums \u2014 `->value`, never the case, or the wire carries an object."
+                    },
+                    "tenureType": {
+                        "type": "string"
+                    },
+                    "managementMode": {
+                        "$ref": "#/components/schemas/UnitManagementMode"
+                    },
+                    "ownershipSharePct": {
+                        "type": "number"
+                    },
+                    "assessmentBasis": {
+                        "description": "How the service charge is apportioned to this shop, and the stated share when the\nbasis is not area. The reason the assessment is the amount it is.\n| |\n|---|\n| `area` <br/> Share of floor area \u2014 what every CAM pool does today. |\n| `participation` <br/> The participation interest stated in the deed \u2014 Yardi's native condo basis, a percentage carried per unit that sums to 100 across the building. Reads `participation_pct`; a null there falls back to area, so an unconfigured deed is never a zero share. |\n| `purchase_value` <br/> Share of purchase price \u2014 used where the developer's contract set \u0635\u064a\u0627\u0646\u0629 against the price. |\n| `stated` <br/> A percentage the parties simply agreed. No denominator can produce a negotiated number. |",
+                        "$ref": "#/components/schemas/AssessmentBasis"
+                    },
+                    "participationPct": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "purchaseDate": {
+                        "type": "string"
+                    },
+                    "handoverDate": {
+                        "type": "string",
+                        "description": "The date the shop became theirs to be assessed on \u2014 `handed_over` AND covering today\nis the predicate the assessment run bills from and the tenant-request form resolves\na unit with, so it is the one an owner needs to see beside a charge."
+                    },
+                    "startedAt": {
+                        "type": "string"
+                    },
+                    "endedAt": {
+                        "type": "string"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "unit": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "floor": {
+                                "type": "string"
+                            },
+                            "category": {
+                                "type": "string"
+                            },
+                            "areaSqm": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "code",
+                            "floor",
+                            "category",
+                            "areaSqm"
+                        ]
+                    },
+                    "property": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "code",
+                            "name"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "reference",
+                    "status",
+                    "tenureType",
+                    "managementMode",
+                    "ownershipSharePct",
+                    "assessmentBasis",
+                    "participationPct",
+                    "purchaseDate",
+                    "handoverDate",
+                    "startedAt",
+                    "endedAt",
+                    "currency"
+                ],
+                "title": "UnitOwnershipResource"
             },
             "UpdateProfileRequest": {
                 "type": "object",

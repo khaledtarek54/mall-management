@@ -22,6 +22,8 @@ class ListInvoicesController extends ApiController
             ->visibleToTenant()
             ->with([
                 'lease.unit',
+                // An owner's assessment has no lease — this is where its shop comes from.
+                'unitOwnership.unit.floor',
                 'receivedPayments',
                 // `InvoiceResource` calls `isPayable()`, which nets prior write-offs — one
                 // aggregate per row without this, and per_page goes to 100.

@@ -55,6 +55,7 @@ use App\Http\Controllers\Api\V1\SalesDeclarations\ListSalesDeclarationsControlle
 use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationAttachmentController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationController;
 use App\Http\Controllers\Api\V1\Tenant\DemoPayInvoiceController;
+use App\Http\Controllers\Api\V1\UnitOwnerships\ListUnitOwnershipsController;
 use App\Http\Controllers\Api\V1\Tenant\InitiatePaymobSessionController;
 use App\Http\Middleware\EnsureMarketingPostsEnabled;
 use App\Http\Middleware\EnsureTenantActive;
@@ -154,6 +155,9 @@ Route::prefix('v1')->group(function () {
         // Home-screen rollup — money owed + open work + things needing attention.
         Route::get('me/summary', SummaryController::class)->name('api.v1.me.summary');
         Route::get('me/leases', LeasesController::class)->name('api.v1.me.leases');
+        // The shops this party OWNS (module 37). A unit owner IS a `tenants` row and is billed
+        // monthly assessments, and the API had no way to say WHICH shop one was for.
+        Route::get('me/unit-ownerships', ListUnitOwnershipsController::class)->name('api.v1.me.unit-ownerships');
         // The tenant's own signed lease — the portal's `downloadDocument` action, on the surface
         // where the shop manager actually is. Private disk; see the controller.
         Route::get('me/leases/{id}/document', LeaseDocumentController::class)
