@@ -133,6 +133,41 @@ it('lets users.edit holders suspend, but never themselves', function () {
     expect(UserResource::canSuspend($other))->toBeFalse();
 });
 
+it('does not let a non-super_admin suspend a PROTECTED account', function () {
+    // SW-099. `users.edit` is held by `manager`, `hr` and `mall_admin` as well as super_admin, and
+    // `enforceProtectedRolesRule()` already stops any of them granting or revoking a protected role
+    // — while suspension bypassed that entirely. So an `hr` user could suspend the **super_admin**:
+    // the only account able to undo it, and on an install with one super_admin, the administration
+    // of the whole panel. Locking someone else out is the same class of act as the self guard the
+    // method already refuses.
+    $hr = makeUser('hr');
+    $this->actingAs($hr);
+
+    foreach (UserResource::PROTECTED_ROLES as $role) {
+        expect(UserResource::canSuspend(makeUser($role)))
+            ->toBeFalse("an hr user could suspend a {$role}");
+    }
+
+    // …and the control, or a rule that refused everyone would satisfy that loop: an ordinary
+    // colleague is still routine HR work, which is the whole reason this is not super_admin-only.
+    expect(UserResource::canSuspend(makeUser('leasing')))->toBeTrue();
+
+    // The one actor who may: suspending a compromised manager is exactly what a super_admin is for.
+    $this->actingAs(makeUser('super_admin'));
+
+    expect(UserResource::canSuspend(makeUser('manager')))->toBeTrue();
+});
+
+it('reads the protected set from the constant, so a role added there is covered here', function () {
+    // Never a second list. `ProtectedRolesCoverSupersetsTest` is what keeps `PROTECTED_ROLES`
+    // complete — `mall_admin` was added to it late, after being forgotten once — so deriving from it
+    // is what makes the next addition covered by being there.
+    $this->actingAs(makeUser('hr'));
+
+    expect(UserResource::holdsAProtectedRole(makeUser('super_admin')))->toBeTrue()
+        ->and(UserResource::holdsAProtectedRole(makeUser('leasing')))->toBeFalse();
+});
+
 it('keeps a suspended user and their history rather than deleting them', function () {
     $user = makeUser('leasing');
     $id = $user->id;

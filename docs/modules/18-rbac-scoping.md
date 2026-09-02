@@ -523,7 +523,21 @@ eleven widgets and a 2,900px scroll.
 
 `users.status` is `active` | `suspended` (a string column validated by `User::STATUSES`, never a DB
 enum). Suspending is gated on `users.edit` **plus a self-guard** (`UserResource::canSuspend()`) —
-locking yourself out of the panel you administer is not recoverable from inside it.
+locking yourself out of the panel you administer is not recoverable from inside it — **plus the
+PROTECTED-ROLE bar, which it was missing until 2026-09-02 (SW-099)**.
+
+`users.edit` is held by `manager`, `hr` and `mall_admin` as well as super_admin, and
+`enforceProtectedRolesRule()` already stops any of them granting or revoking a protected role —
+while suspension bypassed that entirely. So an `hr` user could suspend a **super_admin**: the only
+account able to undo it, and on an install with one super_admin, the administration of the whole
+panel. Locking *someone else* out is the same class of act as the self guard already refuses, and
+denying a privilege you do not hold is the rule `enforceGrantableAssetsRule()` states for property
+access.
+
+Read off `PROTECTED_ROLES`, never a second list: that constant is what
+`ProtectedRolesCoverSupersetsTest` keeps complete — `mall_admin` was added to it late, after being
+forgotten once — so a role added there is covered here by being there. A non-super_admin suspending
+an ordinary colleague is untouched, which is the whole reason this is not super_admin-only.
 
 The block lives in `User::canAccessPanel()`, not at the login form, so Filament re-runs it on every
 request: suspending someone who is already signed in ends their session at the next page load.

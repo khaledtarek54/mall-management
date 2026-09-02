@@ -87,10 +87,33 @@ class UserResource extends Resource
      * safe option (suspend) harder than the destructive one nobody should reach for. What it does
      * borrow from delete is the **self guard** — locking yourself out of the panel you administer
      * is not a recoverable mistake from inside the app.
+     *
+     * **And it borrows the PROTECTED-ROLE bar, which it was missing (SW-099).** `users.edit` is held
+     * by `manager`, `hr` and `mall_admin` as well as super_admin, and
+     * {@see enforceProtectedRolesRule()} already stops any of them granting or revoking a protected
+     * role — while suspension bypassed that entirely. An `hr` user could suspend a **super_admin**:
+     * the account that is the only one able to undo it, and on an install with one super_admin, the
+     * administration of the whole panel. Locking someone else out is the same class of act as the
+     * self guard already refuses, and denying a privilege you do not hold is the rule
+     * `UserResource::enforceGrantableAssetsRule()` states for property access.
+     *
+     * Read off `PROTECTED_ROLES`, never a second list — that constant is what
+     * `ProtectedRolesCoverSupersetsTest` keeps complete, so a role added there is covered here by
+     * being there.
      */
     public static function canSuspend($record): bool
     {
-        return (Auth::user()?->can('users.edit') ?? false) && Auth::id() !== $record->id;
+        if (! (Auth::user()?->can('users.edit') ?? false) || Auth::id() === $record->id) {
+            return false;
+        }
+
+        return (Auth::user()?->hasRole('super_admin') ?? false) || ! self::holdsAProtectedRole($record);
+    }
+
+    /** Does this account hold any of the roles a non-super_admin may not touch? */
+    public static function holdsAProtectedRole($record): bool
+    {
+        return $record instanceof User && $record->hasAnyRole(self::PROTECTED_ROLES);
     }
 
     // Force-delete + restore must never be more permissive than delete —
