@@ -293,6 +293,90 @@ steady-state bill is **0–1,000 EGP a month**, and the first number is achievab
 
 ---
 
+## 4c · Phase B1 — answering with the portfolio's own numbers
+
+**Not built. This is the plan, and the mechanism underneath it has been measured.**
+
+### What changed my assessment
+
+I argued against building this until there was evidence, and three things now exist that did not:
+the chat is the only surface (one place to get it wrong), **👍/👎 records whether an answer landed**,
+and an **evaluation set** turns "it got worse" into a red test. Those are the instruments that make
+a wrong NUMBER detectable rather than merely regrettable. Without them this would still be a bad
+idea.
+
+### The mechanism is proven and it is cheap
+
+Measured on the demo books: **17 of the 20 deliverable reports render headlessly in 1–35 ms**, and
+their whole result is **92–709 JSON characters** — a complete report fits in a prompt with room to
+spare. So the expensive-sounding part is not expensive.
+
+**Three do not render, and that is a finding, not a footnote.** `GeneralLedger` refuses until an
+account is chosen (correct — a ledger of everything is not a report). **`ClauseRegister` and
+`ActivityLog` cannot render outside Livewire at all**: `$table` is a typed property initialised by
+`InteractsWithTable`'s boot, so `reportCsv()` fatals. Both are registered as deliverable and a saved
+view of either **has never worked** — it failed on every schedule and was reported as "failed" with
+no reason. Pinned now by `EveryDeliverableReportCanActuallyRenderTest`; making a table page render
+headlessly is the prerequisite for those two, and is real work.
+
+### The tool surface
+
+Four tools. All read-only. All executed as the signed-in reader with the current property.
+
+| Tool | Answers | Inherits |
+|---|---|---|
+| `run_report(key, params)` | *"Who owes us money?"* · *"What was the income statement for 2026?"* | the report's own query — property scope, RBAC, and **the exact figures on screen** |
+| `record_summary(type, id)` | *"What is Cilantro's balance?"* | an allowlisted projection, per model, gated |
+| `count_and_group(resource, filters, group_by, aggregate)` | *"How many leases expire per quarter?"* | the resource's `getEloquentQuery()` |
+| `compare(key, params_a, params_b)` | *"Is occupancy better than last quarter?"* | two report runs; **the tool subtracts, never the model** |
+
+### The rules that make it safe
+
+1. **Still no SQL.** Every reason in §1 holds. `count_and_group` takes a STRUCTURED request — resource,
+   filters, group-by, aggregate — validated against the real schema and `ValueSets`, never a string.
+2. **The model never does arithmetic.** It may quote a figure a tool returned and it may say which is
+   larger *when a tool computed the difference*. It may not add, average, or convert to a percentage.
+   `Invoice::recomputeTotals()` is the single source of truth for what is settled, and a model doing
+   sums beside it is a second answer to the same question.
+3. **Every figure carries its source.** An answer citing a number must name the report and the
+   parameters that produced it, and link to it. A number nobody can re-derive is a rumour.
+4. **Row caps with an honest tail.** 50 rows, then *"…and 340 more — open the report"*. Never a
+   silent truncation, which turns "the top 50 debtors" into "your debtors".
+5. **Refusals stay refusals.** A tool that throws `DomainException` reports it; the model does not
+   route around it.
+
+### How it gets tested
+
+The tool layer is deterministic, so it tests like ordinary code — and that is the point of putting
+the numbers in tools rather than in the model. `TheAssistantAnswersTheseQuestionsTest` gains a
+numeric section: a fixture with known figures, a question, and the exact number that must appear. A
+model that invents one fails the build.
+
+### Cost
+
+Roughly one extra round trip per data question — the model picks a tool, reads the result, answers.
+At the measured 776 input / 66 output tokens per turn, that is about **$0.002 a question** on paid
+Haiku, and nothing on the free tier. Report results are small enough not to move that.
+
+### Order
+
+| | | |
+|---|---|---|
+| **B1a** | `run_report` over the 17 that render, with citations and caps | 2–3 days |
+| **B1b** | `record_summary` + the `AssistantFields` allowlist and its gate | 2 days |
+| **B1c** | `count_and_group`, structured and validated | 3 days |
+| **B1d** | `compare`, and the numeric evaluation cases | 2 days |
+| *before any of it* | **Read the 👎 list.** If the complaints are about missing screens rather than missing numbers, build guides instead | — |
+
+### Still not building
+
+**A general text-to-SQL escape hatch**, at any phase. **Write tools** — no raising an invoice by
+chat; a write goes through its single-action service with a human confirmation and is its own
+project. **Cross-property answers** — the reader sees one mall, and "switch property" is the honest
+answer.
+
+---
+
 ## 5 · Fitting the house rules
 
 This is a module in a codebase with strong opinions. It has to arrive wearing them.

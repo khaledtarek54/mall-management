@@ -109,7 +109,16 @@ class DeliverSavedReportService
             }
 
             $instance = app($page);
-            $instance->mount();
+
+            // NOT every report page defines `mount()`, and calling it blind threw.
+            //
+            // `Filament\Pages\Page` declares no `mount()`, so a page needing no boot state never
+            // wrote one — and a saved view of it died with BadMethodCallException, was caught by
+            // the command, and reported as "failed" every time it came due. Found while proving
+            // this same headless seam for the assistant's data tier.
+            if (method_exists($instance, 'mount')) {
+                $instance->mount();
+            }
 
             // **THE PERIOD FOLLOWS THE SCHEDULE, NOT THE DAY THE VIEW WAS SAVED.** Re-applying the
             // snapshot whole put the frozen period back, so "send every month" emailed September's
