@@ -202,8 +202,8 @@ which is the same failure this repo gates for generated doc blocks.
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-111** | ✅ fixed | high | — | A general (no-property) owner request is invisible to every property-restricted operator — and it is the form's DEFAULT | `Filament/Admin/Resources/OwnerRequests/OwnerRequestResource:97` |
-| **SW-112** | ✅ fixed | high | — | The owner can neither read nor answer the conversation thread module 15 built for them | `Filament/Admin/Resources/OwnerRequests/Tables/OwnerRequestsTable:120` |
+| **SW-111** | ✅ **fixed** `08b7a14f` | high | — | A general (no-property) owner request is invisible to every property-restricted operator — and it is the form's DEFAULT | `Filament/Admin/Resources/OwnerRequests/OwnerRequestResource:97` |
+| **SW-112** | ✅ **fixed** `08b7a14f` | high | — | The owner can neither read nor answer the conversation thread module 15 built for them | `Filament/Admin/Resources/OwnerRequests/Tables/OwnerRequestsTable:120` |
 | **SW-113** | ✅ **fixed** `2b4dd73c` | high | XS | Paymob callback treats only 'captured' as terminal, not the whole received set — a late or replayed decline callback flips a 'reconciled'/'settled' payment to 'failed', silently un-paying the invoice and voiding its GL leg. The REVERSED half of the very same condition was already derived from the model, under a comment reading *"enumerate a set like this by asking the model, not by grepping the diff"*; the RECEIVED half was a literal. Both paths (the fast check and the locked re-check) now ask `Payment::isReceived()` | `Http/Controllers/Paymob/CallbackController:128` |
 | **SW-114** | ✅ **fixed** `cbff66d6` | high | — | Applying an SLA penalty never re-derives the work order's cost — recompute() is saveQuietly, so the only hook that calls recomputeCosts() never fires | `Services/ApplySlaPenaltyService:45` |
 | **SW-115** | ✅ **fixed** `fb85e218` | high | — | `sales:estimate-missing` runs on the 8th and the chase it is supposed to follow runs on the 10th — the reminder can never fire for any tenant the estimate covers | `routes/console:246` |
