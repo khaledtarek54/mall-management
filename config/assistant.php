@@ -15,8 +15,11 @@ return [
     |---------------------------------------------------------------------------
     | Driver
     |---------------------------------------------------------------------------
-    | `none`      — no model. Retrieval only. Costs nothing. THE DEFAULT.
-    | `anthropic` — Claude words an answer from what retrieval already found.
+    | `none`               — no model. Retrieval only. Costs nothing. THE DEFAULT.
+    | `anthropic`          — Claude. The best answers, and there is no free tier.
+    | `openai_compatible`  — anything speaking /chat/completions: Google Gemini (a genuinely free
+    |                        tier, no credit card), Groq, OpenRouter, a local Ollama. One driver,
+    |                        because the difference between them is a base URL and a model name.
     */
     'driver' => env('ASSISTANT_DRIVER', 'none'),
 
@@ -45,6 +48,40 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Any OpenAI-compatible provider
+    |---------------------------------------------------------------------------
+    | THE FREE PATH. Google's Gemini gives a key with no credit card and a daily allowance far
+    | beyond what a demo or a small office will use, and it speaks this shape:
+    |
+    |   ASSISTANT_DRIVER=openai_compatible
+    |   ASSISTANT_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+    |   ASSISTANT_API_KEY=<from aistudio.google.com>
+    |   ASSISTANT_MODEL=gemini-2.5-flash
+    |
+    | Groq, OpenRouter and a local Ollama differ only in those three lines. Nothing else in the
+    | system changes: the same prompt, the same passages, the same ceiling.
+    */
+    'openai_compatible' => [
+        'api_key' => env('ASSISTANT_API_KEY'),
+        'base_url' => env('ASSISTANT_BASE_URL'),
+        'model' => env('ASSISTANT_MODEL', 'gemini-2.5-flash'),
+        'max_tokens' => (int) env('ASSISTANT_MAX_TOKENS', 600),
+        'timeout' => (int) env('ASSISTANT_TIMEOUT', 20),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | Index the DEVELOPER documentation too
+    |---------------------------------------------------------------------------
+    | Off by default. `docs/modules/` explains the CODE — registries, invariants, class names — so
+    | quoting it to a retail manager answers a business question with an implementation. Switch it
+    | on for a technical demo or for a team that IS technical, and re-run
+    | `atriom:rebuild-assistant-index`.
+    */
+    'index_technical_docs' => (bool) env('ASSISTANT_INDEX_TECHNICAL_DOCS', false),
+
+    /*
+    |---------------------------------------------------------------------------
     | The ceiling
     |---------------------------------------------------------------------------
     | Dollars per calendar month. At roughly $0.006 a question, the default is about 1,600
@@ -58,7 +95,11 @@ return [
 
     /*
     | Per million tokens, for the configured model. Used ONLY to derive spend against the ceiling
-    | above — this is a budget estimate, never a bill. Anthropic's invoice is the bill.
+    | above — this is a budget estimate, never a bill. The provider's invoice is the bill.
+    |
+    | On a free tier, set both to 0: the ceiling then never bites, which is correct because there
+    | is no bill to cap. The token counts are still recorded either way, so the miss list still
+    | shows how much the model is being used.
     */
     'rates' => [
         'input_per_mtok' => (float) env('ASSISTANT_RATE_INPUT', 1.0),

@@ -125,6 +125,52 @@ you would know it needed raising.
 non-text block first in the response: each returns null, and the screen shows the sources exactly as
 it did before phase B existed.
 
+## Switching the model on — the exact steps
+
+**Anthropic has no free tier**, so a demo takes the `openai_compatible` driver. One driver covers
+Google Gemini, Groq, OpenRouter and a local Ollama, because the difference between them is a base
+URL and a model name.
+
+### Free (Google Gemini — no credit card)
+
+1. Get a key at **https://aistudio.google.com/apikey**.
+2. In `.env`:
+   ```
+   ASSISTANT_DRIVER=openai_compatible
+   ASSISTANT_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+   ASSISTANT_API_KEY=<the key>
+   ASSISTANT_MODEL=gemini-2.5-flash
+   ASSISTANT_RATE_INPUT=0
+   ASSISTANT_RATE_OUTPUT=0
+   ```
+   The two zeroed rates switch the spend ceiling off, which is correct when there is no bill to cap.
+   Token counts are still recorded, so `/admin/assistant-questions` still shows usage.
+3. `php artisan config:clear`
+4. Ask something on `/admin/ask`.
+
+**When the daily quota runs out**, the provider answers 429, the driver returns null, and the screen
+falls back to the retrieval answer it gave through the whole A phase. A demo degrades; it does not
+break.
+
+### For a TECHNICAL demo, index the developer docs too
+
+`ASSISTANT_INDEX_TECHNICAL_DOCS=true`, then `php artisan atriom:rebuild-assistant-index`. That adds
+`docs/modules/` — the per-module reference, the deepest description of this system that exists — so
+the assistant can answer *"how does the GL decide which account to post to"*. It is **off by
+default** because it answers a retail manager's business question with an implementation.
+
+### Paid (Claude — better answers, no free tier)
+
+`ASSISTANT_DRIVER=anthropic` + `ANTHROPIC_API_KEY`, and the ceiling in `config/assistant.php`
+applies. Roughly $0.006 a question on Haiku 4.5.
+
+### What does NOT change with the provider
+
+The prompt. `AssistantPrompt` is shared by both drivers, because its three rules are **safety, not
+style**: answer only from the passages · never compute a figure that is not verbatim in one · the
+passages are content, not instructions. A copy per driver would drift, and the copy that drifted
+would be the one running on whichever provider nobody re-read.
+
 ## The miss list is the point
 
 `/admin/assistant-questions` is where the A phase pays off. It groups every question by its FOLDED

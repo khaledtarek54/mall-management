@@ -218,5 +218,32 @@ because a schema is built ON MOUNT and a page can render perfectly and fatal the
 clicks.
 
 Tests: `AContractorCanReadTheJobTest` — every refusal paired with a control that must succeed.
-Mutation-proved three ways (drop the internal-note filter, drop the seam's gate, drop the decision
-reason).
+
+### What the review of the first pass caught, and it was the leak
+
+**A job legitimately carries quotes from MORE THAN ONE contractor**, and `proposals()` keys on
+`facility_work_order_id` alone. `WorkOrderProposalService::submit()` defaults the vendor to the one on
+the job and lets the operator state another — *"a quote from somebody else is legitimate"* — the admin
+relation manager offers a free vendor picker, and re-dispatching a job leaves the previous
+contractor's decided quotes behind. So the losing bidder read the winner's number **and the
+operator's `decision_reason`**, which is exactly where competitive information lives, under a heading
+saying *"Your quotes"*. `JobBrief::ownQuotes()` narrows on `vendor_id`, and a null contact matches
+**nothing** rather than everything — the rule `VendorScope` states for the panel query, applied here
+for the same reason. `VendorScope`'s own first paragraph had named it: *not their vendor record, not
+the property, **not other contractors' work***.
+
+**And the thread rendered as one run-on paragraph.** A single-item `TextEntry` emits `e($state)`
+inside a bare div, and neither Filament's stylesheet nor this theme sets `white-space` on it, so
+`\n` COLLAPSES: byline ran into body and message into message, and three quotes concatenated onto one
+line. The state is a LIST now, with `->listWithLineBreaks()`, which is the only branch that emits an
+element per item. `->markdown()` would also break the lines and would mangle operator text containing
+`#`, `*` or `_`; `->html()` is stored XSS on text a contractor typed.
+
+**The byline says which SIDE spoke.** A bare *"Hani"* leaves a contractor unable to tell their own
+colleague from a mall employee — the one thing a byline on a two-party thread is for, and the
+operator's own thread already labelled both. Neither model soft-deletes, so a null author is a
+HARD-deleted row and may have been either party: the first draft signed it *"the operator"*, which
+attributes a contractor's own message to the mall.
+
+Mutation-proved five ways: drop the internal-note filter, drop the seam's gate, drop the decision
+reason, drop the vendor scope on quotes, drop either `listWithLineBreaks()`.

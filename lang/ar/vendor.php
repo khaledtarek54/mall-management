@@ -23,6 +23,8 @@ return [
             'thread' => 'الرسائل',
             'thread_empty' => 'لا توجد رسائل بعد. ما تكتبه أنت أو المشغّل يظهر هنا.',
             'from_operator' => 'المشغّل',
+            'from_us' => 'من عندنا',
+            'from_unknown' => 'غير معروف',
             'quotes' => 'عروض الأسعار المرسلة',
             'quote_status' => [
                 'submitted' => 'في انتظار القرار',

@@ -27,12 +27,16 @@ it('classifies every documentation directory as indexed or excluded, with a reas
 
     expect($directories)->not->toBeEmpty();
 
-    $classified = array_merge(array_keys(DocCorpus::SOURCES), array_keys(DocCorpus::NOT_INDEXED));
+    $classified = array_merge(
+        array_keys(DocCorpus::SOURCES),
+        array_keys(DocCorpus::TECHNICAL_SOURCES),
+        array_keys(DocCorpus::NOT_INDEXED),
+    );
 
     // A NEW documentation area must force the decision. Defaulting to invisible is the failure
     // that would go unnoticed; defaulting to indexed would quote developer notes at an operator.
     expect(array_values(array_diff($directories, $classified)))
-        ->toBe([], 'Add it to DocCorpus::SOURCES or NOT_INDEXED with a reason.');
+        ->toBe([], 'Add it to DocCorpus::SOURCES, TECHNICAL_SOURCES or NOT_INDEXED with a reason.');
 
     // And a stale entry is a failure too — a directory that has been deleted or renamed leaves a
     // reason describing something that no longer exists.
@@ -43,16 +47,25 @@ it('classifies every documentation directory as indexed or excluded, with a reas
     }
 });
 
-it('refuses to quote the developer documentation', function () {
+it('quotes the developer documentation only when it is switched on', function () {
     // The whole point of the allowlist. `docs/modules` explains the CODE — quoting it to a retail
     // manager answers a business question with an implementation, which reads as though the system
-    // has no business answer at all.
+    // has no business answer at all. It is a SWITCH rather than a permanent exclusion, because the
+    // same corpus is exactly right for a technical audience asking a technical question.
     expect(DocCorpus::SOURCES)->not->toHaveKey('modules')
-        ->and(DocCorpus::NOT_INDEXED)->toHaveKey('modules');
+        ->and(DocCorpus::TECHNICAL_SOURCES)->toHaveKey('modules');
 
-    $paths = array_keys(DocCorpus::files(base_path('docs')));
+    config()->set('assistant.index_technical_docs', false);
 
-    expect(collect($paths)->filter(fn (string $p): bool => str_starts_with($p, 'modules/'))->all())->toBe([]);
+    $off = array_keys(DocCorpus::files(base_path('docs')));
+    expect(collect($off)->filter(fn (string $p): bool => str_starts_with($p, 'modules/'))->all())->toBe([]);
+
+    // The control, in the same shape: switched on it really is indexed. Without it the refusal
+    // above would pass just as happily if the switch did nothing at all.
+    config()->set('assistant.index_technical_docs', true);
+
+    $on = array_keys(DocCorpus::files(base_path('docs')));
+    expect(collect($on)->filter(fn (string $p): bool => str_starts_with($p, 'modules/'))->all())->not->toBeEmpty();
 });
 
 it('links a handbook section and leaves an unpublished one without a link', function () {

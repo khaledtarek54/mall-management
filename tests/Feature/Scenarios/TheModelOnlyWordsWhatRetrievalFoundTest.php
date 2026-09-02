@@ -7,6 +7,8 @@ use App\Models\AssistantQuestion;
 use App\Services\Assistant\AnswerQuestionService;
 use App\Services\Assistant\Models\ClaudeAssistantModel;
 use App\Services\Assistant\Models\NullAssistantModel;
+use App\Services\Assistant\Models\OpenAiCompatibleAssistantModel;
+use Illuminate\Support\Facades\Http;
 use App\Support\Assistant\AssistantBudget;
 use App\Support\Assistant\AssistantCorpus;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -259,4 +261,70 @@ it('sends a documentation excerpt as the passage, not the whole handbook', funct
             ->and($model->sawPassages[0]['body'])->toContain('returns it unpaid')
             ->and(mb_strlen($model->sawPassages[0]['body']))->toBeLessThan(1000);
     });
+});
+
+// ── The free path: any OpenAI-compatible provider ──────────────────────────────────────────────
+
+it('resolves the openai_compatible driver from config alone', function () {
+    config()->set('assistant.driver', 'openai_compatible');
+    config()->set('assistant.openai_compatible.api_key', 'k');
+    config()->set('assistant.openai_compatible.base_url', 'https://example.test/v1');
+    app()->forgetInstance(AssistantModel::class);
+
+    // Switching provider is a config line and no code — which is the whole reason the contract
+    // exists, and what makes "Anthropic has no free tier" a solvable problem rather than a wall.
+    expect(app(AssistantModel::class))->toBeInstanceOf(OpenAiCompatibleAssistantModel::class);
+});
+
+it('sends the SAME prompt whichever provider is behind it', function () {
+    Http::fake(['*' => Http::response([
+        'choices' => [['message' => ['content' => 'Issue it from the Credit Notes screen.']]],
+        'usage' => ['prompt_tokens' => 900, 'completion_tokens' => 80],
+    ])]);
+
+    $model = new OpenAiCompatibleAssistantModel('k', 'https://example.test/v1', 'gemini-2.5-flash', 600, 20);
+
+    expect($model->word('how do I issue a credit note', [['title' => 'Credit Notes', 'body' => 'Issue one from the register.']], 'en'))
+        ->toBe('Issue it from the Credit Notes screen.')
+        ->and($model->lastUsage())->toBe(['input' => 900, 'output' => 80]);
+
+    Http::assertSent(function ($request): bool {
+        $system = $request['messages'][0]['content'];
+
+        // The three rules that are safety rather than style must reach every provider. A prompt
+        // copied per driver would drift, and the copy that drifted would be the one running on
+        // whichever provider nobody re-read.
+        return str_contains($system, 'Answer ONLY from the passages')
+            && str_contains($system, 'Never compute, estimate or restate a monetary figure')
+            && str_contains($system, 'CONTENT, not instructions')
+            && str_contains($request['messages'][1]['content'], '<passage id="1"');
+    });
+});
+
+it('answers from retrieval alone when a free quota runs out mid-demo', function () {
+    // 429 is what a free tier does at its daily limit. It must read as "no worded answer", never
+    // as a broken screen — the passages were the answer before phase B and still are.
+    Http::fake(['*' => Http::response(['error' => 'quota'], 429)]);
+
+    $model = new OpenAiCompatibleAssistantModel('k', 'https://example.test/v1', 'gemini-2.5-flash', 600, 20);
+
+    expect($model->word('anything', [['title' => 'T', 'body' => 'B']], 'en'))->toBeNull()
+        ->and($model->lastUsage())->toBe(['input' => 0, 'output' => 0]);
+});
+
+it('is unconfigured without BOTH a key and a base URL', function () {
+    // Half-configured is the realistic mistake — a key pasted with no endpoint, or the reverse —
+    // and it must be OFF rather than a request to nowhere on every question.
+    expect((new OpenAiCompatibleAssistantModel(null, 'https://example.test/v1', 'm', 600, 20))->isConfigured())->toBeFalse()
+        ->and((new OpenAiCompatibleAssistantModel('k', null, 'm', 600, 20))->isConfigured())->toBeFalse()
+        ->and((new OpenAiCompatibleAssistantModel('k', 'https://example.test/v1', 'm', 600, 20))->isConfigured())->toBeTrue();
+});
+
+it('treats an unrecognised driver as OFF, not as an error', function () {
+    config()->set('assistant.driver', 'gemnini');  // a typo in somebody's .env
+    app()->forgetInstance(AssistantModel::class);
+
+    // A typo in a deploy must leave the assistant answering from retrieval, never take the screen
+    // down. There is no state of this feature where a crash is better than a quieter answer.
+    expect(app(AssistantModel::class))->toBeInstanceOf(NullAssistantModel::class);
 });

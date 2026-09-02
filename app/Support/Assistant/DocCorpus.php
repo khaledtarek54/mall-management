@@ -47,12 +47,33 @@ final class DocCorpus
     ];
 
     /**
-     * Deliberately NOT indexed. Each reason answers "why would an operator not want this".
+     * Indexed ONLY when `assistant.index_technical_docs` is on.
+     *
+     * The default is off, and the reason is the same one that governs `SOURCES`: `docs/modules/`
+     * explains the CODE — registries, invariants, class names — so quoting it to a retail manager
+     * answers a business question with an implementation, which reads as though no business answer
+     * exists.
+     *
+     * It is a SWITCH rather than a permanent exclusion because the same corpus is exactly right for
+     * a different reader: a technical demo, or a team that is itself technical, where "how does the
+     * GL decide which account to post to" is a real question with a real answer sitting in a file
+     * nobody outside the repository can find.
+     *
+     * @var array<string, array{reason: string, url: string|null}>
+     */
+    public const TECHNICAL_SOURCES = [
+        'modules' => [
+            'reason' => 'The per-module reference: business rules, extension points and gotchas, written for whoever changes the code. Off by default because it answers an operator with an implementation; on for a technical audience, where it is the deepest and most accurate description of the system that exists.',
+            'url' => null,
+        ],
+    ];
+
+    /**
+     * Deliberately NOT indexed at all. Each reason answers "why would an operator not want this".
      *
      * @var array<string, string>
      */
     public const NOT_INDEXED = [
-        'modules' => 'Written for whoever changes the code — class names, registries, invariants. Quoting it to an operator answers a business question with an implementation, which reads as though no business answer exists.',
         'accounting' => 'Mixed audience, and the operator-facing half (WALKTHROUGH, ACCOUNTANT-BRIEFING) is aimed at the ACCOUNTANT rather than the person at the panel. It also carries posting maps and tax-catalogue tables that mean nothing out of context. Revisit if the accountant ever gets their own reader.',
         'qa' => 'Test plans and findings. About whether the software works, not about how the business runs.',
         'benchmarks' => 'Notes on Yardi, MRI and the FM specialists — how OTHER systems behave. Quoting it would describe a screen this system does not have.',
@@ -119,7 +140,13 @@ final class DocCorpus
     {
         $files = [];
 
-        foreach (self::SOURCES as $directory => $meta) {
+        $sources = self::SOURCES;
+
+        if (config('assistant.index_technical_docs')) {
+            $sources += self::TECHNICAL_SOURCES;
+        }
+
+        foreach ($sources as $directory => $meta) {
             $base = $docsPath.'/'.$directory;
 
             if (! is_dir($base)) {

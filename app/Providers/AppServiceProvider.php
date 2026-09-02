@@ -12,6 +12,7 @@ use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Contracts\AssistantModel;
 use App\Services\Assistant\Models\ClaudeAssistantModel;
 use App\Services\Assistant\Models\NullAssistantModel;
+use App\Services\Assistant\Models\OpenAiCompatibleAssistantModel;
 use App\Services\Paymob\PaymobClient;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\NullPushSender;
@@ -74,15 +75,23 @@ class AppServiceProvider extends ServiceProvider
         // Bound `scoped`, never `singleton`: the driver holds the token usage of its LAST call, and
         // a queue worker outlives the request that made it.
         $this->app->scoped(AssistantModel::class, function (): AssistantModel {
-            if (config('assistant.driver') !== 'anthropic') {
-                return new NullAssistantModel;
-            }
-
-            return new ClaudeAssistantModel(
-                apiKey: config('assistant.anthropic.api_key'),
-                model: (string) config('assistant.anthropic.model'),
-                maxTokens: (int) config('assistant.anthropic.max_tokens'),
-            );
+            return match (config('assistant.driver')) {
+                'anthropic' => new ClaudeAssistantModel(
+                    apiKey: config('assistant.anthropic.api_key'),
+                    model: (string) config('assistant.anthropic.model'),
+                    maxTokens: (int) config('assistant.anthropic.max_tokens'),
+                ),
+                'openai_compatible' => new OpenAiCompatibleAssistantModel(
+                    apiKey: config('assistant.openai_compatible.api_key'),
+                    baseUrl: config('assistant.openai_compatible.base_url'),
+                    model: (string) config('assistant.openai_compatible.model'),
+                    maxTokens: (int) config('assistant.openai_compatible.max_tokens'),
+                    timeout: (int) config('assistant.openai_compatible.timeout'),
+                ),
+                // Anything unrecognised is OFF rather than an error. A typo in a deploy's env must
+                // leave the assistant working from retrieval, not take the screen down.
+                default => new NullAssistantModel,
+            };
         });
 
         // The activity log's vocabulary MUST be one instance per request, because its whole

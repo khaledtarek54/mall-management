@@ -23,7 +23,9 @@ return [
             'nte_help' => 'Work beyond this figure needs a quote and the operator\'s approval before you start it.',
             'thread' => 'Messages',
             'thread_empty' => 'No messages yet. Anything you or the operator post appears here.',
-            'from_operator' => 'The operator',
+            'from_operator' => 'the mall',
+            'from_us' => 'us',
+            'from_unknown' => 'Unknown',
             'quotes' => 'Your quotes',
             'quote_status' => [
                 'submitted' => 'Waiting for a decision',
