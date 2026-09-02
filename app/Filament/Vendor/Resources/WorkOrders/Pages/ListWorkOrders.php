@@ -3,6 +3,7 @@
 namespace App\Filament\Vendor\Resources\WorkOrders\Pages;
 
 use App\Filament\Actions\EvidenceUpload;
+use App\Filament\Vendor\Resources\WorkOrders\JobBrief;
 use App\Filament\Vendor\Resources\WorkOrders\WorkOrderResource;
 use App\Models\FacilityWorkOrder;
 use App\Services\AcceptWorkOrderService;
@@ -68,6 +69,27 @@ class ListWorkOrders extends ListRecords
                     ->badge(),
             ])
             ->recordActions([
+                // ── READ (step 0), and the half the portal shipped without. Four verbs and no way
+                // to see anything: the thread was WRITE-ONLY — a contractor could post an update
+                // and never read one, so the operator's public comment reached nobody and the reply
+                // came back on WhatsApp — and the quote loop was one-way, with the NTE that is
+                // supposed to trigger a quote invisible and the decision on it never coming back.
+                //
+                // A modal off the row rather than a View page: this project's idiom for a read that
+                // hangs off an act. Every job in this list is one `VendorScope::jobs()` has already
+                // narrowed to this contractor, and `JobBrief::of()` re-asks anyway — the payload
+                // carries an id, and 404 rather than 403, for the reason the rest of the portal
+                // does.
+                Action::make('brief')
+                    ->label(__('vendor.jobs.brief.open'))
+                    ->icon('heroicon-o-document-magnifying-glass')
+                    ->color('gray')
+                    ->modalHeading(fn (FacilityWorkOrder $record): string => $record->reference ?? '')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('vendor.jobs.brief.close'))
+                    ->visible(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record))
+                    ->authorize(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record))
+                    ->schema(fn (FacilityWorkOrder $record): array => JobBrief::of($record)),
                 Action::make('accept')
                     ->label(__('vendor.jobs.accept'))
                     ->icon('heroicon-o-check-circle')

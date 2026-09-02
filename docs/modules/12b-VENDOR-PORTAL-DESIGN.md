@@ -168,3 +168,55 @@ Stated so the decision can be re-taken honestly:
 - **Scope creep into a marketplace.** ServiceChannel monetises a contractor network. Eltizam has its
   own vendor list, and building a marketplace for one operator is building an empty room —
   already recorded in `benchmarks/fm/02` §8 under "what not to copy".
+
+
+## The contractor can READ the job (fixed 2026-09-02)
+
+The portal shipped **four verbs and no way to see anything**. Two consequences, both of them the
+point of having a portal at all:
+
+- **The thread was write-only.** A contractor could post an update and could never read one.
+  `FacilityWorkOrderComment::is_internal` exists precisely so an operator can write something the
+  contractor must not see — which means every PUBLIC comment on a dispatched job was written *for* a
+  contractor with no surface to read it on. The operator ticked *"share with the contractor"* and it
+  reached nobody; the answer came back on WhatsApp, which is the behaviour this portal replaces.
+- **The quote loop was one-way.** `nte_amount` is the not-to-exceed the operator sets, and exceeding
+  it is the whole reason a contractor is asked for a price — invisible, so the trigger for the act
+  was hidden from the person expected to perform it. And the DECISION never came back: a quote was
+  approved or declined, `decision_reason` recorded, and the contractor learnt which by being
+  dispatched or not.
+
+Nor did the list carry **what is wrong** or **where** — a reference, a title and a date, with the
+description and the unit only in the dispatch email.
+
+`App\Filament\Vendor\Resources\WorkOrders\JobBrief` is a **modal off the row**, this project's
+idiom for a read that hangs off an act, rather than a View page. It shows the job (reference, trade,
+title, description, property · unit · zone, scheduled date), the NTE, the public thread and every
+quote with its status and the operator's reason.
+
+**The rules it keeps, each of which could have been got wrong:**
+
+- **`VendorScope::assertOwned()` is re-asked, on BOTH public entry points.** The list is narrowed and
+  the button is hidden and neither is a gate — the Livewire payload still carries an id. **404, never
+  403**, because a 403 confirms the job exists.
+- **Only public comments, narrowed in the QUERY.** A `where` on the loaded collection would be a
+  second definition of what `is_internal` means.
+- **The NTE section renders only when one is set.** A row reading "—" says *no limit stated* on
+  exactly the field where silence must not be read as freedom.
+- **The decision REASON travels**, because it is the only part a contractor can act on: a rejection
+  with no reason is a decision they cannot answer, and re-quoting blind is what the loop exists to
+  avoid.
+- The comment author is a **morph** (an operator or one of this company's own contacts), so the name
+  is asked of the row; a departed colleague reads as *the operator* rather than as a blank byline on
+  a message that plainly came from the mall.
+
+**`JobBrief::factsOf()` is the test seam**, for the reason `PdfDocument::html()` is: a schema
+component outside a mounted container throws on `$container` before it answers anything (the trap
+`getHelperText()` and `Repeater::getLabel()` set), and Filament assembles a modal's HTML lazily, so
+neither is assertable. The modal is still **mounted through the real page** in the same test file,
+because a schema is built ON MOUNT and a page can render perfectly and fatal the moment somebody
+clicks.
+
+Tests: `AContractorCanReadTheJobTest` — every refusal paired with a control that must succeed.
+Mutation-proved three ways (drop the internal-note filter, drop the seam's gate, drop the decision
+reason).
