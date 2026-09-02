@@ -295,7 +295,7 @@ which is the same failure this repo gates for generated doc blocks.
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-175** | ✅ **fixed** `8d11faff` | high | — | "Record payment" on the collections worklist builds /admin/{tenantId}/… — a 404, and the prefill can never fire | `Filament/Admin/Pages/ArCollections:234` |
-| **SW-176** | ✅ fixed | high | — | "Send every month" replays the as-at date frozen at save time, for ever | `Services/Reports/DeliverSavedReportService:68` |
+| **SW-176** | ✅ **fixed** `c6305aec` | high | — | "Send every month" replays the as-at date frozen at save time, for ever | `Services/Reports/DeliverSavedReportService:68` |
 | **SW-177** | open | medium | — | Vendor Scorecard: `operations` can read it but not export it — and can get the identical CSV by scheduling it to themselves | `Filament/Admin/Pages/Concerns/ExportsReport:74` |
 | **SW-178** | open | medium | — | The trial balance is the one accounting screen whose figures cannot be opened, though it already carries the account id | `Filament/Admin/Pages/TrialBalance:192` |
 | **SW-179** | open | medium | — | The marketing-post store picker is a HARD filter, so the Edit page refuses to save once the attributed retailer's lease ends | `Filament/Admin/Resources/MarketingPosts/Schemas/MarketingPostForm:48` |
@@ -315,7 +315,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-189** | ✅ fixed | high | — | weightedAverageCost() averages every receipt ever made, not the stock on hand — Inventory keeps a permanent, compounding residual for stock that is gone | `Services/StockMovementService:307` |
+| **SW-189** | ✅ **fixed** `c6305aec` | high | — | weightedAverageCost() averages every receipt ever made, not the stock on hand — Inventory keeps a permanent, compounding residual for stock that is gone | `Services/StockMovementService:307` |
 | **SW-190** | open | medium | XS | Dispose modal: proceeds_account picker can never appear, so bank proceeds always post to cash | `Filament/Admin/Actions/FixedAssetActions:66` |
 | **SW-191** | open | medium | S | Item's Stock Movements tab shows every mall's movements to a property-restricted operator, and cannot tie out to the scoped on-hand beside it | `Filament/Admin/RelationManagers/StockMovementsRelationManager:26` |
 | **SW-192** | open | medium | S | Total NBV summarizer includes disposed assets' residual book value while its label claims the balance-sheet tie-out | `Filament/Admin/Resources/FixedAssets/Tables/FixedAssetsTable:87` |
