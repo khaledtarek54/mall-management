@@ -5,6 +5,7 @@ namespace App\Services\Accounting;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Support\CashFlowSection;
+use App\Support\StatementSection;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -157,7 +158,24 @@ class LedgerReportService
      * Contra-revenue (e.g. sales returns) sits in revenue with a net debit, so it
      * correctly reduces total revenue.
      *
-     * @return array{revenue: Collection, expense: Collection, total_revenue: float, total_expense: float, net_profit: float}
+     * ## The NOI split is ADDITIVE
+     *
+     * A property income statement stops halfway to state **Net Operating Income** — the mall's own
+     * trading result, before the depreciation, interest and one-off items that belong to whoever
+     * owns it ({@see StatementSection}). Those four extra collections and five extra totals are
+     * ADDED here; `revenue`, `expense`, `total_revenue`, `total_expense` and `net_profit` are
+     * computed exactly as they always were, off the FULL sets.
+     *
+     * That is deliberate and is what makes the split safe to deploy. Five readers consume this
+     * array — the screen, the CSV, the PDF, `ComparativeStatementService` and
+     * `GenerateOwnerStatementRunService`, which turns it into money an owner is actually paid — and
+     * none of them can shift by a penny, because the bottom line never travels through the buckets.
+     * `net_profit` therefore stays right even when every account is misclassified; only NOI moves.
+     *
+     * @return array{revenue: Collection, expense: Collection, total_revenue: float, total_expense: float, net_profit: float,
+     *     operating_revenue: Collection, other_revenue: Collection, operating_expense: Collection, other_expense: Collection,
+     *     total_operating_revenue: float, total_operating_expense: float, net_operating_income: float,
+     *     total_other_revenue: float, total_other_expense: float, has_below_the_line: bool}
      */
     public function incomeStatement(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
     {
@@ -167,18 +185,30 @@ class LedgerReportService
 
         $revenue = collect();
         $expense = collect();
+        $operatingRevenue = collect();
+        $otherRevenue = collect();
+        $operatingExpense = collect();
+        $otherExpense = collect();
+
         foreach ($rows as $row) {
             $debit = (float) $row->debit_total;
             $credit = (float) $row->credit_total;
+
             if ($row->type === 'revenue') {
-                $revenue->push($this->statementRow($row, round($credit - $debit, 2)));
+                $line = $this->statementRow($row, round($credit - $debit, 2));
+                $revenue->push($line);
+                ($line['statement_section'] === StatementSection::OPERATING ? $operatingRevenue : $otherRevenue)->push($line);
             } elseif ($row->type === 'expense') {
-                $expense->push($this->statementRow($row, round($debit - $credit, 2)));
+                $line = $this->statementRow($row, round($debit - $credit, 2));
+                $expense->push($line);
+                ($line['statement_section'] === StatementSection::OPERATING ? $operatingExpense : $otherExpense)->push($line);
             }
         }
 
         $totalRevenue = round($revenue->sum('amount'), 2);
         $totalExpense = round($expense->sum('amount'), 2);
+        $totalOperatingRevenue = round($operatingRevenue->sum('amount'), 2);
+        $totalOperatingExpense = round($operatingExpense->sum('amount'), 2);
 
         return [
             'revenue' => $revenue,
@@ -186,6 +216,24 @@ class LedgerReportService
             'total_revenue' => $totalRevenue,
             'total_expense' => $totalExpense,
             'net_profit' => round($totalRevenue - $totalExpense, 2),
+
+            // ── The NOI split (above), and what sits below the line ────────────────────────────
+            'operating_revenue' => $operatingRevenue,
+            'operating_expense' => $operatingExpense,
+            'other_revenue' => $otherRevenue,
+            'other_expense' => $otherExpense,
+            'total_operating_revenue' => $totalOperatingRevenue,
+            'total_operating_expense' => $totalOperatingExpense,
+            'net_operating_income' => round($totalOperatingRevenue - $totalOperatingExpense, 2),
+            'total_other_revenue' => round($otherRevenue->sum('amount'), 2),
+            'total_other_expense' => round($otherExpense->sum('amount'), 2),
+
+            // Is there anything below the line at all? When a chart classifies nothing as
+            // non-operating, NOI EQUALS net profit — and printing one figure twice under two names
+            // reads as an error, which is the rule `StatementGroups::worthShowing()` already
+            // applies one level down. So the three renderers ask this and, on a chart that has not
+            // been classified, lay the statement out exactly as they did before.
+            'has_below_the_line' => $otherRevenue->isNotEmpty() || $otherExpense->isNotEmpty(),
         ];
     }
 
@@ -428,6 +476,13 @@ class LedgerReportService
             'name_en' => $row->name_en,
             'name_ar' => $row->name_ar,
             'amount' => $amount,
+            // Resolved here rather than by each reader, so the plain statement, the comparative
+            // one, the CSV and the PDF cannot each floor an unclassified account differently. Null
+            // for a balance-sheet row: it has no result to place on an income statement, and a
+            // default of `operating` there would read as a claim rather than as "not applicable".
+            'statement_section' => in_array($row->type, ['revenue', 'expense'], true)
+                ? StatementSection::for($row->statement_section ?? null, (string) $row->type)
+                : null,
         ];
     }
 
@@ -531,7 +586,7 @@ class LedgerReportService
             ->when($assetIds !== null, fn ($q) => $q->whereIn('je.asset_id', $assetIds))
             ->when($from, fn ($q) => $q->whereDate('je.entry_date', '>=', $from->toDateString()))
             ->when($to, fn ($q) => $q->whereDate('je.entry_date', '<=', $to->toDateString()))
-            ->groupBy('la.id', 'la.code', 'la.name_en', 'la.name_ar', 'la.type', 'la.normal_balance', 'la.cash_flow_section')
+            ->groupBy('la.id', 'la.code', 'la.name_en', 'la.name_ar', 'la.type', 'la.normal_balance', 'la.cash_flow_section', 'la.statement_section')
             ->orderBy('la.code')
             ->get([
                 'la.id',
@@ -539,6 +594,10 @@ class LedgerReportService
                 // The account's own answer for the cash-flow statement (EG-28) — carried through
                 // the aggregate so `cashFlow()` never has to look at a code prefix again.
                 'la.cash_flow_section',
+                // And its answer for the income statement (NOI) — whether this account's result
+                // sits above or below the net-operating-income line. Carried the same way and for
+                // the same reason: so no reader ever has to look at a code prefix again.
+                'la.statement_section',
                 'la.name_en',
                 'la.name_ar',
                 'la.type',

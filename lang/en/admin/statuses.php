@@ -305,6 +305,11 @@ return [
             'investing' => 'Investing',
             'financing' => 'Financing',
         ],
+        'statement_section_unset' => 'Not classified',
+        'statement_section' => [
+            'operating' => 'Operating — in NOI',
+            'non_operating' => 'Below the NOI line',
+        ],
         'ledger_account_type' => [
             'asset' => 'Asset',
             'liability' => 'Liability',

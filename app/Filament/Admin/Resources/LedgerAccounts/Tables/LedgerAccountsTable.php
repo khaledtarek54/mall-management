@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\LedgerAccounts\Tables;
 
 use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
 use App\Support\CashFlowSection;
+use App\Support\StatementSection;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -61,6 +62,18 @@ class LedgerAccountsTable
                     // operating floor is being used.
                     ->placeholder('—')
                     ->toggleable(),
+                // And its answer for the income statement. Same reasoning: an accountant onboarding
+                // a chart has to be able to SEE which revenue and expense accounts are still
+                // unclassified, and the form alone would mean opening each one to find out.
+                TextColumn::make('statement_section')
+                    ->label(__('admin.fields.statement_section'))
+                    ->badge()
+                    ->color('gray')
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.statement_section.{$state}"))
+                    // A dash is correct on a balance-sheet account (no result to place) and means
+                    // the operating floor on a revenue or expense one.
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('normal_balance')
                     ->label(__('admin.fields.normal_balance'))
                     ->formatStateUsing(fn (string $state) => __("admin.enums.normal_balance.{$state}"))
@@ -89,6 +102,22 @@ class LedgerAccountsTable
                         '__none' => $query->whereNull('cash_flow_section')
                             ->whereNotIn('type', ['revenue', 'expense']),
                         default => $query->where('cash_flow_section', $data['value']),
+                    }),
+                // The same question for the other statement — and the one that matters more on
+                // a fresh import, because an unclassified account here silently carries a financing
+                // cost above the NOI line.
+                SelectFilter::make('statement_section')
+                    ->label(__('admin.fields.statement_section'))
+                    ->options(fn (): array => collect(StatementSection::SECTIONS)
+                        ->mapWithKeys(fn (string $x): array => [$x => __('admin.enums.statement_section.'.$x)])
+                        ->all() + ['__none' => __('admin.enums.statement_section_unset')])
+                    ->query(fn ($query, array $data) => match ($data['value'] ?? null) {
+                        null, '' => $query,
+                        // Only revenue and expense can BE unclassified here — the mirror of the
+                        // cash-flow filter's exclusion, in the opposite direction.
+                        '__none' => $query->whereNull('statement_section')
+                            ->whereIn('type', ['revenue', 'expense']),
+                        default => $query->where('statement_section', $data['value']),
                     }),
                 TernaryFilter::make('is_postable')
                     ->label(__('admin.fields.is_postable')),

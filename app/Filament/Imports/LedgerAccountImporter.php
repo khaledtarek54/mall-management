@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\LedgerAccount;
 use App\Support\CashFlowSection;
+use App\Support\StatementSection;
 use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
@@ -85,6 +86,14 @@ class LedgerAccountImporter extends Importer
                 // inferred from how somebody numbered it (EG-28). Blank leaves the account on the
                 // operating floor, and the chart screen's "Not classified" filter finds it.
                 ->rules(['nullable', Rule::in(CashFlowSection::SECTIONS)]),
+
+            ImportColumn::make('statement_section')
+                ->label(__('admin.fields.statement_section'))
+                // Optional for the same reason, and it matters more: blank leaves the account ABOVE
+                // the net-operating-income line, so an unstated financing cost quietly reduces the
+                // figure a valuation is built on. The chart screen's "Not classified" filter finds
+                // them, and net profit is right either way.
+                ->rules(['nullable', Rule::in(StatementSection::SECTIONS)]),
 
             ImportColumn::make('is_postable')
                 ->label(__('admin.fields.is_postable'))

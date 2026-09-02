@@ -13,8 +13,10 @@ use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ComparativeStatementService;
 use App\Services\Reports\ReportCsvExporter;
+use App\Support\IncomeStatementLayout;
 use App\Support\ReportPreferences;
 use App\Support\StatementGroups;
+use App\Support\StatementSection;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -245,17 +247,49 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
      */
     public function comparativeRecords(array $comparative): array
     {
-        $sections = [
-            'revenue' => [__('admin.reports.revenue'), __('admin.reports.total_revenue'), 'revenue'],
-            'expense' => [__('admin.reports.expenses'), __('admin.reports.total_expenses'), 'expense'],
-        ];
-
         $locale = app()->getLocale();
         $records = [];
         $i = 0;
 
-        foreach ($sections as $key => [$label, $totalLabel, $totalsKey]) {
-            $sectionRows = array_values(array_filter($comparative['rows'], fn (array $row) => $row['section'] === $key));
+        foreach ($this->comparativeLayout($comparative) as $part) {
+            // A NET part is a figure the parts above it foot to — NOI, and the bottom line. It has
+            // no accounts of its own, so it prints as one bold row.
+            if ($part['is_net']) {
+                $total = $comparative['totals'][$part['totals_key']];
+
+                $records[] = [
+                    'id' => 'c'.$i++,
+                    'section' => $part['label'],
+                    'code' => null,
+                    'account' => $part['label'],
+                    'amount' => $total['current'],
+                    'prior' => $total['prior'],
+                    'change' => $total['change'],
+                    'change_pct' => $total['change_pct'],
+                    'is_total' => true,
+                    'is_subtotal' => false,
+                    'account_id' => null,
+                ];
+
+                continue;
+            }
+
+            $sectionRows = array_values(array_filter(
+                $comparative['rows'],
+                // A null `statement_section` means "do not narrow": on an unclassified chart the
+                // statement has one revenue section and one expense section, and narrowing would
+                // give a stray row nowhere to print — a line silently missing from a financial
+                // statement is the one failure worse than a wrong layout.
+                fn (array $row): bool => $row['section'] === $part['section']
+                    && ($part['statement_section'] === null || $row['statement_section'] === $part['statement_section']),
+            ));
+
+            // A below-the-line section with nothing on EITHER side prints nothing — the same rule
+            // `IncomeStatementLayout` applies to the plain statement, so one picker cannot change
+            // which sections the statement has.
+            if ($sectionRows === [] && $part['optional']) {
+                continue;
+            }
 
             // The same chart grouping the plain statement gets (EG-28). This path carries codes
             // rather than account ids — the comparative service compares two periods and never
@@ -271,7 +305,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                 foreach ($group['rows'] as $row) {
                     $records[] = [
                         'id' => 'c'.$i++,
-                        'section' => $label,
+                        'section' => $part['label'],
                         'code' => $row['code'],
                         'account' => $row['label'],
                         'amount' => $row['current'],
@@ -298,7 +332,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
 
                 $records[] = [
                     'id' => 'c'.$i++,
-                    'section' => $label,
+                    'section' => $part['label'],
                     'code' => null,
                     'account' => __('admin.reports.group_subtotal', [
                         'group' => $locale === 'ar' ? $group['name_ar'] : $group['name_en'],
@@ -315,13 +349,13 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                 ];
             }
 
-            $total = $comparative['totals'][$totalsKey];
+            $total = $comparative['totals'][$part['totals_key']];
 
             $records[] = [
                 'id' => 'c'.$i++,
-                'section' => $label,
+                'section' => $part['label'],
                 'code' => null,
-                'account' => $totalLabel,
+                'account' => $part['total_label'],
                 'amount' => $total['current'],
                 'prior' => $total['prior'],
                 'change' => $total['change'],
@@ -332,23 +366,76 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
             ];
         }
 
-        $net = $comparative['totals']['net'];
-
-        $records[] = [
-            'id' => 'c'.$i++,
-            'section' => __('admin.reports.net_profit'),
-            'code' => null,
-            'account' => __('admin.reports.net_profit'),
-            'amount' => $net['current'],
-            'prior' => $net['prior'],
-            'change' => $net['change'],
-            'change_pct' => $net['change_pct'],
-            'is_total' => true,
-            'is_subtotal' => false,
-            'account_id' => null,
-        ];
-
         return $records;
+    }
+
+    /**
+     * The comparative statement's sections, in reading order.
+     *
+     * The twin of `IncomeStatementLayout::sections()`, and it deliberately answers the same two
+     * shapes: an unclassified chart reads revenue / expenses / net profit, and a chart with anything
+     * below the line grows the NET OPERATING INCOME row. Choosing a comparison must change how many
+     * COLUMNS the statement has, never what shape it is — a picker that silently relaid the sections
+     * would leave two readings of one statement that nobody could reconcile.
+     *
+     * It cannot simply call the layout class: that class works from the report's own collections,
+     * and a comparative row set is a UNION of two periods — an account that ran last period and
+     * stopped has no row in this one, and dropping it would hide the change most worth seeing. So
+     * this describes the same sections and selects rows by what they carry.
+     *
+     * @param  array<string, mixed>  $comparative
+     * @return list<array{label: string, section: ?string, statement_section: ?string, totals_key: string, total_label: ?string, is_net: bool, optional: bool}>
+     */
+    private function comparativeLayout(array $comparative): array
+    {
+        if (! ($comparative['has_below_the_line'] ?? false)) {
+            return [
+                self::comparativePart(__('admin.reports.revenue'), 'revenue', null, 'revenue', __('admin.reports.total_revenue')),
+                self::comparativePart(__('admin.reports.expenses'), 'expense', null, 'expense', __('admin.reports.total_expenses')),
+                self::comparativeNet(__('admin.reports.net_profit'), 'net'),
+            ];
+        }
+
+        return [
+            self::comparativePart(__('admin.reports.operating_revenue'), 'revenue', StatementSection::OPERATING, 'operating_revenue', __('admin.reports.total_operating_revenue')),
+            self::comparativePart(__('admin.reports.operating_expenses'), 'expense', StatementSection::OPERATING, 'operating_expense', __('admin.reports.total_operating_expenses')),
+            self::comparativeNet(__('admin.reports.net_operating_income'), 'noi'),
+            self::comparativePart(__('admin.reports.other_income'), 'revenue', StatementSection::NON_OPERATING, 'other_revenue', __('admin.reports.total_other_income'), optional: true),
+            self::comparativePart(__('admin.reports.other_expenses'), 'expense', StatementSection::NON_OPERATING, 'other_expense', __('admin.reports.total_other_expenses'), optional: true),
+            self::comparativeNet(__('admin.reports.net_profit'), 'net'),
+        ];
+    }
+
+    /**
+     * @return array{label: string, section: ?string, statement_section: ?string, totals_key: string, total_label: ?string, is_net: bool, optional: bool}
+     */
+    private static function comparativePart(string $label, string $section, ?string $statementSection, string $totalsKey, string $totalLabel, bool $optional = false): array
+    {
+        return [
+            'label' => $label,
+            'section' => $section,
+            'statement_section' => $statementSection,
+            'totals_key' => $totalsKey,
+            'total_label' => $totalLabel,
+            'is_net' => false,
+            'optional' => $optional,
+        ];
+    }
+
+    /**
+     * @return array{label: string, section: ?string, statement_section: ?string, totals_key: string, total_label: ?string, is_net: bool, optional: bool}
+     */
+    private static function comparativeNet(string $label, string $totalsKey): array
+    {
+        return [
+            'label' => $label,
+            'section' => null,
+            'statement_section' => null,
+            'totals_key' => $totalsKey,
+            'total_label' => null,
+            'is_net' => true,
+            'optional' => false,
+        ];
     }
 
     public function table(Table $table): Table
@@ -361,28 +448,19 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                     return $this->comparativeRecords($comparative);
                 }
 
-                $report = $this->report();
-
-                return $this->statementRecords([
-                    __('admin.reports.revenue') => [
-                        'rows' => $report['revenue'],
-                        'total' => $report['total_revenue'],
-                        'total_label' => __('admin.reports.total_revenue'),
-                    ],
-                    __('admin.reports.expenses') => [
-                        'rows' => $report['expense'],
-                        'total' => $report['total_expense'],
-                        'total_label' => __('admin.reports.total_expenses'),
-                    ],
-                    // Net profit stands as its own one-line section so it reads
-                    // where an income statement puts it — under the two it derives
-                    // from — instead of being tacked onto expenses.
-                    __('admin.reports.net_profit') => [
-                        'rows' => collect(),
-                        'total' => $report['net_profit'],
-                        'total_label' => __('admin.reports.net_profit'),
-                    ],
-                ]);
+                // Sections and their order come from `IncomeStatementLayout`, which the CSV and the
+                // PDF read too — including the net lines, which stand as their own one-line
+                // sections so each reads where an income statement puts it, under what it derives
+                // from, instead of being tacked onto the section above.
+                return $this->statementRecords(
+                    collect(IncomeStatementLayout::sections($this->report()))
+                        ->mapWithKeys(fn (array $section): array => [$section['label'] => [
+                            'rows' => $section['rows'],
+                            'total' => $section['total'],
+                            'total_label' => $section['total_label'],
+                        ]])
+                        ->all(),
+                );
             });
     }
 }

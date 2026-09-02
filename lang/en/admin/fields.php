@@ -455,6 +455,7 @@ return [
         'purchase_request_none' => 'None — a general expense',
         'account_code' => 'Account code',
         'cash_flow_section' => 'Cash-flow section',
+        'statement_section' => 'Income-statement section',
         'account_type' => 'Account nature',
         'account_name_ar' => 'Name (Arabic)',
         'account_name_en' => 'Name (English)',

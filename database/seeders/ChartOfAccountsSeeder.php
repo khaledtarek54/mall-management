@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\LedgerAccount;
 use App\Support\CashFlowSection;
+use App\Support\StatementSection;
 use Illuminate\Database\Seeder;
 
 /**
@@ -266,6 +267,10 @@ class ChartOfAccountsSeeder extends Seeder
                     // from OUR chart's own codes, which is the one place that inference is
                     // legitimate — the cash-flow statement itself no longer reads a code.
                     'cash_flow_section' => CashFlowSection::forShippedChart($code, $type),
+                    // And the income statement's own split — which side of the
+                    // net-operating-income line this account's result falls. Same rule: derived
+                    // from OUR chart here, and never inferred by the statement itself.
+                    'statement_section' => StatementSection::forShippedChart($code, $type),
                     'is_postable' => $isPostable,
                     'is_active' => true,
                 ],

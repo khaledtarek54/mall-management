@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\LedgerAccounts\Schemas;
 
 use App\Rules\AccountCodeMatchesType;
 use App\Support\CashFlowSection;
+use App\Support\StatementSection;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -58,6 +59,20 @@ class LedgerAccountForm
                         ->visible(fn (Get $get): bool => ! in_array($get('type'), ['revenue', 'expense'], true))
                         ->helperText(__('admin.helpers.cash_flow_section'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cash_flow_section')),
+
+                    // The mirror image: where this account's RESULT sits on the income statement,
+                    // above or below the net-operating-income line. Only revenue and expense carry
+                    // one — a balance-sheet account has no result to place — so the two selects are
+                    // exactly complementary and the form never shows both at once.
+                    Select::make('statement_section')
+                        ->label(__('admin.fields.statement_section'))
+                        ->options(fn (): array => collect(StatementSection::SECTIONS)
+                            ->mapWithKeys(fn (string $s): array => [$s => __('admin.enums.statement_section.'.$s)])
+                            ->all())
+                        ->native(false)
+                        ->visible(fn (Get $get): bool => in_array($get('type'), ['revenue', 'expense'], true))
+                        ->helperText(__('admin.helpers.statement_section'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.statement_section')),
 
                     TextInput::make('name_ar')
                         ->label(__('admin.fields.account_name_ar'))

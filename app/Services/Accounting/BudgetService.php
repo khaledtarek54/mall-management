@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Models\BudgetLine;
 use App\Models\LedgerAccount;
+use App\Support\StatementSection;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Collection;
@@ -40,7 +41,7 @@ class BudgetService
             ->whereIn('ledger_accounts.type', ['revenue', 'expense'])
             ->get([
                 'ledger_accounts.id', 'ledger_accounts.code', 'ledger_accounts.name_en',
-                'ledger_accounts.name_ar', 'ledger_accounts.type',
+                'ledger_accounts.name_ar', 'ledger_accounts.type', 'ledger_accounts.statement_section',
                 'budget_lines.fiscal_year', 'budget_lines.month', 'budget_lines.amount',
             ])
             ->filter(function ($row) use ($from, $to) {
@@ -61,6 +62,10 @@ class BudgetService
                 'name_en' => $first->name_en,
                 'name_ar' => $first->name_ar,
                 'amount' => round((float) $accountRows->sum('amount'), 2),
+                // Carried so a BUDGET comparison splits at the same NOI line the actuals do. Without
+                // it the budget column would floor every account to `operating` and the variance
+                // against NOI would compare a split figure with an unsplit one.
+                'statement_section' => StatementSection::for($first->statement_section ?? null, (string) $first->type),
             ];
 
             $first->type === 'revenue' ? $revenue->push($line) : $expense->push($line);
@@ -69,12 +74,36 @@ class BudgetService
         $totalRevenue = round($revenue->sum('amount'), 2);
         $totalExpense = round($expense->sum('amount'), 2);
 
+        $operating = fn (Collection $lines, bool $wanted): Collection => $lines
+            ->filter(fn (array $l): bool => ($l['statement_section'] === StatementSection::OPERATING) === $wanted)
+            ->values();
+
+        $operatingRevenue = $operating($revenue, true);
+        $operatingExpense = $operating($expense, true);
+        $otherRevenue = $operating($revenue, false);
+        $otherExpense = $operating($expense, false);
+        $totalOperatingRevenue = round($operatingRevenue->sum('amount'), 2);
+        $totalOperatingExpense = round($operatingExpense->sum('amount'), 2);
+
         return [
             'revenue' => $revenue->sortBy('code')->values(),
             'expense' => $expense->sortBy('code')->values(),
             'total_revenue' => $totalRevenue,
             'total_expense' => $totalExpense,
             'net_profit' => round($totalRevenue - $totalExpense, 2),
+
+            // The same NOI split the actuals carry, so the two sides of a budget variance are laid
+            // out identically. Additive here too — every existing key is untouched.
+            'operating_revenue' => $operatingRevenue->sortBy('code')->values(),
+            'operating_expense' => $operatingExpense->sortBy('code')->values(),
+            'other_revenue' => $otherRevenue->sortBy('code')->values(),
+            'other_expense' => $otherExpense->sortBy('code')->values(),
+            'total_operating_revenue' => $totalOperatingRevenue,
+            'total_operating_expense' => $totalOperatingExpense,
+            'net_operating_income' => round($totalOperatingRevenue - $totalOperatingExpense, 2),
+            'total_other_revenue' => round($otherRevenue->sum('amount'), 2),
+            'total_other_expense' => round($otherExpense->sum('amount'), 2),
+            'has_below_the_line' => $otherRevenue->isNotEmpty() || $otherExpense->isNotEmpty(),
         ];
     }
 

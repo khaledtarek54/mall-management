@@ -304,6 +304,11 @@ return [
             'investing' => 'الاستثمار',
             'financing' => 'التمويل',
         ],
+        'statement_section_unset' => 'غير مصنَّف',
+        'statement_section' => [
+            'operating' => 'تشغيلي — ضمن صافي الدخل التشغيلي',
+            'non_operating' => 'خارج التشغيل — أسفل الخط',
+        ],
         'ledger_account_type' => [
             'asset' => 'أصول',
             'liability' => 'خصوم',

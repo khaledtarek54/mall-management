@@ -595,7 +595,7 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 |--------|--------|------------|
 | Trial Balance | ميزان المراجعة | per account: Σ debit, Σ credit, balance — must net to zero overall |
 | General Ledger / account statement | دفتر الأستاذ / كشف حساب | per account: every line, running balance |
-| Income Statement (P&L) | قائمة الدخل | Σ revenue − Σ expense = net profit (contra-revenue nets in) |
+| Income Statement (P&L) | قائمة الدخل | Operating revenue − operating expenses = **NET OPERATING INCOME**; then ± below-the-line (depreciation, interest, gains/losses on disposal) = net profit. Contra-revenue nets into revenue. The split follows `ledger_accounts.statement_section`, never the code — see *A property P&L stops at net operating income* below. |
 | Balance Sheet | قائمة المركز المالي | Assets = Liabilities + Equity + net-income-for-period (until year-end close, Phase 4) |
 | Cash-Flow Statement | قائمة التدفقات النقدية | Indirect method: net income ± working-capital changes (operating) + investing + financing. **Reconcile-by-construction:** by double-entry, ΔCash ≡ −Σ(non-cash account movements), so the three sections are classified by code range (111 = cash · 121 = gross non-current assets → investing · 122 = accumulated depreciation → operating add-back · **222 = provisions → operating add-back** · 22 + equity → financing · else operating) and sum to the actual cash movement (`reconciled` = a double-entry integrity guard). Closing entries excluded. |
 
@@ -733,6 +733,74 @@ about charts. The report no longer reads a code.
   through to the operating default, which is the very class of bug this fixed.
 - **The cash branch is tested BEFORE the zero-impact guard**: a cash account whose movement nets to
   zero over the period still contributes to the running cash figure.
+
+### A property P&L stops at NET OPERATING INCOME (2026-09-02)
+
+`ledger_accounts.statement_section` — `operating` · `non_operating` — resolved through
+`App\Support\StatementSection`, and laid out by `App\Support\IncomeStatementLayout`.
+
+The income statement ran revenue − expenses = net profit with nothing in between, so the cost of
+cleaning the mall sat in the same total as the interest on the loan secured against it and the
+depreciation of its lifts. That is a general-ledger income statement. A **property** one splits at
+NOI:
+
+```
+  Operating revenue      rent · service charge · CAM recovery · percentage rent · parking · misc income
+− Operating expenses     cleaning · security · R&M · utilities · salaries · bad debt · irrecoverable tax
+= NET OPERATING INCOME
+± Below the line         depreciation · interest · bank charges · gains and losses on disposal
+= Net profit
+```
+
+**Why it is the number that matters.** A mall is worth roughly its NOI divided by a cap rate, so NOI
+is the first figure an owner, a valuer or a lender reads. Two malls with identical NOI are worth the
+same whether one is mortgaged and the other is not, and whether one depreciates over 25 years and
+the other over 40 — which is exactly what the items below the line differ on. Yardi, MRI and Entrata
+all print this subtotal; Atriom did not.
+
+**The classification is on the ACCOUNT, never the code** — the same finding as `cash_flow_section`
+above, and here the argument is sharper, because ONE prefix genuinely holds both answers: `42101`
+Miscellaneous Income is ordinary property income and belongs inside NOI, while `42102` Gain on
+Disposal of Assets sits beside it under `42 Other Income` and must not. No rule reading `42` can
+tell those apart. Prefixes survive only in `StatementSection::forShippedChart()`, used by the
+backfill migration and the seeder.
+
+- **The split is ADDITIVE and cannot move the bottom line.** `revenue`, `expense`, `total_revenue`,
+  `total_expense` and `net_profit` are computed off the FULL sets exactly as before; the four new
+  collections and five new totals are added beside them. Five readers consume that array — the
+  screen, the CSV, the PDF, `ComparativeStatementService` and `GenerateOwnerStatementRunService`,
+  which turns it into money an owner is actually paid — and none can shift by a penny. `net_profit`
+  stays right even when every account is misclassified; only NOI moves.
+- **The floor is OPERATING**, so an unclassified account counts inside NOI. That UNDERSTATES NOI and
+  leaves net profit exactly right. Erring the other way would overstate the number a valuation is
+  built on, which is the one direction that costs money.
+- **The line appears only when it means something.** With nothing classified below it, NOI EQUALS
+  net profit, and printing one figure twice under two names reads as an error rather than as
+  information — the rule `StatementGroups::worthShowing()` already applies one level down. So an
+  install that has never opened the chart screen sees exactly what it saw before, and a
+  below-the-line section with no rows on either side prints nothing at all.
+- **One layout, four renderers.** `IncomeStatementLayout::sections()` is the only description of what
+  the sections are and where the net lines fall; the screen, the CSV and the PDF all read it, and
+  `IncomeStatement::comparativeLayout()` answers the same two shapes for the comparative reading —
+  choosing a comparison changes how many COLUMNS the statement has, never what shape it is. The
+  comparative one cannot simply call the layout class: a comparative row set is the UNION of two
+  periods, so `has_below_the_line` asks EITHER side, or a cost that ran last period and stopped —
+  the change most worth seeing — would drop out of the statement entirely.
+- **Only revenue and expense carry one.** A balance-sheet account has no result to place; the form
+  hides the field for them, the seeder leaves it null, and a test asserts none is seeded with one.
+  The exact mirror of the rule `cash_flow_section` states in the other direction.
+- **Registered in `ValueSets`**, because a mistyped section does not error — it silently floors to
+  `operating`. On the chart screen it is a column, a form field and a **"Not classified"** filter, so
+  an accountant onboarding a chart can see what is still unstated instead of opening every account.
+  The importer carries it too (EG-28's chart import).
+- **Note on subtotals.** `StatementGroups` groups a section by the chart's own hierarchy, and this
+  split cuts across it: depreciation stays at `51107`, inside `51 Operating Expenses`, while being
+  classified below the line. On the shipped chart that group has one row and so prints no subtotal;
+  on a chart where several accounts under one branch are classified differently, a below-the-line
+  section could print a heading naming the operating branch. It would still be true about the chart,
+  and the answer is the chart — give the below-the-line accounts their own branch.
+
+`APropertyPnlStopsAtNetOperatingIncomeTest` covers it, mutation-proved five ways.
 
 ### A recurring cost SCHEDULE is not a GL source (EG-33, 2026-08-23)
 

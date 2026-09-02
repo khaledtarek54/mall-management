@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Services\Accounting\BudgetService;
 use App\Services\Accounting\LedgerReportService;
+use App\Support\StatementSection;
 use Carbon\CarbonImmutable;
 
 /**
@@ -125,12 +126,26 @@ class ComparativeStatementService
             'prior_from' => $priorFrom->toDateString(),
             'prior_to' => $priorTo->toDateString(),
             'rows' => $rows,
+            // Whether EITHER side has something below the NOI line. Either, not both: a cost that
+            // ran last period and stopped is exactly the change a comparison exists to show, and
+            // asking for both would drop it out of the statement entirely.
+            'has_below_the_line' => (bool) ($current['has_below_the_line'] ?? false) || (bool) ($prior['has_below_the_line'] ?? false),
             'totals' => [
                 'revenue' => self::delta((float) $current['total_revenue'], (float) $prior['total_revenue']),
                 'expense' => self::delta((float) $current['total_expense'], (float) $prior['total_expense']),
                 // `net_profit`, not `net` — the defensive `?? 0` this replaced would have compared 0 to 0
                 // for ever, and silently: the row would have rendered as "no change" every month.
                 'net' => self::delta((float) $current['net_profit'], (float) $prior['net_profit']),
+
+                // ── The NOI split, compared the same way ──────────────────────────────────────
+                // `noi` is the one an operator reads first: it says whether the MALL's trading
+                // result moved, with the depreciation and interest that would otherwise muddy it
+                // held out in their own rows.
+                'operating_revenue' => self::delta((float) $current['total_operating_revenue'], (float) $prior['total_operating_revenue']),
+                'operating_expense' => self::delta((float) $current['total_operating_expense'], (float) $prior['total_operating_expense']),
+                'noi' => self::delta((float) $current['net_operating_income'], (float) $prior['net_operating_income']),
+                'other_revenue' => self::delta((float) $current['total_other_revenue'], (float) $prior['total_other_revenue']),
+                'other_expense' => self::delta((float) $current['total_other_expense'], (float) $prior['total_other_expense']),
             ],
         ];
     }
@@ -166,6 +181,11 @@ class ComparativeStatementService
             'account_id' => isset($row['account_id']) ? (int) $row['account_id'] : null,
             'code' => $row['code'] ?? null,
             'section' => $section,
+            // Which side of the net-operating-income line this account's result falls. Carried so a
+            // comparison lays the statement out the SAME way the plain reading of it does — one
+            // picker must not change what shape the statement is, only how many columns it has.
+            // Floored here as well as at source, because a prior-only row can come from the budget.
+            'statement_section' => StatementSection::for($row['statement_section'] ?? null, $section),
         ] + self::delta($current, $prior);
     }
 

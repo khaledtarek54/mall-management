@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Invoice;
+use App\Support\IncomeStatementLayout;
 use App\Support\JournalNarrative;
 use App\Support\StatementGroups;
 use Illuminate\Support\Collection;
@@ -50,10 +51,23 @@ class ReportCsvExporter
     /** @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>} */
     public function incomeStatement(array $report): array
     {
-        return $this->sectioned([
-            [__('admin.reports.csv.revenue'), $report['revenue'], (float) $report['total_revenue']],
-            [__('admin.reports.csv.expenses'), $report['expense'], (float) $report['total_expense']],
-        ], netLabel: __('admin.reports.csv.net'), netAmount: (float) $report['net_profit']);
+        // The same sections, in the same order, that the screen and the PDF print
+        // ({@see IncomeStatementLayout}) — including the net-operating-income line when the chart
+        // has anything below it. An export laid out differently from the screen it was taken from
+        // is the drift this project has shipped once already.
+        $sections = IncomeStatementLayout::sections($report);
+
+        // The last section IS the bottom line, and `sectioned()` prints that separately.
+        $net = array_pop($sections);
+
+        return $this->sectioned(
+            array_map(
+                fn (array $s): array => [$s['label'], $s['rows'], $s['total'], $s['total_label']],
+                $sections,
+            ),
+            netLabel: $net['label'],
+            netAmount: $net['total'],
+        );
     }
 
     /** @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>} */
@@ -89,7 +103,10 @@ class ReportCsvExporter
      * [section, account code, account name, amount]; each section closes with a subtotal, then a
      * final net line — so the CSV reads exactly like the on-screen statement.
      *
-     * @param  array<int, array{0:string,1:Collection|iterable,2:float}>  $sections
+     * A section may name its own total line (the income statement's "Total operating expenses",
+     * and its mid-statement NET OPERATING INCOME row); the others fall back to a plain "Subtotal".
+     *
+     * @param  array<int, array{0:string,1:Collection|iterable,2:float,3?:?string}>  $sections
      * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
      */
     private function sectioned(array $sections, string $netLabel, float $netAmount, bool $grouped = true): array
@@ -97,7 +114,9 @@ class ReportCsvExporter
         $locale = app()->getLocale();
         $rows = [];
 
-        foreach ($sections as [$label, $lines, $subtotal]) {
+        foreach ($sections as $section) {
+            [$label, $lines, $subtotal] = $section;
+            $subtotalLabel = $section[3] ?? __('admin.reports.csv.subtotal');
             // The chart's own subtotals (EG-28) — the same ones the screen and the PDF print, from
             // the same helper. A statement whose export is laid out differently from the screen is
             // the failure this ticket's sibling (EG-36) shipped once already.
@@ -118,7 +137,7 @@ class ReportCsvExporter
                 ]), round($group['total'], 2)];
             }
 
-            $rows[] = [$label, '', __('admin.reports.csv.subtotal'), round($subtotal, 2)];
+            $rows[] = [$label, '', $subtotalLabel, round($subtotal, 2)];
         }
         $rows[] = ['', '', $netLabel, round($netAmount, 2)];
 
