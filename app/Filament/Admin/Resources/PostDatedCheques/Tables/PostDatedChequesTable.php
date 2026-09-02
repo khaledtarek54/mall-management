@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources\PostDatedCheques\Tables;
 
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Models\PostDatedCheque;
+use App\Support\Filament\BankAccountColumn;
+use App\Support\Filament\BankAccountFilter;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -28,6 +30,18 @@ class PostDatedChequesTable
                 TextColumn::make('amount')->label(__('admin.post_dated_cheques.fields.amount'))->money('EGP')->alignRight()->sortable()
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('cheque_date')->label(__('admin.post_dated_cheques.fields.cheque_date'))->date()->sortable(),
+                // "Which bank are we waiting on, and since when?" — the question a lodgement
+                // register exists to answer, and until 2026-09-02 it could answer neither. Toggled
+                // off by default: it is blank for every cheque still in the drawer, which is most
+                // of them on a healthy register.
+                BankAccountColumn::make()
+                    ->label(__('admin.post_dated_cheques.fields.bank_account'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('deposited_on')
+                    ->label(__('admin.post_dated_cheques.fields.deposited_on'))
+                    ->date()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->label(__('admin.post_dated_cheques.fields.status'))
                     ->badge()
@@ -42,6 +56,8 @@ class PostDatedChequesTable
             ])
             ->defaultSort('cheque_date', 'asc')
             ->filters([
+                BankAccountFilter::make()
+                    ->label(__('admin.post_dated_cheques.fields.bank_account')),
                 SelectFilter::make('status')
                     ->label(__('admin.post_dated_cheques.fields.status'))
                     ->options(fn () => collect(PostDatedCheque::STATUSES)

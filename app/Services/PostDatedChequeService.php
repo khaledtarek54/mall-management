@@ -21,16 +21,51 @@ use Illuminate\Support\Facades\DB;
  */
 class PostDatedChequeService
 {
-    public function deposit(PostDatedCheque $cheque): PostDatedCheque
+    /**
+     * Lodge the cheque with a bank for collection — and RECORD WHICH ONE.
+     *
+     * **The bank is captured here, not at clearing, and that is Yardi's shape.** Voyager deposits a
+     * PDC to a named bank account and treats clearing as the confirmation of that deposit. The bank
+     * belongs to the physical act — one piece of paper, one branch — and it is known on the day.
+     * Atriom used to infer it months later from whichever property was on screen when somebody
+     * pressed Clear, which is right most of the time and a guess every time. It is not cosmetic:
+     * `MatchBankStatementLineService::candidatesFor()` finds candidates by the chart account behind
+     * the bank, so a cheque banked at NBE and cleared under CIB becomes a CIB candidate and the
+     * operator matches money against a statement it never appeared on.
+     *
+     * **Optional, on the same terms as every other bank account in this system.** An install that
+     * has not registered one still lodges cheques exactly as before; the account simply stays null
+     * and clearing falls back to the rail. `RecordsBankAccount` refuses another mall's account.
+     *
+     * **Re-presenting a bounced cheque re-asks.** A cheque returned unpaid is commonly re-presented
+     * somewhere else, so the new answer replaces the old rather than the first lodgement standing
+     * for the life of the instrument. Passing nothing on a re-present keeps what was there, because
+     * "I did not say" must not erase "it went to CIB".
+     */
+    public function deposit(PostDatedCheque $cheque, ?int $bankAccountId = null, ?string $depositedOn = null): PostDatedCheque
     {
-        return DB::transaction(function () use ($cheque) {
+        return DB::transaction(function () use ($cheque, $bankAccountId, $depositedOn) {
             $cheque = PostDatedCheque::whereKey($cheque->id)->lockForUpdate()->firstOrFail();
 
             if (! in_array($cheque->status, [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_BOUNCED], true)) {
                 throw new \DomainException(__('admin.refusals.cheque_deposit_state'));
             }
 
-            $cheque->update(['status' => PostDatedCheque::STATUS_DEPOSITED]);
+            // A lodgement cannot be in the future — you either handed the cheque over or you did
+            // not. Nothing posts here, so the period is not consulted: this is a fact about paper,
+            // not an entry. (`PostingDate::assertNotFuture` is for dates that become an entry_date.)
+            $on = $depositedOn !== null ? Carbon::parse($depositedOn) : Carbon::now();
+
+            if ($on->isAfter(Carbon::now()->endOfDay())) {
+                throw new \DomainException(__('admin.refusals.cheque_deposit_future'));
+            }
+
+            $cheque->update([
+                'status' => PostDatedCheque::STATUS_DEPOSITED,
+                'deposited_on' => $on->toDateString(),
+                // Coalesce, never overwrite with null — see the docblock.
+                'bank_account_id' => $bankAccountId ?? $cheque->bank_account_id,
+            ]);
 
             return $cheque;
         });
@@ -55,6 +90,10 @@ class PostDatedChequeService
                 'amount' => round((float) $cheque->amount, 2),
                 'currency' => $cheque->currency,
                 'method' => 'cheque',
+                // WHERE the money landed, taken from the lodgement rather than from whatever
+                // property is on screen. Null when the cheque was never lodged against a named
+                // account, which falls back to the rail exactly as it did before.
+                'bank_account_id' => $cheque->bank_account_id,
                 'status' => 'captured',
                 'payment_date' => $date->toDateString(),
                 'cheque_number' => $cheque->cheque_number,

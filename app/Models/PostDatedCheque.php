@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
@@ -30,7 +31,12 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned]
 class PostDatedCheque extends Model
 {
-    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
+    // For the cross-property GUARD and the relation, not for the defaulting: a PDC has no rail
+    // column, so `RecordsBankAccount` never fills one in — which is exactly right. A HELD cheque is
+    // in a drawer, not at a bank, and inventing an account for it would say the lodgement happened.
+    // What the trait does bring is the refusal that matters here: a cheque taken at Mall A cannot be
+    // lodged into Mall B's account, which would post Mall A's collection into Mall B's bank.
+    use HasFactory, HasSearchText, LogsActivity, RecordsBankAccount, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     public const STATUS_HELD = 'held';           // received, awaiting maturity
 
@@ -51,11 +57,16 @@ class PostDatedCheque extends Model
         'lease_id',
         'invoice_id',
         'cheque_number',
+        // The DRAWER's bank — the tenant's, printed on the face of the cheque.
         'bank_name',
+        // …and ours: which of the operator's accounts it was lodged with for collection. Two
+        // different banks with similar-looking names, which is why the columns read as a pair.
+        'bank_account_id',
         'amount',
         'currency',
         'cheque_date',
         'received_date',
+        'deposited_on',
         'status',
         'cleared_payment_id',
         'nsf_fee_invoice_id',
@@ -72,6 +83,7 @@ class PostDatedCheque extends Model
         'amount' => 'decimal:2',
         'cheque_date' => 'date',
         'received_date' => 'date',
+        'deposited_on' => 'date',
     ];
 
     protected $attributes = [

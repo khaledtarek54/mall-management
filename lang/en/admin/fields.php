@@ -390,6 +390,7 @@ return [
         'supersedes_id' => 'Supersedes',
         'finalised_at' => 'Finalised at',
         'finalised_by_user_id' => 'Finalised by',
+        'deposited_on' => 'Deposited on',
         'received_date' => 'Received date',
         'cleared_payment_id' => 'Clearing payment',
         'nsf_fee_invoice_id' => 'Returned-cheque fee invoice',

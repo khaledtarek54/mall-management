@@ -389,6 +389,7 @@ return [
         'supersedes_id' => 'يحل محل',
         'finalised_at' => 'تاريخ الاعتماد النهائي',
         'finalised_by_user_id' => 'اعتمدها نهائيًا',
+        'deposited_on' => 'تاريخ الإيداع',
         'received_date' => 'تاريخ الاستلام',
         'cleared_payment_id' => 'دفعة التحصيل',
         'nsf_fee_invoice_id' => 'فاتورة رسوم الشيك المرتد',

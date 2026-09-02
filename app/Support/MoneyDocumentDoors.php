@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Concerns\RecordsBankAccount;
 use App\Support\Filament\BankAccountField;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Every screen through which an operator records money that moves through a bank — and the rule
@@ -197,6 +198,29 @@ final class MoneyDocumentDoors
         ksort($documents);
 
         return $documents;
+    }
+
+    /**
+     * The documents that can HAVE a door — the ones that ask a rail on a screen somewhere.
+     *
+     * A door is derived from a schema collecting the document's rail, so a document with no rail
+     * COLUMN can have no door by construction and reporting it as undoored would be reporting on the
+     * shape of the model rather than on a gap. `PostDatedCheque` is the case: it carries a bank
+     * account because a cheque is LODGED with one, and its rail is the paper itself — there is no
+     * `method` on the register, and the `cheque` rail appears on the `Payment` clearing mints.
+     *
+     * Asked of the SCHEMA rather than kept as a list, so the next such document is classified by
+     * being what it is.
+     *
+     * @return array<class-string, array{rail: string, purpose: string}>
+     */
+    public static function documentsWithARail(): array
+    {
+        return array_filter(
+            self::documents(),
+            fn (array $meta, string $model) => Schema::hasColumn((new $model)->getTable(), $meta['rail']),
+            ARRAY_FILTER_USE_BOTH,
+        );
     }
 
     /**

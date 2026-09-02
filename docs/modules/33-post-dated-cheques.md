@@ -27,6 +27,44 @@ from the competitive gap analysis, and a **differentiator** (no Western benchmar
 | `status` | `held` → `deposited` → `cleared` / `bounced`; `cancelled` |
 | `cleared_payment_id` | the `Payment` recorded when it cleared |
 
+### The lodgement bank (2026-09-02)
+
+`bank_name` is the **DRAWER's** bank — the tenant's, printed on the face of the cheque. Nothing
+recorded the other side, so although `deposited` has been one of the five statuses since the register
+shipped, it could say a cheque was *at a bank* and never **which**. `bank_account_id` +
+`deposited_on` close that.
+
+**Captured at LODGEMENT, which is Yardi's shape.** Voyager deposits a PDC to a named bank account and
+treats clearing as the confirmation of that deposit: the bank belongs to the physical act — one piece
+of paper, one branch — and it is known on the day. Atriom inferred it months later at CLEARING, from
+whichever property was on screen when somebody pressed Clear, because `clear()` built its `Payment`
+without a bank and the property default filled it in. Right most of the time and a guess every time —
+and not cosmetic, since `MatchBankStatementLineService::candidatesFor()` finds candidates by the chart
+account behind the bank, so a cheque banked at NBE and cleared under CIB becomes a CIB candidate and
+the operator matches money against a statement it never appeared on.
+
+`deposit()` therefore takes the account and the date, `clear()` hands the cheque's own
+`bank_account_id` to the `Payment`, and the action is a **modal** rather than a one-click status flip.
+Three rules fell out of it:
+
+- **A re-present re-asks, and silence keeps.** A bounced cheque is commonly put through a different
+  account, so a named account replaces the old one — but passing nothing keeps what was there,
+  because *"I did not say"* must not erase *"it went to NBE"*.
+- **A lodgement cannot be dated in the future.** You either handed the cheque over or you did not.
+  Nothing posts, so the accounting PERIOD is deliberately not consulted — this is a fact about paper,
+  not an entry, which is why it is not `PostingDate::assertNotFuture()`.
+- **`RecordsBankAccount` is on the model for the GUARD, not the defaulting.** A cheque taken at Mall A
+  may not be lodged into Mall B's account. The concern never fills one in here because a PDC has no
+  rail column — which is exactly right: a HELD cheque is in a drawer, not at a bank, and inventing an
+  account for it would assert a lodgement that never happened. That also makes `PostDatedCheque` the
+  first document in `MoneyDocumentDoors` with no door, so the gate's premise now derives which
+  documents *can* have one rather than assuming all do.
+
+**Still register-only.** Neither column posts. The v1 scope above — *register-only, settle-on-clear*,
+with the Notes-Receivable-on-lodging accrual deferred pending the accountant — is unchanged, and
+these are descriptive of an act the operator performed. (`ALodgedChequeNamesTheBankItWentToTest`,
+both teeth mutation-proved.)
+
 ## 2. Lifecycle & rules
 
 ```

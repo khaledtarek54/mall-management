@@ -21,6 +21,7 @@
 
 return [
     'refusals' => [
+        'cheque_deposit_future' => 'A cheque cannot be lodged on a future date — you either handed it to the bank or you did not. Use the day you actually presented it.',
         'payroll_approval_in_progress' => 'Another approval for this month is already running. Wait for it to finish, then reload this run before approving.',
         'announcement_window_closed' => 'This notice ends :expired, which has already passed — every tenant would be sent to a notice they cannot open, and a sent notice cannot be corrected. Move the end date forward first.',
         'tenant_request_needs_a_unit' => 'This account has no shop to report against — a lease that has ended, or a purchase not yet handed over. Ask the operator to check the record.',

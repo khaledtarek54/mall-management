@@ -7,6 +7,7 @@ use App\Models\PostDatedCheque;
 use App\Services\BillBouncedChequeFeeService;
 use App\Services\PostDatedChequeService;
 use App\Settings\BillingSettings;
+use App\Support\Filament\BankAccountField;
 use App\Support\RowActionPolicy;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -39,9 +40,32 @@ class PostDatedChequeActions
                 ->icon('heroicon-o-arrow-up-tray')->color('info')
                 ->visible(fn (PostDatedCheque $r) => in_array($r->status, [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_BOUNCED], true) && PostDatedChequeResource::canManage())
                 ->authorize(fn (PostDatedCheque $r) => PostDatedChequeResource::canManage())
-                ->action(function (PostDatedCheque $record): void {
+                // Lodging is an ACT with facts, not a status flip. Yardi deposits a PDC to a NAMED
+                // bank account and treats clearing as the confirmation of that deposit — the bank is
+                // known the day you hand the paper over, and inferring it months later at clearing
+                // (from whichever property is on screen) is a guess the reconciliation then acts on.
+                ->schema([
+                    BankAccountField::for(PostDatedCheque::class)
+                        ->label(__('admin.post_dated_cheques.fields.bank_account'))
+                        ->helperText(__('admin.post_dated_cheques.fields.bank_account_hint'))
+                        // Pre-filled on a RE-PRESENT so the common case is a confirmation; a bounced
+                        // cheque is usually put back through the same account.
+                        ->default(fn (PostDatedCheque $record) => $record->bank_account_id),
+                    DatePicker::make('deposited_on')
+                        ->label(__('admin.post_dated_cheques.fields.deposited_on'))
+                        ->default(fn () => now()->toDateString())
+                        // You either handed it over or you did not; the service refuses a future
+                        // date too, because a picker is not a guard.
+                        ->maxDate(fn () => now())
+                        ->required(),
+                ])
+                ->action(function (PostDatedCheque $record, array $data): void {
                     abort_unless(PostDatedChequeResource::canManage(), 403);
-                    self::run(fn () => app(PostDatedChequeService::class)->deposit($record), 'deposited');
+                    self::run(fn () => app(PostDatedChequeService::class)->deposit(
+                        $record,
+                        $data['bank_account_id'] ?? null,
+                        $data['deposited_on'] ?? null,
+                    ), 'deposited');
                 }),
             Action::make('clear')
                 ->label(__('admin.post_dated_cheques.actions.clear'))

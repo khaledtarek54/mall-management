@@ -87,7 +87,11 @@ it('passes the bank account through on every door that builds the row itself', f
  *     out of recognition is reported rather than silently dropping to zero doors and passing.
  */
 it('is actually sweeping the panel', function () {
-    $documents = MoneyDocumentDoors::documents();
+    // The ones that can HAVE a door: a door is a schema collecting the document's RAIL, so a
+    // document with no rail column can have none by construction. `PostDatedCheque` carries a bank
+    // account because a cheque is LODGED with one, and its rail is the paper — reporting it as
+    // undoored would report the shape of the model rather than a gap.
+    $documents = MoneyDocumentDoors::documentsWithARail();
     $doors = MoneyDocumentDoors::doors();
 
     expect($documents)->not->toBeEmpty('No document uses RecordsBankAccount — the sweep is reading the wrong shape.')
