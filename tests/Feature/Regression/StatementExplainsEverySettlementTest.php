@@ -74,7 +74,12 @@ function statementInvoiceWithCredit($ctx, float $total, float $credited): Invoic
         'invoice_id' => $invoice->id,
         'asset_id' => $ctx->asset->id,
         'status' => 'applied',
-        'issue_date' => '2026-08-31',
+        // INSIDE the statement's window. The clock here is frozen at 17 August, so the old 31 August
+        // was a credit note dated a FORTNIGHT IN THE FUTURE — an arbitrary fixture value that only
+        // ever passed because the statement applied no upper bound at all and listed rows after the
+        // date it printed (SW-154). A document dated after the statement's end date does not belong
+        // on it, so the date moved rather than the assertion.
+        'issue_date' => '2026-08-05',
         'subtotal' => $credited,
         'total' => $credited,
         'applied_amount' => $credited,

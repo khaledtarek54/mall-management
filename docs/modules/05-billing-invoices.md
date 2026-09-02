@@ -2037,3 +2037,28 @@ set of words is the same complaint. Both go red when `EditInvoice` is restored t
 > period it is billing, so the schedule stops itself on the day the operator chose. The flag is only
 > for a stop that has already ARRIVED, where leaving the row active would offer a dead schedule in
 > every picker. (`AFutureStopDateStillBillsUntilItArrivesTest`.)
+
+> **⚠️ THE TENANT STATEMENT PRINTED A WINDOW IT DID NOT APPLY (SW-154, fixed 2026-09-02).**
+> `TenantStatementPdfService::data()` derived `$asOf` from the caller's `to` — and bounded nothing
+> with it. `$invoicesAll` had no upper bound at all, and the recent-invoice list, the payments, the
+> credit notes and both settlement queries were `>= $since` with no `<=`. So
+> `GET /me/statement?to=2026-03-31` rendered *"as at 31 March"* over rows dated April, May and June,
+> on the document a tenant's accountant reconciles a quarter from. The portal and the panel share
+> this service, so all three surfaces were wrong together.
+>
+> The bound is **`endOfDay()`**, and that matters on the datetime columns: `payments.payment_date`
+> carries a time, so a bound of 31 March 00:00 silently drops everything received that day — the
+> same fault pointing the other way. An `issue_date` is a plain date and survives either bound,
+> which is why an invoice-only edge case proves nothing and the regression asserts on a payment.
+>
+> **What it deliberately does NOT claim:** the balances are as they stand TODAY, not as they stood on
+> the end date — a payment made after the window still shows against an invoice inside it.
+> Reconstructing a historical balance means replaying four settlement channels to a date, which is an
+> aged-debt-as-at report and a different document. What the statement claims is which TRANSACTIONS
+> fall in the window, and that is now true. It also selects open invoices on `collectableBalance()`
+> rather than `balance`, so a partial write-off is not chased.
+>
+> An existing fixture had to move with it: `StatementExplainsEverySettlementTest` freezes the clock
+> at 17 August and dated its credit note 31 August — a document a fortnight in the FUTURE, which only
+> ever passed because no upper bound existed. The date moved, not the assertion.
+> (`AStatementStopsAtTheDateItNamesTest`.)

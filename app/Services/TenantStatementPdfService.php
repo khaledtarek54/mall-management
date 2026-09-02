@@ -90,20 +90,32 @@ class TenantStatementPdfService
     ): array {
         $tenant->loadMissing(['leases.unit.asset']);
 
-        $asOf = $to !== null ? CarbonImmutable::parse($to) : CarbonImmutable::now();
+        // **THE WINDOW IS PRINTED AND WAS NOT APPLIED.** `$asOf` set the date in the header and
+        // bounded nothing: `$invoicesAll` had no upper bound at all, and both `$recentInvoices` and
+        // every settlement query were `>= $since` with no `<=`. So `GET /me/statement?to=2026-03-31`
+        // rendered *"as at 31 March"* over rows dated April, May and June — a document a tenant's
+        // accountant reconciles a quarter from, listing transactions after the quarter it names.
+        // `endOfDay()`, or a row dated the last day of the window is cut off by its own end date.
+        $asOf = ($to !== null ? CarbonImmutable::parse($to) : CarbonImmutable::now())->endOfDay();
         $since = $from !== null
             ? CarbonImmutable::parse($from)->startOfDay()
             : $asOf->subMonths(12)->startOfMonth();
 
         $invoicesAll = $tenant->invoices()
-            ->with('lease.unit')
+            ->with(['lease.unit', 'writeOffs'])
             ->visibleToTenant()
             ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
+            ->whereDate('issue_date', '<=', $asOf->toDateString())
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->get();
 
+        // **The balances are as they stand TODAY, not as they stood on `$asOf`** — a payment made
+        // after the window still shows against an invoice inside it. Reconstructing a historical
+        // balance means replaying four settlement channels to a date, which is a different document
+        // (an aged-debt-as-at report) and not what this one claims to be. What it does claim is
+        // which TRANSACTIONS fall in the window, and that is now true.
         $openInvoices = $invoicesAll
-            ->where('balance', '>', 0)
+            ->filter(fn ($i): bool => $i->collectableBalance() > 0)
             ->sortBy('due_date')
             ->values();
 
@@ -114,7 +126,7 @@ class TenantStatementPdfService
 
         $payments = $tenant->payments()
             ->whereIn('status', Payment::RECEIVED_STATUSES)
-            ->where('payment_date', '>=', $since)
+            ->whereBetween('payment_date', [$since, $asOf])
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $visibleAssetIds)))
             ->orderByDesc('payment_date')
             ->get();
@@ -134,7 +146,7 @@ class TenantStatementPdfService
             ->with('invoice')
             ->visibleToTenant()
             ->where('status', '!=', 'void')
-            ->whereDate('issue_date', '>=', $since)
+            ->whereBetween('issue_date', [$since, $asOf])
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->orderByDesc('issue_date')
             ->get();
@@ -156,7 +168,7 @@ class TenantStatementPdfService
         $settlements = collect()
             ->concat($tenant->creditApplications()
                 ->with('invoice')
-                ->whereDate('entry_date', '>=', $since)
+                ->whereBetween('entry_date', [$since, $asOf])
                 ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
                 ->get()
                 ->map(fn (TenantCreditApplication $row): array => [
@@ -169,7 +181,7 @@ class TenantStatementPdfService
             ->concat(DepositApplication::query()
                 ->with('invoice')
                 ->where('tenant_id', $tenant->getKey())
-                ->whereDate('entry_date', '>=', $since)
+                ->whereBetween('entry_date', [$since, $asOf])
                 ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
                 ->get()
                 ->map(fn (DepositApplication $row): array => [
