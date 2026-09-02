@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 57 closed, 169 open (updated 2026-09-01)
+> ### Where this stands — 58 closed, 168 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -252,12 +252,12 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Portals · mobile API
 
-*7 open — 3 high, 1 medium, 3 low.*
+*6 open — 2 high, 1 medium, 3 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-151** | open | high | — | An announcement's expires_at is unvalidated, so a broadcast can deep-link every tenant to a 404 — and the record is immutable the moment it sends | `Filament/Admin/Resources/Announcements/Schemas/AnnouncementForm:124` |
-| **SW-152** | open | high | — | Retiring a catalogue code makes every record already carrying it permanently unsavable — the half of the deposit bug that was never fixed | `Filament/Admin/Resources/TenantRequests/Schemas/TenantRequestForm:139` |
+| **SW-152** | ✅ fixed | high | — | Retiring a catalogue code makes every record already carrying it permanently unsavable — the half of the deposit bug that was never fixed | `Filament/Admin/Resources/TenantRequests/Schemas/TenantRequestForm:139` |
 | **SW-153** | open | high | — | A unit owner cannot raise a tenant request: the screen is offered, the required Unit picker has zero options | `Filament/Portal/Resources/TenantRequests/Schemas/TenantRequestForm:59` |
 | **SW-154** | ✅ **fixed** `ce038ed8` | high | — | `GET /me/statement?to=` prints the window it was asked for and ignores it — the statement lists rows after its own stated end date | `Services/TenantStatementPdfService:98` |
 | **SW-155** | open | medium | — | A tenant request's zone silently goes stale when its unit is corrected on the Edit page, under a field labelled "auto" | `Filament/Admin/Resources/TenantRequests/Schemas/TenantRequestForm:227` |

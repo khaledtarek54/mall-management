@@ -27,6 +27,7 @@ use App\Support\Filament\AnnouncingEditAction;
 use App\Support\Filament\AnnouncingForceDeleteAction;
 use App\Support\Filament\AnnouncingRestoreAction;
 use App\Support\Filament\AuthorizedAction;
+use App\Support\Filament\CatalogueAwareSelect;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\Filament\NavigationItemMemo;
 use App\Support\TenantBalances;
@@ -36,6 +37,7 @@ use App\Support\SealedPeriod;
 use App\Support\TableDefaults;
 use App\Support\ValueSets;
 use Filament\Actions\Action as FilamentAction;
+use Filament\Forms\Components\Select as FilamentSelect;
 use Filament\Actions\AttachAction as FilamentAttachAction;
 use Filament\Actions\CreateAction as FilamentCreateAction;
 use Filament\Actions\DeleteAction as FilamentDeleteAction;
@@ -117,6 +119,18 @@ class AppServiceProvider extends ServiceProvider
         // alone. `Action::make()` resolves through the container, which is the one seam that fixes
         // all of them at once. See App\Support\Filament\AuthorizedAction.
         $this->app->bind(FilamentAction::class, AuthorizedAction::class);
+
+        // A record keeps the catalogue code it already carries, even after the operator retires it.
+        // `catalogueOptions()` offers only ACTIVE rows — which is what retiring one means — and
+        // Filament derives a Select's `Rule::in` from the options it resolved, so switching a code
+        // off made every record already carrying it UNSAVABLE: refused as invalid on a field nobody
+        // touched, or, where the field is optional, saved with the classification silently blanked.
+        // `Field::make()` is `app($fieldClass, …)`, so this is the one seam that covers all
+        // twenty-two catalogue pickers and the twenty-third. See
+        // App\Support\Filament\CatalogueAwareSelect — it is derived from
+        // `ValueSets::catalogueWidenedColumns()`, so every other Select in the app falls through on
+        // one array lookup.
+        $this->app->bind(FilamentSelect::class, CatalogueAwareSelect::class);
 
         // A Filament screen is SEVERAL Livewire components — the page, each relation manager, each
         // widget — and only the one that handled the click re-renders. So a relation manager that
