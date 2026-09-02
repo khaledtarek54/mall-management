@@ -586,7 +586,28 @@ both passed and together over-repaid the loan: the advance reads zero while a re
 owed, and the GL credits Employee Advances twice for money borrowed once.
 
 `EmployeeAdvance::outstandingForUpdate()` is the locking twin — the same split, and the same reason,
-as `Unit::isActivelyLeasedForUpdate()` and both payment over-allocation guards. The plain twin stays:
+as `Unit::isActivelyLeasedForUpdate()` and both payment over-allocation guards.
+
+**And the first version of that twin was a no-op, for a reason worth writing down: a locking read
+does NOT lock the rows of a nested subquery.** It was written
+`->whereHas('payroll', fn ($q) => $q->where('status', 'approved'))->lockForUpdate()`, which reads as
+a locking read of both tables and is not one — MySQL locks the outer `payroll_lines` and leaves the
+`payrolls` rows in the subquery untouched unless the subquery says `for update` itself. That is the
+worst possible split here, because `payroll_lines.advance_deduction` is **identical before and after
+the other run approves** — the line is written when the run is generated — and `payrolls.status` is
+the only value that moves. So the guard locked the data that cannot change and read the deciding
+column from the snapshot: measured on real MySQL with two connections, it answered **0.00 where the
+truth was 3,000**, byte-identical to the plain `outstanding()` it was supposed to replace. It is a
+`join('payrolls', …)` now, which puts the status in the same query block.
+
+**Neither the suite nor `LockSpy` can see that difference**, and it is worth knowing why before
+trusting a similar guard. SQLite compiles `for update` to nothing; `LockSpy` compiles it to a SQL
+comment on the OUTER query, and a `whereHas` still names `payrolls` in its own subquery text — so
+`$spy->locked('payrolls')` is true for the broken version and the fixed one alike. What the test
+pins instead is the SQL **shape**: the statement carrying `advance_deduction` must contain
+`join "payrolls"` and must not contain `exists (select`.
+
+The plain twin stays:
 every list, form helper and infolist reads it on render, and taking row locks per row per page is a
 cost with no writer waiting on it. It is registered in `ConcurrencyPolicy::AUTHORITATIVE_GUARDS`, so
 the gate reads the method's own body and requires the locking read to be visible where the decision
@@ -596,6 +617,19 @@ is made.
 connections (`docs/qa/scripts/race.sh`). What it proves is that the locks are taken and the guards
 read under them, which is what stops the next tidy-up deleting either.
 
+**The run row itself is the transaction's first statement.** `approveUnderLock()` opens with
+`Payroll::whereKey(…)->lockForUpdate()->firstOrFail()` and returns early when the reloaded row is no
+longer `draft`. That does two jobs at once: it makes a double submit of the SAME run idempotent
+rather than posting its journal twice, and — because it is the transaction's first read — it is what
+fixes the consistent-read snapshot at a point AFTER the cache lock was granted, so every guard behind
+it sees what the run that just finished committed.
+
+The cache lock is taken **outside** the transaction and `block(10, …)`s rather than failing fast; a
+`LockTimeoutException` becomes a `DomainException` the operator reads as words
+(`admin.refusals.payroll_approval_in_progress`), never a 500.
+
 Tests: `APayrollRunCannotPayTheSameMonthTwiceTest` — the same-month refusal with its control, the
-lock's key and registration, a `LockSpy` run proving the advance balance is read under the lock it
-just took, the over-repayment refusal, and an ordinary approval. Mutation-proved three ways.
+lock's key asserted through a `Cache::shouldReceive('lock')` expectation rather than by grepping the
+source, the timeout refusal, idempotence under the run-row lock, a `LockSpy` run proving the advance
+balance is read under the lock it just took, the SQL-shape case above, the two twins agreeing on
+clean data, the over-repayment refusal, and an ordinary approval. Mutation-proved five ways.

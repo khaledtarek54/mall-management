@@ -4,10 +4,13 @@ use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 use App\Services\PayrollService;
-use App\Support\ConcurrencyPolicy;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\LockSpy;
 
 /**
@@ -85,23 +88,61 @@ it('refuses to approve a second run for the same employee and month', function (
     expect($second->fresh()->status)->toBe('draft');
 });
 
-it('serialises the approval on a lock keyed to the property and month', function () {
-    // The cache lock is what makes the guard's re-read authoritative. Asserted through the registry
-    // and the source, because a cache lock leaves no SQL for `LockSpy` to see — and the registry is
-    // what `ConcurrencyPolicyConformanceTest` holds to a count, so a deleted lock turns the build
-    // red rather than turning nothing red.
-    $source = file_get_contents(base_path('app/Services/PayrollService.php'));
+it('takes the lock on the exact key, with the callback inside it', function () {
+    // **BEHAVIOURAL, because the source-string version was a tautology.** `toContain("Cache::lock(")`
+    // passes with the lock in the wrong place, with `->get()` instead of `->block()`, with the
+    // callback's result discarded, with the key built from the wrong columns, and with the whole
+    // thing after `DB::beginTransaction()` — which is the one placement the commit rests on.
+    //
+    // Mocking pins the key term by term (the source grep never checked the month or the TTL) and
+    // pins that the approval runs INSIDE the lock.
+    $run = draftRun();
 
-    expect($source)->toContain("Cache::lock(")
-        ->and($source)->toContain('payroll:approve:')
-        // Keyed on both, or two malls that cannot clash would serialise against each other.
-        ->and($source)->toContain('$payroll->asset_id')
-        ->and(ConcurrencyPolicy::expected())
-        ->toHaveKey('app/Services/PayrollService.php')
-        // …and the guard that reads the advance balance is registered as AUTHORITATIVE, which is
-        // what makes the gate read its method body and require a locking read in it.
-        ->and(ConcurrencyPolicy::AUTHORITATIVE_GUARDS)
-        ->toHaveKey('App\\Models\\EmployeeAdvance::outstandingForUpdate');
+    $lock = Mockery::mock(Lock::class);
+    $lock->shouldReceive('block')->once()->with(10, Mockery::type('Closure'))
+        ->andReturnUsing(fn (int $seconds, Closure $callback) => $callback());
+
+    Cache::shouldReceive('lock')->once()
+        ->with('payroll:approve:'.$this->asset->id.':'.$this->month->format('Y-m'), 30)
+        ->andReturn($lock);
+
+    expect($this->svc->approve($run)->status)->toBe('approved');
+});
+
+it('refuses rather than 500s when another approval holds the lock', function () {
+    // `block()` throws `LockTimeoutException`, which the exception handler does not render — only a
+    // `DomainException` becomes a toast. So the operator waited ten seconds and got the error page
+    // with their form state gone; the realistic trigger is the holder's process dying, because the
+    // lock lives to its 30s TTL while the wait is 10s.
+    $run = draftRun();
+
+    $lock = Mockery::mock(Lock::class);
+    $lock->shouldReceive('block')->once()->andThrow(new LockTimeoutException);
+    Cache::shouldReceive('lock')->once()->andReturn($lock);
+
+    expect(fn () => $this->svc->approve($run))->toThrow(DomainException::class);
+
+    expect($run->fresh()->status)->toBe('draft');
+});
+
+it('is idempotent under the lock, not merely before it', function () {
+    // The `draft` check in `approve()` is OUTSIDE the lock, so two requests on the SAME run both
+    // read draft, both take the key, serialise — and the second one re-approved: `approved_at` and
+    // `approved_by_user_id` overwritten by the later actor, a second activity row.
+    // `Payroll::saving`'s clash guard cannot catch it, because `whereKeyNot()` excludes the run from
+    // its own query.
+    $run = draftRun();
+
+    $first = $this->svc->approve($run);
+    $stamp = $first->approved_at;
+
+    test()->travel(5)->minutes();
+
+    // The stale in-memory copy is what a double-click sends: it still says `draft`.
+    $second = $this->svc->approve($run);
+
+    expect($second->status)->toBe('approved')
+        ->and($second->approved_at->eq($stamp))->toBeTrue('the second approval re-stamped the run');
 });
 
 it('reads the advance balance UNDER the lock it just took', function () {
@@ -122,7 +163,56 @@ it('reads the advance balance UNDER the lock it just took', function () {
         'the advance row was not locked. Locked: '.implode(', ', $spy->lockedTables()))
         ->and($spy->locked('payroll_lines'))->toBeTrue(
             'the outstanding balance was read WITHOUT a lock, so it answers from the snapshot taken '
-            .'before this transaction waited — two runs then over-repay the same advance');
+            .'before this transaction waited — two runs then over-repay the same advance')
+        // **AND `payrolls`, which is the table that actually MOVES.** The first version used
+        // `whereHas('payroll', …)->lockForUpdate()`, and MySQL does not lock a nested subquery's
+        // rows unless the subquery says so — so it locked `payroll_lines`, whose
+        // `advance_deduction` is identical before and after the other run approves, and read
+        // `payrolls.status` non-locking from the snapshot. Measured on real MySQL with two
+        // connections: it answered 0.00 where the truth was 3,000, byte-identical to the plain
+        // `outstanding()` it replaced. A join puts `payrolls` in the same query block.
+        //
+        // The SHAPE is asserted in the case below, not here: `LockSpy` compiles the lock to a comment
+        // on the OUTER query, and a `whereHas` names `payrolls` inside its own subquery text — so a
+        // table-name check cannot tell a join from a subquery, which is exactly how the broken
+        // version looked correct on SQLite.
+        ->and($spy->locked('payrolls'))->toBeTrue(
+            'the approved-payrolls half was read from the snapshot, so the guard is a no-op on MySQL');
+});
+
+it('locks `payrolls` in the same query block, not in a nested subquery', function () {
+    // **The crux, and SQLite cannot see it.** MySQL: *"A locking read clause in an outer statement
+    // does not lock the rows of a table in a nested subquery unless a locking read clause is also
+    // specified in the subquery."* `payrolls.status` is the ONLY value that moves during this race —
+    // the lines and their `advance_deduction` are identical before and after the other run approves —
+    // so `whereHas('payroll', …)->lockForUpdate()` locked the data that cannot change and read the
+    // deciding column non-locking from the snapshot. Measured on real MySQL with two connections:
+    // 0.00 where the truth was 3,000.
+    //
+    // The SHAPE is what can be pinned here, because the behaviour needs two connections and a real
+    // MySQL (`docs/qa/scripts/race.sh`). A join puts `payrolls` in the same block, where `for update`
+    // reaches it; an `exists (select …)` does not.
+    $advance = EmployeeAdvance::create([
+        'asset_id' => $this->asset->id, 'employee_id' => $this->employee->id,
+        'type' => 'loan', 'amount' => 5000,
+        'advance_date' => $this->month->toDateString(), 'paid_from' => 'cash',
+    ]);
+
+    $statements = [];
+    DB::listen(function ($query) use (&$statements) {
+        $statements[] = strtolower($query->sql);
+    });
+
+    $advance->outstandingForUpdate();
+
+    $onLines = collect($statements)->filter(
+        fn (string $sql): bool => str_contains($sql, 'payroll_lines') && str_contains($sql, 'advance_deduction'),
+    );
+
+    expect($onLines)->not->toBeEmpty('the approved-payroll term was never queried at all');
+
+    expect($onLines->first())->toContain('join "payrolls"')
+        ->not->toContain('exists (select');
 });
 
 it('refuses a run that would over-repay an advance', function () {
@@ -145,4 +235,32 @@ it('still approves an ordinary run — the control for every refusal above', fun
 
     expect($this->svc->approve($run)->status)->toBe('approved')
         ->and($run->fresh()->approved_at)->not->toBeNull();
+});
+
+it('answers the same figure locked or not, on a populated advance', function () {
+    // Two copies of the same arithmetic with no gate holding them equal, failing OPEN: add a fourth
+    // term to `outstanding()` — a waiver, a write-off — and the AUTHORITATIVE twin silently answers
+    // a LARGER balance, which is the permissive direction. `Lease::depositHeldForUpdate()` is the
+    // precedent and it has exactly this test.
+    $advance = EmployeeAdvance::create([
+        'asset_id' => $this->asset->id, 'employee_id' => $this->employee->id,
+        'type' => 'loan', 'amount' => 5000,
+        'advance_date' => $this->month->toDateString(), 'paid_from' => 'cash',
+    ]);
+
+    $advance->repayments()->create([
+        'asset_id' => $this->asset->id,
+        'amount' => 1000,
+        'repaid_on' => $this->month->toDateString(),
+        'method' => 'cash',
+    ]);
+
+    $run = draftRun(7000, $advance, 1500);
+    $this->svc->approve($run);
+
+    $fresh = $advance->fresh();
+
+    // 5,000 − 1,000 cash − 1,500 via payroll = 2,500, and both reads must say so.
+    expect($fresh->outstanding())->toEqual(2500.0)
+        ->and($fresh->outstandingForUpdate())->toEqual($fresh->outstanding());
 });

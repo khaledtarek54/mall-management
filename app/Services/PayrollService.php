@@ -6,6 +6,7 @@ use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 use App\Support\PostingDate;
 use App\Support\ReversalReason;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -64,13 +65,53 @@ class PayrollService
             $payroll->period_month?->format('Y-m') ?? 'none',
         );
 
-        return Cache::lock($key, 30)->block(10, fn (): Payroll => $this->approveUnderLock($payroll));
+        // **A REFUSAL, NOT A 500 AFTER A TEN-SECOND HANG.** `block()` throws
+        // `LockTimeoutException`, which `bootstrap/app.php` does not render — it only turns a
+        // `DomainException` into a toast — so the operator waited ten seconds and got the error page
+        // with their form state gone. The realistic trigger is the holder's PHP process dying
+        // mid-approval: the lock then lives to its 30s TTL while the wait is 10s, so the next
+        // operator is guaranteed it.
+        //
+        // Every sibling degrades: `MonthlyBillingService` uses `->get()` and logs a skip,
+        // `AllocatesDocumentNumber` catches and falls back. This one has to REFUSE rather than skip
+        // — an approval that silently did not happen is worse than one that says so — so the timeout
+        // is re-thrown as the refusal it actually is.
+        try {
+            return Cache::lock($key, 30)->block(10, fn (): Payroll => $this->approveUnderLock($payroll));
+        } catch (LockTimeoutException) {
+            throw new \DomainException(__('admin.refusals.payroll_approval_in_progress'));
+        }
     }
 
     /** The approval itself, with the same-month clash and the advance balances already serialised. */
     private function approveUnderLock(Payroll $payroll): Payroll
     {
         return DB::transaction(function () use ($payroll) {
+            // **THE TRANSACTION'S FIRST STATEMENT, AND IT DOES TWO JOBS.**
+            //
+            // (1) Idempotence becomes authoritative. The `draft` check in `approve()` is outside the
+            // lock, so two requests on the SAME run — a double-click, or two operators on one record
+            // — both read `draft`, both take the same key, serialise, and the second one re-approved:
+            // measured, no refusal, `approved_at` and `approved_by_user_id` overwritten by the later
+            // actor, a second activity row. `Payroll::saving`'s clash guard cannot catch it, because
+            // `whereKeyNot($payroll->getKey())` excludes the run from its own query. Worse, when the
+            // run's installment exceeds what is left after its own first approval, the second click
+            // is refused with "this would over-repay the advance" on a run that approved cleanly.
+            //
+            // (2) It makes every read below fresh. InnoDB opens a transaction's consistent-read view
+            // at its first CONSISTENT read, so a LOCKING read first means no view is open while we
+            // wait for the advance locks — and everything read afterwards sees what the other
+            // transaction committed. `RecordAdvanceRepaymentService` and `SettleCustodyService` are
+            // safe for exactly this reason and by statement order alone, which nothing pins; here it
+            // is stated.
+            $locked = Payroll::whereKey($payroll->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== 'draft') {
+                return $locked;
+            }
+
+            $payroll = $locked;
+
             // Lock-safe advance re-check (Phase 4b): approving this run makes its advance
             // installments COUNT against each advance's outstanding. Two draft runs could each
             // deduct within the (pre-approval) outstanding, but together over-repay. So under a

@@ -235,11 +235,14 @@ final class ConcurrencyPolicy
 
         // ── Money out ────────────────────────────────────────────────────────────────────────
         'app/Services/GeneratePayrollService.php' => 1,
-        // TWO: the row lock on each `EmployeeAdvance` the run repays, and the locking read of that
-        // advance's own balance beside it. Plus a CACHE lock outside the transaction, keyed on the
-        // property and the month, which is what serialises two approvals that would otherwise each
-        // see the other still `draft` and pay one employee twice.
-        'app/Services/PayrollService.php' => 2,
+        // THREE, and they are three different mechanisms: a CACHE lock outside the transaction
+        // (keyed on the property and the month — what serialises two approvals that would otherwise
+        // each see the other still `draft` and pay one employee twice), a row lock on the PAYROLL
+        // itself as the transaction's first statement (which makes idempotence authoritative and
+        // leaves no read view open while the advance locks are awaited), and a row lock on each
+        // `EmployeeAdvance` the run repays. The advance's own BALANCE is read under a lock too, but
+        // that lives in `EmployeeAdvance.php` and is counted there.
+        'app/Services/PayrollService.php' => 3,
         'app/Services/DraftReorderPurchaseService.php' => 1,
         'app/Services/PurchaseRequestService.php' => 1,
         'app/Services/RecordAdvanceRepaymentService.php' => 3,
