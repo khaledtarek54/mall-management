@@ -3536,6 +3536,60 @@
                 }
             }
         },
+        "/v1/me/vocabulary": {
+            "get": {
+                "operationId": "v1.me.vocabulary",
+                "tags": [
+                    "ShowVocabulary"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "version": {
+                                                    "type": "string",
+                                                    "description": "A hash of the rendered words, not of the registry: what a client caches is the\nLABELS, so a renamed row must change this and a refactor must not."
+                                                },
+                                                "openCatalogues": {
+                                                    "type": "array",
+                                                    "description": "Named so the app can tell the two apart: these are the ones a shipped table can never\nbe right about, because the operator adds to them between releases.",
+                                                    "items": []
+                                                },
+                                                "vocabularies": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "version",
+                                                "openCatalogues",
+                                                "vocabularies"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/statement": {
             "get": {
                 "operationId": "v1.me.statement",

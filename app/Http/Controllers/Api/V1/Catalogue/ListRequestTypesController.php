@@ -86,28 +86,4 @@ class ListRequestTypesController extends ApiController
             ->values()
             ->all();
     }
-
-    /**
-     * Render a closure under one locale and put the request's own back.
-     *
-     * `finally`, so a throwing catalogue read cannot leave the rest of the response — and every
-     * later response on a long-lived queue-less worker — rendering in the wrong language. Same
-     * reasoning as `App\Support\Pdf\DocumentLocale::in()`.
-     *
-     * @template T
-     *
-     * @param  \Closure(): T  $render
-     * @return T
-     */
-    private function inLocale(string $locale, \Closure $render): mixed
-    {
-        $previous = app()->getLocale();
-        app()->setLocale($locale);
-
-        try {
-            return $render();
-        } finally {
-            app()->setLocale($previous);
-        }
-    }
 }

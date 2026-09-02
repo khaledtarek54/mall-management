@@ -51,6 +51,11 @@ const CLASSIFICATION_SUFFIXES = [
     // the gate silent. Adding them flagged zero new columns — the shapes were already classified,
     // which is exactly why nobody noticed the sweep could not see them.
     'section', 'timing', 'result', 'recipient', 'decision', 'pool',
+    // WHO a marketing post is shown to — shopper, retailer or both (2026-09-02). Registered when
+    // the mobile API's bilingual gate could not build a vocabulary for it, and
+    // classification-shaped for the same reason `channel` is: a small fixed set whose members
+    // `MarketingPost::liveFor()` branches on, where a typo silently shows a post to nobody.
+    'audience',
     'normal_balance', 'funded_from', 'proceeds_account',
     // Which language a party reads (2026-08-28). Classification-shaped for the same reason
     // `currency` is: a small fixed set, and a value outside it does not error — `__()` falls
@@ -73,6 +78,12 @@ const CLASSIFICATION_SUFFIXES = [
  * than weakening the list for everyone.
  */
 const SHAPE_EXEMPT = [
+    // `reason` is FREE TEXT almost everywhere in this schema — twelve columns of it: a decision's
+    // explanation, a void's, a waiver's, a tax override's, a suspension's. `credit_notes.reason`
+    // is the one that is a closed classification (the admin form offers it as a Select over
+    // `admin.enums.credit_note_reason`), so it is registered by NAME rather than by widening the
+    // suffix list, which would demand a value set for a dozen columns that hold sentences.
+    'credit_notes.reason' => 'The one classification-shaped `reason` in the schema; the other twelve are free text an operator typed, and a suffix rule would demand a value set for all of them.',
     'document_templates.key' => 'A registry KEY, not a classification: the column names which document block a row is, and the set is `DocumentText::KEY_NAMES`. Widening the sweep to `key` pulls in the cache, settings and custom-field key columns, which are identifiers and always will be.',
 ];
 

@@ -93,6 +93,35 @@ abstract class ApiController extends Controller
     }
 
     /**
+     * Render a closure under one locale and put the request's own back.
+     *
+     * The bilingual payloads on this surface — the request-type catalogue, the vocabulary — are
+     * built by asking the SAME resolver the panel uses, once per language, rather than by reaching
+     * past it into the rows. That way an operator-added code with no lang key resolves exactly as
+     * it does on screen, and there is no second wording to drift.
+     *
+     * `finally`, so a catalogue read that throws cannot leave the rest of the response — and, on a
+     * long-lived worker, every response after it — rendering in the wrong language. Same reasoning
+     * as {@see \App\Support\Pdf\DocumentLocale::in()}.
+     *
+     * @template T
+     *
+     * @param  \Closure(): T  $render
+     * @return T
+     */
+    protected function inLocale(string $locale, \Closure $render): mixed
+    {
+        $previous = app()->getLocale();
+        app()->setLocale($locale);
+
+        try {
+            return $render();
+        } finally {
+            app()->setLocale($previous);
+        }
+    }
+
+    /**
      * Stream a generated PDF as a file download.
      */
     protected function streamPdf(string $contents, string $filename): Response

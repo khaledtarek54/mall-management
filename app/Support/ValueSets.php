@@ -179,6 +179,10 @@ class ValueSets
         'lease_options.status' => [LeaseOption::class, 'STATUSES'],
         'marketing_posts.type' => [MarketingPost::class, 'TYPES'],
         'marketing_posts.status' => [MarketingPost::class, 'STATUSES'],
+        // `type` and `status` were registered and `audience` — which decides WHO sees the post,
+        // a shopper or a retailer — was not. Declared as the model's own constant so the two
+        // cannot drift; `MarketingPost::liveFor()` already branches on exactly these three.
+        'marketing_posts.audience' => [MarketingPost::class, 'AUDIENCES'],
         'post_dated_cheques.status' => [PostDatedCheque::class, 'STATUSES'],
         'rentable_items.type' => [RentableItem::class, 'TYPES'],
         'rentable_items.status' => [RentableItem::class, 'STATUSES'],
@@ -253,6 +257,12 @@ class ValueSets
         // values are registered so the column cannot quietly acquire a third reading.
         'charges.billing_timing' => [Charge::class, 'BILLING_TIMINGS'],
         'credit_notes.status' => ['draft', 'issued', 'applied', 'void'],
+        // Offered by the admin form as a Select over `admin.enums.credit_note_reason` and
+        // registered nowhere, so the column accepted anything: a typo'd or imported reason saved
+        // cleanly, matched no filter, and rendered as a raw code on the tenant's own credit note.
+        // Same shape as the violation-category finding. Found by the mobile API's bilingual gate,
+        // which could not build a vocabulary for a column with no set.
+        'credit_notes.reason' => ['return', 'dispute', 'adjustment', 'discount', 'refund', 'other'],
         'deposit_transactions.method' => ['cash', 'bank'],
         'deposit_transactions.status' => ['recorded', 'cancelled'],
         'deposit_transactions.type' => ['receipt', 'refund', 'forfeit'],

@@ -36,7 +36,7 @@ Parts 1 → 4 in order; Part 9 is the same list re-cut by screen so you can hand
 | 🟢 **NEW** | Additive field or endpoint. Nothing breaks if you ignore it, but the app is poorer. | Adopt when convenient. |
 | ⚪ **BACKEND GAP** | The backend is missing something the app needs. **Do not build a workaround** — raise it. | Nothing, except knowing not to guess. |
 
-**Counts:** 7 breaking · 10 behaviour · 5 new fields · **31 endpoints** across 11 areas that the app is probably not calling yet · **0 backend gaps that block a screen** (see Part 12).
+**Counts:** 7 breaking · 10 behaviour · 5 new fields · **32 endpoints** across 12 areas that the app is probably not calling yet · **0 backend gaps that block a screen** (see Part 12) · **the API is now bilingual to the panel's standard** (Part 13).
 
 > **Parts 1–10 answer *"does the app match the contract?"*. [Part 11](#11--the-api-vs-the-business-the-system-now-runs--portal--api-parity)
 > answered *"does the contract match the system?"* — it did not, in 7 places, and all seven have
@@ -1239,3 +1239,137 @@ compares them.
 It found four more gaps on its very first run — credit-note line items, the payment references,
 `unitCode`, and the unit on a sales declaration — all four of which are in 12.3–12.6 above. That is
 the argument for the gate in one sentence: a rule nobody checks is a rule that has already drifted.
+
+
+---
+
+## 13. 🌍 The API is bilingual to the panel's standard
+
+> **`GET /me/vocabulary` — fetch once on launch, cache on `version`.**
+> Added 2026-09-02, with `TheApiSpeaksBothLanguagesConformanceTest` to keep it honest.
+
+### Why this exists
+
+The Filament panels have been held to a hard line by
+`ArabicPanelHasNoEnglishChromeConformanceTest`: no English chrome anywhere, in any of the three
+panels. **The API had no counterpart, and it fails differently** — a panel renders *words*, while an
+API sends *codes* and leaves the words to you:
+
+```json
+{ "status": "overdue", "method": "instapay", "type": "cam_recovery", "priority": "urgent" }
+```
+
+So "is the API bilingual?" is really two questions:
+
+1. **Is every sentence it sends present in both languages?** — `message`, refusals, validation.
+   ✅ It already was: `lang/en` and `lang/ar` are at file-for-file parity and
+   `SetApiLocale` resolves `Accept-Language` on every request.
+2. **Can you render every CODE it sends in Arabic without maintaining your own table?**
+   ❌ You could not. That is what shipped today.
+
+The app was carrying an EN+AR table for **25 vocabularies across 16 resources**, kept in step with a
+backend it cannot see. **For five of them a client-side table cannot work at all:**
+
+| Vocabulary | Why a shipped table is structurally wrong |
+|---|---|
+| `invoiceItem.type` | The accountant adds a charge code on `/admin/charge-codes` — **no deploy**. It is on an invoice line the next billing night. |
+| `payment.method` | The operator adds a payment rail (Fawry, a new wallet) as a **row**. |
+| `publicStore.retailCategory` | The shopper directory's own filter is built from these rows. |
+| request sub-categories | Already 7 → 14 once; served by `/me/request-types` (§12.8). |
+| charge-code labels | An operator **renaming** a shipped code changes what every screen calls it. |
+
+This is the exact failure `IsCodeCatalogue` exists to prevent in the panel — *"an operator-added
+code has no lang key and would render `admin.enums.method.fawry` on the very screen whose filter
+lists Fawry"* — reproduced on the surface the retailer actually reads.
+
+### `GET /me/vocabulary`
+
+```jsonc
+{
+  "data": {
+    "version": "9f2c1ab4e7d05e83",          // hash of the rendered LABELS — cache on this
+    "openCatalogues": [                      // the ones a shipped table can never be right about
+      "invoiceItem.type", "payment.method", "publicStore.retailCategory"
+    ],
+    "vocabularies": {
+      "invoice.status": {
+        "issued":         { "en": "Issued",         "ar": "…" },
+        "partially_paid": { "en": "Partially paid", "ar": "…" },
+        "overdue":        { "en": "Overdue",        "ar": "…" },
+        "written_off":    { "en": "Written off",    "ar": "…" }
+      },
+      "payment.method":  { "instapay": { "en": "InstaPay", "ar": "…" }, … },
+      "invoiceItem.type":{ "cam_recovery": { "en": "CAM recovery", "ar": "…" }, … },
+      "lease.status": {…}, "request.status": {…}, "unitOwnership.status": {…}, …
+    }
+  }
+}
+```
+
+**28 vocabularies**, keyed `resource.field` in camelCase — exactly the path you already hold. Where
+two fields share a set the entry is repeated rather than aliased, so you never join.
+
+### How to use it
+
+1. **Fetch on launch.** One call, small, cacheable.
+2. **Cache on `version`.** It hashes the rendered *labels*, so a renamed charge code changes it and
+   a backend refactor does not. Re-fetch when it differs; skip re-parsing when it does not.
+3. **Look up `vocabularies["invoice.status"][invoice.status][locale]`.**
+4. **Falling back to a stale copy is safe.** A code you cannot label should render **as itself**,
+   never as a blank cell — that is what the panel does, and a blank cell reads as "no such status"
+   rather than "I don't have that word yet".
+5. **Delete your own EN/AR label tables.** Keeping them is how you end up one release behind on the
+   five open catalogues, and silently wrong on the twenty-three closed ones.
+
+### Which fields it covers
+
+Money — `invoice.status` · `invoiceItem.type` · `payment.status` · `payment.method` ·
+`payment.channel` · `creditNote.status` · `creditNote.reason` · `camAllocation.status`.
+Leasing — `lease.status` · `lease.billingFrequency` · `lease.escalationType` ·
+`lease.percentageRentFrequency` · `lease.type` (rentable items) · `lease.category` (unit).
+Ownership — `unitOwnership.status` · `.tenureType` · `.managementMode` · `.assessmentBasis` ·
+`.category`. Requests — `tenantRequest.requestType` · `.status` · `.priority` · `.channel`.
+Rest — `tenantSalesDeclaration.status` · `announcement.category` · `marketingPost.status` ·
+`.type` · `.audience` · `publicMarketingPost.type` · `tenant.type` · `tenant.status` ·
+`publicStore.retailCategory`.
+
+**Deliberately NOT in it**, each with a reason in `ApiVocabulary::NOT_A_VOCABULARY`:
+`notification.type` (a class name you branch on for an icon — its words are already resolved into
+`data.title`/`data.body`), `tenantRequestComment.authorKind` (a role, and `authorName` already reads
+*"Property team"*), `deviceToken.platform`, the two `mimeType`s, and the two free-text
+`*Reason` fields — a sentence a person typed is not a vocabulary. **`tenantRequest.category` is
+excluded on purpose**: a sub-category belongs to its *type* and the same code sits under more than
+one, so it keeps that structure in `/me/request-types` rather than being flattened into a lookup
+that would lose it.
+
+### What keeps it true
+
+`TheApiSpeaksBothLanguagesConformanceTest` fails the build when:
+
+- an API resource emits a classification field the registry does not cover **or explain** — the
+  fields are discovered **from the resource files**, so a registry checked only against itself
+  cannot hide what it omits;
+- a closed set has no `ValueSets` entry, or any of its codes has no `en` **or** `ar` translation —
+  checked with **`Lang::has(..., fallback: false)`**, because the default falls back to English and
+  the obvious form of this check only ever catches a key missing from *both*;
+- an Arabic label is byte-identical to its English and carries no Arabic script — `Lang::has()`
+  proves a key exists and can never prove somebody put Arabic in it, which is the realistic failure
+  when a hundred labels are added in one pass and reviewed in English;
+- the whole vocabulary does not serve non-empty in both languages **over the real route**;
+- an exemption goes stale, or its reason is too thin to review.
+
+### Two real defects it found while being written
+
+- **`credit_notes.reason` and `marketing_posts.audience` were in no value set at all.** The admin
+  form offers `reason` as a Select over six values and the column accepted anything — a typo'd or
+  imported reason saved cleanly, matched no filter, and rendered as a raw code on the tenant's own
+  credit note. `audience` decides *who sees a marketing post*, and `MarketingPost::liveFor()`
+  branches on it, so a typo showed a post to nobody. Both are registered now; `audience` joined
+  `CLASSIFICATION_SUFFIXES` so the next column of that shape cannot ship unclassified, while
+  `credit_notes.reason` is exempted **by name** — `reason` is free text in twelve other columns and
+  a suffix rule would demand a value set for all of them.
+- **`invoiceItem.type` served an EMPTY vocabulary on an unseeded install.** `ChargeCode::options()`
+  is rows-only — unlike its `IsCodeCatalogue` twins it has no per-code floor — so a box whose chart
+  had not been seeded answered *"there are no charge types"* rather than showing the shipped ones.
+  The floor is `InvoiceItemType`, labelled through `ChargeCode::labelFor()`, which is the
+  row → lang key → humanised order the panel settled on.
