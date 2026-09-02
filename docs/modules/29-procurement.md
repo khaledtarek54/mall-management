@@ -329,3 +329,16 @@ request's. Blank is the normal state.
 **Do NOT add an `@page` rule to the template.** Page geometry belongs to the renderer, which is also
 the thing that knows there is a running footer; a template that sets its own margins leaves no room
 for it and the footer renders nowhere at all.
+
+> **⚠️ A DRAFT purchase request was a dead end (fixed 2026-09-02).** `PurchaseRequestService::submit()`
+> existed, refused a non-draft, refused an EMPTY request and stamped the submitter as the person
+> taking responsibility — and had **no caller anywhere but a test**. `inventory:scan-low-stock`
+> raises drafts automatically and the lines relation manager locks editing to `requested`, so the
+> whole reorder loop stopped at its first step with nothing on any screen able to move it forward.
+> Wired as a **Submit** act beside its siblings, gated on `procurement.create`, visible only while
+> the request is a draft, and wording its refusals through `notifyFailure()` like every other act
+> here — an empty draft is a real state, since one raised by the low-stock scan can legitimately end
+> up with no lines once the shortages resolve themselves.
+>
+> The shape `ServiceReachability` catches one level up and cannot see here: the CLASS is reachable
+> while one of its public methods has no caller. (`TwoActsWithNoScreenTest`.)

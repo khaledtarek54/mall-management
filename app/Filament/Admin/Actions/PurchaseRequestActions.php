@@ -36,6 +36,41 @@ class PurchaseRequestActions
     public static function all(): array
     {
         return [
+            // **SUBMIT — the act that was built and never wired.** `PurchaseRequestService::submit()`
+            // existed, refused a non-draft, refused an empty request and stamped the submitter as
+            // the person taking responsibility — and had no caller anywhere but a test. So a DRAFT
+            // purchase request was a dead end: `inventory:scan-low-stock` raises one automatically,
+            // the lines relation manager locks editing to `requested`, and nothing on any screen
+            // could move it out of draft. The whole reorder loop stopped at the first step.
+            Action::make('submit')
+                ->label(__('admin.procurement.actions.submit'))
+                ->icon('heroicon-o-paper-airplane')->color('primary')
+                ->requiresConfirmation()
+                ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_DRAFT
+                    && (auth()->user()?->can(PurchaseRequestService::REQUEST_PERMISSION) ?? false))
+                ->authorize(fn () => auth()->user()?->can(PurchaseRequestService::REQUEST_PERMISSION) ?? false)
+                ->action(function (PurchaseRequest $record) {
+                    abort_unless(auth()->user()?->can(PurchaseRequestService::REQUEST_PERMISSION) ?? false, 403);
+
+                    try {
+                        app(PurchaseRequestService::class)->submit($record);
+                    } catch (\DomainException $e) {
+                        // Same shape as every sibling here: a refusal is worded for the operator
+                        // rather than thrown at them. `submit()` refuses a non-draft and an EMPTY
+                        // request — the latter is a real state, since a draft raised by
+                        // `inventory:scan-low-stock` can legitimately end up with no lines once the
+                        // shortages it was raised for resolve themselves.
+                        self::notifyFailure($e);
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title(__('admin.procurement.notices.submitted'))
+                        ->success()
+                        ->send();
+                }),
+
             // FR-PROC-02 — approval, and it is what unlocks ordering.
             Action::make('approve')
                 ->label(__('admin.procurement.actions.approve'))

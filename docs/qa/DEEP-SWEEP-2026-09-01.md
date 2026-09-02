@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 36 closed, 181 open (updated 2026-09-01)
+> ### Where this stands — 38 closed, 179 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -131,13 +131,13 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Facility · vendors · procurement
 
-*28 open — 5 high, 11 medium, 12 low.*
+*26 open — 3 high, 11 medium, 12 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-058** | open | high | M | No screen can assign or reassign a work order's technician after creation — the model's own reassignment-notification hook is unreachable | `Filament/Admin/Resources/FacilityWorkOrders/Schemas/FacilityWorkOrderForm:146` |
+| **SW-058** | ✅ fixed | high | M | No screen can assign or reassign a work order's technician after creation — the model's own reassignment-notification hook is unreachable | `Filament/Admin/Resources/FacilityWorkOrders/Schemas/FacilityWorkOrderForm:146` |
 | **SW-059** | ✅ **fixed** `5e159676` | high | XS | Service Plans 'Generate due' header action calls a protected method cross-class — guaranteed PHP Error after generation runs | `Filament/Admin/Resources/ServicePlans/Tables/ServicePlansTable:146` |
-| **SW-060** | open | high | S | Draft purchase request is a panel dead-end: submit() has no caller and every edit surface is locked to 'requested' | `Filament/Admin/RelationManagers/PurchaseRequestLinesRelationManager:53` |
+| **SW-060** | ✅ fixed | high | S | Draft purchase request is a panel dead-end: submit() has no caller and every edit surface is locked to 'requested' | `Filament/Admin/RelationManagers/PurchaseRequestLinesRelationManager:53` |
 | **SW-061** | open | high | M | Editing day_of_month (or frequency) on a live schedule re-walks the calendar and double-books the current period | `Filament/Admin/Resources/RecurringExpenses/Schemas/RecurringExpenseForm:104` |
 | **SW-062** | open | high | — | The contractor can post to the job thread but can never read it — the operator's "Share with the contractor" reaches nobody | `Filament/Vendor/Resources/WorkOrders/Pages/ListWorkOrders:142` |
 | **SW-063** | open | high | — | The quote loop is one-way: the NTE that is supposed to trigger a quote is invisible, and the decision never comes back | `Filament/Vendor/Resources/WorkOrders/Pages/ListWorkOrders:176` |

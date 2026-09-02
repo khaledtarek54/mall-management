@@ -1669,3 +1669,15 @@ with it, while an internal draw has none. All five guards verified load-bearing 
 **Related:** 11 Maintenance (tenant-facing requests), 12 Vendors (assignees), 14 Departments,
 01 Properties (asset scope), 18 RBAC (operations), 19 Notifications & Scans (the daily scan),
 22 Inventory (the stock a draw comes out of), 28 Approvals (the value → approver ladder).
+
+> **⚠️ A work order could be assigned once and never REASSIGNED (fixed 2026-09-02).**
+> `assigned_to_user_id` drives `FacilityWorkOrder::notifyAssignee()` and was rendered on the
+> **corrective** form only — i.e. at creation from a tenant request. So the technician who is off
+> sick keeps the job, the one who picks it up is never told, and the model's own assignment
+> notification is unreachable for every job that changes hands. A supervisor's most ordinary act had
+> no screen.
+>
+> The picker is on the main form now, scoped to staff who can reach that property. The grouping in
+> `technicianOptions()` is load-bearing: ungrouped,
+> `whereHas(...)->orWhereDoesntHave(...)` lets the OR escape the property clause and hands the picker
+> every mall's roster. (`TwoActsWithNoScreenTest`.)

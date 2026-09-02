@@ -7,6 +7,7 @@ use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
 use App\Models\Trade;
 use App\Models\Unit;
+use App\Models\User;
 use App\Models\Vendor;
 use App\Support\EquipmentPicker;
 use App\Support\Filament\EntitySelect;
@@ -149,6 +150,25 @@ class FacilityWorkOrderForm
                 ->searchable()
                 ->native(false)
                 ->disabled($locked),
+            // **WHO IS DOING IT — and this form had no way to say so after creation.**
+            // `assigned_to_user_id` existed on the model, drove `notifyAssignee()` and was rendered
+            // on the CORRECTIVE form only, i.e. at creation from a tenant request. So a job could
+            // be assigned once and never REASSIGNED: the technician who is off sick keeps it, the
+            // one who picks it up is not told, and the model's own assignment notification is
+            // unreachable for every job that changes hands. A supervisor's most ordinary act had no
+            // screen.
+            Select::make('assigned_to_user_id')
+                ->label(__('admin.facility.cm.assignee'))
+                ->helperText(__('admin.facility.cm.assignee_hint'))
+                // Staff who can actually reach this property — never another mall's roster. The
+                // grouping in the closure is load-bearing: ungrouped, the OR escapes the property
+                // clause and hands the picker everyone.
+                ->options(fn ($record) => self::technicianOptions(
+                    $record?->asset_id ?? TenantScope::currentAssetId(),
+                ))
+                ->searchable()
+                ->native(false)
+                ->disabled($locked),
             Select::make('vendor_id')
                 ->label(__('admin.facility.fields.vendor'))
                 // Only dispatchable vendors (active + COI not lapsed); the saving guard is the
@@ -185,5 +205,27 @@ class FacilityWorkOrderForm
                 ->maxFiles(10)
                 ->columnSpanFull(),
         ]);
+    }
+
+    /**
+     * Staff who can reach this property, for the assignee picker.
+     *
+     * GROUPED deliberately — `whereHas(...)->orWhereDoesntHave(...)` ungrouped is only correct
+     * while nothing else is in the query: add one `->where()` above it and the OR escapes its
+     * scope, turning this into "(other AND assigned-here) OR unassigned", which hands every
+     * property's roster to the picker.
+     *
+     * @return array<int, string>
+     */
+    private static function technicianOptions(?int $assetId): array
+    {
+        return User::query()
+            ->when($assetId !== null, fn ($q) => $q->where(
+                fn ($q) => $q->whereHas('assignedAssets', fn ($a) => $a->where('assets.id', $assetId))
+                    ->orWhereDoesntHave('assignedAssets')
+            ))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
     }
 }

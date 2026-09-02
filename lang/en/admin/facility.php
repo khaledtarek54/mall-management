@@ -590,6 +590,8 @@ return [
             'not_stock' => 'Not stock',
         ],
         'actions' => [
+            'submit' => 'Submit for approval',
+            'submitted' => 'Purchase request submitted',
             'approve' => 'Approve',
             'reject' => 'Reject',
             'order' => 'Place the order',
@@ -602,6 +604,7 @@ return [
         'tiers' => ['tier_1' => 'a supervisor', 'tier_2' => 'a manager', 'tier_3' => 'senior approval', 'unknown' => 'a higher authority'],
         'tier_hint' => 'The approval level is re-judged on the current total each time — who must sign off depends on the value being committed.',
         'notices' => [
+            'submitted' => 'Purchase request submitted for approval',
             'approved' => 'Approved — it can now be ordered',
             'rejected' => 'Request rejected',
             'ordered' => 'Order placed',
