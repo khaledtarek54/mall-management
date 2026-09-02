@@ -290,14 +290,30 @@ because it is evidence: tenants hold a notification quoting its text, and
 `announcement_recipients` records who. So the only repair is composing a SECOND notice to explain the
 first, which is a worse thing to have to send than the original.
 
-Two layers, and the second is the one that matters:
+**`Announcement::assertSendable()` is the one rule**, on the model because three callers need the
+same answer and only one of them has a form:
 
-- **The form** bounds `expires_at` by the notice's own start (`publish_at`, falling back to now),
-  not by `now()` alone: a scheduled notice published next Tuesday may legitimately expire the
-  Wednesday after, which `minDate(now())` would allow and `after(publish_at)` gets right.
-- **`SendAnnouncementAction`** refuses outright. That is where it has to be, because of the scheduled
-  sweep: an `expires_at` that was in the FUTURE when the notice was scheduled can be in the past by
-  the time the sweep reaches it, which no form rule can see.
+- **`SendAnnouncementAction`** — the gate.
+- **`CreateAnnouncement::afterCreate()`** — the create-and-send path. The broadcast itself goes off
+  the request thread and that job is `tries = 1` on the database queue, so a refusal inside it
+  becomes a `failed_jobs` row the operator never sees: the record is created, the success toast
+  shows, `sent_at` stays null, and nothing on screen says it was refused. The window check is cheap
+  and needs no tenants, so it is asked on the request.
+- **`announcements:send-scheduled`** — where an `expires_at` that was in the FUTURE when the notice
+  was scheduled can be in the past by the time the sweep arrives, which no form rule can see.
+
+**One refusal must cost only its own delivery.** The sweep's loop had no catch, so one expired notice
+threw, every notice behind it in the same run went unsent, and the bad row stayed `scheduled` with a
+past `publish_at` — which `dueToSend()` returns on every run, ordered by `publish_at`, so it came
+first every time. The command runs every fifteen minutes: **every scheduled announcement in the
+system would have stopped, permanently**, ~96 silent failures a day with nothing alerting. It catches
+per row, reports the failures and exits non-zero, the same shape `GenerateRecurringExpensesService`
+already uses.
+
+**The form** bounds `expires_at` by `max(publish_at, now())`, not `publish_at ?: now()`: a scheduled
+notice published next Tuesday may legitimately expire the Wednesday after, but `publish_at`'s state
+survives a switch back to "Send now" and a scheduled time can slip into the past — either of which
+would otherwise let an already-shut window through the form.
 
 The idempotency guard still runs first, deliberately: a notice that HAS been sent and has since
 expired is the ordinary end state of every notice ever, and re-entering the send path for it returns

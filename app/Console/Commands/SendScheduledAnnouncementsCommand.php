@@ -102,8 +102,12 @@ class SendScheduledAnnouncementsCommand extends Command
             // Exactly the shape `GenerateRecurringExpensesService` already records for its own
             // per-schedule catch, and for the same reason: a poison row must cost its own delivery
             // and nothing else.
-            $reached += $sender->handle($announcement);
-            $sent++;
+            try {
+                $reached += $sender->handle($announcement);
+                $sent++;
+            } catch (DomainException $e) {
+                $failures[$announcement->id] = $e->getMessage();
+            }
         }
 
         if ($failures !== []) {
