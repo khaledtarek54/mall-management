@@ -356,6 +356,24 @@ are refused **by name with a reason**, so the decision is visible rather than an
 `outstandingBalance()`, never a column and never a sum — `Invoice::recomputeTotals()` already
 answers that question and a second reading of it would be a second answer.
 
+## And "how many" (B1c)
+
+*"How many units, by status?"* → **12 units — vacant 11, occupied 1**, and in Arabic
+«شاغرة: ١١، مشغولة: ١».
+
+**Structured, never a string.** The resource comes from retrieval; the only other input is a
+group-by column, and it must be one already registered in `ValueSets::forTable()`. That registry
+exists because those columns have a closed set of values — using it here means a grouping can only
+ever name a column somebody classified on purpose, and a question naming anything else gets a
+total. There is no SQL to write and no column to invent.
+
+**The database counts; the model reads.** The total is its own `count()` rather than a sum of the
+buckets, precisely so the model is never handed a list and expected to add it up.
+
+**The same allowlist governs counting as quoting.** Counting rows of a register nobody may quote is
+a smaller leak of the same kind — *"how many employees"* is a question about people, and the screen
+that answers it has its own permission.
+
 ## Judging it
 
 **The miss list stopped being a signal, and that is measured rather than feared.** Of 45 real
@@ -491,6 +509,9 @@ would save fractions of a cent; ranking is where the value is.
 - **A class you name must be one you imported.** `DepositTransaction::class` in the registry
   resolved to `App\Support\DepositTransaction` — valid PHP, silently wrong — and showed up as one
   model both unclassified and stale at once.
+- **The status catalogue is keyed by the MODEL, singular** — `admin.statuses.unit`, never
+  `admin.statuses.units`. Getting it wrong is silent: the split rendered *"Vacant: 11"* inside an
+  Arabic sentence, the half-translated shape this codebase keeps finding.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and

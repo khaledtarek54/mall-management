@@ -11,6 +11,7 @@ use App\Contracts\DeliverableReport;
 use App\Support\Assistant\AssistantBudget;
 use App\Services\Assistant\Models\AssistantPrompt;
 use App\Support\Assistant\AssistantDocs;
+use App\Support\Assistant\RecordCount;
 use App\Support\Assistant\RecordSummary;
 use App\Support\Assistant\ReportRunner;
 use App\Support\Assistant\TaskCorpus;
@@ -345,6 +346,29 @@ class AnswerQuestionService
             array_unshift($passages, $record);
         }
 
+        // "HOW MANY" is a different question from "what is", and the database answers it.
+        //
+        // The resource comes from RETRIEVAL — the ranking the evaluation set pins — and the only
+        // other input is a group-by column, which must be one this system already classified in
+        // `ValueSets`. So there is no SQL to write and no column to invent: a question naming
+        // something unregistered simply gets a total.
+        if (RecordCount::isCounting($words)) {
+            foreach ($results as $result) {
+                $resource = self::resourceOf($result);
+
+                if ($resource === null) {
+                    continue;
+                }
+
+                $count = RecordCount::for($resource, $words);
+
+                if ($count !== null) {
+                    array_unshift($passages, $count);
+                    break;
+                }
+            }
+        }
+
         if ($passages === []) {
             return $none;
         }
@@ -395,6 +419,26 @@ class AnswerQuestionService
         }
 
         return ['text' => $text, 'input' => (int) $usage['input'], 'output' => (int) $usage['output']];
+    }
+
+    /**
+     * The resource a ranked result belongs to, if any.
+     *
+     * A TASK keys on the resource already; a screen result names a class that may itself be one.
+     * Anything else — a report page, a documentation chunk — has no register to count.
+     *
+     * @param  array<string, mixed>  $result
+     * @return class-string|null
+     */
+    private static function resourceOf(array $result): ?string
+    {
+        foreach ([$result['key'] ?? null, $result['screen'] ?? null] as $candidate) {
+            if (is_string($candidate) && is_a($candidate, \Filament\Resources\Resource::class, true)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**

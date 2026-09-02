@@ -61,6 +61,13 @@ return [
             'truncated' => 'Showing :shown of :total rows — open the report for the rest.',
         ],
 
+        'count' => [
+            // Read as INTENT only — never scored, so it cannot crowd the ranking.
+            'verbs' => 'how many count number total quantity split breakdown',
+            'total' => 'There are :count :label in this property.',
+            'by' => 'By :column —',
+        ],
+
         'answer_heading' => 'Short answer',
         'answer_caveat' => 'Written from the sources below. Check them before acting on a figure.',
 

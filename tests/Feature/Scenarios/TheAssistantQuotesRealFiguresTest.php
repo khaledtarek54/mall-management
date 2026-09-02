@@ -228,3 +228,98 @@ it('puts the record summary in front of the model', function () {
             ->toBeTrue('the record was found but its figures never reached the model');
     });
 });
+
+// ── B1c: how many, and how do they split ───────────────────────────────────────────────────────
+
+it('counts, and splits only by a column this system has classified', function () {
+    $asset = makeAsset();
+    foreach (range(1, 3) as $i) {
+        makeUnit($asset);
+    }
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        $resource = App\Filament\Admin\Resources\Units\UnitResource::class;
+
+        // A total when nothing names a column.
+        $total = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units']);
+        expect($total['body'])->toContain('3');
+
+        // A split when the question names one — and `units.status` is registered in ValueSets,
+        // which is the only reason it may be grouped by. There is no SQL here to write.
+        $split = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'status']);
+        expect($split['body'])->toContain(__('admin.statuses.unit.vacant'));
+
+        // A word naming no registered column falls back to the total rather than inventing a
+        // grouping — the whole point of taking the column from a registry.
+        $unknown = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'wibble']);
+        expect($unknown['body'])->not->toContain('—');
+    });
+});
+
+it('renders the stored codes in the reader\'s own language', function () {
+    $asset = makeAsset();
+    makeUnit($asset);
+    $this->actingAs(makeUser('super_admin'));
+    app()->setLocale('ar');
+
+    asTenant($asset, function () {
+        $split = App\Support\Assistant\RecordCount::for(
+            App\Filament\Admin\Resources\Units\UnitResource::class,
+            ['كم', 'عدد', 'الوحدات', 'الحالة'],
+        );
+
+        // The catalogue is keyed by the MODEL, singular — `admin.statuses.unit`, not `units` —
+        // and getting it wrong is silent: "Vacant: 11" inside an Arabic sentence, the
+        // half-translated shape this codebase keeps finding.
+        expect($split['body'])->toMatch('/\p{Arabic}/u')
+            ->and($split['body'])->not->toContain('vacant');
+    });
+
+    app()->setLocale('en');
+});
+
+it('will not count a register the reader may not open', function () {
+    $asset = makeAsset();
+    makeUnit($asset);
+
+    $resource = App\Filament\Admin\Resources\Units\UnitResource::class;
+
+    $this->actingAs(makeUser('marketing'));
+    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units']))->toBeNull());
+
+    auth()->forgetUser();
+    $this->actingAs(makeUser('super_admin'));
+    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units']))->not->toBeNull());
+});
+
+it('counts only the reader\'s own property', function () {
+    $mine = makeAsset();
+    $theirs = makeAsset();
+    makeUnit($mine);
+    foreach (range(1, 4) as $i) {
+        makeUnit($theirs);
+    }
+    $this->actingAs(makeUser('super_admin'));
+
+    // The count runs on the resource's own getEloquentQuery(), so it is the list page's query —
+    // not a re-implementation that could forget the scope.
+    asTenant($mine, function () {
+        $body = App\Support\Assistant\RecordCount::for(
+            App\Filament\Admin\Resources\Units\UnitResource::class, ['how', 'many', 'units'])['body'];
+
+        expect($body)->toContain('1')->not->toContain('5');
+    });
+});
+
+it('refuses to count a register it may not quote', function () {
+    // The SAME allowlist that governs reading a record back. Counting rows of a register nobody may
+    // quote is a smaller leak of the same kind — "how many employees" is a question about people.
+    expect(App\Support\AssistantFields::isSummarisable(App\Models\Employee::class))->toBeFalse();
+
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for(
+        App\Filament\Admin\Resources\Employees\EmployeeResource::class, ['how', 'many', 'employees']))->toBeNull());
+});
