@@ -365,7 +365,7 @@ Haiku, and nothing on the free tier. Report results are small enough not to move
 | **B1a** ✅ | `run_report` over the 17 that render, with caps and a stated tail. Retrieval picks the report — no tool-calling loop — and the model reads the rows. | done |
 | **B1b** ✅ | `record_summary` + the `AssistantFields` allowlist and its gate. 8 models summarised, 32 refused by name with reasons. | done |
 | **B1c** ✅ | `count_and_group`, structured and validated — the group-by must be a column already registered in `ValueSets`. | done |
-| **B1d** | `compare`, and the numeric evaluation cases | 2 days |
+| **B1d** ✅ | `compare` — two runs of one report, the difference computed in PHP, with the arithmetic unit-tested against known figures. | done |
 | *before any of it* | **Read the 👎 list.** If the complaints are about missing screens rather than missing numbers, build guides instead | — |
 
 ### Still not building

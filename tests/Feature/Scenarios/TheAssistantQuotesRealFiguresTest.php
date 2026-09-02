@@ -323,3 +323,67 @@ it('refuses to count a register it may not quote', function () {
     asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for(
         App\Filament\Admin\Resources\Employees\EmployeeResource::class, ['how', 'many', 'employees']))->toBeNull());
 });
+
+// ── B1d: the tool subtracts, never the model ───────────────────────────────────────────────────
+
+it('computes the difference itself, from known figures', function () {
+    $a = ['headers' => ['Line', 'Amount'], 'rows' => [['Revenue', '100000.00'], ['Expenses', '40000.00'], ['Old line', '500.00']], 'total' => 3, 'truncated' => false];
+    $b = ['headers' => ['Line', 'Amount'], 'rows' => [['Revenue', '125000.00'], ['Expenses', '37500.50'], ['New line', '900.00']], 'total' => 3, 'truncated' => false];
+
+    $lines = implode("\n", App\Support\Assistant\PeriodCompare::diff($a, $b, 2025, 2026));
+
+    // The arithmetic, done in PHP from figures the report produced. A model shown two tables will
+    // usually get this right and will eventually be confidently wrong about a number somebody acts
+    // on — and a wrong delta reads as a result rather than an opinion.
+    expect($lines)->toContain('+25,000.00')   // 125,000 − 100,000
+        ->and($lines)->toContain('-2,499.50'); // 37,500.50 − 40,000
+
+    // A row on one side only is NEW or GONE, never a change from zero: "revenue up 100%" and
+    // "this line did not exist last year" are different statements and only one is true.
+    expect($lines)->toContain('New line')->toContain('Old line')
+        ->and($lines)->not->toContain('+900.00');
+});
+
+it('reads the two periods from the question, and invents no third', function () {
+    $c = App\Support\Assistant\PeriodCompare::class;
+
+    expect($c::years(['compare', '2025', '2026']))->toBe([2025, 2026])
+        // One named year compares against the year before it.
+        ->and($c::years(['revenue', '2026']))->toBe([2025, 2026])
+        // Naming none compares this year with last, rather than guessing at a range.
+        ->and($c::years(['compare', 'revenue']))->toBe([(int) now()->year - 1, (int) now()->year]);
+});
+
+it('will not compare a report that has no year to compare by', function () {
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+
+    // Two identical runs presented as a trend is worse than no answer. The rent roll takes an
+    // `asOf` date, not a year.
+    asTenant($asset, fn () => expect(App\Support\Assistant\PeriodCompare::for(
+        App\Filament\Admin\Pages\RentRoll::class, ['compare', 'rent', 'roll']))->toBeNull());
+});
+
+it('compares one report against itself, both sides scoped to the reader', function () {
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        $result = App\Support\Assistant\PeriodCompare::for(
+            App\Filament\Admin\Pages\IncomeStatement::class,
+            ['compare', 'income', 'statement', '2026', '2025'],
+        );
+
+        // Both sides are the SAME report with a different year, so the columns are commensurable by
+        // construction — comparing one report to another is a different and much harder feature.
+        expect($result)->not->toBeNull()
+            ->and($result['title'])->toContain('2025')
+            ->and($result['title'])->toContain('2026');
+    });
+
+    // And a reader who cannot open the report gets no comparison of it either.
+    auth()->forgetUser();
+    $this->actingAs(makeUser('technician'));
+    asTenant($asset, fn () => expect(App\Support\Assistant\PeriodCompare::for(
+        App\Filament\Admin\Pages\IncomeStatement::class, ['compare', '2026', '2025']))->toBeNull());
+});

@@ -68,6 +68,15 @@ return [
             'by' => 'By :column —',
         ],
 
+        'compare' => [
+            // Intent only, never scored.
+            'verbs' => 'compare comparison versus vs against previous last prior earlier trend change',
+            'title' => ':a compared with :b',
+            'line' => ':label — :a in :a_year, :b now (:change)',
+            'new_line' => ':label — no figure before :year.',
+            'gone_line' => ':label — had a figure in :year and none now.',
+        ],
+
         'answer_heading' => 'Short answer',
         'answer_caveat' => 'Written from the sources below. Check them before acting on a figure.',
 

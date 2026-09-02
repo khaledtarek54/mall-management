@@ -11,6 +11,7 @@ use App\Contracts\DeliverableReport;
 use App\Support\Assistant\AssistantBudget;
 use App\Services\Assistant\Models\AssistantPrompt;
 use App\Support\Assistant\AssistantDocs;
+use App\Support\Assistant\PeriodCompare;
 use App\Support\Assistant\RecordCount;
 use App\Support\Assistant\RecordSummary;
 use App\Support\Assistant\ReportRunner;
@@ -265,6 +266,7 @@ class AnswerQuestionService
 
         $passages = [];
         $ranReport = false;
+        $comparing = PeriodCompare::isComparing($words);
 
         // The year the question named, so "income statement 2026" reports on 2026 rather than on
         // whatever the page defaults to.
@@ -304,6 +306,22 @@ class AnswerQuestionService
             // is most of the catalogue, arrived here as kind `screen` and its figures were never
             // fetched. The question "is this thing a report" has one honest answer and it is the
             // contract the page implements.
+            // A COMPARISON, when that is what was asked. Two runs of the SAME report and a
+            // difference computed in PHP — the model is handed the answer, never the two figures
+            // that made it. A wrong delta looks like a result rather than an opinion, which is why
+            // this is the tier where "the model does not compute" is enforced hardest.
+            if ($body === null && ! $ranReport && $comparing
+                && is_a((string) ($result['screen'] ?? ''), DeliverableReport::class, true)) {
+                $comparison = PeriodCompare::for((string) $result['screen'], $words);
+
+                if ($comparison !== null) {
+                    $ranReport = true;
+                    $passages[] = $comparison;
+
+                    continue;
+                }
+            }
+
             if ($body === null && ! $ranReport && is_a((string) ($result['screen'] ?? ''), DeliverableReport::class, true)) {
                 $figures = ReportRunner::run(
                     (string) $result['screen'],

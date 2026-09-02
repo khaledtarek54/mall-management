@@ -374,6 +374,27 @@ buckets, precisely so the model is never handed a list and expected to add it up
 a smaller leak of the same kind — *"how many employees"* is a question about people, and the screen
 that answers it has its own permission.
 
+## And comparisons, where the TOOL subtracts (B1d)
+
+*"Compare the income statement 2025 and 2026"* runs the **same report twice** and computes each
+line's change **in PHP**. The model is handed the answer, never the two figures that made it.
+
+That is the rule enforced hardest here rather than most loosely, and deliberately: a model shown two
+tables will usually say which is larger, and will eventually be confidently wrong about a number
+somebody is about to act on — **a wrong delta reads as a result, not an opinion**.
+
+- **One report against itself**, so the columns are commensurable by construction. Comparing one
+  report to another is a different and much harder feature; pretending otherwise is how a chart
+  subtracts square metres from money.
+- **A report with no `year` parameter is refused.** Two identical runs presented as a trend is worse
+  than no answer.
+- **A row on one side only is NEW or GONE**, never a change from zero — *"revenue up 100%"* and
+  *"this line did not exist last year"* are different statements and only one is true.
+- **Both sides run as the reader**, so a comparison cannot show what a single run would not.
+
+`PeriodCompare::diff()` is public so the arithmetic is provable against known figures without
+seeding a ledger — the subtraction is the thing that has to be right.
+
 ## Judging it
 
 **The miss list stopped being a signal, and that is measured rather than feared.** Of 45 real
