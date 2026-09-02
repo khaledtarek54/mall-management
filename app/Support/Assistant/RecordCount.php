@@ -83,9 +83,9 @@ final class RecordCount
      * @param  array<int, string>  $words
      * @return array{title: string, body: string}|null
      */
-    public static function for(string $resource, array $words, string $question): ?array
+    public static function for(string $resource, array $words, string $question, bool $mustFilter = false): ?array
     {
-        return rescue(function () use ($resource, $words, $question): ?array {
+        return rescue(function () use ($resource, $words, $question, $mustFilter): ?array {
             $model = $resource::getModel();
 
             // Deliberately the SAME allowlist that governs reading a record back. Counting rows of
@@ -134,6 +134,17 @@ final class RecordCount
             // one more search; a total presented as the answer to a filtered question costs them a
             // decision made on the wrong figure.
             if (self::namesAnUnresolvedState($table, $allowed, self::asked($question))) {
+                return null;
+            }
+
+            // NOTHING BUT A STATE BROUGHT US HERE, so a total is not an answer to anything.
+            //
+            // A named state makes the count reachable without a counting verb, which is what lets
+            // "what is the pending invoices" produce a figure at all. The cost is that an ordinary
+            // how-to question carrying a state word — "how do I make a unit available" — would
+            // otherwise have the register's TOTAL pinned to the top of its answer, which is noise
+            // presented with the authority of a measurement.
+            if ($mustFilter) {
                 return null;
             }
 
@@ -288,9 +299,9 @@ final class RecordCount
      * The tie-break matters on its own: "paid" and `partially_paid` both consume one token, and the
      * one whose whole vocabulary the reader typed is the better answer.
      *
-     * @param  array{consumed: int, width: int}|null  $best
-     * @param  array{consumed: int, width: int}  $next
-     * @return array{consumed: int, width: int}
+     * @param  array{column: string, values: array<int, string>, label: string, consumed: int, width: int, negating: bool}|null  $best
+     * @param  array{column: string, values: array<int, string>, label: string, consumed: int, width: int, negating: bool}  $next
+     * @return array{column: string, values: array<int, string>, label: string, consumed: int, width: int, negating: bool}
      */
     private static function better(?array $best, array $next): array
     {

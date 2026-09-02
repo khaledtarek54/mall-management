@@ -401,7 +401,13 @@ class AnswerQuestionService
                     continue;
                 }
 
-                $count = RecordCount::for($resource, $words, $question);
+                $count = RecordCount::for(
+                    $resource,
+                    $words,
+                    $question,
+                    // With no counting verb, only a FILTERED figure is an answer.
+                    mustFilter: ! RecordCount::isCounting($words),
+                );
 
                 if ($count !== null) {
                     array_unshift($passages, $count);

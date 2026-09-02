@@ -494,8 +494,21 @@ write-offs through `Invoice::collectableBalance()` and carries the ageing bucket
 `balance` here would be a second truth about AR beside `ReportService` and would quote money the
 operator has already forgiven. **The count says HOW MANY; the report says HOW MUCH.**
 
-All four teeth are mutation-proved in `TheAssistantCountsWhatWasAskedTest`, and a gate requires
-every concept to expand to values the column really holds — which caught one wrong guess before it
+**A state word must SELECT the state**, the rule `admin.assistant.synonyms` already obeys one level
+up — and this registry broke it on its first pass. `free` under *vacant* fired on *"record a rent
+free period"*; `running` and `current` under *live* on *"which tenants are running out of cheques"*
+and *"the current period"*; `let` under *occupied* on *"let a parking bay"*. Every one a how-to
+question that would have had a figure about something else pinned to the top of its answer.
+
+The structural half of that: **a count reached only by a state name must produce a FILTERED figure
+or nothing**. The passage loop tries each retrieved resource and takes the first that answers, so
+without the guard a resource the state does not apply to hands back its own total and stops.
+
+All teeth are mutation-proved in `TheAssistantCountsWhatWasAskedTest` — including the guard, whose
+first test could not fail: once the vocabulary was tightened those three questions named no state
+at all, so removing the guard changed nothing and the test passed for a reason unrelated to it. It
+is asserted on the tool now, same question and resource either side of the flag. A gate requires
+every concept to expand to values the column really holds, which caught one wrong guess before it
 shipped: credit notes have no `partially_applied`.
 
 ## And comparisons, where the TOOL subtracts (B1d)
@@ -678,7 +691,7 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 `TheFloatingAssistantIsAChatTest`, `AssistantFieldsConformanceTest`,
 `TheModelOnlyWordsWhatRetrievalFoundTest`, the evaluation set
 (`TheAssistantAnswersTheseQuestionsTest`), `AssistantVocabularyConformanceTest` and
-`TheAssistantCountsWhatWasAskedTest` — **130 in all**, green together. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
+`TheAssistantCountsWhatWasAskedTest` — **135 in all**, green together. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
 the ceiling, the cache and the default-off were each mutation-proved. Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.

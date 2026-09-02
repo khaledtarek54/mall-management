@@ -172,3 +172,67 @@ it('expands every state concept to values the column really holds', function () 
         }
     }
 });
+
+it('will not fall back to a bare total when only a state brought it here', function () {
+    // A named state makes the count reachable WITHOUT a counting verb — that is what lets "what is
+    // the pending invoices" answer at all. The cost, found in review: the passage loop tries each
+    // retrieved resource in turn and takes the first that answers, so a resource the state does not
+    // apply to would hand back the register's TOTAL and stop — a figure about something else,
+    // pinned to the top of the answer with the authority of a measurement.
+    //
+    // Asserted on the tool rather than through the service, because it has to be the SAME question
+    // and resource either side of the flag: the only difference that may explain the two results is
+    // the guard itself.
+    [$asset] = booksWithOneUnpaidInvoice();
+    $this->actingAs(makeUser('super_admin'));
+
+    $units = App\Filament\Admin\Resources\Units\UnitResource::class;
+    $question = 'what is the pending invoices';
+    $words = ['pending', 'invoices'];
+
+    asTenant($asset, function () use ($units, $question, $words) {
+        // Units have no "pending" state, so with a counting verb a total is a fair answer...
+        expect(App\Support\Assistant\RecordCount::for($units, $words, $question))->not->toBeNull();
+
+        // ...and with nothing but the state to go on, it is not an answer at all.
+        expect(App\Support\Assistant\RecordCount::for($units, $words, $question, mustFilter: true))
+            ->toBeNull();
+    });
+});
+
+it('does not pin a figure to a question that was not asking for one', function (string $question) {
+    // The vocabulary half of the same finding: `free` fired on "rent free period", `running` on
+    // "running out of cheques", `let` on "let a parking bay".
+    [$asset] = booksWithOneUnpaidInvoice();
+    $this->actingAs(makeUser('super_admin'));
+
+    expect(assistantFigureFor($question, $asset))->not->toContain('There are 3 Invoices');
+})->with([
+    'a rent free period' => ['record a rent free period'],
+    'letting a bay' => ['let a parking bay'],
+    'running out of cheques' => ['which tenants are running out of cheques'],
+]);
+
+it('keeps ubiquitous words out of the state vocabulary', function () {
+    // The rule `admin.assistant.synonyms` already obeys, one level down — and this registry broke
+    // it on its first pass. `free` fired on "rent free period", `running` and `current` on "running
+    // out of cheques" and "the current period", `let` on "let a parking bay".
+    $banned = ['free', 'current', 'running', 'let', 'taken', 'gone', 'remaining', 'no', 'not'];
+
+    foreach (RecordStates::CONCEPTS as $key => $concepts) {
+        foreach ($concepts as $state => $concept) {
+            foreach ($concept['words'] as $phrase) {
+                // Only a phrase of ONE word is a hazard: a multi-word entry has to be typed whole,
+                // so «غير مدفوعة» may legitimately contain a word that is useless on its own.
+                $tokens = AssistantCorpus::tokenise($phrase);
+
+                if (count($tokens) !== 1) {
+                    continue;
+                }
+
+                expect(in_array($tokens[0], $banned, true))
+                    ->toBeFalse("{$key}/{$state} lists the ubiquitous word '{$tokens[0]}'");
+            }
+        }
+    }
+});

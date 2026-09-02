@@ -34,6 +34,14 @@ final class RecordStates
     /**
      * `table.column` => concept => {values, words}.
      *
+     * **A word must SELECT the state** — the same rule `admin.assistant.synonyms` obeys one level
+     * up, and this registry broke it on its first pass. `free` under *vacant* fired on "record a
+     * rent free period"; `running` and `current` under *live* fired on "which tenants are running
+     * out of cheques" and on the phrase "the current period"; `let` under *occupied* fired on "let
+     * a parking bay" — every one of them a how-to question that would have had a figure about
+     * something else pinned to the top of its answer. A word that reads as ordinary English
+     * anywhere in this domain belongs nowhere near here.
+     *
      * @var array<string, array<string, array{values: array<int, string>, words: array<int, string>}>>
      */
     public const CONCEPTS = [
@@ -62,29 +70,29 @@ final class RecordStates
             // reads as "not yet used up" rather than "untouched".
             'unapplied' => [
                 'values' => ['issued'],
-                'words' => ['unapplied', 'unused', 'remaining', 'غير مطبقة', 'متبقية'],
+                'words' => ['unapplied', 'unused', 'غير مطبقة', 'متبقية'],
             ],
         ],
 
         'leases.status' => [
             'live' => [
                 'values' => ['active'],
-                'words' => ['live', 'running', 'current', 'ongoing', 'ساري', 'سارية', 'قائم', 'قائمة', 'جاري', 'جارية'],
+                'words' => ['live', 'ongoing', 'ساري', 'سارية', 'قائم', 'قائمة'],
             ],
             'ended' => [
                 'values' => ['expired', 'terminated'],
-                'words' => ['ended', 'finished', 'gone', 'منتهي', 'منتهية', 'منتهیة', 'منهاة'],
+                'words' => ['ended', 'finished', 'منتهي', 'منتهية', 'منهاة'],
             ],
         ],
 
         'units.status' => [
             'empty' => [
                 'values' => ['vacant'],
-                'words' => ['empty', 'free', 'available', 'unlet', 'شاغر', 'شاغرة', 'فاضية', 'متاح', 'متاحة'],
+                'words' => ['empty', 'available', 'unlet', 'شاغر', 'شاغرة', 'فاضية', 'متاح', 'متاحة'],
             ],
             'let' => [
                 'values' => ['occupied'],
-                'words' => ['let', 'rented', 'taken', 'مؤجر', 'مؤجرة', 'مشغول', 'مشغولة'],
+                'words' => ['rented', 'مؤجر', 'مؤجرة', 'مشغول', 'مشغولة'],
             ],
         ],
     ];
