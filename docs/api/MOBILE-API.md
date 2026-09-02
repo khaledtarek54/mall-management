@@ -5,21 +5,20 @@
 > Auth: Bearer tokens (Laravel Sanctum), `tenants` provider.
 > Last updated: 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships. *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
 
-> ### ⚠️ Read [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md) alongside this file
+> ### 👉 The mobile developer starts at [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md)
 >
-> The backend moved on after this document's last revision, and a handful of lines here were
-> already wrong. That sync brief is the **delta, derived from the code** — 7 breaking items,
-> 10 behaviour changes, 5 new fields, 25 endpoints the app is probably not calling, and 8 gaps that are the
-> backend's to close. **Where the two disagree, the sync brief is right.** Known errors in this
-> file, corrected there: §4.3 prints invoice line-item keys in snake_case (the wire is camelCase)
-> and lists 8 of 13+ `type` codes and 8 of 9 invoice statuses; §4.7 lists 7 of 14 maintenance
-> sub-categories; §6 "Not in v1" is stale (Paymob, push and attachments are all built).
+> That brief is short and derived from the code: the sync status, the work as 18 tasks, all 67
+> endpoints, all 16 payload shapes, and the 15 rules that are not obvious. **Where the two documents
+> disagree, the brief is right.**
 >
-> It also carries a **portal ↔ API parity audit** (Part 11) — seven capabilities the web portal
-> exposed and `/api/v1` did not: the deposit shortfall a tenant is told about nowhere else, credit
-> on account, the whole of CAM, multi-unit leases, unit owners. **All seven shipped on 2026-09-02**,
-> along with six new endpoints and ~30 new fields — the resulting contract is that document's
-> **Part 12**, and it is where a mobile developer should start.
+> **Two known errors in THIS file:** §4.3 prints invoice line-item keys in **snake_case** (the wire
+> is camelCase, and it lists 8 of 13+ `type` codes and 8 of 9 invoice statuses); §4.7 lists **7 of
+> 14** maintenance sub-categories. Both vocabularies are now served by `GET /me/vocabulary` and
+> `GET /me/request-types`, so a client should read them rather than either document.
+>
+> The backend gained six endpoints and ~30 fields on 2026-09-02 — the deposit shortfall, credit on
+> account, all of CAM, multi-unit leases, unit owners, the bilingual vocabulary. They are listed in
+> the brief's §0 and specified in its §2 and §3.
 
 This document is the single reference a mobile developer needs to build the
 app: the business domain, the auth model, every endpoint with request/response

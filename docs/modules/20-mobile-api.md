@@ -70,6 +70,13 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 
 ## 3. Business rules & invariants
 
+> **The mobile developer's copy of all this is [`docs/api/MOBILE-SYNC-2026-09-02.md`](../api/MOBILE-SYNC-2026-09-02.md)** —
+> short, task-shaped, derived from the code. This section is the REASONING and is deliberately not
+> repeated there. Per the standing rule, an `/api/v1` change updates the contract
+> ([`MOBILE-API.md`](../api/MOBILE-API.md)), that brief, this section and `api:export-spec` in the
+> SAME commit — the app is a second codebase in someone else's hands, so these documents ARE the
+> sync.
+
 **Authentication & Authorization:**
 - Only `status = 'active'` tenants can log in. Inactive/blacklisted users receive 403 + message "account_blocked". (See `LoginTenantAction::handle`.)
 - Each token has `abilities: ['tenant:*']` (no granular per-endpoint scoping; all authenticated endpoints treat `:*` as "allowed").
