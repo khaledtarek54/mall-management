@@ -1,9 +1,11 @@
 <?php
 
 use App\Filament\Admin\Pages\IncomeStatement;
+use App\Models\BudgetLine;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportPdfService;
+use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ComparativeStatementService;
 use App\Services\Reports\StatementSpread;
 use App\Support\IssuingEntity;
@@ -284,4 +286,68 @@ it('exports the columns it displays', function () {
         ->and($noiRow[4])->toBe(960_000.0);
 
     Filament::setTenant(null, isQuiet: true);
+});
+
+it('reads the month against its budget, and the year against its budget', function () {
+    // Yardi's flagship income statement is month actual / budget / variance beside YTD actual /
+    // budget / variance. That is the whole layout, and it was the one column path with no test —
+    // found in review, not by a failure, because every OTHER basis exercises a different branch of
+    // `comparisonReport()`: a budget compares against the group's OWN dates while a prior period
+    // moves the span, so a green prior-period test says nothing about this.
+    $asset = makeAsset();
+    spreadThreeMonths($asset->id);
+
+    $rent = LedgerAccount::where('code', '4100')->firstOrFail();
+
+    // Planned 480,000 in March; the mall actually took 500,000.
+    BudgetLine::create([
+        'asset_id' => $asset->id, 'ledger_account_id' => $rent->id,
+        'fiscal_year' => 2026, 'month' => 3, 'amount' => 480_000,
+    ]);
+
+    $spread = app(StatementSpread::class)->incomeStatement([
+        ['key' => 'period', 'label' => 'Mar', 'from' => CarbonImmutable::parse('2026-03-01'), 'to' => CarbonImmutable::parse('2026-03-31')->endOfDay()],
+        ['key' => 'ytd', 'label' => 'YTD', 'from' => CarbonImmutable::parse('2026-01-01'), 'to' => CarbonImmutable::parse('2026-03-31')->endOfDay()],
+    ], [$asset->id], ComparativeStatementService::BUDGET);
+
+    // Six columns: actual, budget and variance for each of the two groups.
+    expect(array_column($spread['spans'], 'kind'))
+        ->toBe(['actual', 'comparison', 'variance', 'actual', 'comparison', 'variance']);
+
+    $revenue = $spread['totals']['operating_revenue'];
+
+    expect($revenue['period'])->toBe(500_000.0)
+        ->and($revenue['period'.StatementSpread::COMPARISON_SUFFIX])->toBe(480_000.0)
+        ->and($revenue['period'.StatementSpread::VARIANCE_SUFFIX])->toBe(20_000.0);
+
+    // The budget compares against the group's OWN dates, never a moved span — so the YTD column's
+    // budget is the plan for Jan–Mar, which is that single March line and not three months of it.
+    expect($revenue['ytd'])->toBe(1_500_000.0)
+        ->and($revenue['ytd'.StatementSpread::COMPARISON_SUFFIX])->toBe(480_000.0);
+});
+
+it('agrees with every other reading of the same month', function () {
+    // Three code paths now answer "what was March's NOI" — the plain statement, the comparative one
+    // and the spread. They are built differently on purpose (the last two work from a UNION across
+    // spans), which is exactly why they need pinning against each other: a spread that quietly
+    // disagreed with the statement it sits on would be discovered by an operator, not by a test.
+    $asset = makeAsset();
+    spreadThreeMonths($asset->id);
+
+    $from = CarbonImmutable::parse('2026-03-01');
+    $to = CarbonImmutable::parse('2026-03-31')->endOfDay();
+
+    $plain = app(LedgerReportService::class)->incomeStatement([$asset->id], $from, $to);
+    $comparative = app(ComparativeStatementService::class)->incomeStatement($from, $to, [$asset->id], ComparativeStatementService::PRIOR_PERIOD);
+    $spread = app(StatementSpread::class)->incomeStatement(
+        [['key' => 'period', 'label' => 'Mar', 'from' => $from, 'to' => $to]],
+        [$asset->id],
+        ComparativeStatementService::PRIOR_PERIOD,
+    );
+
+    expect($plain['net_operating_income'])->toBe(280_000.0)
+        ->and($comparative['totals']['noi']['current'])->toBe(280_000.0)
+        ->and($spread['totals']['noi']['period'])->toBe(280_000.0)
+        // …and on the comparison side too, which is the half a single-figure check would miss.
+        ->and($comparative['totals']['noi']['prior'])->toBe($spread['totals']['noi']['period'.StatementSpread::COMPARISON_SUFFIX]);
 });
