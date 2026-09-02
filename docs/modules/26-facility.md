@@ -1681,3 +1681,40 @@ with it, while an internal draw has none. All five guards verified load-bearing 
 > `technicianOptions()` is load-bearing: ungrouped,
 > `whereHas(...)->orWhereDoesntHave(...)` lets the OR escape the property clause and hands the picker
 > every mall's roster. (`TwoActsWithNoScreenTest`.)
+
+
+## An SLA penalty must reach the job's cost (fixed 2026-09-02)
+
+A work order is a **cost object** and `FacilityWorkOrder::recomputeCosts()` is its single source of
+truth — the same discipline that makes every AR settlement channel call
+`Invoice::recomputeTotals()`. `VendorBill` keeps its end of that bargain in a `saved` hook, and
+`VendorBill::recompute()` ends with **`saveQuietly()`**, which is exactly the call that skips it.
+
+So every derived figure `recompute()` writes was invisible to the cost object, and the SLA penalty is
+the one that matters. `ApplySlaPenaltyService` sets `penalty_applied_amount` and calls `recompute()`;
+`recomputeCosts()` nets that very column out of the job's service cost
+(`sum(subtotal - coalesce(penalty_applied_amount, 0))`). Applying a penalty therefore reduced what was
+payable to the contractor and left `act_service_cost` standing at the full amount:
+
+| | payable | `act_service_cost` |
+|---|---|---|
+| bill 50,000, no penalty | 50,000 | 50,000 |
+| penalty 8,000 applied — **before** | 42,000 | **50,000** |
+| penalty 8,000 applied — now | 42,000 | 42,000 |
+
+The job overstated its cost by exactly the penalty, permanently, and the planned-versus-actual
+variance the whole cost object exists for read wrong in the direction that flatters the contractor.
+Detaching a penalty had the mirror fault.
+
+**`saveQuietly()` is right and stays** — a derivation is not an operator action, and logging it would
+bury the change somebody actually made under a cost row nobody typed. What was missing is the cascade
+beside it, and it lives in `recompute()` rather than in `ApplySlaPenaltyService`: every derived figure
+that method writes is invisible to the cost object, so a fix in the service would leave the NEXT
+caller to remember it — which is precisely the failure being fixed.
+
+**Deliberately not a GL question.** The penalty already posts through `SlaPenaltyJournalizer`; these
+columns are a management dimension over money the ledger already has, which is why a work order must
+never become a GL source (`WorkOrderIsACostObjectNotAGlSourceTest` gates that).
+
+Tests: `APenaltyReachesTheJobsCostTest` — apply, detach, and a third caller of `recompute()` that
+must NOT move the cost. Mutation-proved.

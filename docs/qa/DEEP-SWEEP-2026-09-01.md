@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 48 closed, 174 open (updated 2026-09-01)
+> ### Where this stands — 49 closed, 173 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -198,14 +198,14 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Cross-cutting
 
-*18 open — 3 high, 10 medium, 5 low.*
+*17 open — 2 high, 10 medium, 5 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-111** | open | high | — | A general (no-property) owner request is invisible to every property-restricted operator — and it is the form's DEFAULT | `Filament/Admin/Resources/OwnerRequests/OwnerRequestResource:97` |
 | **SW-112** | open | high | — | The owner can neither read nor answer the conversation thread module 15 built for them | `Filament/Admin/Resources/OwnerRequests/Tables/OwnerRequestsTable:120` |
 | **SW-113** | ✅ **fixed** `2b4dd73c` | high | XS | Paymob callback treats only 'captured' as terminal, not the whole received set — a late or replayed decline callback flips a 'reconciled'/'settled' payment to 'failed', silently un-paying the invoice and voiding its GL leg. The REVERSED half of the very same condition was already derived from the model, under a comment reading *"enumerate a set like this by asking the model, not by grepping the diff"*; the RECEIVED half was a literal. Both paths (the fast check and the locked re-check) now ask `Payment::isReceived()` | `Http/Controllers/Paymob/CallbackController:128` |
-| **SW-114** | open | high | — | Applying an SLA penalty never re-derives the work order's cost — recompute() is saveQuietly, so the only hook that calls recomputeCosts() never fires | `Services/ApplySlaPenaltyService:45` |
+| **SW-114** | ✅ fixed | high | — | Applying an SLA penalty never re-derives the work order's cost — recompute() is saveQuietly, so the only hook that calls recomputeCosts() never fires | `Services/ApplySlaPenaltyService:45` |
 | **SW-115** | ✅ **fixed** `fb85e218` | high | — | `sales:estimate-missing` runs on the 8th and the chase it is supposed to follow runs on the 10th — the reminder can never fire for any tenant the estimate covers | `routes/console:246` |
 | **SW-116** | open | medium | — | Schedule-payout modal defaults to a rail the catalogue may no longer offer | `Filament/Admin/Actions/OwnerStatementRunActions:104` |
 | **SW-117** | open | medium | — | The Income Statement restores the remembered property AFTER the pin, desyncing its scope caption from the mall it is reporting | `Filament/Admin/Pages/IncomeStatement:70` |

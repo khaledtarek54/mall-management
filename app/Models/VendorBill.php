@@ -283,6 +283,24 @@ class VendorBill extends Model
         }
 
         $this->saveQuietly();
+
+        // **AND THE JOB THIS BILL BELONGS TO, BECAUSE `saveQuietly()` SKIPS THE HOOK THAT WOULD
+        // HAVE DONE IT.** The `saved` hook above is what keeps `FacilityWorkOrder::recomputeCosts()`
+        // in step with every channel that changes what a job cost — and this method deliberately
+        // does not fire it, so every derived figure it writes was invisible to the cost object.
+        //
+        // It bit on the SLA penalty. `ApplySlaPenaltyService` sets `penalty_applied_amount` and
+        // calls `recompute()`, and `recomputeCosts()` nets that very column out of the job's service
+        // cost — so applying a penalty reduced the payable and left `act_service_cost` standing at
+        // the full amount. The job overstated its cost by exactly the penalty, permanently, and the
+        // planned-vs-actual variance the whole cost object exists for read wrong in the direction
+        // that flatters the contractor. Detaching a penalty had the mirror fault.
+        //
+        // Here rather than in the service: `recompute()` is the single source of truth for this
+        // document's derived money, so the cascade belongs beside the write. A call in the SLA
+        // service would leave the next caller of `recompute()` to remember it — which is precisely
+        // the failure this is.
+        $this->workOrderForCosting()?->recomputeCosts();
     }
 
     /**
