@@ -49,33 +49,78 @@ class CatalogueAwareSelect extends Select
     /**
      * @return array<array-key, mixed>
      */
+    /**
+     * The column names any catalogue governs — the cheap bail-out.
+     *
+     * `getOptions()` runs about three times per Select per render plus once for validation, and this
+     * binding is GLOBAL, so the first thing it must do is get out of the way of every ordinary
+     * Select in the app. Comparing the field NAME against five distinct strings does that before
+     * anything touches the container, the state or the record — each of which is real work
+     * (`getState()` resolves a state cast out of the container on every call). Measured before this
+     * bail-out: +9.4% on `EditTenantRequest` mount+refresh.
+     *
+     * @var array<string, true>|null
+     */
+    private static ?array $governedColumns = null;
+
+    private static ?ReflectionProperty $containerProperty = null;
+
+    /**
+     * @return array<array-key, mixed>
+     */
     public function getOptions(): array
     {
         $options = parent::getOptions();
 
-        // **A DETACHED COMPONENT MUST FALL THROUGH, NOT THROW.** `getState()` and `getRecord()` both
-        // reach for `$container`, a TYPED property with no default, so a `Select` built outside a
-        // mounted schema fatals on `must not be accessed before initialization` — the same trap
+        self::$governedColumns ??= array_fill_keys(array_map(
+            fn (string $key): string => substr($key, strpos($key, '.') + 1),
+            array_keys(ValueSets::catalogueWidenedColumns()),
+        ), true);
+
+        if (! isset(self::$governedColumns[$this->getName()])) {
+            return $options;
+        }
+
+        // **A DETACHED COMPONENT MUST FALL THROUGH, NOT THROW.** `getRecord()` reaches for
+        // `$container`, a TYPED property with no default, so a `Select` built outside a mounted
+        // schema fatals on `must not be accessed before initialization` — the same trap
         // `getHelperText()` and `Repeater::getLabel()` set, and the reason two of this project's own
         // gates were once sweeping nothing. This binding is global, so any tool, test or conformance
         // gate that inspects a bare `Select::make()->options([...])` would start throwing on a call
         // that worked before. Reflection rather than a try/catch: an initialisation check must not
         // also swallow a genuine error inside the state resolution.
-        $reflection = new ReflectionProperty(self::class, 'container');
+        self::$containerProperty ??= new ReflectionProperty(self::class, 'container');
 
-        if (! $reflection->isInitialized($this)) {
+        if (! self::$containerProperty->isInitialized($this)) {
             return $options;
         }
 
-        $current = $this->getState();
+        $record = $this->getRecord();
 
-        // Only a scalar the options do not already carry. `array_key_exists`, not `isset`: a label
-        // may legitimately be null, and `in_array` would compare the LABELS.
-        if (! is_string($current) || $current === '' || array_key_exists($current, $options)) {
+        // Only a SAVED record can be carrying a retired code. On a create form the operator is
+        // choosing now, and offering a switched-off code would be the opposite of what retiring one
+        // means.
+        if (! $record instanceof Model || ! $record->exists) {
             return $options;
         }
 
-        $model = $this->catalogueFor($current);
+        // **THE STORED VALUE, NEVER `getState()`.** The first version read the component's state,
+        // which is whatever the CLIENT last submitted — so any string a crafted payload sent was
+        // appended as a valid option, `getOptionLabel()` resolved it (`labelFor()` returns the code
+        // itself for an unknown one and can never fail), and Filament emitted NO `In` rule at all.
+        // Measured: a `parking` subcategory — an ACCESS code the maintenance picker deliberately
+        // does not offer — saved cleanly, where before it was refused. That turned a fix into a hole
+        // bigger than the bug, on all sixteen catalogue columns at once, and it falsified this
+        // codebase's own stated invariant that a Select refuses what it cannot label.
+        //
+        // `getRawOriginal()`, not `getAttribute()`: the persisted string, before any cast.
+        $stored = $record->getRawOriginal($this->getName());
+
+        if (! is_string($stored) || $stored === '' || array_key_exists($stored, $options)) {
+            return $options;
+        }
+
+        $model = $this->catalogueFor($record);
 
         if ($model === null) {
             return $options;
@@ -83,7 +128,7 @@ class CatalogueAwareSelect extends Select
 
         // Appended, never prepended: the retired code is history, not a suggestion, and the active
         // codes stay in the order the catalogue's own `sort_order` put them.
-        return $options + [$current => $model::labelFor($current)];
+        return $options + [$stored => $model::labelFor($stored)];
     }
 
     /**
@@ -91,17 +136,8 @@ class CatalogueAwareSelect extends Select
      *
      * @return class-string|null
      */
-    private function catalogueFor(string $current): ?string
+    private function catalogueFor(Model $record): ?string
     {
-        $record = $this->getRecord();
-
-        // Only a SAVED record can be carrying a retired code. On a create form the operator is
-        // choosing now, and offering a switched-off code would be the opposite of what retiring one
-        // means.
-        if (! $record instanceof Model || ! $record->exists) {
-            return null;
-        }
-
         $key = $record->getTable().'.'.$this->getName();
         $entry = ValueSets::catalogueWidenedColumns()[$key] ?? null;
 

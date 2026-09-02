@@ -104,10 +104,39 @@ it('still refuses a retired code on a CREATE form', function () {
     });
 });
 
-it('leaves an ordinary Select alone', function () {
-    // Every other Select in the app must fall straight through — the registry lookup is on a key
-    // that is not there, and a value absent from the options stays absent.
-    $select = \App\Support\Filament\CatalogueAwareSelect::make('status')
+it('STILL REFUSES a code the picker does not offer, on an existing record', function () {
+    // **THE ADVERSARIAL QUESTION, AND THE FIRST VERSION FAILED IT.** Keying the append on
+    // `getState()` — whatever the CLIENT last submitted — meant any string a crafted payload sent
+    // was appended as a valid option; `labelFor()` returns the code itself for an unknown one and
+    // can never fail, so Filament emitted NO `In` rule at all and `Rule::in` was dead on all sixteen
+    // catalogue columns.
+    //
+    // `parking` is an ACCESS subcategory: the maintenance picker offers fourteen codes and not that
+    // one. Before the fix it was refused; with the state-keyed append it saved cleanly, and
+    // `TenantRequestSubcategory→trade` is request-type-scoped, so the resulting work order would
+    // carry NO trade — the exact defect EG-14 was written to end. The `ValueSets` floor for this
+    // column is deliberately flat across every type, so `Rule::in` was the only thing enforcing the
+    // scoping.
+    //
+    // Every mutation on this file until now proved the carve-out FIRES. This is the one that proves
+    // it stops.
+    asTenant($this->asset, function () {
+        Livewire::test(EditTenantRequest::class, ['record' => $this->request->getRouteKey()])
+            ->fillForm(['category' => 'parking'])
+            ->call('save')
+            ->assertHasFormErrors(['category']);
+    });
+
+    expect($this->request->fresh()->category)->toBe('electrical');
+});
+
+it('falls through for a detached component, rather than throwing', function () {
+    // `getRecord()` reaches for `$container`, a typed property with no default, so a bare
+    // `Select::make()->options([...])` in a tool or a gate would fatal on a call that worked before
+    // this binding existed. It is NOT a statement about ordinary Selects — a detached component
+    // returns at the container check long before the registry is consulted, which is exactly why
+    // the case above had to be driven through a real page.
+    $select = \App\Support\Filament\CatalogueAwareSelect::make('category')
         ->options(['open' => 'Open', 'closed' => 'Closed']);
 
     expect($select->getOptions())->toBe(['open' => 'Open', 'closed' => 'Closed']);

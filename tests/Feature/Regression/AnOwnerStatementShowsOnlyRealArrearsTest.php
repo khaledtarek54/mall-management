@@ -86,7 +86,13 @@ it('does not chase a debt the operator has written off', function () {
 
     expect($summary['outstanding'])->toEqual(0.0)
         ->and($summary['overdue'])->toEqual(0.0)
-        ->and($summary['open_count'])->toBe(0);
+        ->and($summary['open_count'])->toBe(0)
+        // **AND THE BILLED/PAID TILES**, which `collectableBalance()` does not reach: they sum the
+        // raw columns, so a retired invoice left the owner reading *Billed 10,000 · Paid 0 ·
+        // Outstanding 0* with nothing on the page explaining where the ten thousand went. That is
+        // why `written_off` is excluded outright, exactly as the tenant statement does it.
+        ->and($summary['total_billed'])->toEqual(0.0)
+        ->and($summary['total_paid'])->toEqual(0.0);
 });
 
 it('reports only the UNFORGIVEN part of a partially written-off debt', function () {
@@ -134,4 +140,34 @@ it('drops a tenant off the arrears list once their debt is fully relieved', func
 
     expect($data['summary']['outstanding'])->toEqual(0.0)
         ->and($data['delinquentTenants'])->toBeEmpty();
+});
+
+it('prints the collectable figure on the page, not the raw balance', function () {
+    // **The blade was uncovered, which is exactly how its sibling stayed wrong.** Selecting on
+    // `collectableBalance()` and then printing `balance` is worse than fixing neither, and only a
+    // render can say which one reached the paper.
+    $invoice = makeInvoice($this->lease, [
+        'status' => 'issued', 'subtotal' => 20000, 'vat_amount' => 0,
+        'total' => 20000, 'balance' => 20000, 'due_date' => now()->subDays(30),
+    ]);
+
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+    ]);
+
+    $html = view('assets.statement', app(AssetStatementPdfService::class)->data($this->asset))->render();
+
+    // 15,000 is collectable; 20,000 is what `balance` still says. `EGP 20,000.00` is LEGITIMATELY
+    // on the page — that is what was billed, and the summary says so — so "must appear nowhere" is
+    // the wrong assertion and would fail on correct output. What must be true is that the collectable
+    // figure reaches BOTH the outstanding summary and the table's own total, which one occurrence
+    // could not tell apart from the billed figure landing in one of them.
+    // The TABLE FOOTER specifically, not just "somewhere on the page": the summary tiles print the
+    // same figure, so a page-wide count stays satisfied when only the footer regresses — measured,
+    // reverting the footer to `sum('balance')` left a page-wide assertion fully green.
+    preg_match('#<tfoot>.*?</tfoot>#s', $html, $footer);
+
+    expect($footer)->not->toBeEmpty('the statement lost its outstanding total')
+        ->and($footer[0])->toContain('15,000.00')
+        ->and($footer[0])->not->toContain('20,000.00');
 });

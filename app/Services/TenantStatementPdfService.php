@@ -95,8 +95,24 @@ class TenantStatementPdfService
         // every settlement query were `>= $since` with no `<=`. So `GET /me/statement?to=2026-03-31`
         // rendered *"as at 31 March"* over rows dated April, May and June — a document a tenant's
         // accountant reconciles a quarter from, listing transactions after the quarter it names.
-        // `endOfDay()`, or a row dated the last day of the window is cut off by its own end date.
-        $asOf = ($to !== null ? CarbonImmutable::parse($to) : CarbonImmutable::now())->endOfDay();
+        //
+        // **THE BOUND APPLIES ONLY WHEN THE CALLER STATED ONE**, and the first version of this fix
+        // did not make that distinction — which broke the default path that every ordinary download
+        // takes. A FUTURE `issue_date` is a first-class state here, not an exotic one: both billing
+        // runs carry explicit code for it (*"never let an invoice be born overdue"*), and
+        // `billing:run-monthly --period=2026-10` produces a whole month of them. Bounding the
+        // default at today therefore dropped them from the statement while the portal's invoice
+        // LIST — which has no such bound — still showed them, and `Tenant::outstandingBalance()`
+        // still counted them: measured, the statement said 50,000 outstanding where the screen the
+        // tenant downloaded it from said 100,000. That divergence is the exact one this service's
+        // own docblock says the figure exists to prevent, re-introduced through a different door.
+        //
+        // `endOfDay()` on the stated bound. Every one of these columns is a plain DATE on MySQL, so
+        // it changes nothing there — it matters on SQLite, which keeps a full `Y-m-d H:i:s` string
+        // in a date-typed column, and it is the honest bound to write for a column that may one day
+        // carry a time.
+        $bounded = $to !== null;
+        $asOf = ($bounded ? CarbonImmutable::parse($to) : CarbonImmutable::now())->endOfDay();
         $since = $from !== null
             ? CarbonImmutable::parse($from)->startOfDay()
             : $asOf->subMonths(12)->startOfMonth();
@@ -105,7 +121,7 @@ class TenantStatementPdfService
             ->with(['lease.unit', 'writeOffs'])
             ->visibleToTenant()
             ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
-            ->whereDate('issue_date', '<=', $asOf->toDateString())
+            ->when($bounded, fn ($q) => $q->whereDate('issue_date', '<=', $asOf->toDateString()))
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->get();
 
@@ -126,7 +142,8 @@ class TenantStatementPdfService
 
         $payments = $tenant->payments()
             ->whereIn('status', Payment::RECEIVED_STATUSES)
-            ->whereBetween('payment_date', [$since, $asOf])
+            ->where('payment_date', '>=', $since)
+            ->when($bounded, fn ($q) => $q->where('payment_date', '<=', $asOf))
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $visibleAssetIds)))
             ->orderByDesc('payment_date')
             ->get();
@@ -146,7 +163,8 @@ class TenantStatementPdfService
             ->with('invoice')
             ->visibleToTenant()
             ->where('status', '!=', 'void')
-            ->whereBetween('issue_date', [$since, $asOf])
+            ->whereDate('issue_date', '>=', $since)
+            ->when($bounded, fn ($q) => $q->whereDate('issue_date', '<=', $asOf))
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->orderByDesc('issue_date')
             ->get();
@@ -168,7 +186,8 @@ class TenantStatementPdfService
         $settlements = collect()
             ->concat($tenant->creditApplications()
                 ->with('invoice')
-                ->whereBetween('entry_date', [$since, $asOf])
+                ->whereDate('entry_date', '>=', $since)
+                ->when($bounded, fn ($q) => $q->whereDate('entry_date', '<=', $asOf))
                 ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
                 ->get()
                 ->map(fn (TenantCreditApplication $row): array => [
@@ -181,7 +200,8 @@ class TenantStatementPdfService
             ->concat(DepositApplication::query()
                 ->with('invoice')
                 ->where('tenant_id', $tenant->getKey())
-                ->whereBetween('entry_date', [$since, $asOf])
+                ->whereDate('entry_date', '>=', $since)
+                ->when($bounded, fn ($q) => $q->whereDate('entry_date', '<=', $asOf))
                 ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
                 ->get()
                 ->map(fn (DepositApplication $row): array => [
@@ -202,7 +222,7 @@ class TenantStatementPdfService
             'overdue' => (float) $invoicesAll
                 ->filter(fn ($i): bool => $i->collectableBalance() > 0)
                 ->filter(fn ($inv) => $inv->due_date && $inv->due_date->isPast())
-                ->sum('balance'),
+                ->sum(fn ($i): float => $i->collectableBalance()),
             'total_billed' => (float) $invoicesAll->sum('total'),
             // Every channel, not just cash — which is why it is labelled "settled" and not "paid".
             'total_paid' => (float) $invoicesAll->sum('paid_amount'),

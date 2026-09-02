@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 58 closed, 168 open (updated 2026-09-01)
+> ### Where this stands — 59 closed, 169 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -252,7 +252,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Portals · mobile API
 
-*6 open — 2 high, 1 medium, 3 low.*
+*5 open — 1 high, 1 medium, 3 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -328,7 +328,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Tax
 
-*12 open — 3 high, 6 medium, 3 low.*
+*14 open — 3 high, 8 medium, 3 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -348,6 +348,8 @@ which is the same failure this repo gates for generated doc blocks.
 | **SW-062c** | ✅ **fixed** `84386f3f` | medium | S | *(found by the review of SW-062/063.)* The brief's thread and quotes rendered as ONE run-on paragraph: a single-item `TextEntry` emits `e($state)` in a bare div and nothing sets `white-space`, so every `\n` collapsed — byline into body, message into message. `listWithLineBreaks()` is the only branch that emits an element per item | `Filament/Vendor/…/JobBrief:108` |
 | **SW-203** | open | high | M | *(found by the review of SW-114.)* `FacilityWorkOrder::recomputeCosts()` is an UNLOCKED read-modify-write: it reads four aggregates with plain SELECTs and writes `act_*` with no lock on the job. Under REPEATABLE READ two writers on one job — a bill payment and a penalty application — each compute from their own snapshot and the last one wins, silently putting a penalty back into the job cost. Pre-existing across all four cost channels; the repair is a lock on the work order plus a `ConcurrencyPolicy` entry | `Models/Concerns/FacilityWorkOrder/HasWorkOrderCost:81` |
 | **SW-204** | open | medium | S | *(found by the review of SW-114.)* `ScanWorkOrderSlaBreachesCommand::alertBreach()` holds an X lock on `facility_work_orders` across a SYNCHRONOUS mail send — `WorkOrderSlaBreachedNotification` is not `ShouldQueue` and its `via()` is `['mail','database']` — so the hourly scan blocks facility writers for one MailerSend round-trip per recipient | `Console/Commands/ScanWorkOrderSlaBreachesCommand:320` |
+| **SW-205** | open | medium | M | *(found by the review of SW-152.)* `CatalogueAwareSelect` keys on the RECORD's table, so five pickers that write a CHILD table from an action modal or a relation manager resolve to the wrong registry key — `employee_advance_repayments.method`, `deposit_transactions.method` (LeaseActions), `vendor_bill_payments.method`, `disbursements.method`, `custody_transactions.category`. All create-only today, so nothing is broken; the claim "covers every Select" is not yet true and no gate ties `catalogueWidenedColumns()` to the pickers that write those columns. `Radio`/`ToggleButtons`/`CheckboxList` derive `Rule::in` identically and are unbound | `Support/Filament/CatalogueAwareSelect:120` |
+| **SW-206** | open | medium | S | *(found by the review of SW-152.)* `ValueSets::widen()` reads `codes()`, which is `is_active = true` only — so retiring an operator-added code REMOVES it from the accepted set, and any path that rewrites the column (importer, `replicate()`, a service `update()`) is refused at the model layer. It does not bite on a plain edit because `guard()` short-circuits on `! isDirty()`. The widen docblock claims it "only ever WIDENS… must never invalidate the documents that already name it", which is false for an operator-added code | `Support/ValueSets:widen` |
 | **SW-201** | open | medium | S | Deleting the last rate rung of an ACTIVE tax code silently re-rates billing to the 14% VAT floor | `Filament/Admin/Resources/TaxCodes/RelationManagers/RatesRelationManager:111` |
 | **SW-202** | open | low | — | Clearing the Tax depreciation year renders a full schedule of zeros for year 0 | `Filament/Admin/Pages/TaxDepreciation:84` |
 | **SW-203** | open | low | XS | Insurable-wage ceiling rule gte:insurable_wage_floor refuses a rung with a ceiling and a blank floor, though a null floor is legal ('no bound') | `Filament/Admin/Resources/PayrollRates/Schemas/PayrollRateForm:50` |

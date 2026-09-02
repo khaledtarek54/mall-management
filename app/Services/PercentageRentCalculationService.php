@@ -506,6 +506,25 @@ class PercentageRentCalculationService
     }
 
     /**
+     * Keep what the record already says, and add to it — the trail is the point of the column.
+     *
+     * A blank new note leaves the existing text alone rather than blanking it: an operator who locks
+     * without typing anything is not deleting the void reason somebody else wrote.
+     */
+    private static function appendAuditNote(?string $existing, ?string $addition): ?string
+    {
+        $addition = trim((string) $addition);
+
+        if ($addition === '') {
+            return $existing;
+        }
+
+        return trim((string) $existing) === ''
+            ? $addition
+            : trim($existing)."\n".$addition;
+    }
+
+    /**
      * Lock a declaration: recalculate, persist, mark as locked, and create a one-off Charge
      * so the next monthly billing run picks the percentage rent up.
      *
@@ -543,7 +562,14 @@ class PercentageRentCalculationService
                     'status' => 'locked',
                     'locked_at' => now(),
                     'locked_by_user_id' => $lockedBy->id,
-                    'audit_notes' => $auditNotes,
+                    // **APPENDED, NEVER REPLACED.** The modal's note is optional, and this used to
+                    // write it unconditionally — which was harmless while the only route in was from
+                    // `submitted`, where the column is empty. Once a DISPUTED declaration became
+                    // re-lockable (2026-09-02), the ordinary forward move of the documented
+                    // void → correct → re-bill loop ERASED the reason the previous overage invoice
+                    // was reversed, or the justification `dispute` requires. `voidLocked()` already
+                    // appends for exactly this reason; the two now agree.
+                    'audit_notes' => self::appendAuditNote($fresh->audit_notes, $auditNotes),
                 ]);
 
                 if ($isAnnual) {

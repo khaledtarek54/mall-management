@@ -107,7 +107,22 @@ it('completes the void → correct → re-bill loop the module documents', funct
 
     expect($relocked->fresh()->status)->toBe('locked')
         // 7% of (1,000,000 − 800,000) = 14,000, not the 30,800 that was voided.
-        ->and((float) $relocked->fresh()->calculated_percentage_rent)->toBe(14_000.0);
+        ->and((float) $relocked->fresh()->calculated_percentage_rent)->toBe(14_000.0)
+        // …and the WHY survives. `lock()` wrote `audit_notes` unconditionally, which was harmless
+        // while the only route in was from `submitted` (the column is empty there) and destroyed
+        // the void reason the moment the forward move existed.
+        ->and($relocked->fresh()->audit_notes)->toContain('restated their figures')
+        ->and($relocked->fresh()->audit_notes)->toContain('Agreed with the tenant.');
+
+    // **And the corrected overage is actually BILLED**, which is the whole claim. Asserting the
+    // stored figure alone passes with `settleBillingPeriods()` stubbed out — measured.
+    $items = \App\Models\InvoiceItem::query()
+        ->where('type', 'percentage_rent')
+        ->whereHas('invoice', fn ($q) => $q->whereNotIn('status', ['cancelled', 'draft']))
+        ->get();
+
+    expect($items)->toHaveCount(1)
+        ->and((float) $items->first()->amount)->toBe(14_000.0);
 });
 
 it('still refuses to lock one that is already locked', function (): void {

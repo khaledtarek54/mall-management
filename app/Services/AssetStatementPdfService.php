@@ -64,14 +64,18 @@ class AssetStatementPdfService
         //  - a WRITE-OFF deliberately leaves `balance` standing, because balance is derived from the
         //    four settlement channels and a write-off is none of them. So `where('balance', '>', 0)`
         //    two lines down put already-relieved bad debt on the owner's outstanding list — money
-        //    the operator has formally given up and the ledger has already expensed.
+        //    the operator has formally given up and the ledger has already expensed. Excluded
+        //    outright, exactly as `TenantStatementPdfService` does: `collectableBalance()` below
+        //    covers the outstanding figures, but `total_billed`/`total_paid` sum the raw columns, so
+        //    a retired invoice left the owner reading *Billed 10,000 · Paid 0 · Outstanding 0* with
+        //    nothing on the page explaining where the ten thousand went.
         //
         // Every sibling AR read excludes both: `TenantLedger`, `TenantStatementPdfService`,
         // `DepositBilling`, `InvoiceSettlement`. This was the one that did not.
         $invoicesAll = Invoice::query()
             ->where('asset_id', $asset->id)
             ->with(['lease.unit', 'tenant', 'writeOffs'])
-            ->whereNotIn('status', ['draft', 'cancelled', 'credited'])
+            ->whereNotIn('status', ['draft', 'cancelled', 'credited', 'written_off'])
             ->get();
 
         // **COLLECTABLE, not `balance`** — the third term. `balance` says what was OWED and `status`

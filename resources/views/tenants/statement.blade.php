@@ -111,7 +111,12 @@
                         <td>{{ $inv->due_date->format('d/m/Y') }}</td>
                         <td class="num">{{ number_format((float) $inv->total, 2) }}</td>
                         <td class="num">{{ number_format((float) $inv->paid_amount, 2) }}</td>
-                        <td class="num {{ $inv->balance > 0 ? 'due' : 'settled' }}">{{ number_format((float) $inv->balance, 2) }}</td>
+                        {{-- COLLECTABLE, not `balance`. A write-off deliberately leaves `balance`
+                             standing, so quoting it here asks the tenant for money the operator
+                             forgave and the ledger already expensed — and selecting on
+                             `collectableBalance()` and then printing the raw figure is worse than
+                             fixing neither. --}}
+                        <td class="num {{ $inv->collectableBalance() > 0 ? 'due' : 'settled' }}">{{ number_format($inv->collectableBalance(), 2) }}</td>
                         @php([$chipBg, $chipInk] = T::chip($inv->status))
                         <td><span class="chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">{{ __("admin.statuses.invoice.{$inv->status}") }}</span></td>
                     </tr>
@@ -123,7 +128,7 @@
                     {{-- Spans the balance AND status columns. The total carries an "EGP " prefix the
                          body cells do not, so it needs more room than the column it sits under — at
                          13% it wrapped to "EGP / 300,500.00" while every row above it fitted. --}}
-                    <td colspan="2" class="num due">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
+                    <td colspan="2" class="num due">EGP {{ number_format((float) $openInvoices->sum(fn ($inv) => $inv->collectableBalance()), 2) }}</td>
                 </tr>
             </tfoot>
         </table>

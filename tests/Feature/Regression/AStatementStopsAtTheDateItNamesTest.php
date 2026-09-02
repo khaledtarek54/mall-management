@@ -126,3 +126,65 @@ it('still renders the whole history when no window is asked for', function () {
     expect($data['recentInvoices'])->toHaveCount(1)
         ->and($data['summary']['outstanding'])->toEqual(9000.0);
 });
+
+it('does not narrow the DEFAULT statement — an invoice may be issued in advance', function () {
+    // **The first version of this fix bounded the default path too, and that was a real regression.**
+    // A future `issue_date` is a first-class state, not an exotic one: both billing runs carry
+    // explicit code for it (*"never let an invoice be born overdue"*), and
+    // `billing:run-monthly --period=2026-10` produces a month of them. Bounding the default at today
+    // dropped them from the statement while the portal's invoice LIST — which has no such bound —
+    // still showed them, and `Tenant::outstandingBalance()` still counted them: measured, the
+    // statement said 50,000 where the screen the tenant downloaded it from said 100,000. That is the
+    // divergence this service's own docblock says the figure exists to prevent.
+    makeInvoice($this->lease, [
+        'status' => 'issued', 'issue_date' => now()->subMonth()->toDateString(),
+        'due_date' => now()->subDays(20)->toDateString(),
+        'subtotal' => 50000, 'vat_amount' => 0, 'total' => 50000, 'balance' => 50000,
+    ]);
+
+    makeInvoice($this->lease, [
+        'status' => 'issued', 'issue_date' => now()->addMonth()->toDateString(),
+        'due_date' => now()->addMonth()->addDays(10)->toDateString(),
+        'subtotal' => 50000, 'vat_amount' => 0, 'total' => 50000, 'balance' => 50000,
+    ]);
+
+    $data = app(TenantStatementPdfService::class)->data($this->tenant->fresh());
+
+    expect($data['summary']['outstanding'])->toEqual(100000.0)
+        // …and it agrees with the headline the tenant read on the screen they downloaded it from.
+        ->and($data['summary']['outstanding'])
+        ->toEqual(round($this->tenant->fresh()->outstandingBalance(), 2));
+});
+
+it('prints the collectable figure on the tenant s own document', function () {
+    // The blade, for the reason the owner statement's is pinned: selecting on `collectableBalance()`
+    // and printing `balance` asks the tenant for money the operator forgave.
+    $invoice = makeInvoice($this->lease, [
+        'status' => 'issued', 'issue_date' => now()->subMonth()->toDateString(),
+        'due_date' => now()->subDays(20)->toDateString(),
+        'subtotal' => 20000, 'vat_amount' => 0, 'total' => 20000, 'balance' => 20000,
+    ]);
+
+    app(App\Services\WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+    ]);
+
+    $html = view('tenants.statement', app(TenantStatementPdfService::class)->data($this->tenant->fresh()))->render();
+
+    // The TABLE FOOTER specifically, not just "somewhere on the page": the summary tiles print the
+    // same figure, so a page-wide count stays satisfied when only the footer regresses — measured,
+    // reverting the footer to `sum('balance')` left a page-wide assertion fully green.
+    preg_match('#<tfoot>.*?</tfoot>#s', $html, $footer);
+
+    // …and the ROW itself, which the footer cannot vouch for: a per-line figure quoting `balance`
+    // asks the tenant for the forgiven slice on the very line they would query.
+    preg_match('#<tbody>.*?</tbody>#s', $html, $body);
+
+    expect($footer)->not->toBeEmpty('the statement lost its outstanding total')
+        ->and($footer[0])->toContain('15,000.00')
+        ->and($footer[0])->not->toContain('20,000.00')
+        ->and($body)->not->toBeEmpty()
+        // 20,000 is legitimately in the row as the TOTAL billed; 15,000 must be there as the
+        // balance, and a row printing `balance` would show 20,000 twice and 15,000 not at all.
+        ->and($body[0])->toContain('15,000.00');
+});

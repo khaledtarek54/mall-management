@@ -3,6 +3,7 @@
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
 use Database\Seeders\RolesPermissionsSeeder;
+use App\Filament\Admin\Pages\ArCollections;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
@@ -71,4 +72,45 @@ it('ignores a tenant the operator cannot see', function () {
             ->test(CreatePayment::class)
             ->assertFormSet(['tenant_id' => null]);
     });
+});
+
+it('never lets a producer use Filament s reserved tenancy key', function () {
+    // The property that actually matters and can be checked cheaply and completely: NO producer of
+    // a payment-create URL may pass `tenant` in the parameters, because Filament substitutes it into
+    // the PATH where the mall's slug belongs. A source sweep, because the two call sites live on an
+    // array-backed page and a relation manager, neither of which yields its action outside a mounted
+    // Livewire component — and a sweep covers the THIRD producer somebody adds next.
+    $offenders = [];
+
+    foreach (\Symfony\Component\Finder\Finder::create()->files()->in(base_path('app'))->name('*.php') as $file) {
+        // **CODE ONLY.** The first version swept raw source and reported `CreatePayment` — whose
+        // docblock quotes the broken call as the description of the bug. A gate that fires on a
+        // SENTENCE is one that gets weakened rather than fixed, which this project has already
+        // recorded twice.
+        $source = collect(token_get_all($file->getContents()))
+            ->reject(fn ($token) => is_array($token)
+                && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true))
+            ->map(fn ($token) => is_array($token) ? $token[1] : $token)
+            ->implode('');
+
+        if (! str_contains($source, "PaymentResource::getUrl('create'")) {
+            continue;
+        }
+
+        // The parameters array, windowed to the call rather than the file: another `'tenant' =>`
+        // elsewhere in the same class is not this bug.
+        foreach (explode("PaymentResource::getUrl('create'", $source) as $i => $chunk) {
+            if ($i === 0) {
+                continue;
+            }
+
+            if (preg_match("/^[^;]*'tenant'\s*=>/", $chunk)) {
+                $offenders[] = str_replace(base_path().'/', '', $file->getPathname());
+            }
+        }
+    }
+
+    expect($offenders)->toBe([], implode(', ', $offenders).
+        " pass Filament's reserved `tenant` key to PaymentResource::getUrl('create'), which puts the ".
+        'tenant id in the PATH where the mall slug belongs — a 404. Use `for_tenant`.');
 });
