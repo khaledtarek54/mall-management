@@ -11,6 +11,7 @@ use App\Contracts\DeliverableReport;
 use App\Support\Assistant\AssistantBudget;
 use App\Services\Assistant\Models\AssistantPrompt;
 use App\Support\Assistant\AssistantDocs;
+use App\Support\Assistant\RecordSummary;
 use App\Support\Assistant\ReportRunner;
 use App\Support\Assistant\TaskCorpus;
 use App\Support\Assistant\AssistantEntry;
@@ -251,6 +252,8 @@ class AnswerQuestionService
      */
     private function word(string $question, array $results, string $locale, ?string $conversationId = null): array
     {
+        $words = $this->meaningfulWords($question);
+
         $none = ['text' => null, 'input' => 0, 'output' => 0];
 
         $model = app(AssistantModel::class);
@@ -326,6 +329,20 @@ class AnswerQuestionService
             if (filled($body)) {
                 $passages[] = ['title' => (string) $result['title'], 'body' => (string) $body];
             }
+        }
+
+        // THE RECORD SOMEBODY NAMED, with its own figures.
+        //
+        // Added after the passages, not instead of them: "what does Cilantro owe" wants the balance
+        // AND the screen that explains what a balance is made of. The record tier above already
+        // links to the row; this is the handful of facts worth quoting from it, and which facts is
+        // an allowlist (AssistantFields) rather than the row.
+        $record = RecordSummary::find(
+            AssistantRecords::unknownWords($words, AssistantCorpus::entries($locale))
+        );
+
+        if ($record !== null && $record['body'] !== '') {
+            array_unshift($passages, $record);
         }
 
         if ($passages === []) {

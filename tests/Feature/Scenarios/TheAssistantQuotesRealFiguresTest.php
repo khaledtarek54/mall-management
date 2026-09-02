@@ -151,3 +151,80 @@ it('asks the PAGE whether it is a report, not the ranked kind', function () {
             ->toBeTrue('a merged report/screen entry must still fetch its figures');
     });
 });
+
+// ── B1b: the record somebody named ─────────────────────────────────────────────────────────────
+
+it('quotes the named record\'s own figures', function () {
+    $asset = makeAsset();
+    $tenant = makeTenant(['name' => 'Qamaria Coffee']);
+    makeLease(makeUnit($asset), $tenant);
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        $summary = App\Support\Assistant\RecordSummary::find(['qamaria']);
+
+        expect($summary)->not->toBeNull()
+            ->and($summary['title'])->toContain('Qamaria')
+            // The balance is DERIVED, not stored — read through the model's own method so it
+            // cannot become a second answer to a question recomputeTotals() already answers.
+            ->and($summary['body'])->toContain(__('admin.fields.outstanding_balance'));
+    });
+});
+
+it('never quotes a field that is not on the allowlist', function () {
+    $asset = makeAsset();
+    $tenant = makeTenant(['name' => 'Qamaria Coffee', 'notes' => 'SECRET-INTERNAL-NOTE']);
+    makeLease(makeUnit($asset), $tenant);
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        $summary = App\Support\Assistant\RecordSummary::find(['qamaria']);
+
+        // Handing back the row would hand back whatever the table happens to carry. The fields are
+        // listed, and `notes` is not one of them.
+        expect($summary['body'])->not->toContain('SECRET-INTERNAL-NOTE');
+    });
+});
+
+it('never summarises a record from a register the reader cannot open', function () {
+    $asset = makeAsset();
+    $tenant = makeTenant(['name' => 'Qamaria Coffee']);
+    makeLease(makeUnit($asset), $tenant);
+
+    // The refusal: `technician` holds no tenant register.
+    $this->actingAs(makeUser('technician'));
+    asTenant($asset, fn () => expect(App\Support\Assistant\RecordSummary::find(['qamaria']))->toBeNull());
+
+    // The control, in the same shape.
+    auth()->forgetUser();
+    $this->actingAs(makeUser('super_admin'));
+    asTenant($asset, fn () => expect(App\Support\Assistant\RecordSummary::find(['qamaria']))->not->toBeNull());
+});
+
+it('never reaches a record in another property', function () {
+    $mine = makeAsset();
+    $theirs = makeAsset();
+    makeLease(makeUnit($theirs), makeTenant(['name' => 'Qamaria Roasters']));
+    $this->actingAs(makeUser('super_admin'));
+
+    // Scope is inherited from the resource's own getEloquentQuery(), never re-implemented here.
+    asTenant($mine, fn () => expect(App\Support\Assistant\RecordSummary::find(['roasters']))->toBeNull());
+    asTenant($theirs, fn () => expect(App\Support\Assistant\RecordSummary::find(['roasters']))->not->toBeNull());
+});
+
+it('puts the record summary in front of the model', function () {
+    $asset = makeAsset();
+    $tenant = makeTenant(['name' => 'Qamaria Coffee']);
+    makeLease(makeUnit($asset), $tenant);
+    $this->actingAs(makeUser('super_admin'));
+    app()->instance(AssistantModel::class, figureSpy());
+
+    asTenant($asset, function () {
+        app(AnswerQuestionService::class)->answer('what does Qamaria owe');
+
+        $spy = app(AssistantModel::class);
+
+        expect(collect($spy::$seen)->contains(fn (array $p): bool => str_contains($p['title'], 'Qamaria')))
+            ->toBeTrue('the record was found but its figures never reached the model');
+    });
+});

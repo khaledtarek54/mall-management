@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'outstanding_balance' => 'الرصيد المستحق',
         'submitted_by_vendor_contact_id' => 'أرسله (المقاول)',
         'author_type' => 'نوع الكاتب',
         'is_internal' => 'داخلي فقط',

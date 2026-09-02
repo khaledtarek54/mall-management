@@ -3,7 +3,7 @@
 namespace App\Support;
 
 use App\Models\{Announcement, Area, Asset, BankAccount, CreditNote, Custody, Department,
-    Disbursement, Employee, Equipment, Expense, FacilityWorkOrder, FixedAsset, InventoryItem,
+    DepositTransaction, Disbursement, Employee, Equipment, Expense, FacilityWorkOrder, FixedAsset, InventoryItem,
     Invoice, JournalEntry, Lease, LedgerAccount, MarketingPost, OwnerRequest, OwnerStatementRun,
     Payment, Payroll, PostDatedCheque, PurchaseRequest, RentableItem, ServicePlan, StockMovement,
     Tenant, TenantRequest, Unit, UnitOwnership, User, UtilityMeter, Vendor, VendorBill, Violation,
@@ -52,16 +52,17 @@ final class AssistantFields
             'derived' => ['outstanding_balance' => 'outstandingBalance'],
         ],
         Lease::class => [
-            'columns' => ['reference', 'status', 'starts_on', 'ends_on', 'base_rent_monthly'],
+            'columns' => ['reference', 'status', 'commencement_date', 'expiry_date', 'base_rent_monthly'],
         ],
         Unit::class => [
-            'columns' => ['code', 'name', 'status', 'area_sqm'],
+            'columns' => ['code', 'status', 'area_sqm'],
         ],
         Invoice::class => [
             'columns' => ['number', 'status', 'issue_date', 'due_date', 'total', 'paid_amount', 'balance'],
         ],
         Payment::class => [
-            'columns' => ['number', 'amount', 'method', 'status'],
+            // A receipt's own number is `reference`, not `number` — the gate caught the guess.
+            'columns' => ['reference', 'amount', 'method', 'status', 'payment_date'],
         ],
         CreditNote::class => [
             'columns' => ['number', 'status', 'total'],
@@ -107,10 +108,10 @@ final class AssistantFields
 
         // ---- Master data that is a setting, not a fact about the business ----------------------
         Asset::class => 'The property itself, which is the scope of every other answer rather than an answer.',
-        Area::class => 'A routing zone.',
-        Department::class => 'An org unit.',
+        Area::class => 'A routing zone for work orders. Its fields are a name and a property; the answer to any question about it is which zone a job went to, which the work order itself states.',
+        Department::class => 'An organisational unit. It groups people and approvals, and neither of those is a fact worth quoting out of context — the approval ladder and the employee register are the screens that mean something.',
         BankAccount::class => 'Account details are a payment instruction. The reconciliation screens are where balances belong.',
-        Warehouse::class => 'A location.',
+        Warehouse::class => 'A stock location. The figure anybody wants is what is IN it, which is a stock level the inventory screens compute rather than a column on this row.',
         InventoryItem::class => 'A catalogue row; the figure that matters is stock on hand.',
         Equipment::class => 'An asset register row read on its own screen with its service history.',
         UtilityMeter::class => 'A meter; the answer to a question about it is a reading or a consumption trend.',
@@ -119,7 +120,7 @@ final class AssistantFields
         UnitOwnership::class => 'An ownership with a handover and a share; the owner statement is the answer.',
         PostDatedCheque::class => 'A lodged cheque whose meaning is its maturity board.',
         Announcement::class => 'A message that was sent; the text is the record and it is read on its screen.',
-        MarketingPost::class => 'Shopper-facing content.',
+        MarketingPost::class => 'Shopper-facing content — a title, a body and a run of dates. It is written and read on its own screen, and quoting a marketing post into an operator\'s chat answers no question about the business.',
     ];
 
     /** @return array<class-string> */

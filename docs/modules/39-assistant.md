@@ -338,6 +338,24 @@ converting to a percentage: `Invoice::recomputeTotals()` is the single source of
 settled, and a model doing sums beside it is a second answer to the same question. A total the table
 does not already state is answered by naming the report.
 
+## And with the named record's own figures (B1b)
+
+*"What does Qamaria owe?"* answers with the balance. `AssistantFields` is the allowlist — **which
+fields of a record may be read back**, per model — and `RecordSummary` searches through each
+resource's own `getEloquentQuery()`, so the property scope and the permissions are inherited rather
+than re-implemented.
+
+**Findable and summarisable are different questions.** All 40 models in `SearchPolicy::INDEXED`
+resolve a name typed into the chat; only 8 may be quoted. Handing back the row would hand back
+whatever the table carries — `password` is fillable on `User` and `Tenant`, `metadata` holds
+operator-defined custom fields, a payroll run aggregates what individuals were paid. The other 32
+are refused **by name with a reason**, so the decision is visible rather than an omission, and
+`AssistantFieldsConformanceTest` fails on a model in neither list.
+
+**Derived facts go through the model's own method.** A tenant's outstanding balance is
+`outstandingBalance()`, never a column and never a sum — `Invoice::recomputeTotals()` already
+answers that question and a second reading of it would be a second answer.
+
 ## Judging it
 
 **The miss list stopped being a signal, and that is measured rather than feared.** Of 45 real
@@ -465,6 +483,14 @@ would save fractions of a cent; ranking is where the value is.
 - **Two reports cannot run headlessly and are skipped BY NAME.** `ClauseRegister` and `ActivityLog`
   are table pages whose `$table` only initialises inside a mounted Livewire component. Catching the
   `Error` would paper over a known structural limit, which is how it stops being known.
+- **The gate caught three wrong column names and three thin reasons on its first run** —
+  `leases.starts_on`, `units.name` and `payments.number` do not exist (they are
+  `commencement_date`, and a receipt's number is `reference`). A misspelled column reads back as an
+  absent value, which is indistinguishable from a record that simply has none, so the field would
+  have silently never appeared.
+- **A class you name must be one you imported.** `DepositTransaction::class` in the registry
+  resolved to `App\Support\DepositTransaction` — valid PHP, silently wrong — and showed up as one
+  model both unclassified and stale at once.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and
