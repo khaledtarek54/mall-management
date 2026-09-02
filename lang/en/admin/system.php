@@ -612,6 +612,7 @@ return [
     ],
 
     'notifications' => [
+        'draft_invoice_cancelled' => 'Draft cancelled',
         'ledger_will_move_month' => "This document's ledger entry (:amount) will be moved to :month, within a few seconds.",
         'ledger_will_repost' => "This document's ledger entry will be reversed (:from) and re-posted at :to, within a few seconds.",
         'ledger_will_post' => 'This document will be posted to the ledger at :amount, within a few seconds.',

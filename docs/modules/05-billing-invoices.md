@@ -800,11 +800,11 @@ should have to infer, so it is shown rather than removed.
 > So "`invoices.tenant_id` equals the agreement's party" is NOT a rule this system holds. It holds
 > on the admin form, which never states a debtor, and that is where it is enforced.
 
-## 4. Lifecycle / state machine## 4. Lifecycle / state machine
+## 4. Lifecycle / state machine
 
 | Status | Transition trigger | Next state(s) | Terminal? | Mutable via UI? |
 |--------|-------------------|---------------|-----------|-----------------|
-| `draft` | Manual creation in Filament | `issued` (via save) | No | Yes (read-only in form; set before creation) |
+| `draft` | Manual creation in Filament | `issued` (Status select) · `cancelled` (Void action) | No | Yes — the Status select is editable while the record is a draft, and it is the only door out |
 | `issued` | Invoice created, or due_date is future | `partially_paid` (payment > 0), `overdue` (due_date past), `paid` (balance ≤ 0) | No | Yes (can set manually) |
 | `partially_paid` | 0 < paid_amount < total | `paid` (more payments), `overdue` (due_date past) | No | Yes (manual override) |
 | `paid` | paid_amount ≥ total | ✓ (stable) | Yes (unless manually adjusted) | Yes (manual only) |
@@ -833,6 +833,29 @@ settlement still reports the right figures, and the derived ladder still moves a
 `overdue` on its own. Issuing stays an ACT — `IssueInvoiceService` states the status at create and
 the panel's Select is the other door — never a side effect of saving a line.
 (`ADraftInvoiceStaysADraftTest`.)
+
+**Two things the freeze then exposed, both of which had guards that did not cover them.**
+
+- **A draft issued into a period that has since CLOSED committed with nothing in the ledger.**
+  `SealedPeriod::guard()` looked up the document's posted entry and returned when there was none —
+  and a draft has none, because `InvoiceJournalizer` returns null for one — so it skipped exactly the
+  document that was about to gain an entry. `GuardsPostingDate` cannot see it either: that guard is
+  `isDirty($column)`-only by design, and issuing a draft moves no date. The save committed,
+  `SyncDocumentToLedger` refused at `assertOpenPeriodFor()` and only logged, and the result was AR on
+  the document with nothing in the GL — `billing:reconcile --deep` permanently red, `books_tie_out`
+  red, `atriom:preflight` blocking the next deploy. `guard()` now asks the poster when a document has
+  no entry AND its `status` is dirty: a document gains an entry when it becomes postable, and
+  `status` is the column every journalizer's own early return reads.
+- **An abandoned draft had no way out, and suppressed its lease-month's billing for ever.**
+  `VoidInvoiceService` refused a draft with *"A draft invoice is deleted, not voided"* — naming a
+  door that does not exist, since `Invoice` is `#[NeverDeletable]`, the resource has no
+  `DeleteAction` and the bulk one is hidden panel-wide — while the form removes `cancelled` from its
+  options. Meanwhile `MonthlyBillingService`'s already-billed probe counted the draft, so the run
+  reported `skipped: already_billed` for that lease-month for ever, indistinguishable from a lease
+  billed correctly: the silent lost revenue that probe's own comment describes for the cancelled
+  case. A draft is now **cancelled** by the same action (nothing was posted, so there is no reversal
+  and no number burnt — the button relabels itself *Cancel draft*), and `draft` joins `cancelled` in
+  the probe, because a draft was never billed.
 
 **Overdue flag:** An invoice is "overdue" if status is overdue OR (status is issued/partially_paid AND due_date < today). Method: `Invoice::isOverdue()`.
 

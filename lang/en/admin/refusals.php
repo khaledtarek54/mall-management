@@ -62,7 +62,6 @@ return [
         'payroll_deductions_exceed_gross' => 'Payroll deductions exceed gross salaries; fix the amounts before approving.',
         'bill_cancel_has_payments' => 'Cannot cancel a bill that has payments. Void them first (Payments → Void payment), then cancel the bill.',
         'payment_void_state' => 'Only a received receipt can be voided.',
-        'invoice_void_draft' => 'A draft invoice is deleted, not voided — voiding is for issued invoices.',
         'invoice_void_eta_filed' => 'This invoice was filed with the Tax Authority and cannot be voided internally — issue a credit note instead.',
         'invoice_void_has_cash' => 'Cannot void an invoice with captured payments — void the receipt first, then void the invoice.',
         'write_off_positive' => 'A write-off amount must be greater than zero.',

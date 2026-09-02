@@ -65,6 +65,11 @@ class Invoice extends Model
      * The finalisation guard below already freezes issue_date once an invoice is ISSUED, which
      * covered the obvious hole — but not the one that remained: a DRAFT could be created with a
      * back-dated issue_date and then issued, posting AR into a sealed month.
+     *
+     * **`GuardsPostingDate` closes back-DATING, not delayed ISSUING**, and the distinction is the
+     * whole of the second hole: it is `isDirty($column)`-only by design, and issuing a draft moves
+     * no date. That door is `SealedPeriod`'s — it now asks the poster when a document has no entry
+     * yet and its `status` is dirty, which is when one is about to appear.
      */
     public static function postingDateColumn(): string
     {

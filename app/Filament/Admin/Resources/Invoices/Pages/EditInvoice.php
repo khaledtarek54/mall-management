@@ -481,23 +481,43 @@ class EditInvoice extends EditRecord
                             ->send();
                     }
                 }),
+            // **`draft` is in the list, and the button says so.** An abandoned draft used to have no
+            // way out at all: the service refused it with a message naming a delete that does not
+            // exist (`Invoice` is `#[NeverDeletable]`), the form removes `cancelled` from its
+            // options, and `MonthlyBillingService` counted the draft as already billed — so that
+            // lease-month could never be billed again. Harmless until the draft freeze (SW-215)
+            // made the state persist.
+            //
+            // A draft is CANCELLED, not voided — nothing was posted, so there is no reversal and no
+            // number burnt — and the label has to say which, because "Void invoice" in red on a
+            // scratch document reads as the destructive act it is not.
             Action::make('void_invoice')
-                ->label(__('admin.actions.void_invoice'))
+                ->label(fn () => __($this->record->status === 'draft'
+                    ? 'admin.actions.cancel_draft_invoice'
+                    : 'admin.actions.void_invoice'))
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
-                ->visible(fn () => in_array($this->record->status, ['issued', 'overdue'], true)
+                ->visible(fn () => in_array($this->record->status, ['draft', 'issued', 'overdue'], true)
                     && $this->record->eta_status !== 'valid' // a filed ETA tax invoice: use a credit note
                     && $this->record->capturedCashPaid() <= 0 // reversible credit (notes + tenant credit) doesn't block
                     && (Auth::user()?->can('invoices.void') ?? false))
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->requiresConfirmation()
-                ->modalDescription(__('admin.actions.void_invoice_confirm'))
+                ->modalDescription(fn () => __($this->record->status === 'draft'
+                    ? 'admin.actions.cancel_draft_invoice_confirm'
+                    : 'admin.actions.void_invoice_confirm'))
                 ->schema([ReversalReasonField::make()])
                 ->action(function (array $data): void {
+                    // Read BEFORE the call: the service mutates this very instance, so asking
+                    // afterwards always answers `cancelled` and the toast would never say "draft".
+                    $wasDraft = $this->record->status === 'draft';
+
                     try {
                         app(VoidInvoiceService::class)->void($this->record, $data['reason'] ?? null);
                         $this->refreshFormData(['status', 'balance', 'notes']);
-                        Notification::make()->title(__('admin.notifications.invoice_voided'))->success()->send();
+                        Notification::make()->title(__($wasDraft
+                            ? 'admin.notifications.draft_invoice_cancelled'
+                            : 'admin.notifications.invoice_voided'))->success()->send();
                     } catch (\DomainException $e) {
                         Notification::make()
                             ->title(__('admin.notifications.invoice_void_failed'))

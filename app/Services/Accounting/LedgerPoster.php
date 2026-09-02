@@ -466,6 +466,24 @@ class LedgerPoster
     }
 
     /**
+     * Would this document, AS IT STANDS, put anything in the ledger at all?
+     *
+     * The question `SealedPeriod` needs to tell a document BECOMING postable from one that already
+     * was. A draft posts nothing (`InvoiceJournalizer` returns null for one), so issuing it makes an
+     * entry appear where there was none — and if its date sits in a sealed month, that entry can
+     * never be written and the document commits with AR and no GL. Moving between two postable
+     * states (`issued` → `overdue`) creates nothing and must not be refused: the late-fee flow does
+     * exactly that to an original invoice whose own month has since closed.
+     */
+    public function postsAnything(Model $source): bool
+    {
+        $journalizer = self::JOURNALIZERS[$source::class] ?? null;
+
+        return $journalizer !== null
+            && $this->effectivePayload($source, app($journalizer)) !== null;
+    }
+
+    /**
      * **The payload a document's live entry SHOULD carry** — the one answer both {@see sync()} and
      * {@see wouldChange()} compare against, so they cannot reach different verdicts about the same
      * document.

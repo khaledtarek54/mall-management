@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Support\ReversalReason;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -23,8 +24,28 @@ class VoidInvoiceService
         if (in_array($invoice->status, ['cancelled', 'credited', 'written_off'], true)) {
             return $invoice; // already terminal — nothing to do
         }
+        // **A DRAFT is cancelled here rather than refused, because the door this used to name does
+        // not exist.** The refusal read *"A draft invoice is deleted, not voided"* — and `Invoice`
+        // is `#[NeverDeletable]`, so `canDelete()`/`canDeleteAny()` are false even for super_admin,
+        // there is no `DeleteAction` on the resource, and the bulk one is hidden panel-wide. The
+        // form removes `cancelled` from its options too. So an abandoned draft had NO way out at
+        // all, and that is not cosmetic: `MonthlyBillingService`'s already-billed probe counted it,
+        // so the lease-month it covered could never be billed again — the silent lost revenue the
+        // probe's own comment describes at length for the cancelled case.
+        //
+        // Harmless until 2026-09-02, because a panel draft could not survive its first line
+        // (`recomputeTotals()` promoted it). Freezing that (SW-215) made the state persist, so it
+        // needed an exit.
+        //
+        // Nothing was ever posted, so this is not a void: no reversal, no credit note, no number
+        // burnt — just a document that never became one. It falls straight through to the terminal
+        // check above on a second call.
         if ($invoice->status === 'draft') {
-            throw new \DomainException(__('admin.refusals.invoice_void_draft'));
+            $invoice->update(['status' => 'cancelled']);
+
+            ReversalReason::record($invoice, 'cancelled', $reason);
+
+            return $invoice->refresh();
         }
 
         // A tax invoice already FILED with the Egyptian Tax Authority (eta_status = valid) can't be

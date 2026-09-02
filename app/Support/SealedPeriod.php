@@ -93,7 +93,52 @@ class SealedPeriod
             ->latest('id')
             ->first();
 
-        if (! $entry || ! PostingDate::isClosed($entry->entry_date)) {
+        // **A document with no entry yet can still be ISSUED INTO a sealed month.** The early return
+        // was `! $entry`, and a draft has no entry — `InvoiceJournalizer` returns null for one — so
+        // this guard skipped exactly the document that was about to gain an entry. Reachable since
+        // a draft can outlive a period close (SW-215): raise a draft dated 10 March, close March, in
+        // May set it to Issued. The save commits, `SyncDocumentToLedger` then refuses at
+        // `assertOpenPeriodFor()` and only LOGS, and the result is AR on the document with nothing
+        // in the ledger — `billing:reconcile --deep` permanently red, `books_tie_out` red, and
+        // `atriom:preflight` blocking the next deploy for a reason unrelated to the deploy. Verbatim
+        // the failure this class was written to end.
+        //
+        // `GuardsPostingDate` cannot see it either: that one is `isDirty($column)` by design, and
+        // issuing a draft moves no date.
+        //
+        // **The narrow question is "is this document BECOMING postable", not "did its status move".**
+        // `status` dirty alone was the first attempt and it is too wide: `issued → overdue` creates
+        // no entry that did not exist, and the late-fee flow does exactly that to an original invoice
+        // whose own month has since closed — so it refused a legitimate April penalty because
+        // January was sealed, which is the very case `LateFeeRecognisedWhenIncurredTest` exists to
+        // keep working.
+        //
+        // Asked of the ORIGINAL attributes: a document that posted nothing before and posts
+        // something now is one gaining an entry. `status` dirty stays as the cheap pre-filter, so
+        // the extra journalizer call is paid only by a status change on an unposted row.
+        if (! $entry) {
+            if (! $model->isDirty('status')) {
+                return;
+            }
+
+            $before = (clone $model)->setRawAttributes($model->getRawOriginal(), sync: true);
+
+            // FAIL OPEN, for the same reason the `sealedPeriodBlocking()` call below does and with
+            // the same consequence if it is forgotten: a journalizer THROWS when the chart cannot
+            // answer it — an unmapped posting role, a retired account — and letting that escape
+            // turns an incomplete accounting setup into a hard failure on every ordinary status
+            // change of every money document. Measured when it was missing: 66 red across the
+            // regression suite, none of them about sealed periods.
+            try {
+                if (app(LedgerPoster::class)->postsAnything($before)) {
+                    return;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Sealed-period guard could not tell whether '.$model::class.' #'.$model->getKey().' was already postable: '.$e->getMessage());
+
+                return;
+            }
+        } elseif (! PostingDate::isClosed($entry->entry_date)) {
             return;
         }
 

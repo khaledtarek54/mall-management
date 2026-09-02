@@ -597,6 +597,7 @@ return [
     ],
 
     'notifications' => [
+        'draft_invoice_cancelled' => 'تم إلغاء المسودة',
         'ledger_will_move_month' => 'سيُنقل قيد هذا المستند (:amount) إلى :month، خلال ثوانٍ.',
         'ledger_will_repost' => 'سيُعكس قيد هذا المستند (:from) ويُعاد ترحيله بمبلغ :to، خلال ثوانٍ.',
         'ledger_will_post' => 'سيُرحَّل هذا المستند إلى الأستاذ بمبلغ :amount، خلال ثوانٍ.',

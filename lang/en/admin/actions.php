@@ -2,6 +2,8 @@
 
 return [
     'actions' => [
+        'cancel_draft_invoice' => 'Cancel draft',
+        'cancel_draft_invoice_confirm' => 'This draft was never issued — nothing was posted and the tenant has never seen it. Cancelling takes it off the books-to-be and frees the period for billing again. It cannot be un-cancelled.',
         'reverse' => 'Reverse',
         'reverse_confirm' => 'The document is reversed and its ledger entry undone by a balanced counter-entry. Both stay on the books; nothing is erased.',
         'reverse_write_off' => 'Reverse write-off — debt recovered',

@@ -138,6 +138,7 @@ return [
         'descriptions' => [
             'facility_work_order' => ['accepted' => 'Job accepted by the contractor'],
             'invoice' => [
+                'cancelled' => 'Draft invoice cancelled',
                 'voided' => 'Invoice voided',
                 // The two settlement channels an operator can un-apply from the invoice screen.
                 // Filed against the INVOICE because the application rows are soft-deleted by the

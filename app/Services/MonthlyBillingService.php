@@ -1021,7 +1021,21 @@ class MonthlyBillingService
             //
             // `written_off` is deliberately NOT excluded: that debt was rightly billed and is still
             // on the books as bad debt, so re-billing it would charge the tenant twice.
-            ->whereNotIn('status', ['cancelled'])
+            //
+            // **`draft` joins `cancelled` for the same reason (2026-09-02): a draft was never
+            // billed.** It is invisible to the tenant, unposted, outside AR and outside every
+            // collections surface — `TenantVisibility` and `InvoiceSettlement` both say so. Counting
+            // one as billed meant an abandoned draft suppressed that lease-month's rent FOREVER,
+            // reported as `skipped: already_billed` and indistinguishable in the run summary from a
+            // lease that had been billed correctly: exactly the silent lost revenue this block's own
+            // comment describes for the cancelled case.
+            //
+            // It was harmless until the draft freeze (SW-215), because a panel draft could not
+            // survive its first line. The cost of the change is that a draft an operator is still
+            // preparing for the current month can now be joined by a run-generated invoice — two
+            // documents, visible, and the draft is cancellable. Silent, permanent, unrecoverable
+            // beats visible and fixable in exactly one direction.
+            ->whereNotIn('status', ['cancelled', 'draft'])
             ->whereDate('period_start', '<=', $periodEnd->toDateString())
             ->whereDate('period_end', '>=', $periodStart->toDateString())
             // 'utility' joins the list for the same reason as percentage_rent/cam_*: a utility RECHARGE
