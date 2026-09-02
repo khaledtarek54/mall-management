@@ -52,15 +52,34 @@ class AssetStatementPdfService
         $asOf = CarbonImmutable::now();
         $since = $asOf->subMonths(12)->startOfMonth();
 
-        // Every non-cancelled invoice across every lease at the property.
+        // Every invoice at the property that is really on the books.
+        //
+        // **`draft` and `written_off` were both missing from this filter**, and they fail in
+        // opposite directions on the one document Jawad reads:
+        //
+        //  - `invoices.status` DEFAULTS to `draft` at the column, so an invoice nobody has issued —
+        //    a working figure, an abandoned one — was billed to the owner as revenue and chased on
+        //    their arrears list. The tenant is never shown a draft (`TenantVisibility`); the owner
+        //    was.
+        //  - a WRITE-OFF deliberately leaves `balance` standing, because balance is derived from the
+        //    four settlement channels and a write-off is none of them. So `where('balance', '>', 0)`
+        //    two lines down put already-relieved bad debt on the owner's outstanding list — money
+        //    the operator has formally given up and the ledger has already expensed.
+        //
+        // Every sibling AR read excludes both: `TenantLedger`, `TenantStatementPdfService`,
+        // `DepositBilling`, `InvoiceSettlement`. This was the one that did not.
         $invoicesAll = Invoice::query()
             ->where('asset_id', $asset->id)
-            ->with(['lease.unit', 'tenant'])
-            ->whereNotIn('status', ['cancelled', 'credited'])
+            ->with(['lease.unit', 'tenant', 'writeOffs'])
+            ->whereNotIn('status', ['draft', 'cancelled', 'credited'])
             ->get();
 
+        // **COLLECTABLE, not `balance`** — the third term. `balance` says what was OWED and `status`
+        // says whether the document left the books; a PARTIAL write-off is neither, so a filter on
+        // `balance` alone chases the operator's own forgiveness. `written_off` above catches only the
+        // full ones.
         $openInvoices = $invoicesAll
-            ->where('balance', '>', 0)
+            ->filter(fn (Invoice $inv): bool => $inv->collectableBalance() > 0)
             ->sortBy('due_date')
             ->values();
 
@@ -83,7 +102,7 @@ class AssetStatementPdfService
             ->map(fn ($invoices, $name) => [
                 'name' => $name,
                 'count' => $invoices->count(),
-                'balance' => (float) $invoices->sum('balance'),
+                'balance' => (float) $invoices->sum(fn (Invoice $inv): float => $inv->collectableBalance()),
                 'oldest_due' => $invoices->min('due_date'),
             ])
             ->sortByDesc('balance')
@@ -91,11 +110,11 @@ class AssetStatementPdfService
             ->values();
 
         $summary = [
-            'outstanding' => (float) $invoicesAll->sum('balance'),
+            'outstanding' => (float) $invoicesAll->sum(fn (Invoice $inv): float => $inv->collectableBalance()),
             'overdue' => (float) $invoicesAll
-                ->where('balance', '>', 0)
-                ->filter(fn ($inv) => $inv->due_date && $inv->due_date->isPast())
-                ->sum('balance'),
+                ->filter(fn (Invoice $inv): bool => $inv->collectableBalance() > 0
+                    && $inv->due_date && $inv->due_date->isPast())
+                ->sum(fn (Invoice $inv): float => $inv->collectableBalance()),
             'total_billed' => (float) $invoicesAll->sum('total'),
             'total_paid' => (float) $invoicesAll->sum('paid_amount'),
             'open_count' => $openInvoices->count(),

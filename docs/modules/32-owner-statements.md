@@ -223,3 +223,34 @@ button reappears on a money record.
 | `Disbursement` | **Never deletable** | cancel the disbursement — it is a GL source and an owner payout |
 | `OwnerStatementRun` | Deletable (super_admin) | operational: superseded by a new version rather than removed |
 | `OwnerStatement` | Deletable (super_admin) | parent-managed: force-deleted when its run is rebuilt |
+
+
+## The property statement showed a draft and chased forgiven debt (fixed 2026-09-02)
+
+`AssetStatementPdfService` filtered `['cancelled', 'credited']` and omitted **both** of the statuses
+that matter here, failing in opposite directions on the one document Jawad reads:
+
+- **`draft`** — `invoices.status` DEFAULTS to `draft` at the column, so an invoice nobody has issued
+  (a working figure, an abandoned one) was reported to the owner as billed revenue and listed on
+  their arrears. `TenantVisibility` makes certain the TENANT never sees a draft; the owner was shown
+  one.
+- **`written_off`** — a write-off deliberately leaves `balance` standing, because balance is derived
+  from the four settlement channels and a write-off is none of them. So `where('balance', '>', 0)`
+  put already-relieved bad debt on the owner's outstanding list: money the operator has formally
+  given up, and which the ledger has already expensed as such.
+
+And a **PARTIAL** write-off is neither status, which is exactly what `Invoice::collectableBalance()`
+exists for — `balance` says what was OWED, `status` says whether the document left the books, and a
+partial write-off is a third thing. So the statement selects on `collectableBalance()` and **prints
+it too**: selecting correctly and then quoting the raw balance is worse than fixing neither, which
+this project has already recorded once on the dunning side.
+
+Three figures moved together — the summary total, the overdue total and the per-tenant delinquency
+list — because an owner reads the per-tenant list first and it must not disagree with the total
+above it.
+
+Every sibling AR read already excluded these: `TenantLedger`, `TenantStatementPdfService`,
+`DepositBilling`, `InvoiceSettlement`. This was the one that did not.
+
+Tests: `AnOwnerStatementShowsOnlyRealArrearsTest` — draft, full write-off, partial write-off, and a
+tenant whose debt is half paid and half forgiven. Mutation-proved both ways.

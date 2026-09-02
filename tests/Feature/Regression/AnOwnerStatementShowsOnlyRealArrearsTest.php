@@ -1,0 +1,137 @@
+<?php
+
+use App\Models\Payment;
+use App\Services\AssetStatementPdfService;
+use App\Services\WriteOffInvoiceService;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
+
+/**
+ * THE ONE DOCUMENT JAWAD READS BILLED HIM A DRAFT AND CHASED FORGIVEN DEBT.
+ *
+ * `AssetStatementPdfService` filtered `['cancelled', 'credited']` and omitted **both** of the
+ * statuses that matter here, failing in opposite directions:
+ *
+ *  - **`draft`.** `invoices.status` DEFAULTS to `draft` at the column, so an invoice nobody has
+ *    issued — a working figure, an abandoned one — was reported to the owner as billed revenue and
+ *    listed on their arrears. `TenantVisibility` makes sure the TENANT never sees a draft; the owner
+ *    was shown one.
+ *  - **`written_off`.** A write-off deliberately leaves `balance` standing, because balance is
+ *    derived from the four settlement channels and a write-off is none of them. So the
+ *    `where('balance', '>', 0)` two lines further down put already-relieved bad debt on the owner's
+ *    outstanding list — money the operator has formally given up and the ledger has already
+ *    expensed as such.
+ *
+ * And a PARTIAL write-off is neither status, which is why `Invoice::collectableBalance()` exists:
+ * `balance` says what was OWED, `status` says whether the document left the books, and a partial
+ * write-off is a third thing. Selecting correctly and then quoting the raw balance would be worse
+ * than fixing neither, so the page prints the collectable figure too.
+ *
+ * Every sibling AR read already excluded these — `TenantLedger`, `TenantStatementPdfService`,
+ * `DepositBilling`, `InvoiceSettlement`. This was the one that did not.
+ */
+beforeEach(function () {
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('super_admin'));
+
+    $this->asset = makeAsset(['code' => 'HW', 'name' => 'Haya Walk']);
+    $this->unit = makeUnit($this->asset, ['status' => 'occupied']);
+    $this->tenant = makeTenant(['name' => 'Café Crema']);
+    $this->lease = makeLease($this->unit, $this->tenant);
+});
+
+/** The figures the statement actually prints. */
+function statementSummary(): array
+{
+    return app(AssetStatementPdfService::class)->data(test()->asset)['summary'];
+}
+
+it('does not report a DRAFT invoice as billed or outstanding', function () {
+    // The control: a real, issued invoice IS on the statement.
+    makeInvoice($this->lease, [
+        'status' => 'issued', 'subtotal' => 10000, 'vat_amount' => 0,
+        'total' => 10000, 'balance' => 10000, 'due_date' => now()->subDays(5),
+    ]);
+
+    makeInvoice($this->lease, [
+        // The column default, and what any create that omits a status produces.
+        'status' => 'draft', 'subtotal' => 40000, 'vat_amount' => 0,
+        'total' => 40000, 'balance' => 40000, 'due_date' => now()->subDays(5),
+    ]);
+
+    $summary = statementSummary();
+
+    expect($summary['outstanding'])->toEqual(10000.0)
+        ->and($summary['total_billed'])->toEqual(10000.0)
+        ->and($summary['open_count'])->toBe(1);
+});
+
+it('does not chase a debt the operator has written off', function () {
+    $invoice = makeInvoice($this->lease, [
+        'status' => 'issued', 'subtotal' => 10000, 'vat_amount' => 0,
+        'total' => 10000, 'balance' => 10000, 'due_date' => now()->subDays(30),
+    ]);
+
+    // The control: before the write-off, the owner is owed 10,000.
+    expect(statementSummary()['outstanding'])->toEqual(10000.0);
+
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 10000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+    ]);
+
+    $summary = statementSummary();
+
+    expect($summary['outstanding'])->toEqual(0.0)
+        ->and($summary['overdue'])->toEqual(0.0)
+        ->and($summary['open_count'])->toBe(0);
+});
+
+it('reports only the UNFORGIVEN part of a partially written-off debt', function () {
+    // The case no status can express: still on the books, still live, and smaller.
+    $invoice = makeInvoice($this->lease, [
+        'status' => 'issued', 'subtotal' => 10000, 'vat_amount' => 0,
+        'total' => 10000, 'balance' => 10000, 'due_date' => now()->subDays(30),
+    ]);
+
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 4000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+    ]);
+
+    expect($invoice->fresh()->status)->not->toBe('written_off')   // still live
+        ->and((float) $invoice->fresh()->balance)->toEqual(10000.0);  // …and balance still standing
+
+    $data = app(AssetStatementPdfService::class)->data($this->asset);
+
+    expect($data['summary']['outstanding'])->toEqual(6000.0)
+        ->and($data['summary']['overdue'])->toEqual(6000.0)
+        ->and($data['summary']['open_count'])->toBe(1)
+        // The per-tenant list is what an owner reads first, so it must not disagree with the total.
+        ->and((float) $data['delinquentTenants']->first()['balance'])->toEqual(6000.0);
+});
+
+it('drops a tenant off the arrears list once their debt is fully relieved', function () {
+    $partly = makeInvoice($this->lease, [
+        'status' => 'issued', 'subtotal' => 10000, 'vat_amount' => 0,
+        'total' => 10000, 'balance' => 10000, 'due_date' => now()->subDays(30),
+    ]);
+
+    // Half paid, half forgiven — nothing left to chase, and neither channel moves the other.
+    $payment = Payment::create([
+        'tenant_id' => $partly->tenant_id, 'payment_date' => now(), 'amount' => 5000,
+        'method' => 'bank_transfer', 'status' => 'captured', 'currency' => 'EGP',
+    ]);
+    $payment->invoices()->attach($partly->id, ['allocated_amount' => 5000]);
+    $partly->fresh()->recomputeTotals();
+
+    app(WriteOffInvoiceService::class)->write($partly->fresh(), [
+        'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+    ]);
+
+    $data = app(AssetStatementPdfService::class)->data($this->asset);
+
+    expect($data['summary']['outstanding'])->toEqual(0.0)
+        ->and($data['delinquentTenants'])->toBeEmpty();
+});

@@ -204,7 +204,11 @@
                         <td>{{ $inv->due_date->format('d/m/Y') }}</td>
                         <td class="num">{{ number_format((float) $inv->total, 2) }}</td>
                         <td class="num">{{ number_format((float) $inv->paid_amount, 2) }}</td>
-                        <td class="num" style="font-weight:bold;color:{{ $inv->balance > 0 ? '#B4462C' : '#2E6B4F' }};">{{ number_format((float) $inv->balance, 2) }}</td>
+                        {{-- COLLECTABLE, not `balance`. A write-off deliberately leaves `balance`
+                             standing, so quoting it here would print money the operator has already
+                             forgiven — and selecting correctly and then quoting the raw figure is
+                             worse than fixing neither. --}}
+                        <td class="num" style="font-weight:bold;color:{{ $inv->collectableBalance() > 0 ? '#B4462C' : '#2E6B4F' }};">{{ number_format($inv->collectableBalance(), 2) }}</td>
                         <td><span class="status-pill status-{{ $inv->status }}">{{ __("admin.statuses.invoice.{$inv->status}") }}</span></td>
                     </tr>
                 @endforeach
@@ -212,7 +216,7 @@
             <tfoot>
                 <tr>
                     <td colspan="5" class="num">{{ __('admin.statement.total_outstanding') }}</td>
-                    <td class="num" style="color:#B4462C;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
+                    <td class="num" style="color:#B4462C;">EGP {{ number_format((float) $openInvoices->sum(fn ($inv) => $inv->collectableBalance()), 2) }}</td>
                     <td></td>
                 </tr>
             </tfoot>

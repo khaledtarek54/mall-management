@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 53 closed, 173 open (updated 2026-09-01)
+> ### Where this stands — 54 closed, 172 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -328,13 +328,13 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Tax
 
-*13 open — 4 high, 6 medium, 3 low.*
+*12 open — 3 high, 6 medium, 3 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-199** | ✅ **fixed** `fe0d8d46` | high | S | VAT return counts VOIDED credit notes on the documents side (credit notes are 'void', never 'cancelled'), understating filed taxable base and permanently breaking the tie-out control. **Excluding `void` outright is the obvious repair and is ALSO wrong** — caught in review before it shipped: voiding posts a REVERSAL and leaves the original `void` (a REPORTABLE status), and `reversalPeriod()` back-dates that reversal only while the period is open — so a note voided after its month closed is netted in the CURRENT month, and dropping it moved `base_standard` on an ALREADY FILED return by the whole credited supply (measured 60,000 → 80,000). The rule is about DATES, in two halves that compose through the accumulator's sign | `Services/Reports/VatReturnService:87` |
 | **SW-199b** | open | high | S | *(found by the review of SW-199 — not in the sweep.)* `SyncCamPoolFromLedgerService` filters billed invoices with `whereNotIn('invoices.status', ['cancelled','written_off'])` and **omits `draft`**, which is the column DEFAULT. A never-issued draft inflates the billed estimate and therefore understates the CAM true-up, or mints a credit note. Its siblings `PercentageRentCalculationService:108` and `ReportService:937` both exclude `draft`, so the asymmetry is verified rather than assumed. **CAM is another session's area this cycle — do not fix without checking HEAD** | `Services/SyncCamPoolFromLedgerService:296` |
-| **SW-199c** | open | high | S | *(found by the review of SW-199.)* `AssetStatementPdfService` filters `['cancelled','credited']` and omits **`written_off`** and **`draft`**. A write-off deliberately leaves `balance` standing, so `where('balance','>',0)` two lines later puts already-relieved bad debt on the OWNER's outstanding list. Every sibling AR read excludes it — `TenantLedger:51`, `TenantStatementPdfService:101`, `DepositHoldings:83`, `Lease::DEPOSIT_BILLING_EXCLUDED_STATUSES` | `Services/AssetStatementPdfService:59` |
+| **SW-199c** | ✅ fixed | high | S | *(found by the review of SW-199.)* `AssetStatementPdfService` filters `['cancelled','credited']` and omits **`written_off`** and **`draft`**. A write-off deliberately leaves `balance` standing, so `where('balance','>',0)` two lines later puts already-relieved bad debt on the OWNER's outstanding list. Every sibling AR read excludes it — `TenantLedger:51`, `TenantStatementPdfService:101`, `DepositHoldings:83`, `Lease::DEPOSIT_BILLING_EXCLUDED_STATUSES` | `Services/AssetStatementPdfService:59` |
 | **SW-199d** | open | medium | S | *(found by the review of SW-199.)* `BooksReconciliationService` matches credit notes with NO status filter, so a CAM allocation still `billed` whose backing note was VOIDED passes `$hasCredit` and the reconciler reports clean — a check that cannot fail, the family CLAUDE.md gates for | `Services/Reconciliation/BooksReconciliationService:183` |
 | **SW-199e** | open | medium | S | *(found by the review of SW-199.)* A DRAFT credit note downloads as an unwatermarked, numbered tax document: `CreditNotePdfService` watermarks on `status === 'void'` only, and neither download action gates on status. `CreditNote::isOnTheBooks()` is exactly the predicate. The exporter has no on-the-books marker either, so summing its `total` column double-counts drafts and voids | `Services/CreditNotePdfService:57` |
 | **SW-199f** | open | medium | M | *(found by the review of SW-199.)* `CreditNoteJournalizer` gates on the hand-rolled allowlist `['issued','applied']` — the complement of `CreditNote::NOT_ON_THE_BOOKS` by coincidence, not derivation. A fifth status would be COUNTED by the documents side (exclusion) and SKIPPED by the GL (allowlist), silently. `CreditNote::hasBalance()` is a third copy of the same judgement | `Services/Accounting/Journalizers/CreditNoteJournalizer:27` |
