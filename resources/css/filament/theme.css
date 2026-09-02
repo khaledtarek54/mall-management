@@ -12,6 +12,16 @@
 @source '../../../app/Filament/**/*';
 @source '../../../app/Livewire/**/*';
 @source '../../../resources/views/filament/**/*';
+/*
+| The panel-wide Livewire views — today the floating assistant.
+|
+| `app/Livewire/**` was already sourced above, but the CLASSES live in the VIEW, and
+| `resources/views/livewire/` was not covered by any glob. The result is the worst shape a styling
+| bug takes: the markup renders, the page is a clean 200, every test passes — and the button has no
+| width, no height and no `position: fixed`, so it collapses to nothing at the end of the document
+| and reads as "the feature was never built".
+*/
+@source '../../../resources/views/livewire/**/*';
 @source '../../../vendor/filament/**/*.blade.php';
 
 /*
