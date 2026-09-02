@@ -1081,6 +1081,41 @@ places, which is what let the PDF drift. And `cumulative` (the flag that stops a
 being worded *"This period holds…"*) is answered by `unallocated()` itself, which owns the window,
 rather than derived again per renderer — where only one of the copies ever gets a test.
 
+### A period is the PAGE's answer, and a quarter is a quarter of the FISCAL year (2026-09-02)
+
+`ScopesLedgerReport::hydrateLedgerScopeFromQuery()` validated the URL's `period` against
+`/^\d{4}-\d{2}$/` — every ledger report's period is a month, **except the one whose period is a
+quarter**. Egypt files withholding tax on Form 41 quarterly and `WithholdingTaxReturn` offers
+`2026-Q1`, so its own drill-down links and every saved view of it arrived and were thrown away, and
+the screen opened on the full fiscal year while the emailed CSV — which never passes through
+`mount()` — still carried the quarter. One report, two periods, no error (SW-131/SW-209).
+
+The guard now derives from the page's own `periodOptions()`, so what a page accepts is exactly what
+its picker offers. It also kills a case the regex let through: Carbon does **not** throw on `2026-13`
+— `createFromFormat('Y-m-d', '2026-13-01')` overflows to 2027-01-01, and `2026-99` to 2034-03-01 — so
+a malformed link used to render a confident report for an entirely different month.
+
+**Two things about the fiscal year that are easy to lose, because on a calendar year they are
+invisible:**
+
+- **The year a bare period belongs to is SEARCHED for, never read off its first four digits.** With
+  `fiscal_year_start_month = 4`, FY2026 runs Apr 2026 – Mar 2027, so `periodOptions()` legitimately
+  offers `2027-01`. Taking `2027` from `2027-01` moves the page to FY2027, where that period is not a
+  member — so the period is discarded *and* the year has moved, and the report opens on a different
+  twelve months. The shortcut made the very case it was added for worse than before it existed.
+- **`ReportPeriod` advances a quarter of the FISCAL year, not Carbon's** (SW-222). Q1 on an April
+  year is Apr–Jun. Reading `startOfQuarter()->quarter` gave the calendar answer: on 15 Aug 2026 it
+  produced `2026-Q2`, which the page renders as Jul–Sep — **the quarter still running**. A scheduled
+  Form 41 would have gone out on a partial quarter, which is a filing position, not a stale report.
+  The monthly branch had the same defect one level down.
+
+`fiscalYear()` is memoised per request and per year, because the membership test made it a
+`mount()`-time read — including on scheduled delivery, where the filter form never renders.
+
+**Still open:** the membership test runs in `mount()` only, so a later Livewire update can still set
+a malformed period (SW-224); and on a non-calendar year an explicit `?year=2026&period=2026-01` is
+now discarded where it used to render (SW-223).
+
 **Consolidated statements remain unreachable** — that is the other half of EG-27 and it reopens the
 "All-Properties mode removed" decision, so it stays open rather than being drifted into.
 

@@ -123,17 +123,35 @@ final class ReportPeriod
         if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $period) === 1) {
             $month = $on->subMonthNoOverflow()->startOfMonth();
 
-            $parameters['year'] = $month->year;
+            // The FISCAL year the month falls in, never `$month->year`. On an April year February
+            // 2027 belongs to FY2026, and naming 2027 sends the report to a year whose own picker
+            // does not offer that month.
+            $parameters['year'] = self::fiscalYearOf($month);
             $parameters['period'] = $month->format('Y-m');
 
             return $parameters;
         }
 
         if (preg_match('/^\d{4}-Q([1-4])$/', $period) === 1) {
-            $quarter = $on->subQuarterNoOverflow()->startOfQuarter();
+            // **A quarter here is a quarter of the FISCAL year, and Carbon's is a calendar one.**
+            // `WithholdingTaxReturn::periodOptions()` builds `YYYY-Qn` by stepping three months at a
+            // time from `fiscalYearStart()`, so on an April year Q1 is Apr–Jun. Reading
+            // `$on->subQuarterNoOverflow()->startOfQuarter()->quarter` gave the calendar answer:
+            // measured on 15 Aug 2026 with an April year it produced `2026-Q2`, which that page
+            // renders as **Jul–Sep 2026 — the quarter still running**. A scheduled Form 41 would go
+            // out on a partial quarter, which is a filing position, not a stale report.
+            $month = $on->startOfMonth();
+            $start = self::fiscalYearStartOn($month);
 
-            $parameters['year'] = $quarter->year;
-            $parameters['period'] = $quarter->format('Y').'-Q'.$quarter->quarter;
+            // Whole quarters elapsed since this fiscal year opened, then step back one so the
+            // period delivered is the last COMPLETE one.
+            $index = intdiv($start->diffInMonths($month), 3);
+            $target = $start->addMonths(($index - 1) * 3);
+
+            $parameters['year'] = self::fiscalYearOf($target);
+            $parameters['period'] = $parameters['year'].'-Q'.(intdiv(
+                self::fiscalYearStartOn($target)->diffInMonths($target), 3
+            ) + 1);
 
             return $parameters;
         }
@@ -150,5 +168,23 @@ final class ReportPeriod
         }
 
         return rescue(fn (): CarbonImmutable => CarbonImmutable::parse($value)->startOfDay(), null, false);
+    }
+
+    /**
+     * The FISCAL year a date belongs to — the number the report pages use as `$year`.
+     *
+     * On a calendar year this is `$on->year` and the two never diverge, which is exactly why the
+     * distinction is easy to lose: every month of 2026 is in FY2026 until the operator sets
+     * `fiscal_year_start_month`, and then three of them are not.
+     */
+    private static function fiscalYearOf(CarbonImmutable $on): int
+    {
+        return $on->month >= FiscalYearStart::month() ? $on->year : $on->year - 1;
+    }
+
+    /** The first day of the fiscal year that CONTAINS `$on`. */
+    private static function fiscalYearStartOn(CarbonImmutable $on): CarbonImmutable
+    {
+        return CarbonImmutable::create(self::fiscalYearOf($on), FiscalYearStart::month(), 1)->startOfDay();
     }
 }

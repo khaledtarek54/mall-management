@@ -4,6 +4,7 @@ use App\Filament\Admin\Pages\IncomeStatement;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\WithholdingTaxReturn;
 use App\Services\Accounting\FiscalCalendar;
+use App\Settings\AccountingSettings;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -81,6 +82,28 @@ it('refuses a period the page does not offer', function () {
 
     openWithQuery(TrialBalance::class, ['year' => $this->year, 'period' => 'not-a-period'])
         ->assertSet('period', null);
+});
+
+it('finds the fiscal year a bare period belongs to, on an April year', function () {
+    // **The case the first fix got backwards, and the one this operator actually runs.** Egypt's
+    // April→March year is settable and supported, so FY2026 runs Apr 2026 – Mar 2027 and
+    // `periodOptions()` legitimately offers `2027-01`, `2027-02`, `2027-03`.
+    //
+    // Reading the year off the period's first four digits — the obvious shortcut — moves the page to
+    // FY2027 (Apr 2027 – Mar 2028), where `2027-01` is not a member. The period is then discarded
+    // AND the year has moved, so the report opens on a completely different twelve months with
+    // nothing on screen to say so. Measured: it made the very case it was added for worse than
+    // before it existed. The year is SEARCHED for instead.
+    app(AccountingSettings::class)->fill(['fiscal_year_start_month' => 4])->save();
+
+    app(FiscalCalendar::class)->ensureYear($this->year);
+    app(FiscalCalendar::class)->ensureYear($this->year + 1);
+
+    $tailMonth = ($this->year + 1).'-01';   // January, which belongs to the year that OPENED in April
+
+    openWithQuery(IncomeStatement::class, ['period' => $tailMonth])
+        ->assertSet('year', $this->year)
+        ->assertSet('period', $tailMonth);
 });
 
 it('takes the year from the period when the link names only one', function () {

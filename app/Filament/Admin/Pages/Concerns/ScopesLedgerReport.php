@@ -17,7 +17,9 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * Shared scaffold for the read-only ledger report PAGES — Trial Balance, General
- * Ledger, Income Statement, Balance Sheet, Cash Flow. Centralizes the year +
+ * Ledger, Income Statement, Balance Sheet, Cash Flow, and the two statutory returns
+ * (VAT and Withholding). SEVEN pages; `RentRoll` shares the blade and NOT this trait,
+ * so it has no `$year`/`$period` at all — its parameter is `$asOf`. Centralizes the year +
  * property filter state, the `general_ledger.view` gate, the Accounting nav
  * group, the property-scoped asset-id resolution, and the year list, so each
  * page declares only its icon/sort/route/title and the one report-service call.
@@ -40,7 +42,12 @@ trait ScopesLedgerReport
     public ?int $year = null;
 
     /**
-     * A single month within the selected year (`YYYY-MM`), or null for the whole year.
+     * A period WITHIN the selected fiscal year, or null for the whole year.
+     *
+     * Usually a month (`YYYY-MM`) — but not always: `WithholdingTaxReturn` files Egypt's Form 41
+     * quarterly and its own `periodOptions()` offers `YYYY-Qn`. Which shapes are legal is therefore
+     * the PAGE's answer, read off its own picker, never a regex here; a shape written twice is what
+     * discarded every Form 41 link (SW-131/SW-209).
      *
      * Null is the default, so every existing report opens exactly as it did.
      */
@@ -72,15 +79,31 @@ trait ScopesLedgerReport
         $period = is_string($period) ? $period : null;
 
         // The year first, because `periodOptions()` is built from it. A link normally carries both
-        // (`ReportParameters::urlFor()` writes every declared property), but a hand-typed or
-        // hand-trimmed one may name only the period — and defaulting to THIS year would then throw
-        // away a period from another one, silently, by failing the membership test below.
+        // (`ReportParameters::urlFor()` writes every declared property), but a hand-trimmed one may
+        // name only the period — and defaulting to THIS year would then throw the period away,
+        // silently, by failing the membership test below.
         $year = request()->query('year');
-        $this->year = match (true) {
-            is_numeric($year) => (int) $year,
-            $period !== null && preg_match('/^(\d{4})/', $period, $m) === 1 => (int) $m[1],
-            default => (int) now()->year,
-        };
+        $this->year = is_numeric($year) ? (int) $year : (int) now()->year;
+
+        // **The year is SEARCHED for, never read off the period's first four digits.** That shortcut
+        // was the first attempt and it is wrong on exactly the configuration this operator uses: a
+        // fiscal year starting in April makes FY2026 run Apr 2026 – Mar 2027, so `periodOptions()`
+        // legitimately offers `2027-01`, `2027-02`, `2027-03`. Reading `2027` out of `2027-01` moves
+        // the page to FY2027 (Apr 2027 – Mar 2028), where that period is not a member — so the
+        // period is discarded AND the year has moved, and the report opens on a different twelve
+        // months with nothing to say so. It made the case it was added for worse than before it
+        // existed. One neighbouring year each way is the whole span a month can belong to.
+        if (! is_numeric($year) && $period !== null && ! array_key_exists($period, $this->periodOptions())) {
+            foreach ([$this->year - 1, $this->year + 1] as $candidate) {
+                $this->year = $candidate;
+
+                if (array_key_exists($period, $this->periodOptions())) {
+                    break;
+                }
+
+                $this->year = (int) now()->year;
+            }
+        }
 
         // **Validated against the page's OWN period options, not against a shape.** The regex here
         // was `/^\d{4}-\d{2}$/` — every ledger report's period is a month, except the one whose
@@ -257,9 +280,21 @@ trait ScopesLedgerReport
         return $end ? Carbon::parse($end)->endOfDay() : Carbon::create($this->year, 12, 31)->endOfDay();
     }
 
+    /** @var array<int, ?FiscalYear> */
+    private array $fiscalYearMemo = [];
+
+    /**
+     * Memoised per request and per YEAR, because the year moves during `mount()` while the period is
+     * being resolved.
+     *
+     * `periodOptions()` calls `fiscalYearStart()` and `fiscalYearEnd()`, so every membership test
+     * cost two queries and the withholding return's three — paid on every mount since the period
+     * guard started deriving from the options, and paid on every scheduled delivery
+     * (`DeliverSavedReportService`), where the filter form never renders at all.
+     */
     private function fiscalYear(): ?FiscalYear
     {
-        return FiscalYear::query()->where('year', $this->year)->first();
+        return $this->fiscalYearMemo[$this->year] ??= FiscalYear::query()->where('year', $this->year)->first();
     }
 
     /**

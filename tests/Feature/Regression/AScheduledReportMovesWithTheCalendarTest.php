@@ -9,6 +9,7 @@ use App\Filament\Admin\Pages\WithholdingTaxReturn;
 use App\Mail\SavedReportDelivered;
 use App\Models\SavedReport;
 use App\Services\Reports\DeliverSavedReportService;
+use App\Settings\AccountingSettings;
 use App\Support\ReportCatalogue;
 use App\Support\ReportParameters;
 use App\Support\ReportPeriod;
@@ -120,6 +121,54 @@ it('keeps a QUARTERLY period quarterly, and a whole-year one whole-year', functi
 
     expect($quarterly['period'])->toBe('2026-Q3')
         ->and($quarterly['year'])->toBe(2026);
+
+    // On a CALENDAR year — the default — a fiscal quarter and Carbon's are the same three months,
+    // which is exactly why the difference below was easy to miss.
+});
+
+it('advances a quarter of the FISCAL year, not of the calendar', function () {
+    // **A scheduled Form 41 was going out on a quarter that had not finished.**
+    // `WithholdingTaxReturn::periodOptions()` builds `YYYY-Qn` by stepping three months from
+    // `fiscalYearStart()`, so on an April year Q1 is Apr–Jun and Q2 is Jul–Sep. The advance read
+    // Carbon's `startOfQuarter()`/`->quarter`, which are CALENDAR quarters: on 15 Aug 2026 it
+    // answered `2026-Q2`, and that page renders Q2 as **Jul–Sep 2026 — the quarter still running**.
+    // A partial quarter is not a stale report, it is a wrong filing position.
+    app(AccountingSettings::class)->fill(['fiscal_year_start_month' => 4])->save();
+
+    // 15 Aug 2026 is inside FY2026's Q2 (Jul–Sep), so the last COMPLETE one is Q1 (Apr–Jun 2026).
+    $q = ReportPeriod::advance(WithholdingTaxReturn::class, [
+        'year' => 2026, 'period' => '2026-Q4',
+    ], CarbonImmutable::parse('2026-08-15'));
+
+    expect($q['period'])->toBe('2026-Q1')
+        ->and($q['year'])->toBe(2026);
+
+    // And in JANUARY, which is the tail of the fiscal year that opened the previous April: the last
+    // complete quarter is Oct–Dec, i.e. FY2026 Q3 — not "2027-Q4" as a calendar reading gives.
+    $tail = ReportPeriod::advance(WithholdingTaxReturn::class, [
+        'year' => 2026, 'period' => '2026-Q1',
+    ], CarbonImmutable::parse('2027-01-20'));
+
+    expect($tail['period'])->toBe('2026-Q3')
+        ->and($tail['year'])->toBe(2026);
+});
+
+it('names the FISCAL year a monthly period falls in', function () {
+    // Same distinction, cheaper to get wrong: on an April year February 2027 belongs to FY2026, and
+    // naming 2027 sends the report to a year whose own picker does not offer that month — so the
+    // membership guard in `ScopesLedgerReport` discards the period and the report opens on twelve
+    // months nobody asked for.
+    app(AccountingSettings::class)->fill(['fiscal_year_start_month' => 4])->save();
+
+    $monthly = ReportPeriod::advance(IncomeStatement::class, [
+        'year' => 2026, 'period' => '2026-06',
+    ], CarbonImmutable::parse('2027-03-05'));
+
+    expect($monthly['period'])->toBe('2027-02')
+        ->and($monthly['year'])->toBe(2026);
+});
+
+it('keeps a whole-year period whole-year', function () {
 
     // Null IS a shape — the whole year — and it moves to the current year rather than becoming a
     // month.
