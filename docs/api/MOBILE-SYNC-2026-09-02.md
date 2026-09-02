@@ -8,12 +8,12 @@
 > `app/Http/Resources/Api/V1/*`, `app/Http/Controllers/Api/V1/*`, `app/Http/Requests/Api/V1/*`),
 > not from the prose doc.
 >
-> ### ✅ Every backend gap that blocks a screen is now CLOSED — the API shipped 2026-09-02
+> ### ✅ Every backend gap in this document is now CLOSED — the API shipped 2026-09-02
 >
 > Part 11 originally listed seven capabilities the web portal had and `/api/v1` did not, and
-> §8 listed eight backend gaps. **All seven of Part 11 and six of the eight in §8 are built, tested and on
-> the wire**, across six commits. The two remaining are a stale briefing document and a scheduling
-> race — neither is API contract and neither blocks a screen. What changed on the backend is summarised in **[Part 12](#12--what-shipped-on-2026-09-02)**
+> §8 listed eight backend gaps. **All seven of Part 11 and all eight of §8 are built, tested and on the
+> wire**, across nine commits — plus one thing this document did not ask for and should have:
+> the API is now **bilingual to the panel's own standard** (Part 13). What changed on the backend is summarised in **[Part 12](#12--what-shipped-on-2026-09-02)**
 > with the exact new payloads; **Part 11 and §8 are kept as written** so you can see what was wrong
 > and why, but every ⚪ in them now reads ✅.
 >
@@ -36,7 +36,7 @@ Parts 1 → 4 in order; Part 9 is the same list re-cut by screen so you can hand
 | 🟢 **NEW** | Additive field or endpoint. Nothing breaks if you ignore it, but the app is poorer. | Adopt when convenient. |
 | ⚪ **BACKEND GAP** | The backend is missing something the app needs. **Do not build a workaround** — raise it. | Nothing, except knowing not to guess. |
 
-**Counts:** 7 breaking · 10 behaviour · 5 new fields · **32 endpoints** across 12 areas that the app is probably not calling yet · **0 backend gaps that block a screen** (see Part 12) · **the API is now bilingual to the panel's standard** (Part 13).
+**Counts:** 7 breaking · 10 behaviour · 5 new fields · **32 endpoints** across 12 areas that the app is probably not calling yet · **0 open backend gaps** (Part 12) · **the API is bilingual to the panel's standard** (Part 13).
 
 > **Parts 1–10 answer *"does the app match the contract?"*. [Part 11](#11--the-api-vs-the-business-the-system-now-runs--portal--api-parity)
 > answered *"does the contract match the system?"* — it did not, in 7 places, and all seven have
@@ -741,10 +741,11 @@ the clearest illustration of C2.
 
 ---
 
-## 8. Backend gaps — **six of eight closed on 2026-09-02**
+## 8. ✅ Backend gaps — **all eight closed on 2026-09-02**
 
-> G1–G6 are shipped. The two left are not API contract: **G7** is a stale briefing document, and
-> **G8** is a scheduling race tracked in the QA sweep. Neither blocks a single screen.
+> Every row here is shipped. G7 was a briefing document that had contradicted the contract for ten
+> days; G8 was a scheduling race that could put a chase letter in the app's inbox for a debt the
+> tenant had just paid — see the note under the table.
 
 | # | Gap | Why it mattered | **What shipped** |
 |---|---|---|---|
@@ -754,8 +755,8 @@ the clearest illustration of C2.
 | **G4** ✅ | **`locale` was neither readable nor writable via `/me`.** | The app's language toggle cannot reach push, e-mail, or an operator-sent PDF (C8). The column is fillable on the model and written by no API. | Add `locale` to `TenantResource` and to `UpdateProfileRequest` (`Rule::in(['en','ar'])`). |
 | **G5** ✅ | **`unitId` validation accepted leased units only**, though the service now resolves owned ones (C5). | A unit owner naming their own shop gets a 422. | Widen the closure to `unitOwnerships()->where('status', HandedOver)->covering()`. |
 | **G6** ✅ | **`MOBILE-API.md` §6 "Not in v1" is stale.** | It says Paymob and push are deferred; §4.4 and §4.9 document both as built, and attachments too. Contradiction inside one doc. | Rewrite §6 to: ETA references only. |
-| **G7** ⚪ | **`MOBILE-APP-BRIEF.md` is stale (2026-06-28).** | It still says *"ETA e-invoicing is wired (mock mode)"*. Module 16 is **frozen in code** — the keys are gone from the payload and no invoice is ever filed. | Refresh or mark superseded by `MOBILE-API.md`. |
-| **G8** ⚪ | **SW-156 (still open):** the overdue sweep re-checks its stamp under the lock but not the balance. | A payment landing mid-run can produce a dunning notice on an already-settled invoice — the tenant sees a chase for money they just paid. | Re-read the balance inside the lock. Tracked in `docs/qa/DEEP-SWEEP-2026-09-01.md`. |
+| **G7** ✅ | **`MOBILE-APP-BRIEF.md` was stale (2026-06-28).** | It said *"ETA e-invoicing is wired (mock mode)"* for ten days after module 16 was **frozen in code** — a briefing that contradicts the contract is worse than one that says less, because the stale half is the one a reader trusts. | Refreshed: the *why* stays, every factual claim now points at `MOBILE-API.md` and this brief rather than restating it. |
+| **G8** ✅ | **SW-156 (fixed 2026-09-02):** the overdue sweep re-checked its stamp under the lock but not the balance. | A payment landing mid-run produced a dunning notice on an already-settled invoice — a chase letter in the app's inbox for money the tenant had just paid, which is the one notification guaranteed to be read saying the one thing guaranteed to be wrong. | The guard re-reads `collectableBalanceForUpdate()` inside the lock — a LOCKING read, because on MySQL's REPEATABLE READ a plain one is answered from a snapshot taken before the wait, and the stale direction is the harmful one. Nothing is stamped when nothing is sent, so the ladder resumes rather than skipping a rung. |
 
 ---
 

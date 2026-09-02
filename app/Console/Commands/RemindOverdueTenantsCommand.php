@@ -122,6 +122,25 @@ class RemindOverdueTenantsCommand extends Command
                         }
                     }
 
+                    // **AND RE-CHECK THAT IT IS STILL OWED (SW-156).** The decision was re-read
+                    // under the lock and the AMOUNT was not, so a payment landing between the outer
+                    // query and this lock produced a chase letter for an invoice the tenant had
+                    // just settled — the one notification guaranteed to be read, saying the one
+                    // thing guaranteed to be wrong. A write-off in that window did the same.
+                    //
+                    // `collectableBalanceForUpdate()`, not `collectableBalance()`: this project's
+                    // rule is that a guard query behind a lock must itself be a locking read, or on
+                    // MySQL's REPEATABLE READ it is answered from a snapshot taken before the wait.
+                    // Here the stale direction is the harmful one — a smaller write-off sum reads
+                    // as MORE owed, so the chase goes out anyway.
+                    //
+                    // A settled invoice is left with its stamp and level untouched: nothing was
+                    // sent, so nothing should be recorded, and if it falls overdue again later the
+                    // ladder resumes where it stood rather than skipping a rung.
+                    if ($locked->collectableBalanceForUpdate() <= 0) {
+                        return false;
+                    }
+
                     /** @var Tenant|null $tenant */
                     $tenant = $locked->tenant;
                     if (! $tenant) {

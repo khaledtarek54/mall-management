@@ -2,9 +2,33 @@
 
 > This is a business briefing, not a technical one. Build it however you build mobile apps well.
 > Audience: an experienced mobile dev coming into the Atriom project cold.
-> **Refreshed 2026-06-28** to match the current backend.
+> **Refreshed 2026-09-02.** The *why* ages slowly; the *what* does not, so everything factual below
+> now points at [`MOBILE-API.md`](MOBILE-API.md) and its [sync brief](MOBILE-SYNC-2026-09-02.md)
+> rather than restating it. This file had claimed ETA e-invoicing was wired for ten days after
+> module 16 was frozen in code — a briefing that contradicts the contract is worse than one that
+> says less.
 
-> **Current state (read this).** The **tenant mobile API is built and complete** for v1 — auth, balance, a one-call home summary, invoices (+ PDF), payments, credit notes, maintenance (with photos), sales declarations, an in-app notifications inbox, and device registration. **The full, authoritative contract is [`MOBILE-API.md`](MOBILE-API.md)** — build against that, not this briefing (this is the *why*, that's the *what*). **Paymob** card payments are wired and sandbox-tested end-to-end (in-app session + shareable payment links); production switches on once the operator's KYC clears. **ETA** e-invoicing is wired (mock mode until the signing certificate lands). **Push** delivery (FCM) is wired on the backend — register a device token and the tenant-facing events push automatically once Firebase creds are set. The one thing you'll need from the backend team: a **staging URL or tunnel** (there's no public host yet).
+> **Current state (read this).** The **tenant mobile API is complete and then some** — auth,
+> profile, a one-call home summary, invoices (+ PDF), payments (+ receipt PDF), credit notes with
+> their line items, requests with photos and a confirm/dispute step, sales declarations, the
+> notifications inbox, mall news, the retailer's own marketing posts, device registration, and the
+> unauthenticated shopper feed. **On 2026-09-02 it also gained everything the web portal had and it
+> did not**: the lease's full commercial terms including the deposit shortfall, CAM allocations and
+> their statement, unit ownerships, credit on account, `payableAmount`, the request-type catalogue,
+> and `GET /me/vocabulary` — every classification in both languages, so the app renders Arabic to
+> the same standard the admin panel does.
+>
+> **The authoritative contract is [`MOBILE-API.md`](MOBILE-API.md)** — build against that, not this
+> briefing (this is the *why*, that's the *what*) — and
+> [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md) is the delta a client built against an
+> earlier revision must work through.
+>
+> **Paymob** card payments are wired and sandbox-tested end to end; production switches on when the
+> operator's KYC clears, which is not a code question. **Push** (FCM) is wired and fans out every
+> tenant-facing notification once Firebase credentials are set. **ETA e-invoicing is FROZEN IN
+> CODE**, not merely switched off — `App\Support\Modules::FROZEN` — so nothing files an invoice
+> and the three `eta*` keys are absent from the payload rather than null. Do not build the badge.
+> The one thing you still need from the backend team: a **staging URL or tunnel**.
 
 ---
 
