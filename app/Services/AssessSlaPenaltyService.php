@@ -170,6 +170,13 @@ class AssessSlaPenaltyService
      * The ACTUAL service cost wins when there is one — a bill that has landed is a better answer
      * than a quote — and the estimate is the fallback for a breach assessed before invoicing.
      * Null when neither is known, which the caller renders as "we don't know yet" rather than zero.
+     *
+     * **`act_service_cost` is now NET of any penalty already applied to that bill** — since
+     * 2026-09-02, when `VendorBill::recompute()` started cascading to the cost object. Unreachable
+     * today: there is one penalty row per work order and `assess()` early-returns on any
+     * non-`pending` penalty, so the basis can never be re-read after application. If that freeze is
+     * ever lifted, a percent-of-value penalty would be charged on a figure its own earlier charge
+     * had already reduced.
      */
     private static function jobValue(FacilityWorkOrder $order): ?float
     {
