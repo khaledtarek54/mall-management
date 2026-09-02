@@ -67,6 +67,111 @@ final class MoneyDocumentDoors
     public const EXEMPT = [];
 
     /**
+     * A door that legitimately does NOT ask one of the money questions its sibling doors ask,
+     * because it already knows the answer — keyed `path.php::field`, valued with why.
+     *
+     * A derivation is not a gap. The lease page's deposit modal is opened FROM a lease, so asking
+     * which lease would be asking the operator to re-state what they clicked on. What the registry
+     * buys is that the claim is written down and reviewable, rather than being the silent difference
+     * between two screens that nobody compared.
+     *
+     * @var array<string, string>
+     */
+    public const DOOR_DERIVES = [
+        'app/Filament/Admin/Actions/LeaseActions.php::lease_id' => 'The modal is opened FROM the lease, and the action writes `$record->id`. Asking would be asking the operator to re-state what they clicked on — and offering a picker would let them file a deposit against a different lease than the page they are on.',
+        'app/Filament/Admin/Actions/LeaseActions.php::is_opening_balance' => 'A CUTOVER flag: it marks a deposit the operator already held before this system existed, so the register (where migrated balances are keyed in) asks and the day-to-day modal does not. Offering it here would invite an ordinary receipt to be booked as an opening balance, which is the one thing that would make the pot disagree with the books.',
+    ];
+
+    /**
+     * Do the doors onto one document ask the same money questions?
+     *
+     * **Compared to EACH OTHER, never to a spec.** The alternative — every door must collect every
+     * field `ChangeImpact` classifies as reaching the ledger — was measured and rejected: it makes
+     * `lease_id`, `tenant_id`, `asset_id`, `status` and the document number a finding on every door
+     * that legitimately derives them, about forty entries, which is a list exempted into
+     * meaninglessness. Comparing doors to each other asks the question that actually failed: a field
+     * one screen asks for and another does not.
+     *
+     * The union is narrowed to columns `ChangeImpact` says are DERIVED or REFUSED — the ones that
+     * decide what the document IS or where it posts — so a `notes` box on one screen and not the
+     * other is not reported as a defect.
+     *
+     * Silent for a document with ONE door, and that is correct rather than a hole: there is nothing
+     * to disagree with. It arms itself the moment somebody adds the second, which is exactly when
+     * the failure this exists for becomes possible.
+     *
+     * @return array<int, string> one sentence per door that is missing a question its siblings ask
+     */
+    public static function disagreements(): array
+    {
+        $byModel = [];
+
+        foreach (self::doors() as $path => $door) {
+            $byModel[$door['model']][$path] = self::fieldsAskedIn((string) file_get_contents(base_path($path)));
+        }
+
+        $found = [];
+
+        foreach ($byModel as $model => $doors) {
+            if (count($doors) < 2) {
+                continue;
+            }
+
+            $policy = ChangeImpact::POLICY[$model] ?? [];
+            $material = array_merge(
+                array_keys($policy[ChangeImpact::DERIVED] ?? []),
+                array_keys($policy[ChangeImpact::REFUSED] ?? []),
+            );
+
+            $union = [];
+
+            foreach ($doors as $asked) {
+                $union = array_merge($union, array_intersect($asked, $material));
+            }
+
+            $union = array_unique($union);
+
+            foreach ($doors as $path => $asked) {
+                foreach (array_diff($union, $asked) as $missing) {
+                    if (array_key_exists("{$path}::{$missing}", self::DOOR_DERIVES)) {
+                        continue;
+                    }
+
+                    $found[] = "{$path} records a ".class_basename($model)." and never asks `{$missing}`, "
+                        .'which another door onto the same document does';
+                }
+            }
+        }
+
+        sort($found);
+
+        return $found;
+    }
+
+    /**
+     * Every column a file ASKS for — the same asking-vs-displaying distinction {@see asks()} draws,
+     * widened from the rail to the whole schema.
+     *
+     * @return array<int, string>
+     */
+    private static function fieldsAskedIn(string $source): array
+    {
+        $names = [];
+
+        foreach (array_merge(self::ASKING_COMPONENTS, ['DatePicker', 'DateTimePicker', 'Textarea', 'Toggle', 'Checkbox', 'MonthPicker', 'EntitySelect']) as $component) {
+            if (preg_match_all('/'.$component."::make\('([a-z0-9_]+)'\)/", $source, $m)) {
+                $names = array_merge($names, $m[1]);
+            }
+        }
+
+        if (preg_match('/BankAccountField::(for|make)\(/', $source)) {
+            $names[] = 'bank_account_id';
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    /**
      * The money documents that record which bank account they moved through.
      *
      * @return array<class-string, array{rail: string, purpose: string}>

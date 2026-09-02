@@ -815,6 +815,27 @@ legitimately collect a rail and have no bank account (`Custody`, employee advanc
 are correct *by being what they are*, and a new one is too. Eight doors found; both teeth
 mutation-proved.
 
+**Two more guards, generalised beyond the bank account (2026-09-02).** `MoneyDocumentDoors::disagreements()`
+asks whether the doors onto one document ask the same money questions — **compared to EACH OTHER,
+never to a spec**. The alternative was measured and rejected: requiring every door to collect every
+column `ChangeImpact` calls DERIVED makes `lease_id`, `tenant_id`, `asset_id` and `status` a finding
+on every door that legitimately derives them — about forty entries, a list exempted into
+meaninglessness. Comparing doors to each other asks the question that actually failed. The union is
+narrowed to DERIVED/REFUSED columns, so a `notes` box on one screen and not the other is not a
+defect, and it is **silent for a document with one door** — correct rather than a hole, since it arms
+itself the moment somebody adds the second. Two derivations are registered with reasons: the lease
+modal knows its own `lease_id`, and `is_opening_balance` is a CUTOVER flag the day-to-day modal must
+not offer.
+
+`App\Support\ModalFieldReach` is the other end: an action that builds its row inline must keep what
+it collected. **Tokenised, never grepped** — `LeaseActions` declares thirteen actions in one file, so
+a file-wide comparison reported a 29-name list of noise and two false positives elsewhere; the
+question is only meaningful per ACTION, which means finding each chain's balanced extent. **The `::`
+trap:** PHP returns `T_DOUBLE_COLON` as an ARRAY, not the string `'::'`, so the first cut scanned
+**zero** actions and reported a clean sweep — this codebase's signature failure, a gate reporting on
+a set it never collected, which is why the third test asserts the sweep found something. Five inline
+builders today, no gaps; both guards mutation-proved to name the exact screen and field.
+
 **The second tooth is the field that records nothing.** A door that builds its row inline must pass
 `bank_account_id` through — a field on a modal the write does not carry renders, validates, and saves
 none of it, which is *worse* than not offering it, because the operator has been told the answer was
