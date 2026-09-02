@@ -60,6 +60,18 @@ return [
             'verbs' => 'كم كام عدد اجمالي إجمالي توزيع تقسيم حصر',
             'total' => 'يوجد :count :label في هذا العقار.',
             'by' => 'حسب :column —',
+            'in_state' => ':count من :total :label :state.',
+            'not_set' => 'غير محدد',
+        ],
+
+        'states' => [
+            'unpaid' => 'لم تُسدَّد بعد',
+            'settled' => 'مسدَّدة',
+            'unapplied' => 'لم تُطبَّق بعد',
+            'live' => 'سارية',
+            'ended' => 'منتهية',
+            'empty' => 'شاغرة',
+            'let' => 'مؤجَّرة',
         ],
 
         'compare' => [

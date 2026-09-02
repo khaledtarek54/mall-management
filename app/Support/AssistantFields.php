@@ -131,4 +131,19 @@ final class AssistantFields
     {
         return isset(self::SUMMARISED[$model]);
     }
+
+    /**
+     * The columns of this model the assistant may quote, and therefore group or filter by.
+     *
+     * Read by `RecordCount` so that "which columns may be QUOTED" and "which may be COUNTED BY" are
+     * one answer. A second list would drift, and it drifted before there was one: the count grouped
+     * invoices by `eta_status` — a column of a module frozen in `Modules::FROZEN` and hidden from
+     * every other surface in the panel.
+     *
+     * @return array<int, string>
+     */
+    public static function columnsFor(string $model): array
+    {
+        return self::SUMMARISED[$model]['columns'] ?? [];
+    }
 }

@@ -448,6 +448,56 @@ buckets, precisely so the model is never handed a list and expected to add it up
 a smaller leak of the same kind — *"how many employees"* is a question about people, and the screen
 that answers it has its own permission.
 
+### A named STATE is counted, and a qualifier is never silently dropped
+
+*"What is the pending invoices"* was reported from the panel as unanswered. It was: the reader got
+the **definition of an invoice** where they had asked for a figure. Measuring the questions around
+it was worse — three of them answered with a confident number about a different question:
+
+| Asked | Answered | Truth |
+|---|---|---|
+| how many invoices are **unpaid** | *There are 2 Invoices in this property* | **0** — both were paid |
+| how many invoices are **not paid** | *2 of 2 Invoices are Paid* | **0** — the opposite |
+| how many invoices are **paid** | *0 of 2 are Partially Paid* | **2** |
+| how many invoices **by status** | *By ETA status — : 2* | a **frozen** module, and a blank label |
+
+Four separate causes, and each is a figure an operator would have acted on:
+
+* **The qualifier was dropped.** The count answered the register's total and said nothing about
+  having ignored the word that narrowed it. `RecordCount` now FILTERS on the state, and reports it
+  as a share — *"1 of 3 Invoices are still unpaid"* — because a bare number invites the reader to
+  wonder out of how many.
+* **The negation inverted it.** `not` and `no` are STOP WORDS, stripped before the ranking sees
+  them — right for a bag-of-words corpus, catastrophic here. Negation is read from the **raw**
+  question, and a negated question can never be answered with the positive value: the concept on
+  that column that EXCLUDES it answers instead, and if there is none the count says nothing.
+* **The compound swallowed the exact word.** `partially_paid` tokenises to "partially" + "paid" and
+  won on registry order. Values and concepts now compete on one scale — **how much of the reader's
+  question the candidate accounts for**, ties broken by the narrower vocabulary — so *paid* reaches
+  `paid` and *partially paid* still reaches `partially_paid`.
+* **A frozen module answered.** Group-by ran over every `ValueSets` column, including `eta_status`.
+  ETA is in `Modules::FROZEN` and invisible everywhere else in the panel; here it was the answer to
+  a real question, rendered blank. The columns are now `ValueSets` narrowed to what
+  `AssistantFields` already lets the assistant QUOTE — one registry, not a second list — which also
+  closes a collision nobody would have predicted: **`eta_status` has a value literally called
+  `pending`**, so the reported question was one step from being answered by a frozen module.
+
+`App\Support\Assistant\RecordStates` is the vocabulary for a state operators name in words the
+column does not hold — *pending · unpaid · outstanding* is one word covering three stored values,
+and no amount of label matching reaches it. Both languages inline, the way `ReportCatalogue`
+already does. **A multi-word entry is a PHRASE and every token must be present**: folding them into
+one bag put «مسددة» (*settled*) into the vocabulary of UNPAID via «غير مسددة», and «كم فاتورة
+مسددة» answered *0 of 2 are still unpaid*.
+
+**No amount, deliberately.** *"How much is outstanding"* is the AR aging report, which nets
+write-offs through `Invoice::collectableBalance()` and carries the ageing buckets. Summing
+`balance` here would be a second truth about AR beside `ReportService` and would quote money the
+operator has already forgiven. **The count says HOW MANY; the report says HOW MUCH.**
+
+All four teeth are mutation-proved in `TheAssistantCountsWhatWasAskedTest`, and a gate requires
+every concept to expand to values the column really holds — which caught one wrong guess before it
+shipped: credit notes have no `partially_applied`.
+
 ## And comparisons, where the TOOL subtracts (B1d)
 
 *"Compare the income statement 2025 and 2026"* runs the **same report twice** and computes each
@@ -627,8 +677,8 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 `TheAssistantHelpsYouDoTheThingTest`, `TheAssistantQuotesRealFiguresTest`,
 `TheFloatingAssistantIsAChatTest`, `AssistantFieldsConformanceTest`,
 `TheModelOnlyWordsWhatRetrievalFoundTest`, the evaluation set
-(`TheAssistantAnswersTheseQuestionsTest`) and `AssistantVocabularyConformanceTest` — **118 in
-all**, green together. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
+(`TheAssistantAnswersTheseQuestionsTest`), `AssistantVocabularyConformanceTest` and
+`TheAssistantCountsWhatWasAskedTest` — **130 in all**, green together. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
 the ceiling, the cache and the default-off were each mutation-proved. Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.
@@ -647,6 +697,11 @@ part of each case rather than scaffolding, because the corpus is built per langu
   weight 3 per word.
 - **An operator's verb the assistant does not know** → `admin.assistant.act_verbs`, both languages.
   It decides ORDER only — screen before record — never which screen.
+- **A word for a STATE the column does not store** (*pending*, *unpaid*, *live*, *vacant*) →
+  `RecordStates::CONCEPTS`, both languages inline. A concept expands to values already registered
+  in `ValueSets` and to nothing else, so it can never invent a status; the gate fails the build on
+  one that is not real. Keep multi-word entries as PHRASES — every token has to be present — and
+  never list a word whose positive sense belongs to the opposite concept.
 - **A report is found more easily → add a `keywords` entry** in `ReportCatalogue::REPORTS`, in both
   languages. That list is also what the report hub's own filter reads, so the improvement lands
   twice.

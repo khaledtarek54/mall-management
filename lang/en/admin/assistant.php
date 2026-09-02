@@ -66,6 +66,21 @@ return [
             'verbs' => 'how many count number total quantity split breakdown',
             'total' => 'There are :count :label in this property.',
             'by' => 'By :column —',
+            // States the count as a SHARE, never a bare number: "3 unpaid" invites the reader to
+            // wonder out of how many, and the total is already in hand.
+            'in_state' => ':count of :total :label are :state.',
+            'not_set' => 'Not set',
+        ],
+
+        // A state named in words operators use, for the sentence the count writes back.
+        'states' => [
+            'unpaid' => 'still unpaid',
+            'settled' => 'settled',
+            'unapplied' => 'not yet applied',
+            'live' => 'live',
+            'ended' => 'ended',
+            'empty' => 'vacant',
+            'let' => 'let',
         ],
 
         'compare' => [

@@ -242,17 +242,17 @@ it('counts, and splits only by a column this system has classified', function ()
         $resource = App\Filament\Admin\Resources\Units\UnitResource::class;
 
         // A total when nothing names a column.
-        $total = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units']);
+        $total = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units'], 'how many units');
         expect($total['body'])->toContain('3');
 
         // A split when the question names one — and `units.status` is registered in ValueSets,
         // which is the only reason it may be grouped by. There is no SQL here to write.
-        $split = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'status']);
+        $split = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'status'], 'how many units status');
         expect($split['body'])->toContain(__('admin.statuses.unit.vacant'));
 
         // A word naming no registered column falls back to the total rather than inventing a
         // grouping — the whole point of taking the column from a registry.
-        $unknown = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'wibble']);
+        $unknown = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'wibble'], 'how many units wibble');
         expect($unknown['body'])->not->toContain('—');
     });
 });
@@ -267,6 +267,7 @@ it('renders the stored codes in the reader\'s own language', function () {
         $split = App\Support\Assistant\RecordCount::for(
             App\Filament\Admin\Resources\Units\UnitResource::class,
             ['كم', 'عدد', 'الوحدات', 'الحالة'],
+            'كم عدد الوحدات حسب الحالة',
         );
 
         // The catalogue is keyed by the MODEL, singular — `admin.statuses.unit`, not `units` —
@@ -286,11 +287,11 @@ it('will not count a register the reader may not open', function () {
     $resource = App\Filament\Admin\Resources\Units\UnitResource::class;
 
     $this->actingAs(makeUser('marketing'));
-    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units']))->toBeNull());
+    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units'], 'how many units'))->toBeNull());
 
     auth()->forgetUser();
     $this->actingAs(makeUser('super_admin'));
-    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units']))->not->toBeNull());
+    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units'], 'how many units'))->not->toBeNull());
 });
 
 it('counts only the reader\'s own property', function () {
@@ -306,7 +307,7 @@ it('counts only the reader\'s own property', function () {
     // not a re-implementation that could forget the scope.
     asTenant($mine, function () {
         $body = App\Support\Assistant\RecordCount::for(
-            App\Filament\Admin\Resources\Units\UnitResource::class, ['how', 'many', 'units'])['body'];
+            App\Filament\Admin\Resources\Units\UnitResource::class, ['how', 'many', 'units'], 'how many units')['body'];
 
         expect($body)->toContain('1')->not->toContain('5');
     });
@@ -321,7 +322,7 @@ it('refuses to count a register it may not quote', function () {
     $this->actingAs(makeUser('super_admin'));
 
     asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for(
-        App\Filament\Admin\Resources\Employees\EmployeeResource::class, ['how', 'many', 'employees']))->toBeNull());
+        App\Filament\Admin\Resources\Employees\EmployeeResource::class, ['how', 'many', 'employees'], 'how many employees'))->toBeNull());
 });
 
 // ── B1d: the tool subtracts, never the model ───────────────────────────────────────────────────

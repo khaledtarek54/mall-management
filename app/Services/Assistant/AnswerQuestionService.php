@@ -186,6 +186,7 @@ class AnswerQuestionService
         // first and the records follow as context rather than as the answer.
         $describesAnAct = $this->describesAnAct($words)
             || RecordCount::isCounting($words)
+            || RecordCount::namesAState($question)
             || PeriodCompare::isComparing($words);
 
         $ordered = $describesAnAct
@@ -388,7 +389,11 @@ class AnswerQuestionService
         // other input is a group-by column, which must be one this system already classified in
         // `ValueSets`. So there is no SQL to write and no column to invent: a question naming
         // something unregistered simply gets a total.
-        if (RecordCount::isCounting($words)) {
+        // A NAMED STATE IS A COUNTING QUESTION, even with no counting verb in it.
+        //
+        // "What is the pending invoices" — the question that started this — carries none, so the
+        // reader got the definition of an invoice where they had asked for a figure.
+        if (RecordCount::isCounting($words) || RecordCount::namesAState($question)) {
             foreach ($results as $result) {
                 $resource = self::resourceOf($result);
 
@@ -396,7 +401,7 @@ class AnswerQuestionService
                     continue;
                 }
 
-                $count = RecordCount::for($resource, $words);
+                $count = RecordCount::for($resource, $words, $question);
 
                 if ($count !== null) {
                     array_unshift($passages, $count);
