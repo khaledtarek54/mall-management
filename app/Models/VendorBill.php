@@ -299,8 +299,19 @@ class VendorBill extends Model
         // Here rather than in the service: `recompute()` is the single source of truth for this
         // document's derived money, so the cascade belongs beside the write. A call in the SLA
         // service would leave the next caller of `recompute()` to remember it — which is precisely
-        // the failure this is.
-        $this->workOrderForCosting()?->recomputeCosts();
+        // the failure this is. `AssessSlaPenaltyService::waive()` is that next caller and reaches the
+        // bill only through here.
+        //
+        // **Guarded on what the cost object actually reads**, which is `subtotal` net of
+        // `penalty_applied_amount` on a non-cancelled bill — nothing else. Measured without the
+        // guard: `approve()` ran the four costing aggregates TWICE (its own `save()` fires the
+        // `saved` hook, then `recompute()` fired this), `cancel()` three times, and every vendor-bill
+        // PAYMENT paid for a `find()` plus four aggregates to re-derive a figure a payment provably
+        // cannot move — 13 queries to 18. `saveQuietly()` still populates `wasChanged()`, so the
+        // guard is free.
+        if ($this->wasChanged(['subtotal', 'penalty_applied_amount', 'status', 'facility_work_order_id'])) {
+            $this->workOrderForCosting()?->recomputeCosts();
+        }
     }
 
     /**

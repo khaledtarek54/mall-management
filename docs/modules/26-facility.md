@@ -1716,5 +1716,31 @@ caller to remember it — which is precisely the failure being fixed.
 columns are a management dimension over money the ledger already has, which is why a work order must
 never become a GL source (`WorkOrderIsACostObjectNotAGlSourceTest` gates that).
 
-Tests: `APenaltyReachesTheJobsCostTest` — apply, detach, and a third caller of `recompute()` that
-must NOT move the cost. Mutation-proved.
+**The cascade is GUARDED, and the review of the first pass is why.** `act_service_cost` reads
+`subtotal` net of `penalty_applied_amount` on a non-cancelled bill and nothing else, so the cascade
+fires only when one of those moved. Unguarded, `VendorBillService::approve()` ran the four costing
+aggregates **twice** (its own `save()` fires the `saved` hook, then `recompute()` fired the cascade),
+`cancel()` three times, and every vendor-bill payment paid for a `find()` plus four aggregates to
+re-derive a figure a payment provably cannot move — 13 queries to 18, measured.
+`saveQuietly()` still populates `wasChanged()`, so the guard is free. It also keeps the SLA breach
+scan's `facility_work_orders` row lock out of the AP payment path, which the unguarded version put
+there.
+
+**Two consequences worth stating rather than leaving to be found:**
+
+- **A penalty can pull a job out of the NTE breach list.** `overNteBy()` and `scopeOverNte()` read
+  `act_total_cost` live, so a job at 50,000 against a 45,000 not-to-exceed is over — charge an 8,000
+  penalty and it reads 42,000 and drops off the filter. That is arguably right (the mall did not pay
+  it) and it is a real change to a control whose own docblock says the enforcement *is* that the
+  breach stays visible and attributable.
+- **`recomputeCosts()` is still an UNLOCKED read-modify-write** (SW-203). Two writers on one job —
+  a bill payment and a penalty application — each compute from their own snapshot and the last one
+  wins, which can silently put the penalty back into the job cost. Pre-existing across all four
+  channels, widened here, and recorded rather than fixed because the repair is a lock on the work
+  order and belongs with the concurrency registry.
+
+Tests: `APenaltyReachesTheJobsCostTest` — apply; detach; **waive** (the caller in a different
+service, which reaches the bill only through `recompute()` and which a fix inside
+`ApplySlaPenaltyService` would have missed); the guard refusing a no-op; the planned-versus-actual
+variance itself; and a bill with no job at all. Mutation-proved in both directions — removing the
+cascade turns 5 of 6 red, removing the guard turns 1 red.

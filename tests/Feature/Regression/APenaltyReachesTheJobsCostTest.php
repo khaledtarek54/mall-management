@@ -5,8 +5,11 @@ use App\Models\SlaPenalty;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Services\ApplySlaPenaltyService;
+use App\Services\AssessSlaPenaltyService;
+use App\Services\VendorBillService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * APPLYING AN SLA PENALTY NEVER RE-DERIVED THE JOB'S COST.
@@ -105,21 +108,87 @@ it('puts the cost back when the penalty is detached', function () {
         ->and((float) $this->bill->fresh()->balance)->toEqual(50000.0);
 });
 
-it('reaches the job from any caller of recompute(), not just the penalty service', function () {
-    // The reason the cascade lives in `recompute()` rather than in `ApplySlaPenaltyService`: every
-    // derived figure that method writes is invisible to the cost object, so a fix in the service
-    // would leave the NEXT caller to remember it — which is precisely the failure being fixed.
-    // A payment is that next caller.
-    $this->bill->payments()->create([
-        'amount' => 10000,
-        'payment_date' => now()->toDateString(),
-        'method' => 'bank_transfer',
+it('reaches the job when a penalty is WAIVED — the caller in a different service', function () {
+    // **The reason the cascade lives in `recompute()` rather than in `ApplySlaPenaltyService`**, and
+    // the case that proves it: `AssessSlaPenaltyService::waive()` releases an APPLIED penalty and
+    // reaches the bill only through `$bill?->refresh()->recompute()`. `SlaPenalty` has no boot
+    // hooks, so nothing else touches the job — a fix inside the penalty service would have left this
+    // caller reporting a job discounted by a penalty nobody is charging.
+    //
+    // The first version of this case used a PAYMENT instead, and it was vacuous: `act_service_cost`
+    // depends on `subtotal − penalty_applied_amount` and a payment moves neither, so the assertion
+    // read the same with and without the cascade.
+    app(ApplySlaPenaltyService::class)->toBill($this->penalty, $this->bill);
+
+    expect((float) $this->order->fresh()->act_service_cost)->toEqual(42000.0);
+
+    app(AssessSlaPenaltyService::class)->waive($this->penalty->fresh(), 'Contractor disputed it and we agreed.');
+
+    expect((float) $this->order->fresh()->act_service_cost)->toEqual(50000.0)
+        ->and((float) $this->bill->fresh()->balance)->toEqual(50000.0);
+});
+
+it('does not re-derive the job when nothing the job reads has moved', function () {
+    // **The cascade is GUARDED, not unconditional.** `act_service_cost` is `subtotal` net of
+    // `penalty_applied_amount` on a non-cancelled bill, and nothing else — so a `recompute()` that
+    // moved none of those must not run the four costing aggregates.
+    //
+    // Measured without the guard: `VendorBillService::approve()` ran them TWICE (its own `save()`
+    // fires the `saved` hook, then `recompute()` fired the cascade), `cancel()` three times, and
+    // every vendor-bill payment paid for a `find()` plus four aggregates to re-derive a figure a
+    // payment provably cannot move — 13 queries to 18.
+    //
+    // Asserted on `recompute()` directly rather than through a payment: `VendorBillPayment` has its
+    // own `saved` hook onto the cost object, so a payment-driven test would be measuring that seam
+    // instead of this one.
+    app(ApplySlaPenaltyService::class)->toBill($this->penalty, $this->bill);
+
+    $bill = $this->bill->fresh();
+
+    DB::enableQueryLog();
+    $bill->recompute();          // nothing dirty — the guard must refuse
+    $queries = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    expect($queries->filter(fn (string $q): bool => str_contains($q, 'facility_work_orders')))
+        ->toBeEmpty('a no-op recompute() re-derived the job cost')
+        // …and the figure is still right, which is the half a query count can never say.
+        ->and((float) $this->order->fresh()->act_service_cost)->toEqual(42000.0);
+});
+
+it('keeps the planned-versus-actual variance honest — the figure the cost object exists for', function () {
+    // The commit's own thesis, asserted rather than described. `costVariance()` is estimate LESS
+    // actual, so on plan is 0 and a penalty the mall did not pay leaves it 8,000 to the good — which
+    // is exactly the figure that read 0 while the penalty was invisible to the job.
+    expect((float) $this->order->fresh()->costVariance())->toEqual(0.0);
+
+    app(ApplySlaPenaltyService::class)->toBill($this->penalty, $this->bill);
+
+    $order = $this->order->fresh();
+
+    expect((float) $order->act_total_cost)->toEqual(42000.0)
+        ->and((float) $order->est_total_cost)->toEqual(50000.0)
+        ->and((float) $order->costVariance())->toEqual(8000.0);
+});
+
+it('does not fall over on a bill with no job at all', function () {
+    // The null path. Nothing stops a future edit dropping the `?->`, and most vendor bills in a
+    // real install carry no work order.
+    $free = VendorBill::create([
+        'vendor_id' => $this->vendor->id,
+        'asset_id' => $this->asset->id,
+        'status' => 'approved',
+        'category' => 'maintenance',
+        'bill_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+        'subtotal' => 4000, 'vat_amount' => 0, 'total' => 4000,
+        'paid_amount' => 0, 'balance' => 4000,
     ]);
 
-    $this->bill->fresh()->recompute();
+    $free->fresh()->recompute();
 
-    // A payment does not change what the job COST — it changes what is owed — so the job holds at
-    // its full net. The assertion that matters is that the cascade ran and did not corrupt it.
-    expect((float) $this->order->fresh()->act_service_cost)->toEqual(50000.0)
-        ->and((float) $this->bill->fresh()->balance)->toEqual(40000.0);
+    expect($free->fresh()->facility_work_order_id)->toBeNull()
+        ->and((float) $free->fresh()->balance)->toEqual(4000.0)
+        // …and the job that DOES exist is untouched by it.
+        ->and((float) $this->order->fresh()->act_service_cost)->toEqual(50000.0);
 });

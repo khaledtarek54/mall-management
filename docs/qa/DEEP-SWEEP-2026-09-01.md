@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 53 closed, 171 open (updated 2026-09-01)
+> ### Where this stands — 53 closed, 173 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -328,7 +328,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Tax
 
-*11 open — 3 high, 5 medium, 3 low.*
+*13 open — 4 high, 6 medium, 3 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -346,6 +346,8 @@ which is the same failure this repo gates for generated doc blocks.
 | **SW-202** | ✅ **fixed** `c7838487` | medium | S | *(found while running the gates.)* `UnresolvedClassReferenceConformanceTest` read `$entry->screen::getUrl()` as a class named `screen` and was RED on main over correct code. Its type-declaration branch already skipped a name behind `->`; its static branch did not | `tests/…/UnresolvedClassReferenceConformanceTest:252` |
 | **SW-062b** | ✅ **fixed** `84386f3f` | high | S | *(found by the review of SW-062/063.)* The contractor's job brief showed **other contractors' quotes** on the same job — `proposals()` keys on the work order alone, and a job legitimately carries competing prices — so the losing bidder read the winner's figure and the operator's `decision_reason`, under a heading saying "Your quotes" | `Filament/Vendor/…/JobBrief:ownQuotes` |
 | **SW-062c** | ✅ **fixed** `84386f3f` | medium | S | *(found by the review of SW-062/063.)* The brief's thread and quotes rendered as ONE run-on paragraph: a single-item `TextEntry` emits `e($state)` in a bare div and nothing sets `white-space`, so every `\n` collapsed — byline into body, message into message. `listWithLineBreaks()` is the only branch that emits an element per item | `Filament/Vendor/…/JobBrief:108` |
+| **SW-203** | open | high | M | *(found by the review of SW-114.)* `FacilityWorkOrder::recomputeCosts()` is an UNLOCKED read-modify-write: it reads four aggregates with plain SELECTs and writes `act_*` with no lock on the job. Under REPEATABLE READ two writers on one job — a bill payment and a penalty application — each compute from their own snapshot and the last one wins, silently putting a penalty back into the job cost. Pre-existing across all four cost channels; the repair is a lock on the work order plus a `ConcurrencyPolicy` entry | `Models/Concerns/FacilityWorkOrder/HasWorkOrderCost:81` |
+| **SW-204** | open | medium | S | *(found by the review of SW-114.)* `ScanWorkOrderSlaBreachesCommand::alertBreach()` holds an X lock on `facility_work_orders` across a SYNCHRONOUS mail send — `WorkOrderSlaBreachedNotification` is not `ShouldQueue` and its `via()` is `['mail','database']` — so the hourly scan blocks facility writers for one MailerSend round-trip per recipient | `Console/Commands/ScanWorkOrderSlaBreachesCommand:320` |
 | **SW-201** | open | medium | S | Deleting the last rate rung of an ACTIVE tax code silently re-rates billing to the 14% VAT floor | `Filament/Admin/Resources/TaxCodes/RelationManagers/RatesRelationManager:111` |
 | **SW-202** | open | low | — | Clearing the Tax depreciation year renders a full schedule of zeros for year 0 | `Filament/Admin/Pages/TaxDepreciation:84` |
 | **SW-203** | open | low | XS | Insurable-wage ceiling rule gte:insurable_wage_floor refuses a rung with a ceiling and a blank floor, though a null floor is legal ('no bound') | `Filament/Admin/Resources/PayrollRates/Schemas/PayrollRateForm:50` |
