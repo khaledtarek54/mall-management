@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 61 closed, 167 open (updated 2026-09-01)
+> ### Where this stands — 62 closed, 166 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -267,12 +267,12 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### CAM · recoveries · sales
 
-*15 open — 1 high, 10 medium, 4 low.*
+*14 open — 10 medium, 4 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-159** | ✅ **fixed** `8d11faff` | high | XS | A disputed sales declaration cannot be re-locked from any screen — the void/correct/re-bill loop is a dead end | `Filament/Admin/Actions/SalesDeclarationActions:191` |
-| **SW-160** | open | high | S | Re-generating a pool with billed allocations corrupts landlord_unrecovered_amount (billed rows are skipped out of the sum) | `Services/CamReconciliationService:381` |
+| **SW-160** | ✅ fixed | high | S | Re-generating a pool with billed allocations corrupts landlord_unrecovered_amount (billed rows are skipped out of the sum) | `Services/CamReconciliationService:381` |
 | **SW-161** | open | medium | S | period_year stays editable after a CAM pool is billed/reconciled — the one identity field the freeze does not cover | `Filament/Admin/Resources/CamExpensePools/Schemas/CamExpensePoolForm:110` |
 | **SW-162** | open | medium | S | CAM pool status is a free Select, bypassing the markReconciled gate and permission | `Filament/Admin/Resources/CamExpensePools/Schemas/CamExpensePoolForm:186` |
 | **SW-163** | open | medium | S | Correcting gross_sales after the VAT toggle leaves a stale VAT deduction that flows into the billed charge | `Filament/Admin/Resources/TenantSalesDeclarations/Schemas/TenantSalesDeclarationForm:236` |

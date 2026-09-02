@@ -1555,3 +1555,32 @@ summed on the allocations tab.
   reporting.
 
 Mutation-proved: dropping the caps half and reading the wrong column each turn `CamCapTest` red.
+
+
+## A re-run counts what was already billed (SW-160, fixed 2026-09-02)
+
+`generateAllocations()` skips an allocation that is no longer `pending` — correct, and the whole
+point of the freeze: that row is evidence, the tenant was invoiced from it, and re-deriving it
+against a denominator that has since moved is exactly what `basisFrozen()` exists to prevent.
+
+But it skipped the row out of the **SUM** as well as out of the write. `$allocatedTotal` feeds
+`landlord_unrecovered_amount = total_actual_expense − $allocatedTotal`, so every already-billed
+share was reported as money the landlord bore itself.
+
+**A re-run exists precisely to push a revised expense through a pool that has already billed**, so
+this is the ordinary path rather than an edge. On a 100,000 pool with one of two 50,000 shares
+billed, the re-run wrote `landlord_unrecovered_amount = 50,000`: the landlord's own P&L reads a
+common cost it never carried, and `Σ allocated + unrecovered = total` — the identity
+`billing:reconcile` checks, and therefore `atriom:preflight` — fails by the whole billed total on a
+pool where nothing is actually wrong.
+
+The billed row contributes its **OWN stored figure**, never a recomputed one, for the same reason it
+is not rewritten. It is also marked present in `$touched`, which turns no test red today (the
+stale-row cleanup is guarded on `! $isRerun`, and a billed row is what makes it a re-run) and is
+kept on the same footing as the `pending` clause in that cleanup: standing insurance against a guard
+fifteen lines away moving, where what it prevents is deleting the document a tenant was invoiced
+from.
+
+Tests: `ARerunCountsWhatWasAlreadyBilledTest` — the tie-out through a re-run, the billed row left
+byte-identical (a fix that simply stopped skipping would satisfy the first and rewrite a document),
+and the billed row surviving a lease that has left the pool.

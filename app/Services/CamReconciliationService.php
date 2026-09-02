@@ -360,7 +360,30 @@ class CamReconciliationService
                     ->first();
 
                 // Never re-touch an allocation that's already been billed.
+                //
+                // **BUT IT STILL COUNTS TOWARD WHAT THE POOL RECOVERED.** `$allocatedTotal` feeds
+                // `landlord_unrecovered_amount = total_actual_expense − $allocatedTotal`, and
+                // skipping the row out of the SUM as well as out of the write told the books that
+                // every already-billed share was money the landlord bore itself. On a re-run —
+                // which exists precisely to push a revised expense through a pool that has already
+                // billed — the unrecovered figure came back inflated by the whole billed total: the
+                // landlord's own P&L reads a common cost it never carried, and
+                // `Σ allocated + unrecovered = total` fails in the direction the tie-out reads as
+                // drift, on a pool where nothing is actually wrong.
+                //
+                // Its OWN stored figure, not a recomputed one: that allocation is evidence, the
+                // tenant was invoiced from it, and re-deriving it here against a denominator that
+                // has since moved is the exact thing `basisFrozen()` exists to prevent.
                 if ($allocation && $allocation->status !== 'pending') {
+                    $allocatedTotal += (float) $allocation->allocated_amount;
+
+                    // Marked present, though nothing today can delete it: the stale-row cleanup is
+                    // guarded on `! $isRerun`, and a billed row is what MAKES it a re-run. Kept for
+                    // the reason the `pending` clause in that cleanup is kept — mutation-proved to
+                    // turn no test red, and standing insurance against a guard fifteen lines away
+                    // moving. What it prevents is deleting the document a tenant was invoiced from.
+                    $touched[] = self::agreementKeyFor($lease);
+
                     continue;
                 }
 
