@@ -44,6 +44,16 @@ beforeEach(function () {
 
     // A manager restricted to property A only (visibleAssetIds() = [A]).
     $this->actingAs(makeUser('manager', [$this->a->id]));
+
+    // **NO mall is selected, deliberately, and that is the whole premise of this file.**
+    // `TenantScope::visibleAssetIds()` returns `[the selected tenant]` WITHOUT consulting
+    // `AssignedAssets` as soon as a tenant is set — so selecting property A would make every guard
+    // here answer `[A]` because of the SELECTION and never because of the ASSIGNMENT, and the file
+    // would go on passing with line 47's `[$this->a->id]` deleted. Measured: it does.
+    //
+    // One case genuinely needs a tenant — a header action that builds a resource URL cannot exist
+    // without the `admin/{tenant}/…` segment — and it wraps itself in `asTenant()`, the idiom the
+    // owner-request case below already uses.
 });
 
 /* ---- (A) Quick-new-lease wizard write guard ------------------------------- */
@@ -105,12 +115,21 @@ it('TenantPaymentsRelationManager lists only payments settling visible-property 
     $payA = makePaymentFor(makeInvoice($this->leaseA), $this->tenant);
     $payB = makePaymentFor(makeInvoice($this->leaseB), $this->tenant);
 
-    Livewire::test(TenantPaymentsRelationManager::class, [
-        'ownerRecord' => $this->tenant,
-        'pageClass' => EditTenant::class,
-    ])
-        ->assertCanSeeTableRecords([$payA])
-        ->assertCanNotSeeTableRecords([$payB]);
+    // `asTenant`, because this tab's "Record payment" header action links to
+    // `PaymentResource::getUrl('create')` and every admin URL carries the mall — without one it
+    // throws `Missing required parameter [tenant]` while merely RENDERING the table.
+    //
+    // Scoped to the tab, never `beforeEach`: with a tenant set `visibleAssetIds()` stops asking
+    // `AssignedAssets` at all, so a file-wide selection would answer every other case here from the
+    // SELECTION and quietly stop testing the assignment these guards exist for.
+    asTenant($this->a, function () use ($payA, $payB) {
+        Livewire::test(TenantPaymentsRelationManager::class, [
+            'ownerRecord' => $this->tenant,
+            'pageClass' => EditTenant::class,
+        ])
+            ->assertCanSeeTableRecords([$payA])
+            ->assertCanNotSeeTableRecords([$payB]);
+    });
 });
 
 it('Vendor ContractsRelationManager hides another property\'s contract, shows portfolio + in-scope', function () {

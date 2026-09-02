@@ -159,12 +159,32 @@ it('logs the fabricated payment, because the request is anonymous by constructio
     // so a bare Log::shouldReceive('warning') would never match and the test would pass on a
     // deleted log line.
     Log::shouldReceive('channel')->with('ops')->andReturnSelf();
+    // **Variadic, because a `withArgs` closure with fixed parameters THROWS rather than
+    // not-matching.** Mockery invokes the matcher for every `warning()` call on the facade, and any
+    // other line in the request — `SealedPeriod`'s fail-open catch logs a single string when the
+    // chart cannot answer a journalizer, which this fixture's books cannot — arrives with one
+    // argument against a two-parameter closure and raises `ArgumentCountError`. That surfaces as a
+    // **500 on the route**, so the test reports the endpoint as broken when what is strict is the
+    // test. Shape-check first, then assert.
     Log::shouldReceive('warning')
         ->once()
-        ->withArgs(fn (string $event, array $context) => $event === 'invoice.demo_paid_via_link'
-            && $context['invoice_id'] === $this->invoice->id
-            && $context['amount'] === 500.0
-            && array_key_exists('ip', $context));
+        ->withArgs(fn (...$args) => ($args[0] ?? null) === 'invoice.demo_paid_via_link'
+            && is_array($args[1] ?? null)
+            && $args[1]['invoice_id'] === $this->invoice->id
+            && $args[1]['amount'] === 500.0
+            && array_key_exists('ip', $args[1]));
+
+    // …and a catch-all AFTER it, or any other warning in the request is an *unexpected call* and
+    // Mockery throws — again surfacing as a 500 on the route.
+    //
+    // **Narrowed to everything that is NOT this event**, because a bare `zeroOrMoreTimes()` quietly
+    // turns the `once()` above into `atLeastOnce()`: a SECOND emission of the ops line would fall
+    // through to the catch-all and pass. Measured against Mockery — with the blanket form, logging
+    // the line twice passed; with this one it fails, and the three cases that must fail (line
+    // missing, nothing logged, wrong payload) still do.
+    Log::shouldReceive('warning')
+        ->zeroOrMoreTimes()
+        ->withArgs(fn (...$args) => ($args[0] ?? null) !== 'invoice.demo_paid_via_link');
     Log::shouldReceive('info')->zeroOrMoreTimes();
     Log::shouldReceive('debug')->zeroOrMoreTimes();
     Log::shouldReceive('error')->zeroOrMoreTimes();

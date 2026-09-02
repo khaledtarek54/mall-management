@@ -118,8 +118,8 @@
     .band-chip {
         display: inline-block;
         margin-top: 4mm;
-        /* Arabic carries tashkeel above and descenders below the box a Latin cap-height padding
-           reserves, so «مدفوعة جزئيًا» had its diacritics clipped by the chip's own edge. */
+        {{-- Arabic carries tashkeel above and descenders below the box a Latin cap-height padding
+           reserves, so «مدفوعة جزئيًا» had its diacritics clipped by the chip's own edge. --}}
         padding: {{ $isRtl ? '5pt 9pt' : '3pt 8pt' }};
         line-height: {{ $isRtl ? '1.5' : '1.35' }};
         border-radius: 1.5pt;
@@ -506,7 +506,7 @@
     .start { text-align: {{ $start }}; }
     .end { text-align: {{ $end }}; }
 
-    /*
+    {{--
     | NOTHING IN A DOCUMENT IS EVER ITALIC, AND THAT IS A CORRECTNESS RULE.
     |
     | IBM Plex Sans Arabic ships no italic face, and mpdf does not degrade to the upright one — it
@@ -519,6 +519,6 @@
     | No shipped template used italic when this was found, so the bug was latent. This makes it
     | unreachable: emphasis becomes WEIGHT, which is also the right typographic answer, because
     | Arabic has no italic tradition to borrow.
-    */
+    --}}
     em, i, cite, dfn, var, address { font-style: normal; font-weight: 600; }
 </style>

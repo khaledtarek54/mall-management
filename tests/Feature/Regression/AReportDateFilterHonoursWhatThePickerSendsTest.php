@@ -42,6 +42,14 @@ use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    // **The clock is frozen, because this file asserts on rendered DATES.** `RentRoll` defaults
+    // `asOf` to today, and the case below asserted the literal `as at 01/09/2026` — true on the day
+    // it was written and false the next morning. It sat red on `main` with CI paused, which is the
+    // one place a stale assertion is never noticed. The lease dates below are chosen relative to
+    // this instant, so freezing makes the whole file deterministic rather than papering over one
+    // string.
+    $this->travelTo(CarbonImmutable::parse('2026-09-01 09:00:00'));
+
     $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
     $this->asset = makeAsset(['code' => 'DF']);
@@ -50,7 +58,10 @@ beforeEach(function () {
     Filament::setTenant($this->asset);
 });
 
-afterEach(fn () => Filament::setTenant(null, isQuiet: true));
+afterEach(function () {
+    Filament::setTenant(null, isQuiet: true);
+    test()->travelBack();
+});
 
 /*
 | THE DEFECT — every format the picker's own JS can send.

@@ -134,6 +134,19 @@ class SealedPeriod
                     return;
                 }
             } catch (\Throwable $e) {
+                // **Logged, exactly like the sibling below.** This was silent for one revision, on
+                // the argument that a warning per save would be noise on the ops channel — and the
+                // review took it apart: `SealedPeriod` uses a bare `Log::warning()`, which goes to
+                // the default stack, never to `ops` (only `OpsLog` writes there, and that is the
+                // Slack sink). So the premise was wrong, and the cost of being wrong is one-sided:
+                // these two catches are the two exits of the SAME branch and fire on identical
+                // saves, so silencing one left an incomplete-chart install with no diagnostic on
+                // precisely the branch that was just opened.
+                //
+                // `\Throwable` also swallows a genuine bug — a TypeError in a journalizer — which
+                // disables this guard for every status change of every unposted money document. A
+                // silent commit that then permanently reds `atriom:preflight` is the one failure
+                // this class exists to prevent, so it must not be the one it hides.
                 Log::warning('Sealed-period guard could not tell whether '.$model::class.' #'.$model->getKey().' was already postable: '.$e->getMessage());
 
                 return;

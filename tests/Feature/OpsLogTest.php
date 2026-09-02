@@ -32,7 +32,17 @@ it('redacts every bearer-credential key, not just the ones spelled `token`', fun
     // AUTHORISES A CHARGE. Found by writing a comment claiming these were already covered and
     // then checking: they were not.
     Log::shouldReceive('channel')->with('ops')->andReturnSelf();
-    Log::shouldReceive('warning')->once()->withArgs(function (string $event, array $context) {
+    // Variadic: a `withArgs` closure with FIXED parameters THROWS `ArgumentCountError` rather than
+    // not-matching, so any one-argument `Log::warning()` elsewhere in the call — `SealedPeriod`'s
+    // fail-open catch is one — turns an unrelated line into a hard failure of this test. Shape-check
+    // first, then assert.
+    Log::shouldReceive('warning')->once()->withArgs(function (...$args) {
+        [$event, $context] = [$args[0] ?? null, $args[1] ?? null];
+
+        if (! is_string($event) || ! is_array($context)) {
+            return false;
+        }
+
         foreach (['payment_token', 'payment_key', 'access_token', 'refresh_token', 'bearer'] as $key) {
             expect($context[$key])->toBe('[redacted]', "[{$key}] must be redacted");
         }

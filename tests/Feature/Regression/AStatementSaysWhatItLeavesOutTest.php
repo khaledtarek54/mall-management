@@ -48,7 +48,10 @@ function unallocatedEntry(float $amount): JournalEntry
     $entry = JournalEntry::create([
         'asset_id' => null,
         'entry_date' => CarbonImmutable::now()->startOfMonth()->addDays(3)->toDateString(),
-        'description' => 'Operator-wide insurance',
+        // `description_en`, not `description`: the column does not exist, and Eloquent drops an
+        // unknown key SILENTLY — so the fixture set up a different row than it claimed and passed
+        // anyway. `FixtureColumnsExistConformanceTest` is the gate for exactly that shape.
+        'description_en' => 'Operator-wide insurance',
         // DRAFT while the lines are written — `JournalLine` refuses a write against a posted entry,
         // because debits would stop equalling credits. Posted below, once it balances.
         'status' => 'draft',

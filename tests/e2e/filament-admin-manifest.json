@@ -525,6 +525,11 @@
             "hasView": false,
             "recordActions": [
                 {
+                    "name": "submit",
+                    "label": "Submit for approval",
+                    "opensModal": true
+                },
+                {
                     "name": "approve",
                     "label": "Approve",
                     "opensModal": true

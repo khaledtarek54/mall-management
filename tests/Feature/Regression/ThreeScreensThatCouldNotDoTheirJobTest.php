@@ -92,7 +92,9 @@ it('lets a SETTLED custody keep being edited, and still refuses a back-date', fu
         'amount' => 5000,
         'custody_date' => CarbonImmutable::now()->toDateString(),
         'purpose' => 'Site consumables',
-        'status' => 'open',
+        // No `status` key: `custody` has no such column — whether an advance is still outstanding
+        // is DERIVED from what has been settled against it. Eloquent dropped it silently, so the
+        // fixture read as though it were stating something it never stated.
     ]);
 
     AccountingPeriod::forDate(CarbonImmutable::now())->update(['status' => 'closed']);

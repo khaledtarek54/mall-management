@@ -205,10 +205,16 @@ it('supports the void-then-re-issue correction: a fresh invoice posts a NEW, bal
 // (3) The state gates that BLOCK an unsafe void (each is a distinct DomainException).
 // ---------------------------------------------------------------------------
 
-it('blocks the wrong voids: draft invoice, ETA-filed invoice, captured-cash invoice, non-captured payment', function () {
-    // (a) A draft is deleted, not voided.
+it('cancels a draft, and blocks the wrong voids: ETA-filed, captured cash, non-captured payment', function () {
+    // (a) A draft is CANCELLED, not voided — and it used to be refused outright, with a message
+    // naming a delete that does not exist (`Invoice` is `#[NeverDeletable]`, the resource has no
+    // DeleteAction, the bulk one is hidden panel-wide). Harmless while a panel draft could not
+    // survive its first line; once the draft freeze (SW-215) made the state persist, an abandoned
+    // draft had no way out AND suppressed its lease-month's billing for ever. Nothing was posted,
+    // so there is no reversal and no number burnt — see SW-226 and `ADraftInvoiceStaysADraftTest`.
     $draft = makeInvoice(makeLease(makeUnit(makeAsset())), ['status' => 'draft']);
-    expect(fn () => app(VoidInvoiceService::class)->void($draft))->toThrow(DomainException::class);
+    app(VoidInvoiceService::class)->void($draft, 'Raised by mistake.');
+    expect($draft->fresh()->status)->toBe('cancelled');
 
     // (b) A tax invoice already filed with ETA must be corrected via a credit note, not an
     // internal void (that would diverge the books from what ETA holds).
@@ -279,13 +285,17 @@ describe('void actions on the Filament edit pages', function () {
             ->and($invoice->fresh()->notes)->toContain('billed in error');
     });
 
-    it('hides void_invoice from a state that is ineligible: a draft and a captured-cash invoice', function () {
+    it('hides void_invoice from a state that is ineligible, and offers a draft the CANCEL it needs', function () {
         $this->actingAs(makeUser('super_admin')); // full permission — hidden purely by RECORD STATE
 
-        // A draft has no GL entry to reverse — void is for issued documents only.
+        // A draft has no GL entry to reverse, so this is not a void — but it is the only way out of
+        // a draft, and without one an abandoned draft suppressed its lease-month's billing for ever
+        // (SW-226). The act relabels itself, because "Void invoice" in red on a scratch document
+        // reads as the destructive thing it is not.
         $draft = makeInvoice(makeLease(makeUnit($this->asset)), ['status' => 'draft', 'total' => 5000, 'balance' => 5000]);
         Livewire::test(EditInvoice::class, ['record' => $draft->getRouteKey()])
-            ->assertActionHidden('void_invoice');
+            ->assertActionVisible('void_invoice')
+            ->assertSee(__('admin.actions.cancel_draft_invoice'));
 
         // An invoice with captured cash must have the payment refunded first — void is suppressed.
         $lease = makeLease(makeUnit($this->asset));

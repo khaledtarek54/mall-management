@@ -14,25 +14,32 @@
 | right. A learner's dataset without one teaches that AR always equals the invoice list.
 */
 
+use App\Models\BankAccount;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use Database\Seeders\LedgerLearningSeeder;
 use Illuminate\Support\Facades\DB;
 
-/** Posted balance of the account behind a posting role, in its own normal direction. */
-function roleBalance(string $role): float
+/** Posted balance of one chart account, in its own normal direction. */
+function learningAccountBalance(int $id): float
 {
-    $id = DB::table('account_mappings')->where('key', $role)->value('ledger_account_id');
-    expect($id)->not->toBeNull("role {$role} is not mapped");
-
-    $account = LedgerAccount::find($id);
+    $account = LedgerAccount::findOrFail($id);
     $row = DB::table('journal_lines as jl')
         ->join('journal_entries as je', 'je.id', '=', 'jl.journal_entry_id')
         ->where('je.status', 'posted')->where('jl.ledger_account_id', $id)
         ->selectRaw('COALESCE(SUM(jl.debit),0) d, COALESCE(SUM(jl.credit),0) c')->first();
 
     return round($account->normal_balance === 'debit' ? $row->d - $row->c : $row->c - $row->d, 2);
+}
+
+/** The same, for the account behind a posting role. */
+function roleBalance(string $role): float
+{
+    $id = DB::table('account_mappings')->where('key', $role)->value('ledger_account_id');
+    expect($id)->not->toBeNull("role {$role} is not mapped");
+
+    return learningAccountBalance((int) $id);
 }
 
 beforeEach(function () {
@@ -58,7 +65,20 @@ it('balances at exactly 15,700 on each side', function () {
 });
 
 it('puts each figure in the account the docblock names', function () {
-    expect(roleBalance('bank'))->toBe(7000.0)                  // 10,000 in − 3,000 out
+    // **The bank line is the MALL's OWN account, not the `bank` posting role**, and the difference is
+    // the whole of what that role is for. Every bank account gets a chart leaf of its own —
+    // `MatchBankStatementLineService` finds reconciliation candidates BY that account, so two banks
+    // sharing one leaf makes reconciling CIB offer NBE's postings — and the ROLE account is where
+    // documents naming NO account land. A real bank pointed at it merges "money we know went through
+    // this bank" with "money nobody attributed".
+    $bank = BankAccount::query()->firstOrFail();
+
+    expect(learningAccountBalance((int) $bank->ledger_account_id))->toBe(7000.0)   // 10,000 in − 3,000 out
+        // …and the role account carries NOTHING, because both documents named where the money went.
+        // It read 10,000 for a while: `payments` has no `asset_id` of its own, so the receipt could
+        // not be defaulted and fell here while the expense beside it used the mall's account. One
+        // mall, one bank, two chart accounts, and a trial balance of eight lines.
+        ->and(roleBalance('bank'))->toBe(0.0)
         ->and(roleBalance('accounts_receivable'))->toBe(3700.0) // 10,000 + 5,700 − 10,000 − 2,000
         ->and(roleBalance('rent_revenue'))->toBe(10000.0)
         // NOT 3,000. A credit note debits CONTRA-REVENUE and leaves the earned figure alone, so the

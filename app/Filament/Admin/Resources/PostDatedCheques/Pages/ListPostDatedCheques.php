@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\PostDatedCheques\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Models\Tenant;
 use App\Services\PostDatedChequeService;
@@ -22,12 +23,17 @@ use Illuminate\Support\Carbon;
 
 class ListPostDatedCheques extends ListRecords
 {
+    // Three filters earns the menu (`SavedViews`) — the register grew its third with the lodgement
+    // bank, and the gate is the thing that noticed.
+    use SavesTableViews;
+
     protected static string $resource = PostDatedChequeResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             GuideAction::for(static::getResource()),
+            ...$this->savedViewActions(),
             CreateAction::make()->visible(fn () => PostDatedChequeResource::canCreate()),
 
             // Lodge a whole SERIES at once — the Egyptian norm (a tenant hands over a year of

@@ -103,13 +103,20 @@ it('does show the other mall\'s tenant their own notice', function () {
 it('leaves a notice out of the feed once it expires, and keeps a standing one', function () {
     [$asset, $tenant] = announcementFor(['title' => 'Standing']);
 
+    // Sent while it was still live, and expired AFTERWARDS — which is the only way this row exists.
+    // `Announcement::assertSendable()` refuses to send one that has already ended, because every
+    // tenant would be pushed to a notice they cannot open and a sent notice cannot be corrected.
+    // Creating it already-expired and sending it tested a state the product does not produce.
     $expired = Announcement::create([
         'asset_id' => $asset->id,
         'title' => 'Yesterday only',
         'body' => 'Over.',
-        'expires_at' => now()->subDay(),
+        'expires_at' => now()->addDay(),
     ]);
     app(SendAnnouncementAction::class)->handle($expired);
+
+    // Time passes. `saveQuietly()` so the expiry moves without re-running the send guards.
+    $expired->forceFill(['expires_at' => now()->subDay()])->saveQuietly();
 
     $this->getJson('/api/v1/me/announcements', apiHeaders($tenant))
         ->assertOk()

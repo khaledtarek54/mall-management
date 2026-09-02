@@ -252,25 +252,40 @@ it('OWNER REQUEST all-properties: super_admin sees BOTH A and B operator request
         ->toContain($reqB->reference);
 });
 
-it('OWNER REQUEST read-scope NOTE: a general (null asset_id) operator request is NOT returned to a restricted operator', function () {
-    // Documented current behavior, not a defect: OwnerRequestResource::getEloquentQuery()
-    // scopes a restricted operator with whereIn('asset_id', $ids), and a NULL asset_id
-    // does not match whereIn — so a general (cross-property) operator request is invisible
-    // to a property-restricted operator. Only super_admin (idsForCurrentUser() = null,
-    // whereIn skipped) sees general requests. Asserting the current contract, not papering.
+it('OWNER REQUEST: a general (null asset_id) request IS returned to a restricted operator', function () {
+    // **This case asserted the opposite until 2026-09-02, and called it "documented current
+    // behavior, not a defect".** It was a defect, fixed in `08b7a14f`: `owner_requests.asset_id` is
+    // nullable ON PURPOSE — `PropertyField::PORTFOLIO_LEVEL` records why the form offers "All
+    // properties" ("a general question is about no single mall") and that is the form's DEFAULT —
+    // while the inbox scoped with `whereIn('asset_id', $ids)`, which never matches NULL. So a
+    // property-restricted operator saw every mall-specific request and none of the general ones,
+    // and the owner's message sat unanswered with nothing on any screen to say it existed. Same trap
+    // as EG-27's financial statements and the department pickers that offered zero options.
+    //
+    // `OwnerRequest` is `#[PropertyOwned(portfolioRowsWhenNull: true)]` now — the registry's own way
+    // of saying a null row is portfolio-level rather than unclassified.
     $a = makeAsset(['code' => 'ONA']);
+    $b = makeAsset(['code' => 'ONB']);
 
     $general = OwnerRequest::factory()->create(['recipient' => 'operator', 'asset_id' => null]);
+    $otherMall = OwnerRequest::factory()->create(['recipient' => 'operator', 'asset_id' => $b->id]);
+    $toTheOwner = OwnerRequest::factory()->create(['recipient' => 'owner', 'asset_id' => null]);
 
     actingAs(makeUser('manager', [$a->id]));
     $restrictedRefs = OwnerRequestResource::getEloquentQuery()->pluck('reference')->all();
 
-    // A different, unrestricted user (super_admin) DOES see the general request.
     actingAs(makeUser('super_admin'));
     $adminRefs = OwnerRequestResource::getEloquentQuery()->pluck('reference')->all();
 
-    expect($restrictedRefs)->not->toContain($general->reference);
-    expect($adminRefs)->toContain($general->reference);
+    expect($restrictedRefs)->toContain($general->reference)
+        // …and widening to NULL must not widen to everything: another mall's request stays out.
+        // The clause is GROUPED for exactly this reason — `recipient AND asset_id IN (…) OR
+        // asset_id IS NULL` binds AND before OR.
+        ->not->toContain($otherMall->reference)
+        // Nor may it pull an OWNER-directed thread into the operator's inbox, which is the other
+        // half the grouping protects.
+        ->not->toContain($toTheOwner->reference)
+        ->and($adminRefs)->toContain($general->reference);
 });
 
 /*

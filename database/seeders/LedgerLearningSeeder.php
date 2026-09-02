@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\BankAccount;
 use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Expense;
@@ -98,7 +99,7 @@ class LedgerLearningSeeder extends Seeder
         $this->creditPartly($invoiceB, $period);
         $this->spend($lease, $period);
 
-        $this->command?->info('  Five documents posted. Trial balance: 13,700 each side.');
+        $this->command?->info('  Five documents posted. Trial balance: 15,700 each side.');
     }
 
     /** One lease, so the invoices have a debtor and a property. */
@@ -197,6 +198,26 @@ class LedgerLearningSeeder extends Seeder
             'status' => 'captured',
             'payment_date' => $period->copy()->addDays(3),
             'currency' => 'EGP',
+            // **Stated, because a seeder has no property in scope to derive it from.**
+            // `RecordsBankAccount` fills this in from `TenantScope::currentAssetId()` for a document
+            // with no `asset_id` of its own — and `payments` has none, since a receipt's books
+            // dimension comes from the invoices it settles, which do not exist yet at `creating`.
+            // In the panel that resolves to the mall the operator is working in; in a seeder,
+            // console job or API call there is nobody to ask, so the receipt fell to the generic
+            // `bank` POSTING ROLE while the cleaning expense beside it — which does carry an
+            // `asset_id` — used the mall's own account. One mall, one bank, two chart accounts, and
+            // a trial balance of eight lines instead of seven.
+            //
+            // Through `defaultFor()`, which is the ladder the PANEL's own picker defaults from —
+            // `rather than a second rule`, exactly as `DemoSeeder::demoBankAccountForPurpose()` puts
+            // it. A bare `where('asset_id', …)->first()` would work today with one account and pick
+            // an arbitrary row the day a subclass mints a second (`ValPlazaSeeder extends
+            // LearningSeeder`), which would make the teaching set teach something false.
+            //
+            // Thrown, never null: if `LearningSeeder` stops minting the account this must break
+            // loudly rather than silently reinstate the split books it was written to end.
+            'bank_account_id' => BankAccount::defaultFor($invoice->asset_id, Payment::bankAccountPurpose())?->getKey()
+                ?? throw new RuntimeException('LedgerLearningSeeder needs the mall bank account LearningSeeder mints.'),
         ]);
 
         $payment->invoices()->attach($invoice->id, ['allocated_amount' => $invoice->total]);
