@@ -2025,3 +2025,15 @@ included. `NoScreenRendersTheSameActTwiceTest` mounts **159 of 160** screens and
 actually cached — the only place a trait-supplied act, a `parent::getHeaderActions()` spread, or a
 runtime-composed group is visible. It compares LABELS too: two acts with different names under one
 set of words is the same complaint. Both go red when `EditInvoice` is restored to `d4edce7c^`.
+
+> **⚠️ Ending a charge from a FUTURE date stopped billing immediately (fixed 2026-09-02).**
+> `ChargeScheduleService::close()` stamped `end_date` — the operator's own date, recorded correctly
+> — and set `is_active = false` in the same breath. `MonthlyBillingService` selects on `is_active`,
+> so the row left the billing plan **at once**: ending a charge from 1 December silently stopped
+> invoicing it in September, and the intervening months were never billed. Nothing on any screen said
+> so; the schedule showed the right end date the whole time.
+>
+> `end_date` alone is enough — the planner already refuses a row whose `end_date` falls before the
+> period it is billing, so the schedule stops itself on the day the operator chose. The flag is only
+> for a stop that has already ARRIVED, where leaving the row active would offer a dead schedule in
+> every picker. (`AFutureStopDateStillBillsUntilItArrivesTest`.)

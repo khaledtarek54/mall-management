@@ -474,9 +474,23 @@ class ChargeScheduleService
                 $startsLater = $current->start_date
                     && CarbonImmutable::instance($current->start_date)->gte($from);
 
-                $current->update($startsLater
-                    ? ['is_active' => false]
-                    : ['end_date' => $from->subDay()->toDateString(), 'is_active' => false]);
+                // **A FUTURE stop date must not stop billing NOW.** `is_active = false` removes the
+                // row from `MonthlyBillingService`'s selection immediately, so ending a charge from
+                // (say) 1 December silently stopped invoicing it in September — the intervening
+                // months were never billed, and nothing on any screen said so. The operator's own
+                // date was recorded correctly in `end_date` and then ignored.
+                //
+                // `end_date` alone is enough: the planner already refuses a row whose `end_date`
+                // falls before the period it is billing, so the schedule stops itself on the day the
+                // operator chose. The flag is only for a stop that has already arrived, where
+                // leaving it active would offer a dead row in every picker.
+                $stopsInTheFuture = $from->isFuture();
+
+                $current->update(match (true) {
+                    $startsLater => ['is_active' => false],
+                    $stopsInTheFuture => ['end_date' => $from->subDay()->toDateString()],
+                    default => ['end_date' => $from->subDay()->toDateString(), 'is_active' => false],
+                });
 
                 $closed++;
             }

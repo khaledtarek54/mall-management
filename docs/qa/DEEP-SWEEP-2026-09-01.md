@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 38 closed, 179 open (updated 2026-09-01)
+> ### Where this stands — 39 closed, 178 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -99,12 +99,12 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Billing · leases
 
-*19 open — 3 high, 11 medium, 5 low.*
+*18 open — 2 high, 11 medium, 5 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-033** | ✅ **fixed** `e6d9f699` | high | M | Nightly leases:expire strands every unconverted holdover: no offered path to convert, renew, or terminate an 'expired' lease | `Filament/Admin/Actions/LeaseActions:795` |
-| **SW-034** | open | high | M | 'End charge' / 'End assessment' with a future stop date silently stops billing immediately — the intervening months are never invoiced | `Filament/Admin/RelationManagers/ChargeScheduleRelationManager:508` |
+| **SW-034** | ✅ fixed | high | M | 'End charge' / 'End assessment' with a future stop date silently stops billing immediately — the intervening months are never invoiced | `Filament/Admin/RelationManagers/ChargeScheduleRelationManager:508` |
 | **SW-035** | ✅ **fixed** `e6d9f699` | high | — | `leases:expire` empties the holdover queue every morning, making the whole LE-04 holdover conversion permanently unreachable | `Console/Commands/ExpireLeasesCommand:84` |
 | **SW-036** | ✅ **fixed** `e6d9f699` | high | M | leases:expire makes holdover conversion unreachable — the entire LE-04 workflow is dead after the first night | `Console/Commands/ExpireLeasesCommand:87` |
 | **SW-037** | ✅ **fixed** `aa624ab1` | high | — | Clicking a report filter's clear (×) 500s the page — the bound property is non-nullable and Livewire unsets it Thirteen screens had it, not two — every financial statement through the shared ledger bar, plus the ageing bucket, month-end close, the reports index, tax depreciation, the VAT and withholding returns and the revenue forecast. `KeepsFilterAnswered` restores a filter whose blank is not an answer; `selectablePlaceholder(false)` stops it being offered. `AClearableFilterNeverBreaksItsPageTest` DRIVES every filter-bearing admin page, because the control and the property live in different files and no source sweep can pair them. | `Filament/Admin/Pages/BillingRunPreview:62` |
