@@ -172,12 +172,22 @@ class AnswerQuestionService
         foreach ($results as $result) {
             $body = $result['excerpt'] ?? null;
 
-            if ($body === null && ($result['kind'] ?? null) === 'screen') {
+            // A REPORT needs its guide too, and reading only `kind === 'screen'` is why it did not
+            // get one. Measured: «مين عليه فلوس» and «ازاي اعمل اشعار خصم» both matched a report and
+            // nothing else, so no passage was built, so the model was never called — the screen
+            // silently fell back to phase A while everything else said the model was on.
+            //
+            // Resolved through `ScreenGuides::keyFor()` on the SCREEN CLASS rather than trusting
+            // `$result['key']`: for a screen those are the same string, and for a report the key is
+            // the report's own (`ar_aging`), which is only equal to the guide key by coincidence.
+            $guideKey = ScreenGuides::keyFor($result['screen'] ?? '');
+
+            if ($body === null && $guideKey !== null) {
                 // A screen's guide IS its passage — the same four fields the panel renders.
                 $body = implode(' ', array_merge(
-                    [ScreenGuides::purpose($result['key'])],
-                    ScreenGuides::steps($result['key']),
-                    ScreenGuides::rules($result['key']),
+                    [ScreenGuides::purpose($guideKey)],
+                    ScreenGuides::steps($guideKey),
+                    ScreenGuides::rules($guideKey),
                 ));
             }
 

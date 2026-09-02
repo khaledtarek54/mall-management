@@ -56,7 +56,7 @@ return [
     |   ASSISTANT_DRIVER=openai_compatible
     |   ASSISTANT_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
     |   ASSISTANT_API_KEY=<from aistudio.google.com>
-    |   ASSISTANT_MODEL=gemini-2.5-flash
+    |   ASSISTANT_MODEL=gemini-3.6-flash
     |
     | Groq, OpenRouter and a local Ollama differ only in those three lines. Nothing else in the
     | system changes: the same prompt, the same passages, the same ceiling.
@@ -64,9 +64,30 @@ return [
     'openai_compatible' => [
         'api_key' => env('ASSISTANT_API_KEY'),
         'base_url' => env('ASSISTANT_BASE_URL'),
-        'model' => env('ASSISTANT_MODEL', 'gemini-2.5-flash'),
-        'max_tokens' => (int) env('ASSISTANT_MAX_TOKENS', 600),
-        'timeout' => (int) env('ASSISTANT_TIMEOUT', 20),
+        'model' => env('ASSISTANT_MODEL', 'gemini-3.6-flash'),
+
+        /*
+        | MUCH higher than the Anthropic driver's 600, and that is a measured correction rather
+        | than caution.
+        |
+        | Gemini 3.x spends hidden THINKING tokens against this same budget: a seven-token
+        | exchange reported `total_tokens: 108`, and a real question in Arabic spent ~1,200 before
+        | writing a word. At 600 the thinking consumed the whole allowance and the API returned
+        | HTTP 200 with an EMPTY content string — so the assistant silently stopped wording
+        | answers while every other signal said it was working. That is the worst shape a failure
+        | can take, and it costs nothing to avoid on a free tier.
+        |
+        | The visible answer stays short regardless: the prompt asks for two to four sentences.
+        */
+        'max_tokens' => (int) env('ASSISTANT_MAX_TOKENS', 2000),
+
+        /*
+        | Longer than the Anthropic driver's 20s, for the same reason the token budget is higher:
+        | Gemini 3.x thinks before it writes, and a long technical passage pushed a real question
+        | past twenty seconds — which surfaced as "could not reach the model" and a silent fall back
+        | to retrieval. A demo cannot tell that apart from a broken key.
+        */
+        'timeout' => (int) env('ASSISTANT_TIMEOUT', 45),
     ],
 
     /*

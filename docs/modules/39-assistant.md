@@ -139,7 +139,7 @@ URL and a model name.
    ASSISTANT_DRIVER=openai_compatible
    ASSISTANT_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
    ASSISTANT_API_KEY=<the key>
-   ASSISTANT_MODEL=gemini-2.5-flash
+   ASSISTANT_MODEL=gemini-3.6-flash
    ASSISTANT_RATE_INPUT=0
    ASSISTANT_RATE_OUTPUT=0
    ```

@@ -70,6 +70,24 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="ACCOUNTING_REALTIME_LEDGER_SYNC" value="false"/>
+        <!--
+        | The assistant's model tier is pinned OFF for the suite, and its rates and corpus pinned to
+        | the shipped defaults.
+        |
+        | Without this the tests read whoever's `.env` is on the machine: switching a real Gemini key
+        | on locally turned four of them red — "ships OFF" saw the live driver, the two spend tests
+        | saw zeroed rates, and the corpus test saw the developer documentation indexed. None was a
+        | code defect; all four were the suite depending on a developer's configuration, which is
+        | the green-on-one-laptop failure this project already records for the PHPStan baseline.
+        |
+        | It also guarantees the suite can never reach a paid API by accident.
+        -->
+        <env name="ASSISTANT_DRIVER" value="none"/>
+        <env name="ASSISTANT_INDEX_TECHNICAL_DOCS" value="false"/>
+        <env name="ASSISTANT_RATE_INPUT" value="1"/>
+        <env name="ASSISTANT_RATE_OUTPUT" value="5"/>
+        <env name="ASSISTANT_API_KEY" value=""/>
+        <env name="ASSISTANT_BASE_URL" value=""/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
