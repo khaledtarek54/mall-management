@@ -312,3 +312,57 @@ php artisan test tests/Feature/Scenarios/OwnerRequestScenarioTest.php
 ### Activity log
 - OwnerRequest logs are recorded under log name `'owner_request'` and only log changes to `['recipient', 'assigned_to_user_id', 'status', 'priority', 'subject']` via Spatie ActivityLog. Sensitive data (body, resolution_notes) are NOT logged.
 - Access via `/admin/activity-log` with `activity_log.view` permission.
+
+
+## Both parties can now use the conversation (fixed 2026-09-02)
+
+Two independent defects on one screen, and each made the module's own deliverable unusable.
+
+### A general request was invisible to the operator (SW-111)
+
+`owner_requests.asset_id` is nullable on purpose — `PropertyField::PORTFOLIO_LEVEL` records why the
+form offers *"All properties"*: *"a general question (“when is the portfolio valuation due?”) is
+about no single mall"* — and that is the form's **default**. The operator inbox scoped with
+`whereIn('asset_id', $ids)`, and **`whereIn` never matches NULL**, so a property-restricted operator
+saw every mall-specific request and none of the general ones. The owner's message sat unanswered
+with nothing on any screen to say it existed.
+
+`OwnerRequest` is now `#[PropertyOwned(portfolioRowsWhenNull: true)]` — the registry's own way of
+saying a null row is portfolio-level rather than unclassified — and `getEloquentQuery()` reads
+`(asset_id IN … OR asset_id IS NULL)`. The OR branch is **grouped**, because
+`recipient AND asset_id IN (…) OR asset_id IS NULL` binds AND-before-OR and would put every
+OWNER-directed request into the operator inbox. Same trap as EG-27's financial statements and the
+department pickers that offered zero options.
+
+Confirmed deliberately in `PropertyIsolationConformanceTest`'s pinned list, which is the only place
+the flag is visible to the build.
+
+### The owner could neither read nor answer their own thread (SW-112)
+
+`OwnerRequestService::notifyCounterparty()` says in writing that it bells *"the operator team when
+the owner replies"* — so the service was built for a two-way conversation from the start. The only
+surface onto it was the reply modal, gated on `canEdit()`, and the `owner` role holds
+`owner_requests.view` and `.create` and deliberately **not** `.edit`. Jawad could raise a request, be
+answered, and never see the answer or respond: the mechanism was complete and the door was missing.
+
+Two changes, and neither widens a grant:
+
+- **`conversation`** — a read-only modal over the thread, for whoever may VIEW the record. It renders
+  only when a reply exists, because a request nobody has answered is its own opening message and is
+  already on screen.
+- **`mayReply()`** — the ONE predicate `visible()`, `authorize()` and the `action()` guard all read.
+  An operator may reply because they hold `owner_requests.edit`; the RAISER may reply because it is
+  their own conversation, which `getEloquentQuery()` has already established
+  (`created_by_user_id = me`) rather than being a new right. A second owner cannot reach it — the row
+  is not in their table at all.
+
+**Moving the status stays the operator's act.** An owner answering a question must not mark their own
+request resolved — that is the operator saying the work is done. The Select is hidden for a
+non-editor *and* the action drops the value server-side. Only the first layer is reachable from a
+Livewire test: `callMountedAction()` re-derives `$data` from the schema, so an injected
+`mountedActions.0.data.status` is discarded on the way in (measured). The second stays because it is
+a stated intent, where upstream dehydration is an implementation detail a release can change — the
+reasoning `FilamentActionDispatchContractTest` already records.
+
+Tests: `AnOwnerCanReadAndAnswerTheirOwnThreadTest` — every refusal paired with a control that must
+succeed. Mutation-proved on both fixes.

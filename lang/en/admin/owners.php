@@ -15,6 +15,8 @@ return [
         'set_status_hint' => 'Leave unchanged to just reply. Resolving or closing marks the request done.',
         'unknown_author' => 'Unknown',
         'actions' => [
+            'conversation' => 'Read the conversation',
+            'close' => 'Close',
             'reply' => 'Reply',
             'send' => 'Send reply',
             'your_reply' => 'Your reply',

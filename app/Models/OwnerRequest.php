@@ -20,7 +20,18 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: responded requests are already immutable')]
 // asset_id nullable (property-specific or cross-property)
-#[PropertyOwned]
+/**
+ * **A NULL `asset_id` is "no single mall", and every operator must still see it.**
+ *
+ * `PropertyField::PORTFOLIO_LEVEL` already records why the form offers *"All properties"* — *"a
+ * general question (\"when is the portfolio valuation due?\") is about no single mall"* — and it is
+ * the form's own default. The READ scope disagreed: `whereIn('asset_id', $ids)` never matches NULL,
+ * so a property-restricted operator's inbox silently omitted exactly the requests addressed to the
+ * operator generally, and the owner's message sat unanswered with nothing on any screen to say it
+ * existed. Same trap as EG-27's financial statements and the department pickers that offered zero
+ * options.
+ */
+#[PropertyOwned(portfolioRowsWhenNull: true)]
 class OwnerRequest extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

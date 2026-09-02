@@ -94,7 +94,19 @@ class OwnerRequestResource extends Resource
 
             return parent::getEloquentQuery()
                 ->where('recipient', 'operator')
-                ->when($ids !== null, fn (Builder $q) => $q->whereIn('asset_id', $ids))
+                // **A NULL `asset_id` means "no single mall", and it is the form's own default.**
+                // `whereIn` never matches NULL, so a property-restricted operator's inbox silently
+                // omitted every general request — the ones addressed to the operator rather than to
+                // a property — and the owner's message sat unanswered with nothing on any screen to
+                // say it existed. `PropertyField::PORTFOLIO_LEVEL` records why this screen offers
+                // "All properties" in the first place; the read had never been told.
+                //
+                // Grouped, because `(recipient AND asset_id IN …) OR asset_id IS NULL` binds
+                // AND-before-OR and the OR branch would escape the recipient filter — putting every
+                // OWNER-directed request into the operator inbox.
+                ->when($ids !== null, fn (Builder $q) => $q->where(
+                    fn (Builder $w) => $w->whereIn('asset_id', $ids)->orWhereNull('asset_id')
+                ))
                 ->with(['creator', 'asset']);
         }
 

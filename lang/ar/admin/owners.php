@@ -15,6 +15,8 @@ return [
         'set_status_hint' => 'اتركها كما هي للرد فقط. الحل أو الإغلاق يُنهي الطلب.',
         'unknown_author' => 'غير معروف',
         'actions' => [
+            'conversation' => 'قراءة المحادثة',
+            'close' => 'إغلاق',
             'reply' => 'رد',
             'send' => 'إرسال الرد',
             'your_reply' => 'ردّك',

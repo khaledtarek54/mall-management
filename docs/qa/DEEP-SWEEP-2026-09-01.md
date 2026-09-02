@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 49 closed, 173 open (updated 2026-09-01)
+> ### Where this stands — 51 closed, 171 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -139,8 +139,8 @@ which is the same failure this repo gates for generated doc blocks.
 | **SW-059** | ✅ **fixed** `5e159676` | high | XS | Service Plans 'Generate due' header action calls a protected method cross-class — guaranteed PHP Error after generation runs | `Filament/Admin/Resources/ServicePlans/Tables/ServicePlansTable:146` |
 | **SW-060** | ✅ **fixed** `c7c00202` | high | S | Draft purchase request is a panel dead-end: submit() has no caller and every edit surface is locked to 'requested' | `Filament/Admin/RelationManagers/PurchaseRequestLinesRelationManager:53` |
 | **SW-061** | ✅ **fixed** `790ba6a1` | high | M | Editing day_of_month (or frequency) on a live schedule re-walks the calendar and double-books the current period | `Filament/Admin/Resources/RecurringExpenses/Schemas/RecurringExpenseForm:104` |
-| **SW-062** | ✅ fixed | high | — | The contractor can post to the job thread but can never read it — the operator's "Share with the contractor" reaches nobody | `Filament/Vendor/Resources/WorkOrders/Pages/ListWorkOrders:142` |
-| **SW-063** | ✅ fixed | high | — | The quote loop is one-way: the NTE that is supposed to trigger a quote is invisible, and the decision never comes back | `Filament/Vendor/Resources/WorkOrders/Pages/ListWorkOrders:176` |
+| **SW-062** | ✅ **fixed** `47fb5df5` | high | — | The contractor can post to the job thread but can never read it — the operator's "Share with the contractor" reaches nobody | `Filament/Vendor/Resources/WorkOrders/Pages/ListWorkOrders:142` |
+| **SW-063** | ✅ **fixed** `47fb5df5` | high | — | The quote loop is one-way: the NTE that is supposed to trigger a quote is invisible, and the decision never comes back | `Filament/Vendor/Resources/WorkOrders/Pages/ListWorkOrders:176` |
 | **SW-064** | ✅ **fixed** `e37f23f9` | high | — | Every recurring EXPENSE credits the CASH account — the schedule has no paid_from and the generator omits it, so the column default wins The schedule now carries `paid_from` and `bank_account_id`, both nullable so an existing schedule behaves exactly as before, and the generator passes them through. `bank_account_id` comes with the rail because `MoneyAccount` resolves the document's own account first — without it a mall banking in two places cannot say which. | `Services/GenerateRecurringExpensesService:180` |
 | **SW-065** | open | medium | M | Picking a vendor on an internal corrective work order 500s: the edit form offers a field the model refuses with InvalidArgumentException, and execution_type has no screen to change it | `Filament/Admin/Resources/FacilityWorkOrders/Schemas/FacilityWorkOrderForm:152` |
 | **SW-066** | open | medium | S | An ISSUED (or CLOSED) work permit is fully editable on its record page — the stated 'a live authorisation is not a draft' rule is enforced only by hiding the list's Edit shortcut | `Filament/Admin/Resources/WorkPermits/Pages/EditWorkPermit:26` |
@@ -198,14 +198,14 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Cross-cutting
 
-*17 open — 2 high, 10 medium, 5 low.*
+*15 open — 10 medium, 5 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-111** | open | high | — | A general (no-property) owner request is invisible to every property-restricted operator — and it is the form's DEFAULT | `Filament/Admin/Resources/OwnerRequests/OwnerRequestResource:97` |
-| **SW-112** | open | high | — | The owner can neither read nor answer the conversation thread module 15 built for them | `Filament/Admin/Resources/OwnerRequests/Tables/OwnerRequestsTable:120` |
+| **SW-111** | ✅ fixed | high | — | A general (no-property) owner request is invisible to every property-restricted operator — and it is the form's DEFAULT | `Filament/Admin/Resources/OwnerRequests/OwnerRequestResource:97` |
+| **SW-112** | ✅ fixed | high | — | The owner can neither read nor answer the conversation thread module 15 built for them | `Filament/Admin/Resources/OwnerRequests/Tables/OwnerRequestsTable:120` |
 | **SW-113** | ✅ **fixed** `2b4dd73c` | high | XS | Paymob callback treats only 'captured' as terminal, not the whole received set — a late or replayed decline callback flips a 'reconciled'/'settled' payment to 'failed', silently un-paying the invoice and voiding its GL leg. The REVERSED half of the very same condition was already derived from the model, under a comment reading *"enumerate a set like this by asking the model, not by grepping the diff"*; the RECEIVED half was a literal. Both paths (the fast check and the locked re-check) now ask `Payment::isReceived()` | `Http/Controllers/Paymob/CallbackController:128` |
-| **SW-114** | ✅ fixed | high | — | Applying an SLA penalty never re-derives the work order's cost — recompute() is saveQuietly, so the only hook that calls recomputeCosts() never fires | `Services/ApplySlaPenaltyService:45` |
+| **SW-114** | ✅ **fixed** `cbff66d6` | high | — | Applying an SLA penalty never re-derives the work order's cost — recompute() is saveQuietly, so the only hook that calls recomputeCosts() never fires | `Services/ApplySlaPenaltyService:45` |
 | **SW-115** | ✅ **fixed** `fb85e218` | high | — | `sales:estimate-missing` runs on the 8th and the chase it is supposed to follow runs on the 10th — the reminder can never fire for any tenant the estimate covers | `routes/console:246` |
 | **SW-116** | open | medium | — | Schedule-payout modal defaults to a rail the catalogue may no longer offer | `Filament/Admin/Actions/OwnerStatementRunActions:104` |
 | **SW-117** | open | medium | — | The Income Statement restores the remembered property AFTER the pin, desyncing its scope caption from the mall it is reporting | `Filament/Admin/Pages/IncomeStatement:70` |

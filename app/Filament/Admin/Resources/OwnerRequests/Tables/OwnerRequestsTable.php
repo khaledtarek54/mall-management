@@ -21,6 +21,37 @@ use Illuminate\Support\HtmlString;
 class OwnerRequestsTable
 {
     /** The original request plus every reply, attributed + timestamped — the conversation, in order. */
+    /**
+     * May the signed-in user answer this thread?
+     *
+     * **Two ways in, and only one of them existed.** An OPERATOR replies because they hold
+     * `owner_requests.edit` — that is the inbox. The RAISER replies because it is their own
+     * conversation: `owner` holds `.view` and `.create` and deliberately not `.edit`, and
+     * `OwnerRequestResource::getEloquentQuery()` already narrows them to
+     * `created_by_user_id = me`, so "it is mine" is a fact the scope has established rather than a
+     * new grant. Without this the owner could raise a request, be answered, and neither read the
+     * answer nor respond — while `OwnerRequestService::notifyCounterparty()` was already written to
+     * bell "the operator team when the owner replies".
+     *
+     * Named once because `visible()`, `authorize()` and the `action()` guard must not drift — the
+     * project rule for every write action.
+     */
+    private static function mayReply(OwnerRequest $request): bool
+    {
+        if ($request->isTerminal()) {
+            return false;
+        }
+
+        $user = Auth::user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return OwnerRequestResource::canEdit($request)
+            || (int) $request->created_by_user_id === (int) $user->id;
+    }
+
     private static function renderThread(OwnerRequest $request): HtmlString
     {
         $line = function (?string $who, $when, string $body): string {
@@ -108,19 +139,47 @@ class OwnerRequestsTable
                 ViewAction::make()
                     ->visible(fn ($record) => OwnerRequestResource::canView($record))
                     ->authorize(fn ($record) => OwnerRequestResource::canView($record)),
+                // **READING THE CONVERSATION IS NOT AN EDIT, AND ONE PARTY COULD DO NEITHER.**
+                // Module 15 built a two-way thread — `OwnerRequestService::notifyCounterparty()`
+                // says so in writing, bellling "the operator team when the owner replies" — and the
+                // only surface onto it was the reply modal below, gated on `canEdit()`. The `owner`
+                // role holds `owner_requests.view` and `.create` and deliberately NOT `.edit`, so
+                // Jawad could raise a request, be answered, and never see the answer or respond to
+                // it. The mechanism was complete and the door was missing: the shape this codebase
+                // keeps finding.
+                //
+                // A read of the thread, for whoever may VIEW the record. It carries no write of any
+                // kind, so it is safe for the view-only oversight roles the owner is one of.
+                Action::make('conversation')
+                    ->label(__('admin.owner_requests.actions.conversation'))
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('gray')
+                    ->modalHeading(fn (OwnerRequest $r) => $r->reference.' · '.$r->subject)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('admin.owner_requests.actions.close'))
+                    // Only where it says something the row does not: a request nobody has answered
+                    // is its own opening message, already on screen.
+                    ->visible(fn (OwnerRequest $r) => OwnerRequestResource::canView($r)
+                        && $r->replies()->exists())
+                    ->authorize(fn (OwnerRequest $r) => OwnerRequestResource::canView($r))
+                    ->schema([
+                        Placeholder::make('thread')
+                            ->label(__('admin.owner_requests.conversation'))
+                            ->content(fn (OwnerRequest $r) => self::renderThread($r)),
+                    ]),
                 // A REPLY, not a one-shot note. Shows the whole conversation inline, takes a message
                 // (always saved — the old flow dropped it unless status happened to be "resolved"),
                 // and lets an optional status move ride along. The other party is notified.
                 Action::make('reply')
                     ->label(__('admin.owner_requests.actions.reply'))
-                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->icon('heroicon-o-arrow-uturn-left')
                     ->color('primary')
                     ->modalHeading(fn (OwnerRequest $r) => $r->reference.' · '.$r->subject)
                     ->modalSubmitActionLabel(__('admin.owner_requests.actions.send'))
-                    ->visible(fn (OwnerRequest $r) => OwnerRequestResource::canEdit($r) && ! $r->isTerminal())
-                    // A reply is published to the owner and can transition the request — gate it,
-                    // don't just hide it (the module-15 close-out logged this as a LOW nit).
-                    ->authorize(fn (OwnerRequest $r) => OwnerRequestResource::canEdit($r) && ! $r->isTerminal())
+                    ->visible(fn (OwnerRequest $r) => self::mayReply($r))
+                    // A reply is published to the counterparty and can transition the request — gate
+                    // it, don't just hide it (the module-15 close-out logged this as a LOW nit).
+                    ->authorize(fn (OwnerRequest $r) => self::mayReply($r))
                     ->fillForm(fn (OwnerRequest $r) => ['status' => $r->status])
                     ->schema([
                         // The conversation so far — the original message + every reply, attributed and
@@ -132,16 +191,27 @@ class OwnerRequestsTable
                             ->label(__('admin.owner_requests.actions.your_reply'))
                             ->rows(3)
                             ->required(),
+                        // **Moving the status is the OPERATOR's act, not the raiser's.** An owner
+                        // answering a question must not be able to mark their own request resolved
+                        // — that is the operator saying the work is done. Hidden AND refused: a
+                        // hidden Select still arrives in the Livewire payload, so the action drops
+                        // it rather than trusting the form.
                         Select::make('status')
                             ->label(__('admin.owner_requests.set_status'))
                             ->helperText(__('admin.owner_requests.set_status_hint'))
+                            ->visible(fn (OwnerRequest $r) => OwnerRequestResource::canEdit($r))
                             ->options(fn () => collect(OwnerRequest::STATUSES)
                                 ->mapWithKeys(fn ($s) => [$s => __("admin.owner_requests.statuses.{$s}")]))
                             ->native(false),
                     ])
                     ->action(function (OwnerRequest $r, array $data) {
+                        abort_unless(self::mayReply($r), 403);
+
+                        // The status rides along only for whoever may actually move it.
+                        $status = OwnerRequestResource::canEdit($r) ? ($data['status'] ?? null) : null;
+
                         try {
-                            app(OwnerRequestService::class)->reply($r, Auth::user(), $data['body'], $data['status'] ?? null);
+                            app(OwnerRequestService::class)->reply($r, Auth::user(), $data['body'], $status);
                         } catch (\DomainException $e) {
                             Notification::make()->title($e->getMessage())->danger()->send();
 

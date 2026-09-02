@@ -46,6 +46,7 @@ use App\Models\DocumentTemplate;
 use App\Models\Expense;
 use App\Models\Holiday;
 use App\Models\JournalEntry;
+use App\Models\OwnerRequest;
 use App\Models\Payroll;
 use App\Models\VendorBill;
 use App\Support\PropertyIsolation;
@@ -490,6 +491,14 @@ it('F: pins which models treat a null asset_id as portfolio-level', function () 
         // can never re-time a job already running.
         Holiday::class,
         JournalEntry::class,
+        // Added 2026-09-02 (SW-111), and it is the only entry here that is NOT money. An owner
+        // request is a conversation, and `PropertyField::PORTFOLIO_LEVEL` already records why the
+        // form offers "All properties" — *"a general question is about no single mall"* — which is
+        // also the form's DEFAULT. The read scope disagreed: `whereIn('asset_id', $ids)` never
+        // matches NULL, so a property-restricted operator's inbox silently omitted exactly the
+        // requests addressed to the operator generally, and the owner's message sat unanswered with
+        // nothing on any screen to say it existed.
+        OwnerRequest::class,
         Payroll::class,
         VendorBill::class,
     ], 'The set of models whose null asset_id means "portfolio-level" changed. That is a money decision — confirm it deliberately, then update this list.');
