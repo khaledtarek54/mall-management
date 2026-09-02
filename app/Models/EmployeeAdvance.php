@@ -105,6 +105,38 @@ class EmployeeAdvance extends Model
         return round(max(0, (float) $this->amount - $this->repaid() - $this->repaidViaPayroll()), 2);
     }
 
+    /**
+     * The same figure, read under a LOCK — the authoritative one a payroll approval decides from.
+     *
+     * **A lock serialises writers; it does not make the guard behind it SEE them.**
+     * `PayrollService::approve()` takes `lockForUpdate()` on this advance and then asked
+     * `outstanding()`, which issues PLAIN reads against `employee_advance_repayments` and
+     * `payroll_lines`. Under MySQL's REPEATABLE READ a transaction's consistent-read snapshot is
+     * fixed at its first plain read, so the over-repayment guard was answered from BEFORE it waited:
+     * two runs each deducting within the pre-approval outstanding both passed, and together
+     * over-repaid the loan. The advance goes to zero and stays there while a real balance is still
+     * owed, and the GL credits Employee Advances twice for money the employee only borrowed once.
+     *
+     * Exactly the shape `Unit::isActivelyLeasedForUpdate()` and both payment over-allocation guards
+     * exist for, and the reason `ConcurrencyPolicy::AUTHORITATIVE_GUARDS` reads a guard method's own
+     * body: a twin that pushed its locking into a helper would pass review and fail the gate.
+     *
+     * The plain twin STAYS. Every list, form helper and infolist reads it on render, and taking row
+     * locks per row per page is a cost with no writer waiting on it.
+     */
+    public function outstandingForUpdate(): float
+    {
+        $repaid = round((float) $this->repayments()->lockForUpdate()->sum('amount'), 2);
+
+        $viaPayroll = round((float) PayrollLine::query()
+            ->where('employee_advance_id', $this->getKey())
+            ->whereHas('payroll', fn ($q) => $q->where('status', 'approved'))
+            ->lockForUpdate()
+            ->sum('advance_deduction'), 2);
+
+        return round(max(0, (float) $this->amount - $repaid - $viaPayroll), 2);
+    }
+
     /** The child ledger sources whose GL follows this advance's lifecycle. */
     protected function ledgerChildRelations(): array
     {

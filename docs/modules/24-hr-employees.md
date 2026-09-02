@@ -557,3 +557,45 @@ for it and the footer renders nowhere at all.
 > `callAction()` — the latter reports it as "not visible" even when the gate is satisfied, which
 > reads exactly like an authorization failure.)*
 > (`AFormThatAsksMustKeepWhatItIsToldTest`.)
+
+
+## Two runs for one month could both be approved (SW-092, fixed 2026-09-02)
+
+`Payroll::saving` carries the double-pay guard — no employee may be on two APPROVED runs for one
+month at one property — and it was a plain read with **nothing serialising the writers**. Two runs
+approved concurrently each see the other still `draft`, both pass, and the employee is paid twice:
+salaries posted twice, and every advance installment in both runs relieved twice.
+
+There is no contended ROW to lock — the two runs are different rows and the guard is about the SET —
+so it is a **cache lock**, the same mechanism and reasoning as the monthly billing and assessment
+runs. Keyed on the property and the month, because that is exactly the scope of the guard's own
+query; a portfolio-wide key would serialise malls that cannot clash.
+
+**Taken OUTSIDE the transaction, deliberately.** Acquiring it inside would leave our
+consistent-read snapshot already fixed from before the other approval committed, so the guard would
+still be answered from a state it had waited past.
+
+### And the advance re-check decided from a pre-lock snapshot
+
+The second half, and the same family. `approve()` takes `lockForUpdate()` on each `EmployeeAdvance`
+the run repays and then asked `outstanding()` — which issues **plain** reads against
+`employee_advance_repayments` and the approved payroll lines. *A lock serialises writers; it does not
+make the guard behind it SEE them.* Under MySQL's REPEATABLE READ that answer comes from the snapshot
+taken before the transaction waited, so two runs each deducting within the pre-approval outstanding
+both passed and together over-repaid the loan: the advance reads zero while a real balance is still
+owed, and the GL credits Employee Advances twice for money borrowed once.
+
+`EmployeeAdvance::outstandingForUpdate()` is the locking twin — the same split, and the same reason,
+as `Unit::isActivelyLeasedForUpdate()` and both payment over-allocation guards. The plain twin stays:
+every list, form helper and infolist reads it on render, and taking row locks per row per page is a
+cost with no writer waiting on it. It is registered in `ConcurrencyPolicy::AUTHORITATIVE_GUARDS`, so
+the gate reads the method's own body and requires the locking read to be visible where the decision
+is made.
+
+**What none of this proves is that two transactions actually serialise** — that needs MySQL and two
+connections (`docs/qa/scripts/race.sh`). What it proves is that the locks are taken and the guards
+read under them, which is what stops the next tidy-up deleting either.
+
+Tests: `APayrollRunCannotPayTheSameMonthTwiceTest` — the same-month refusal with its control, the
+lock's key and registration, a `LockSpy` run proving the advance balance is read under the lock it
+just took, the over-repayment refusal, and an ordinary approval. Mutation-proved three ways.

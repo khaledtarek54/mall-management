@@ -72,6 +72,10 @@ final class ConcurrencyPolicy
      * @var array<string, string> `Class::method` => what a stale read would let through
      */
     public const AUTHORITATIVE_GUARDS = [
+        'App\\Models\\EmployeeAdvance::outstandingForUpdate' => 'Two payroll runs each deducting within the '.
+            'pre-approval outstanding, approved at once. The advance row lock serialises the writers; only a '.
+            'locking read of the repayments and the approved payroll lines sees the installment the other run '.
+            'just committed. Without it the loan is over-repaid and the GL credits Employee Advances twice.',
         'App\\Models\\Unit::isActivelyLeasedForUpdate' => 'Two leases signed on the same vacant unit at once. The unit row lock serialises the '.
             'writers; only a locking read here sees the lease the other one just committed.',
 
@@ -231,7 +235,11 @@ final class ConcurrencyPolicy
 
         // ── Money out ────────────────────────────────────────────────────────────────────────
         'app/Services/GeneratePayrollService.php' => 1,
-        'app/Services/PayrollService.php' => 1,
+        // TWO: the row lock on each `EmployeeAdvance` the run repays, and the locking read of that
+        // advance's own balance beside it. Plus a CACHE lock outside the transaction, keyed on the
+        // property and the month, which is what serialises two approvals that would otherwise each
+        // see the other still `draft` and pay one employee twice.
+        'app/Services/PayrollService.php' => 2,
         'app/Services/DraftReorderPurchaseService.php' => 1,
         'app/Services/PurchaseRequestService.php' => 1,
         'app/Services/RecordAdvanceRepaymentService.php' => 3,
@@ -277,6 +285,11 @@ final class ConcurrencyPolicy
         // row (registered in PROVEN); this is the read of `leases` that the lock exists to make
         // authoritative, and without it the guard looks past the very lease it waited for.
         'app/Models/Unit.php' => 1,
+        // The locking twin of `outstanding()`. `PayrollService::approve()` locks the advance row and
+        // then has to read what is still owed on it; a plain read there answers from the snapshot
+        // taken before it waited, so two runs each deducting within the pre-approval outstanding
+        // both pass and together over-repay the loan.
+        'app/Models/EmployeeAdvance.php' => 2,
         // One row lock per lease, re-checking its expiry inside the transaction, so a sweep cannot
         // expire a lease another request is renewing or holding over at the same moment.
         'app/Console/Commands/ExpireLeasesCommand.php' => 1,
