@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\Assistant\AssistantCorpus;
+use Database\Seeders\RolesPermissionsSeeder;
 use App\Support\ScreenGuides;
 use Illuminate\Support\Facades\Lang;
 
@@ -58,3 +59,25 @@ it('knows the verbs of operating the mall, in both languages', function (string 
         expect(trim((string) Lang::get($key, [], $locale)))->not->toBe('');
     }
 })->with(['en', 'ar']);
+
+it('still lets somebody ask about a chart account by its code', function () {
+    // A first attempt at the two misroutes above EXCLUDED the chart of accounts from the record
+    // tier outright, on the theory that an account name is ordinary business vocabulary. Measured,
+    // it fixed nothing — the act-verb ordering is what fixed them — and it broke a legitimate
+    // question: "account 51109" could no longer reach account 51109. A restriction that costs a
+    // real answer has to earn its place by measurement, and this one could not.
+    $this->seed(RolesPermissionsSeeder::class);
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+
+    App\Models\LedgerAccount::query()->firstOrCreate(
+        ['code' => '51109'],
+        ['name_en' => 'Bad debt expense', 'name_ar' => 'مصروف ديون معدومة', 'type' => 'expense'],
+    );
+
+    asTenant($asset, function () {
+        $results = app(App\Services\Assistant\AnswerQuestionService::class)->answer('account 51109')['results'];
+
+        expect(collect($results)->pluck('title')->implode(' '))->toContain('51109');
+    });
+});

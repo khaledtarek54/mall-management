@@ -139,6 +139,13 @@ matches nothing.
 After all of it: **47 of 47** operating questions — 33 English, 14 Arabic — land on a destination
 their reader can act on.
 
+**A restriction has to earn its place by measurement too.** The first attempt at the two ledger
+misroutes EXCLUDED the chart of accounts from the record tier outright, on the theory that an
+account name is ordinary business vocabulary. Re-measured, it fixed **nothing** — the act-verb
+ordering is what fixed them — and it broke a legitimate question: *"account 51109"* could no longer
+reach account 51109. It was removed and the loss is pinned by a test, because the reasoning that
+produced it will look just as plausible next time.
+
 ### The gate
 
 `AssistantVocabularyConformanceTest`. A synonym under a key that is not a real screen key is

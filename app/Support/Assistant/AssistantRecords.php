@@ -66,35 +66,6 @@ final class AssistantRecords
      * @param  array<int, string>  $words
      * @return array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>
      */
-    /**
-     * Registers whose ROW NAMES are ordinary business vocabulary, so a conceptual question hits one
-     * instead of the screen that answers it.
-     *
-     * Measured against the operator playbook: "write off a bad debt" returned ledger account 51109
-     * and "close the accounting period" returned an account called *Accounting*. The chart is master
-     * data — nobody types an account name meaning to open that row — and the ledger reports are how
-     * anybody actually asks about an account.
-     */
-    public const NOT_A_NAMED_RECORD = [\App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource::class];
-
-    /**
-     * Their category labels, resolved at runtime.
-     *
-     * Derived rather than written out, because the provider keys its categories by
-     * `getPluralModelLabel()` — a TRANSLATED string. A hardcoded "Ledger Accounts" matches on an
-     * English panel and silently stops matching on an Arabic one, which is the worst kind of
-     * half-working guard: it would look fixed to whoever tested it.
-     *
-     * @return array<int, string>
-     */
-    private static function excludedCategories(): array
-    {
-        return array_map(
-            fn (string $resource): string => rescue(fn (): string => (string) $resource::getPluralModelLabel(), '', report: false),
-            self::NOT_A_NAMED_RECORD,
-        );
-    }
-
     public static function find(array $words): array
     {
         if ($words === []) {
@@ -110,13 +81,7 @@ final class AssistantRecords
 
             $found = [];
 
-            $excluded = self::excludedCategories();
-
             foreach ($results->getCategories() as $category => $items) {
-                if (in_array((string) $category, $excluded, true)) {
-                    continue;
-                }
-
                 foreach ($items as $item) {
                     if (! $item instanceof GlobalSearchResult) {
                         continue;
