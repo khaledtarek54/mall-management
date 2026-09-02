@@ -486,3 +486,56 @@ is offered on the payment form of the property he owns in, he is on that propert
 on another's, and a tenant affiliated with nowhere stays visible. It runs as a **property-restricted**
 user on purpose — `visibleAssetIds()` is null for a super_admin, so every case here would pass without
 asserting anything if it ran as one.
+
+
+## An assessment records the days it BILLED, not the month it fell in (fixed 2026-09-02)
+
+`BillUnitOwnershipsService` prorates by exactly the rule the lease run uses — it *calls*
+`MonthlyBillingService::monthsCovered()` rather than copying it — and then stamped the raw calendar
+month on the invoice anyway. An owner who took handover on 16 August was billed 16 days and handed a
+document saying **1–31 August**. The lease run had already learned this as MF-02 and says so beside
+the field it fixed: *"a final invoice that claims to cover a whole month it prorated is the document
+an auditor queries."* This sibling was written afterwards and did not follow it.
+
+**It is not a presentation fault.** `CreditUnearnedBillingService` re-derives the earned/billed split
+from `period_start`/`period_end` through that same `monthsCovered()`, so a wrong window is a wrong
+CREDIT:
+
+| | billed | seller earned | unearned ratio | credit on a 1,600 line |
+|---|---|---|---|---|
+| stamped 1–31 Aug (before) | 31 days | 20 of 31 | 0.355 | **567.74** |
+| stamped 16–31 Aug (now) | 16 days | 5 of 16 | 0.6875 | **1,100.00** |
+
+Handover 16 August, resold 21 August. The seller was short-changed by 532.26 on one line and the mall
+over-collected it — on a figure that appears on no screen beside the invoice it came from, so nobody
+re-derives it by hand.
+
+Three things move together, and the review of the first pass is what found the other two:
+
+- **`period_start` / `period_end`** are `$windowStart` / `$windowEnd` — the ownership's own tenure
+  inside the month.
+- **`issue_date`** follows, exactly as the lease run's does. Leaving it at the calendar 1st made the
+  document contradict itself — *Issue date 01/08 · Due 16/08 · Period 16/08–31/08*, issued a
+  fortnight before the owner owned anything, and falling due earlier than the identical lease
+  invoice, which the overdue scan and the late-fee run then act on. The lease run's warning that
+  moving `issue_date` *"would re-period revenue and re-number the bill"* does not reach here:
+  `isBillableForPeriod()` has already excluded a tenure starting after the period ends, so
+  `$windowStart` is always inside the same calendar month, and both the GL period
+  (`LedgerRealtimeSync::SOURCE_DATE_COLUMNS`) and the number segment (`Ym`) are unmoved.
+- **The VAT rate** resolves for `$windowStart` too. It was `$periodStart`, which was the same value
+  by accident until the window stopped being the month; a rung effective mid-month (Law 157/2025 is
+  the live case) then made the run and the FORM disagree, because `InvoiceForm` re-derives a human's
+  reading of the same document as `period_start ?: issue_date`.
+
+`alreadyBilled()` is an OVERLAP test and the stamped window is always a subset of the month it was
+billed for, so nothing becomes re-billable — asserted, because a fix that made a part-month owner
+billable twice would be worse than the fault it corrects.
+
+**Residual, stated rather than left to be found:** under `whole_month` proration, or on a
+`prorate = false` charge row, a part-month tenure is charged in full and the stamped window is then
+*narrower* than what was billed. The lease run has the identical shape, so the two agree; it is a
+property of the proration model, not of the window.
+
+Tests: `AnAssessmentRecordsTheDaysItActuallyBilledTest` — the leading edge, the trailing edge
+(`ended_at`, which the first pass left entirely unproven), the issue date, the VAT date, the
+no-double-billing control and a whole-month control. Mutation-proved four ways.

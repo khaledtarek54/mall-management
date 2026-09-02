@@ -227,7 +227,13 @@ class BillUnitOwnershipsService
 
             // The rate for the DOCUMENT's date, resolved through the catalogue — never the rate that
             // happened to be stored when the schedule row was written. Same call the lease run makes.
-            $vatRate = $charge->resolvedVatRate($periodStart);
+            // **RATED FOR THE DATE THE INVOICE WILL CARRY** — `$windowStart`, the same value the
+            // document stamps as its `period_start` and `issue_date` — not the calendar 1st. The lease run binds its rate to the effective period start and says
+            // why; here the two were the same value by accident until the invoice began stamping
+            // its real window. `InvoiceForm` resolves a human's re-derivation of this document as
+            // `period_start ?: issue_date`, so a rate rung effective mid-month (Law 157/2025 is the
+            // live case) made the run and the form disagree about what the line should bear.
+            $vatRate = $charge->resolvedVatRate($windowStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
 
             $label = $charge->name.' - '.$coveredStart->format('F Y');
@@ -258,15 +264,46 @@ class BillUnitOwnershipsService
             return null;
         }
 
+        // **ISSUED ON THE DAY THE PERIOD STARTS**, exactly as the lease run does. Leaving this at
+        // the calendar 1st while the period stamped the real window made the document contradict
+        // itself — *Issue date 01/08 · Due 16/08 · Period 16/08–31/08*, issued a fortnight before
+        // the owner owned anything, and falling due earlier than the identical lease invoice, which
+        // the overdue scan and the late-fee run then act on.
+        //
+        // The lease run's warning that moving `issue_date` "would re-period revenue and re-number
+        // the bill" does not reach here: `isBillableForPeriod()` has already excluded a tenure
+        // starting after the period ends, so `$windowStart` is always inside the same calendar
+        // month as `$periodStart` — and `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` reads
+        // `issue_date` into a GL period keyed on the month, while `DocumentNumbering`'s segment is
+        // `Ym`. Neither moves.
+        $issueDate = $windowStart;
         $today = CarbonImmutable::now()->startOfDay();
-        $dueBasis = $periodStart->greaterThan($today) ? $periodStart : $today;
+        $dueBasis = $issueDate->greaterThan($today) ? $issueDate : $today;
 
         return app(IssueInvoiceService::class)->issue(
             agreement: $locked,
             items: $items,
-            issueDate: $periodStart,
-            periodStart: $periodStart,
-            periodEnd: $periodEnd,
+            issueDate: $issueDate,
+            // **THE WINDOW ACTUALLY BILLED, NOT THE CALENDAR MONTH.** The lease run learned this as
+            // MF-02 — *"a final invoice that claims to cover a whole month it prorated is the
+            // document an auditor queries"* — and this sibling was written afterwards and stamped
+            // the raw month regardless, so an assessment prorated to 16 days recorded 31.
+            //
+            // It is not only a presentation fault. `CreditUnearnedBillingService` re-derives the
+            // split from `period_start`/`period_end` through the same `monthsCovered()` the invoice
+            // used, so a wrong window is a wrong CREDIT: an owner who took handover on 16 August
+            // and resold on the 21st was billed 16 days and earned 5 of them, and the credit was
+            // computed as though 31 had been billed — 0.355 of the line where 0.6875 was owed. The
+            // seller is short-changed and the mall over-collects, on a figure nobody re-derives by
+            // hand.
+            //
+            // **What this does NOT fix, stated rather than left to be found:** under
+            // `whole_month` proration — or on a `prorate = false` charge row — a part-month tenure
+            // is charged in full and the stamped window is then NARROWER than what was billed. The
+            // lease run has the identical shape, so the two agree; it is a residual of the
+            // proration model, not of the window.
+            periodStart: $windowStart,
+            periodEnd: $windowEnd,
             // Anchored to the later of the period start and today, exactly as the lease run does, so
             // a back-filled assessment is not born overdue and immediately penalised.
             dueDate: $dueBasis->addDays($locked->paymentTermsDays()),
