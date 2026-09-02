@@ -63,13 +63,12 @@
          building. Here rather than in five templates, so a sixth statement inherits it. --}}
     @if (($unallocated ?? null) && ($unallocated['count'] ?? 0) > 0)
         <div style="margin-top:18px; padding:10px 12px; border:1px solid #E3B23C; background:#FDF6E3; font-size:9pt;">
-            <div style="font-weight:bold; color:#14213D;">{{ __('admin.journal_entries.unallocated.heading') }}</div>
+            <div style="font-weight:bold; color:#14213D;">{{ \App\Support\UnallocatedNotice::heading() }}</div>
             <div style="margin-top:4px; color:#4A5163;">
-                {{ __('admin.journal_entries.unallocated.body', [
-                    'count' => number_format($unallocated['count']),
-                    'total' => number_format($unallocated['total'], 2),
-                    'currency' => config('app.currency', 'EGP'),
-                ]) }}
+                {{-- The ONE wording, shared with the screen and the CSV. Interpolating it here as
+                     well is how this document came to quote a different figure from the page it was
+                     printed from — and an "as at" statement must not be worded as a period. --}}
+                {{ \App\Support\UnallocatedNotice::sentence($unallocated) }}
             </div>
         </div>
     @endif

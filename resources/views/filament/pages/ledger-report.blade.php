@@ -34,14 +34,12 @@
         <x-filament::section
             icon="heroicon-o-exclamation-triangle"
             icon-color="warning"
-            :heading="__('admin.journal_entries.unallocated.heading')"
+            :heading="\App\Support\UnallocatedNotice::heading()"
         >
             <p class="text-sm text-gray-600 dark:text-gray-400">
-                {{ __('admin.journal_entries.unallocated.body', [
-                    'count' => number_format($unallocated['count']),
-                    'total' => number_format($unallocated['total'], 2),
-                    'currency' => config('app.currency', 'EGP'),
-                ]) }}
+                {{-- Worded by the page, not here: an "as at" statement must not say "this period",
+                     and the CSV copy has to read identically. --}}
+                {{ $this->unallocatedBody($unallocated) }}
             </p>
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-500">
                 <code>atriom:audit-property-dimension</code> — {{ __('admin.journal_entries.unallocated.remedy') }}

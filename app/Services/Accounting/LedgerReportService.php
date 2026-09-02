@@ -549,11 +549,40 @@ class LedgerReportService
      * Null when the read is unscoped (nothing is being excluded, so there is nothing to warn about)
      * or when there are no such entries.
      *
+     * **It must count the population its own statement would have shown.** A notice sized off a
+     * different set is worse than no notice: it names a figure that reconciles to nothing, and an
+     * operator who chases it finds the books already correct and learns to skip the box.
+     *
+     * The two narrowing arguments DEFAULT to the widest answer, because that is what every reader
+     * before them got and a silent narrowing would be the worse direction. A caller that renders a
+     * statement must still pass what that statement does — {@see ScopesLedgerReport} does it through
+     * `unallocatedExcludesClosing()` / `unallocatedAccountId()`, and
+     * {@see LedgerReportPdfService::render()} takes the same pair off the same page.
+     *
+     * `$excludeClosing` mirrors {@see aggregate()}'s own flag. The year-end close posts one entry per
+     * property AND a consolidated one for the null bucket ({@see profitLossBalancesByAsset()}), so a
+     * null-asset closing entry always exists once a year has been closed — and the income statement
+     * and cash flow exclude closing entries by construction. Without this the notice on those two
+     * counted an entry no income statement was ever going to show, roughly DOUBLING the figure (the
+     * unallocated P&L, then the entry that closes it).
+     *
+     * `$accountId` narrows it to one account, for the general ledger — that statement is one
+     * account's movements, so a portfolio-wide count answers a question the page did not ask.
+     *
+     * `cumulative` says the window had no lower bound — an *as at* read rather than a period — so
+     * the sentence can pick its tense. It is answered HERE because this method owns the window;
+     * derived again by each renderer it is a second copy that only one of them ever tests.
+     *
      * @param  array<int, int>|null  $assetIds
-     * @return array{count: int, total: float}|null
+     * @return array{count: int, total: float, cumulative: bool}|null
      */
-    public function unallocated(?array $assetIds, ?CarbonInterface $from = null, ?CarbonInterface $to = null): ?array
-    {
+    public function unallocated(
+        ?array $assetIds,
+        ?CarbonInterface $from = null,
+        ?CarbonInterface $to = null,
+        bool $excludeClosing = false,
+        ?int $accountId = null,
+    ): ?array {
         if ($assetIds === null) {
             return null;
         }
@@ -563,16 +592,33 @@ class LedgerReportService
             ->whereIn('je.status', self::REPORTABLE)
             ->whereNull('je.deleted_at')
             ->whereNull('je.asset_id')
+            ->when($excludeClosing, fn ($q) => $q->where('je.is_closing', false))
+            ->when($accountId !== null, fn ($q) => $q->where('jl.ledger_account_id', $accountId))
             ->when($from, fn ($q) => $q->whereDate('je.entry_date', '>=', $from->toDateString()))
             ->when($to, fn ($q) => $q->whereDate('je.entry_date', '<=', $to->toDateString()))
-            // Sized by DEBITS. An entry balances, so its debit total is what the entry is "worth" —
-            // summing both sides would double every figure and read as twice the exposure.
-            ->selectRaw('COUNT(DISTINCT je.id) as n, COALESCE(SUM(jl.debit),0) as t')
+            // Sized by DEBITS — but only while this is a whole-entry count. An entry balances, so
+            // its debit total is what the entry is "worth", and summing both sides would double
+            // every figure and read as twice the exposure.
+            //
+            // **That premise dies the moment `$accountId` narrows it to ONE LEG**, and getting this
+            // wrong is worse than the number it replaced: a normally-CREDITED account — bank, AP,
+            // VAT payable, deposits held — contributes no debit at all, so the notice on the general
+            // ledger of the bank read *"2 journal entries … totalling EGP 0.00"*. A warning naming
+            // zero money reads as "nothing is missing", which is the exact failure this whole notice
+            // exists to prevent. Narrowed, the figure is that account's own MOVEMENT on those
+            // entries, whichever side it fell on.
+            ->selectRaw($accountId === null
+                ? 'COUNT(DISTINCT je.id) as n, COALESCE(SUM(jl.debit),0) as t'
+                : 'COUNT(DISTINCT je.id) as n, COALESCE(SUM(jl.debit + jl.credit),0) as t')
             ->first();
 
         $count = (int) ($row->n ?? 0);
 
-        return $count === 0 ? null : ['count' => $count, 'total' => round((float) $row->t, 2)];
+        return $count === 0 ? null : [
+            'count' => $count,
+            'total' => round((float) $row->t, 2),
+            'cumulative' => $from === null,
+        ];
     }
 
     protected function aggregate(?array $assetIds, ?CarbonInterface $from, ?CarbonInterface $to, bool $excludeClosing = false): Collection

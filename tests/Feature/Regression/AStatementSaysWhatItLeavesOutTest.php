@@ -6,7 +6,6 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
-use App\Services\Accounting\LedgerReportPdfService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -116,7 +115,13 @@ it('renders the warning from the SHARED layout, so a sixth statement inherits it
     // `PdfDocument::html()`.
     $layout = file_get_contents(base_path('resources/views/accounting/pdf/layout.blade.php'));
 
-    expect($layout)->toContain('admin.journal_entries.unallocated.heading')
+    // Through the SHARED wording, not its own interpolation. Four renderers word this sentence —
+    // screen, CSV, the scheduled email's copy of that CSV, and this PDF — and three of them
+    // interpolated the same placeholders separately, which is how the PDF came to quote 134,300
+    // while the screen it was printed from said 84,300.
+    expect($layout)->toContain('UnallocatedNotice::heading()')
+        ->and($layout)->toContain('UnallocatedNotice::sentence($unallocated)')
+        ->and($layout)->not->toContain("__('admin.journal_entries.unallocated.body")
         // …and only when there is something to say.
         ->and($layout)->toContain("(\$unallocated['count'] ?? 0) > 0");
 

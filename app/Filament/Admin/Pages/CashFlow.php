@@ -186,4 +186,15 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
                 ]);
             });
     }
+
+    /**
+     * This statement passes `excludeClosing: true`, so the notice beside it must count the same
+     * population. The year-end close posts a CONSOLIDATED entry for the null-asset bucket, and
+     * counting it here sized the warning at roughly twice the money actually missing: the
+     * unallocated P&L, plus the entry that closes it.
+     */
+    protected function unallocatedExcludesClosing(): bool
+    {
+        return true;
+    }
 }

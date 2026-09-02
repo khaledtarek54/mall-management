@@ -31,7 +31,10 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.income-statement', fn (): array => [
             'report' => $this->reports->incomeStatement($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds, $period, $locale, window: [$from, $to]);
+            // Excludes year-end closing entries, exactly as `LedgerReportService::incomeStatement()`
+            // does — so the notice must not count the null-asset closing entry the statement above
+            // it was never going to show.
+        ], $assetIds, $period, $locale, window: [$from, $to], excludeClosing: true);
     }
 
     /**
@@ -74,7 +77,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.cash-flow', fn (): array => [
             'report' => $this->reports->cashFlow($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds, $period, $locale, window: [$from, $to]);
+        ], $assetIds, $period, $locale, window: [$from, $to], excludeClosing: true);
     }
 
     public function filename(string $report, string $period): string
@@ -104,11 +107,10 @@ class LedgerReportPdfService
     /**
      * @param  Closure(): array<string, mixed>  $data
      * @param  array<int>|null  $assetIds  the report's property scope; one mall means one letterhead
+     * @param  array{0: ?CarbonInterface, 1: ?CarbonInterface}|null  $window  the period the notice counts over; null = no notice
+     * @param  bool  $excludeClosing  what THIS statement does with year-end closing entries
      */
-    /**
-     * @param  array{0: CarbonInterface, 1: ?CarbonInterface}|null  $window  the period the notice counts over
-     */
-    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale, bool $landscape = false, ?array $window = null): string
+    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale, bool $landscape = false, ?array $window = null, bool $excludeClosing = false): string
     {
         // **MONEY THE STATEMENT LEAVES OUT, ON THE COPY THAT LEAVES THE BUILDING.**
         // Every ledger report scopes with `whereIn('je.asset_id', $ids)` and `whereIn` never matches
@@ -121,9 +123,19 @@ class LedgerReportPdfService
         // layout, so a sixth statement inherits the warning instead of being the one that quietly
         // omits money — the same reasoning that put `unallocatedNotice()` on the concern rather than
         // on five pages.
+        // **It must count the population THIS statement shows, and take the same two answers the
+        // screen took.** The income statement and the cash flow exclude year-end closing entries,
+        // and the close posts a consolidated one for the null-asset bucket — so counting it here
+        // sized the PDF's warning at roughly twice the money actually missing while the screen
+        // beside it said the right number. One statement, two figures, and the PDF is the copy an
+        // auditor reads.
+        //
+        // The notice carries its own `cumulative` flag, so the balance sheet's open-ended window
+        // words itself as an *as at* read here exactly as it does on screen — one derivation, in
+        // the method that owns the window, rather than a copy per renderer.
         $unallocated = $window === null
             ? null
-            : $this->reports->unallocated($assetIds, $window[0], $window[1] ?? null);
+            : $this->reports->unallocated($assetIds, $window[0], $window[1] ?? null, $excludeClosing);
 
         return PdfDocument::make($view)
             ->locale(DocumentLocale::resolve($locale))

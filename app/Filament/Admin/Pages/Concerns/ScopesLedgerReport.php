@@ -8,6 +8,7 @@ use App\Services\Accounting\LedgerReportService;
 use App\Support\Filament\PropertyField;
 use App\Support\ReportPreferences;
 use App\Support\TenantScope;
+use App\Support\UnallocatedNotice;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -298,13 +299,89 @@ trait ScopesLedgerReport
      * Lives on the concern rather than on five pages, so a sixth statement inherits the warning
      * instead of being the one that quietly omits money.
      *
-     * @return array{count: int, total: float}|null
+     * @return array{count: int, total: float, cumulative: bool}|null
      */
     protected function unallocatedNotice(): ?array
     {
+        if (! $this->unallocatedNoticeApplies()) {
+            return null;
+        }
+
         [$from, $to] = $this->unallocatedRange();
 
-        return app(LedgerReportService::class)->unallocated($this->scopedAssetIds(), $from, $to);
+        // `cumulative` comes back ON the notice, derived from the window by the method that owns
+        // it — so a statement reading everything up to a date cannot be worded as though it read a
+        // period. A balance sheet is the case: it overrides `unallocatedRange()` to open-ended, and
+        // "This period holds 47 entries" is then a claim about a span it never read.
+        return app(LedgerReportService::class)->unallocated(
+            $this->scopedAssetIds(),
+            $from,
+            $to,
+            $this->unallocatedExcludesClosing(),
+            $this->unallocatedAccountId(),
+        );
+    }
+
+    /**
+     * Whether there is a statement here for the notice to be beside at all.
+     *
+     * A page that has not been asked a question yet has no figures, and a warning saying *"They are
+     * NOT in the figures above"* about figures that do not exist is a warning about nothing. The
+     * general ledger is the case: it needs an account chosen. Its CSV already refuses outright — a
+     * scheduled delivery needs a refusal it can report — so this was the screen alone.
+     *
+     * A predicate rather than a `null` return from `unallocatedAccountId()`, because null there
+     * means the WIDEST population, not "none".
+     */
+    protected function unallocatedNoticeApplies(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Whether the notice's population excludes YEAR-END CLOSING entries — mirroring what this
+     * page's own statement does.
+     *
+     * The income statement and the cash flow pass `excludeClosing: true` to
+     * `LedgerReportService::aggregate()`; the trial balance, balance sheet and general ledger do
+     * not. The notice has to answer the same way, because the close posts a CONSOLIDATED entry for
+     * the null-asset bucket every year — so on those two pages the count included an entry no
+     * income statement was ever going to show, roughly doubling the figure.
+     *
+     * A page that changes which statement it renders must change this with it; the pair is asserted
+     * behaviourally in `UnallocatedEntriesAreVisibleNotSilentTest`, which posts a null-asset closing
+     * entry and requires the notice to fire on exactly the pages whose figures would have carried it.
+     */
+    protected function unallocatedExcludesClosing(): bool
+    {
+        return false;
+    }
+
+    /**
+     * The account the notice is about, when the statement is about ONE account.
+     *
+     * Only the general ledger is: it renders a single account's movements, so a portfolio-wide count
+     * beside it sizes a population the reader is not looking at.
+     */
+    protected function unallocatedAccountId(): ?int
+    {
+        return null;
+    }
+
+    /**
+     * The notice as one sentence.
+     *
+     * There are FOUR renderers of it — screen, CSV, the scheduled email's copy of that CSV, and the
+     * PDF — and they interpolated the same placeholders in three separate places, which is what let
+     * a PDF go out quoting a different figure from the screen it was printed from. All of them now
+     * resolve through {@see UnallocatedNotice}; this method stays because the blade calls it on
+     * `$this`.
+     *
+     * @param  array{count: int, total: float, cumulative?: bool}  $notice
+     */
+    protected function unallocatedBody(array $notice): string
+    {
+        return UnallocatedNotice::sentence($notice);
     }
 
     /**
@@ -319,8 +396,9 @@ trait ScopesLedgerReport
      * trained away long before the period it matters in — the same rule the on-screen one follows —
      * and a trailing row on every statement would be read as boilerplate.
      *
-     * Two blank cells then the sentence, so it cannot be mistaken for a data row by a spreadsheet
-     * or by a person: the figures column stays empty.
+     * A blank ROW then the sentence in the first cell, with every other cell of that row left empty —
+     * so it cannot be mistaken for a data row by a spreadsheet or by a person, and no figures column
+     * carries a number that would sum into a total.
      *
      * @param  array{filename: string, headers: array<int, string>, rows: array<int, array<int, string|int|float|null>>}  $csv
      * @return array{filename: string, headers: array<int, string>, rows: array<int, array<int, string|int|float|null>>}
@@ -336,11 +414,7 @@ trait ScopesLedgerReport
         $width = max(1, count($csv['headers']));
         $row = array_fill(0, $width, null);
 
-        $row[0] = __('admin.journal_entries.unallocated.heading').' — '.__('admin.journal_entries.unallocated.body', [
-            'count' => number_format($notice['count']),
-            'total' => number_format($notice['total'], 2),
-            'currency' => config('app.currency', 'EGP'),
-        ]);
+        $row[0] = UnallocatedNotice::line($notice);
 
         $csv['rows'][] = array_fill(0, $width, null);
         $csv['rows'][] = $row;

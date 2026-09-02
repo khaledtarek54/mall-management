@@ -172,6 +172,30 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
         return $this->accountId ? LedgerAccount::find($this->accountId) : null;
     }
 
+    /**
+     * This page is ONE account's movements, so a portfolio-wide count of unallocated entries beside
+     * it answers a question the reader did not ask — and reads as though that account were missing
+     * money it never had.
+     */
+    protected function unallocatedAccountId(): ?int
+    {
+        return $this->account()?->id;
+    }
+
+    /**
+     * …and with NO account chosen there is no statement to be missing anything FROM.
+     *
+     * Returning null from `unallocatedAccountId()` does not suppress the notice — null is the
+     * WIDEST population, the portfolio-wide count every other statement gets — so the unanswered
+     * page rendered an empty table under a warning saying *"They are NOT in the figures above"*
+     * about figures that do not exist. `reportCsv()` refuses first (a scheduled delivery needs a
+     * refusal it can report), so it was the screen alone.
+     */
+    protected function unallocatedNoticeApplies(): bool
+    {
+        return $this->account() !== null;
+    }
+
     /** @return array{opening: float, lines: Collection, closing: float} */
     protected function statement(): array
     {

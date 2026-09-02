@@ -208,6 +208,7 @@ return [
         'unallocated' => [
             'heading' => 'Not included: entries with no property',
             'body' => 'This period holds :count journal entries filed against no property, totalling :currency :total. They are NOT in the figures above — counting them here would show the same operator-wide amount in full on every mall at once.',
+            'body_as_at' => 'The books hold :count journal entries filed against no property up to this date, totalling :currency :total. They are NOT in the figures above — counting them here would show the same operator-wide amount in full on every mall at once.',
             'remedy' => 'lists them and names the document to correct.',
         ],
         'filters' => ['without_property' => 'No property (consolidated)'],

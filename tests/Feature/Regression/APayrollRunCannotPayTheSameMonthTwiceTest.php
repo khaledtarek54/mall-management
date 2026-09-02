@@ -54,7 +54,7 @@ beforeEach(function () {
 });
 
 /** A draft run for the fixture month, carrying one line for the fixture employee. */
-function draftRun(float $net = 8000, ?EmployeeAdvance $advance = null, float $deduction = 0): Payroll
+function draftPayrollWithAdvance(float $net = 8000, ?EmployeeAdvance $advance = null, float $deduction = 0): Payroll
 {
     $run = Payroll::create([
         'asset_id' => test()->asset->id,
@@ -76,8 +76,8 @@ function draftRun(float $net = 8000, ?EmployeeAdvance $advance = null, float $de
 }
 
 it('refuses to approve a second run for the same employee and month', function () {
-    $first = draftRun();
-    $second = draftRun();
+    $first = draftPayrollWithAdvance();
+    $second = draftPayrollWithAdvance();
 
     expect($this->svc->approve($first)->status)->toBe('approved');
 
@@ -96,7 +96,7 @@ it('takes the lock on the exact key, with the callback inside it', function () {
     //
     // Mocking pins the key term by term (the source grep never checked the month or the TTL) and
     // pins that the approval runs INSIDE the lock.
-    $run = draftRun();
+    $run = draftPayrollWithAdvance();
 
     $lock = Mockery::mock(Lock::class);
     $lock->shouldReceive('block')->once()->with(10, Mockery::type('Closure'))
@@ -114,7 +114,7 @@ it('refuses rather than 500s when another approval holds the lock', function () 
     // `DomainException` becomes a toast. So the operator waited ten seconds and got the error page
     // with their form state gone; the realistic trigger is the holder's process dying, because the
     // lock lives to its 30s TTL while the wait is 10s.
-    $run = draftRun();
+    $run = draftPayrollWithAdvance();
 
     $lock = Mockery::mock(Lock::class);
     $lock->shouldReceive('block')->once()->andThrow(new LockTimeoutException);
@@ -131,7 +131,7 @@ it('is idempotent under the lock, not merely before it', function () {
     // `approved_by_user_id` overwritten by the later actor, a second activity row.
     // `Payroll::saving`'s clash guard cannot catch it, because `whereKeyNot()` excludes the run from
     // its own query.
-    $run = draftRun();
+    $run = draftPayrollWithAdvance();
 
     $first = $this->svc->approve($run);
     $stamp = $first->approved_at;
@@ -155,7 +155,7 @@ it('reads the advance balance UNDER the lock it just took', function () {
         'advance_date' => $this->month->toDateString(), 'paid_from' => 'cash',
     ]);
 
-    $run = draftRun(7000, $advance, 1000);
+    $run = draftPayrollWithAdvance(7000, $advance, 1000);
 
     $spy = LockSpy::watch(fn () => $this->svc->approve($run));
 
@@ -223,7 +223,7 @@ it('refuses a run that would over-repay an advance', function () {
         'advance_date' => $this->month->toDateString(), 'paid_from' => 'cash',
     ]);
 
-    $run = draftRun(6000, $advance, 2000);   // 2,000 against a 1,000 loan
+    $run = draftPayrollWithAdvance(6000, $advance, 2000);   // 2,000 against a 1,000 loan
 
     expect(fn () => $this->svc->approve($run))->toThrow(DomainException::class);
 
@@ -231,7 +231,7 @@ it('refuses a run that would over-repay an advance', function () {
 });
 
 it('still approves an ordinary run — the control for every refusal above', function () {
-    $run = draftRun();
+    $run = draftPayrollWithAdvance();
 
     expect($this->svc->approve($run)->status)->toBe('approved')
         ->and($run->fresh()->approved_at)->not->toBeNull();
@@ -255,7 +255,7 @@ it('answers the same figure locked or not, on a populated advance', function () 
         'method' => 'cash',
     ]);
 
-    $run = draftRun(7000, $advance, 1500);
+    $run = draftPayrollWithAdvance(7000, $advance, 1500);
     $this->svc->approve($run);
 
     $fresh = $advance->fresh();

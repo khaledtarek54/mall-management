@@ -1033,7 +1033,7 @@ would be right. Instead `LedgerReportService::unallocated()` counts them and eve
 renders a notice above the table naming the count, the amount and
 `atriom:audit-property-dimension`, which is what finds and corrects them.
 
-Three properties of the notice worth keeping:
+Properties of the notice worth keeping:
 
 - **Silent on clean books and on an unscoped read.** A warning that appeared on a healthy period
   would be trained away within a week; and an unscoped read has no `whereIn`, so the entries ARE in
@@ -1044,6 +1044,42 @@ Three properties of the notice worth keeping:
   rather than being the one that quietly omits money. The balance sheet overrides the window to
   "everything up to the date", because it is an *as at* statement and a month's worth would
   understate what it is missing.
+
+### It must count the population ITS OWN statement shows (2026-09-02)
+
+A notice sized off a different set is **worse than no notice**: it names a figure that reconciles to
+nothing, and an operator who chases it finds the books already correct and learns to skip the box.
+Three ways it was sized wrong, and one way the fix was:
+
+- **Year-end closing entries.** `incomeStatement()` and `cashFlow()` pass `excludeClosing: true` to
+  `aggregate()`, and `profitLossBalancesByAsset()` posts a **consolidated** closing entry for the
+  null-asset bucket every year — so on those two pages the notice counted an entry no income
+  statement was ever going to show, roughly **doubling** the figure (the unallocated P&L, then the
+  entry that closes it). `unallocated()` now takes `excludeClosing`, and
+  `ScopesLedgerReport::unallocatedExcludesClosing()` (default false) is true on exactly those two.
+  The trial balance and balance sheet, whose figures DO carry the close, still count it.
+- **The general ledger is ONE account's movements.** A portfolio-wide count beside it answers a
+  question the reader did not ask, and reads as though that account were missing money it never had.
+  `unallocatedAccountId()` narrows it — and **narrowed, `SUM(jl.debit)` is the wrong aggregate**: a
+  normally-CREDITED account (bank, AP, VAT payable, deposits held) contributes no debit at all, so
+  the bank's ledger read *"2 journal entries … totalling EGP 0.00"*. A warning naming **zero money**
+  reads as "nothing is missing", which is precisely the failure the notice exists to prevent.
+  Narrowed, the figure is that account's own movement, whichever side it fell on.
+- **A page nobody has asked a question of has no figures.** With no account chosen the general ledger
+  rendered an empty table under a warning saying *"They are NOT in the figures above"*. Returning
+  null from `unallocatedAccountId()` does not suppress it — null there means the WIDEST population —
+  so the suppression is its own predicate, `unallocatedNoticeApplies()`.
+- **Fixing the screen and the CSV and not the PDF is worse than fixing neither.** The PDF took both
+  new arguments' defaults for a day, so one income statement left the building quoting **134,300**
+  while the screen it was printed from said **84,300**. A consistent overstatement is diagnosable;
+  two copies of one statement disagreeing is not, and the PDF is the copy an auditor reads.
+  `LedgerReportPdfService::render()` takes the same pair.
+
+**`App\Support\UnallocatedNotice` is the ONE wording.** Four renderers — screen, CSV, the scheduled
+email's copy of that CSV, and the PDF — interpolated the same three placeholders in three separate
+places, which is what let the PDF drift. And `cumulative` (the flag that stops an *as at* statement
+being worded *"This period holds…"*) is answered by `unallocated()` itself, which owns the window,
+rather than derived again per renderer — where only one of the copies ever gets a test.
 
 **Consolidated statements remain unreachable** — that is the other half of EG-27 and it reopens the
 "All-Properties mode removed" decision, so it stays open rather than being drifted into.
