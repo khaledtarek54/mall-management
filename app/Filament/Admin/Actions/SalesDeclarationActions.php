@@ -188,9 +188,27 @@ class SalesDeclarationActions
      * perms; without the action-side gate they could Lock (bill an overage invoice + post GL),
      * Dispute, or Void a declaration via mountAction. The permission AND the status are re-checked.
      */
+    /**
+     * **`disputed` is a state you come BACK from, and nothing let you.**
+     *
+     * The workflow this module documents is void → correct → re-bill: `voidLocked()` reverses the
+     * overage invoice, deactivates the percentage-rent charge and sets the declaration to
+     * `disputed`; `dispute` puts a `submitted` one there for the same reason. The operator then
+     * agrees the corrected turnover with the tenant and locks it again — except that this predicate
+     * required `submitted`, so from `disputed` there was no forward move on any screen. The
+     * declaration sat there, the corrected percentage rent was never billed, and the only way out
+     * was a hand-edited status column.
+     *
+     * The SERVICE was ready for it the whole time: `lock()` early-returns only on `locked`, and
+     * `settleBillingPeriods()` is re-lock safe by design — *"a period whose total is unchanged is
+     * left alone, payment and all"*. And a `disputed` declaration is editable (`canEdit()` refuses
+     * only `locked`, and the frozen-columns hook fires only when the ORIGINAL status was `locked`),
+     * so correcting the figure before re-locking is an ordinary edit. The dead end was here alone.
+     */
     public static function canLock(TenantSalesDeclaration $record): bool
     {
-        return $record->status === 'submitted' && (auth()->user()?->can('tenant_sales.lock') ?? false);
+        return in_array($record->status, ['submitted', 'disputed'], true)
+            && (auth()->user()?->can('tenant_sales.lock') ?? false);
     }
 
     public static function canVoid(TenantSalesDeclaration $record): bool

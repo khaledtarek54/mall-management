@@ -66,7 +66,12 @@ class CreatePayment extends CreateRecord
     {
         $this->callHook('beforeFill');
 
-        $tenantId = (int) request()->query('tenant', 0);
+        // **`for_tenant`, NOT `tenant`.** `tenant` is Filament's own tenancy ROUTE parameter, so
+        // `PaymentResource::getUrl('create', ['tenant' => $id])` put the tenant id in the PATH where
+        // the mall's slug belongs — `/admin/{tenantId}/payments/create`, a 404 — and the prefill this
+        // method exists for could never fire. Both producers had it: the collections worklist and
+        // the tenant hub's own "Record payment" button.
+        $tenantId = (int) request()->query('for_tenant', 0);
         $invoiceId = (int) request()->query('invoice', 0);
 
         $state = [];

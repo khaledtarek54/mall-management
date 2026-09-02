@@ -883,3 +883,31 @@ complete and costless way to avoid percentage rent: the scan chased and nothing 
 - Never overwrites a real declaration — re-checked under a lock inside the transaction.
 
 Tests: `tests/Feature/Regression/PercentageRentTiersAndDeductionsTest.php`.
+
+
+## A disputed declaration can be re-locked (SW-159, fixed 2026-09-02)
+
+The workflow this module documents is **void → correct → re-bill**. `voidLocked()` reverses the
+overage invoice, deactivates the percentage-rent charge and sets the declaration to `disputed`;
+`dispute` puts a `submitted` one there for the same reason. The operator then agrees the corrected
+turnover with the tenant and locks it again.
+
+Except `SalesDeclarationActions::canLock()` required `submitted`, so **from `disputed` there was no
+forward move on any screen**. The declaration sat there, the corrected percentage rent was never
+billed, and the only way out was somebody hand-editing a status column.
+
+**The service was ready for it the whole time**, which is what makes this one predicate the entire
+defect:
+
+- `PercentageRentCalculationService::lock()` early-returns only on `locked`.
+- `settleBillingPeriods()` is re-lock safe by design — *"a period whose total is unchanged is left
+  alone, payment and all"* — and `retrueAnnualYear()` re-trues the whole year on the annual basis.
+- A `disputed` declaration is **editable**: `canEdit()` refuses only `locked`, and the
+  frozen-columns hook fires only when the ORIGINAL status was `locked`. So correcting the certified
+  figure before re-locking is an ordinary edit, not a workaround.
+
+`locked` is still refused — the service would no-op, but a button offering it says the declaration is
+not final when it is — and the permission half (`tenant_sales.lock`) is unchanged.
+
+Tests: `ADisputedDeclarationCanBeReLockedTest` — the predicate, the whole void → correct → re-lock
+loop with the figure moving from 30,800 to 14,000, and both controls. Mutation-proved.

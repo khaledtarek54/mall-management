@@ -830,3 +830,17 @@ other one. Without it an Arabic document renders an English sentence as `.Issued
 
 See [OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference) for the
 whole rule, and `ADocumentIsWrittenInItsReadersLanguageTest` for what is pinned.
+
+
+> **⚠️ "RECORD PAYMENT" BUILT A 404 (SW-175, fixed 2026-09-02).** `tenant` is **Filament's own
+> tenancy ROUTE parameter** — the mall's segment in every admin URL — so
+> `PaymentResource::getUrl('create', ['tenant' => $tenantId])` did not append a query string: it
+> substituted the RETAILER's id for the MALL's slug and produced `/admin/{tenantId}/payments/create`.
+> The operator got a 404, and `CreatePayment::fillForm()`, which reads `request()->query('tenant')`,
+> was looking for a key the URL never carried.
+>
+> **Two producers had it and the sweep row named one** — the collections worklist AND the tenant
+> hub's own *Record payment* button, which is the daily loop the prefill was built for (call the
+> tenant, they say they paid, record it). The parameter is `for_tenant` now, which is not a route
+> parameter of any panel, so Filament appends it to the query string where `fillForm()` looks.
+> (`RecordPaymentLandsOnTheFormWithTheTenantTest`.)

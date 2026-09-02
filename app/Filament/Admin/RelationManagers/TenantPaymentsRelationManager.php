@@ -99,7 +99,9 @@ class TenantPaymentsRelationManager extends RelationManager
                     ->icon('heroicon-o-banknotes')
                     ->visible(fn (): bool => Auth::user()?->can('payments.create') ?? false)
                     ->url(fn (RelationManager $livewire): string => PaymentResource::getUrl('create', [
-                        'tenant' => $livewire->getOwnerRecord()->getKey(),
+                        // `for_tenant`, never `tenant`: that key is Filament's tenancy ROUTE parameter and would
+                        // put the tenant id in the path where the mall's slug belongs — a 404.
+                        'for_tenant' => $livewire->getOwnerRecord()->getKey(),
                     ])),
             ])
             ->recordActions([])

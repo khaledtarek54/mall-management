@@ -231,7 +231,7 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
                     ->color('gray')
                     ->visible(fn (): bool => Auth::user()?->can('payments.create') ?? false)
                     ->url(fn (array $record): ?string => $record['tenant_id']
-                        ? PaymentResource::getUrl('create', ['tenant' => $record['tenant_id']])
+                        ? PaymentResource::getUrl('create', ['for_tenant' => $record['tenant_id']])
                         : null),
                 // The chase itself: the statement is what you attach to the call or the email.
                 PdfDownloadAction::make('statement')
