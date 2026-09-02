@@ -174,7 +174,7 @@ which is the same failure this repo gates for generated doc blocks.
 |---|---|---|---|---|---|
 | **SW-088** | ✅ **fixed** `fb85e218` | high | — | The per-property proration override renders as a NUMERIC box — the setting is unsettable, and anything typed is silently discarded | `Filament/Admin/Pages/PropertyOverrides:149` |
 | **SW-089** | ✅ **fixed** `5041571a` | high | — | Two unvalidated free-text time fields feed cron expressions — "24:00" stops the entire scheduler | `Filament/Admin/Pages/Settings:381` |
-| **SW-090** | ✅ **fixed** `3e7ed109` | high | S | Payroll add-line modal renders allowances / other deductions / deduction note / employer SI and silently discards all four on save | `Filament/Admin/RelationManagers/PayrollLinesRelationManager:232` |
+| **SW-090** | ✅ **fixed** `494c7fbd` | high | S | Payroll add-line modal renders allowances / other deductions / deduction note / employer SI and silently discards all four on save | `Filament/Admin/RelationManagers/PayrollLinesRelationManager:232` |
 | **SW-091** | ✅ **fixed** `5e159676` | high | S | Un-settled custody's custody_date can be back-dated into a closed period through the Edit form — row saves, GL re-post silently refused | `Filament/Admin/Resources/Custodies/Pages/EditCustody:11` |
 | **SW-092** | open | high | — | Two payroll runs for the same month can both be approved concurrently — the double-pay guard takes no lock, and the advance re-check decides from a pre-lock snapshot | `Services/PayrollService:48` |
 | **SW-093** | open | medium | — | The audit trail cannot be filtered or searched by WHO acted — its most-asked question is unanswerable on screen and in the scheduled CSV | `Filament/Admin/Pages/ActivityLog:207` |
