@@ -17,7 +17,7 @@ class ListCreditNotesController extends ApiController
     {
         $query = $request->user()->creditNotes()
             ->visibleToTenant()
-            ->with('invoice')
+            ->with(['invoice', 'items'])
             ->latest('issue_date');
 
         if ($status = $request->query('status')) {

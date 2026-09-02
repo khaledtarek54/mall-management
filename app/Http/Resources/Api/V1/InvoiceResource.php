@@ -68,6 +68,12 @@ class InvoiceResource extends JsonResource
 
             // Relations — only present on the detail endpoint (eager-loaded).
             'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
+            // The shop this document is FOR, through whichever agreement raised it. The client can
+            // reach it through `lease` or `unit_ownership` below, and should not have to: the
+            // portal learnt the same lesson the hard way, where reading `lease.unit.code` directly
+            // "rendered every owner assessment with a blank unit". One accessor, one answer.
+            'unit_code' => $this->unitCode(),
+
             // **An owner's assessment carries no lease**, and until now it carried nothing else
             // either: `invoices.lease_id` is nullable and `unit_ownership_id` exists precisely so a
             // unit owner with no tenancy can be billed. `whenLoaded` guards the null, so nothing

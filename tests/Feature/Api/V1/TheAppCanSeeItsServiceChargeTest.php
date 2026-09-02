@@ -152,3 +152,58 @@ it('filters by year and by status', function () {
     expect($this->getJson('/api/v1/me/cam-allocations?status=billed', apiHeaders($this->tenant))
         ->assertOk()->json('data'))->toHaveCount(1);
 });
+
+/**
+ * The four fields the parity gate found the day it was written — each a thing the portal renders
+ * and the API did not, kept here as behaviour rather than as a source sweep.
+ */
+it('says what a credit note actually credited', function () {
+    $note = $this->tenant->creditNotes()->create([
+        'number' => 'CN-'.uniqid(),
+        'asset_id' => $this->asset->id,
+        'status' => 'issued', 'reason' => 'adjustment',
+        'subtotal' => 1500, 'total' => 1500, 'balance' => 1500,
+        'issue_date' => now(), 'currency' => 'EGP',
+    ]);
+    $note->items()->create([
+        'description' => 'Service charge — three weeks the mall was shut',
+        'amount' => 1500, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 1500,
+    ]);
+
+    $data = $this->getJson("/api/v1/me/credit-notes/{$note->id}", apiHeaders($this->tenant))
+        ->assertOk()->json('data');
+
+    // A number and the one-word `reason` were all the app had. Neither says which charge was
+    // credited, which is the only thing the tenant wants to know.
+    expect($data['items'])->toHaveCount(1)
+        ->and($data['items'][0]['description'])->toBe('Service charge — three weeks the mall was shut');
+});
+
+it('gives the tenant the references they need to chase their own money', function () {
+    $payment = $this->tenant->payments()->create([
+        'amount' => 5000, 'currency' => 'EGP', 'method' => 'cheque', 'status' => 'captured',
+        'payment_date' => now(),
+        'cheque_number' => '000451',
+        'cheque_clearance_date' => now()->addDays(5),
+        'notes' => 'Credited against August, not September.',
+    ]);
+
+    $data = $this->getJson("/api/v1/me/payments/{$payment->id}", apiHeaders($this->tenant))
+        ->assertOk()->json('data');
+
+    // "Did you get my cheque?" is the most common call a mall office takes, and the tenant could
+    // not see which cheque had been recorded. All four are on the portal's payment view.
+    expect($data['chequeNumber'])->toBe('000451')
+        ->and($data['chequeClearanceDate'])->not->toBeNull()
+        ->and($data['notes'])->toBe('Credited against August, not September.');
+});
+
+it('names the shop on an invoice, through whichever agreement raised it', function () {
+    $invoice = makeInvoice($this->lease, ['status' => 'issued']);
+
+    // One field instead of the client branching across `lease` and `unit_ownership`. The portal
+    // learnt this the hard way: reading `lease.unit.code` directly "rendered every owner
+    // assessment with a blank unit".
+    expect($this->getJson("/api/v1/me/invoices/{$invoice->id}", apiHeaders($this->tenant))
+        ->assertOk()->json('data.unitCode'))->toBe('A-01');
+});

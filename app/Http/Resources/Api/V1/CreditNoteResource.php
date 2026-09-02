@@ -30,6 +30,11 @@ class CreditNoteResource extends JsonResource
             'issue_date' => optional($this->issue_date)->toDateString(),
             'applied_at' => optional($this->applied_at)->toIso8601String(),
 
+            // WHAT was credited. The portal has rendered these lines since it shipped and this
+            // resource sent only the totals, so a tenant saw a number and a one-word `reason` and
+            // could not tell which charge had been credited.
+            'items' => CreditNoteItemResource::collection($this->whenLoaded('items')),
+
             // The invoice this credit was raised against (null for standalone
             // tenant-level credits). Only present when eager-loaded.
             'invoice' => $this->whenLoaded('invoice', fn () => $this->invoice ? [

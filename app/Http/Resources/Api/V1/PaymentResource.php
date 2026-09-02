@@ -30,6 +30,17 @@ class PaymentResource extends JsonResource
             // When the captured-payment receipt fired (null until captured).
             'receipt_at' => optional($this->receipt_notified_at)->toIso8601String(),
 
+            // **The references a tenant needs to chase their own money**, all four rendered on the
+            // portal's payment view and none of them on the wire. A tenant who paid by CHEQUE could
+            // not see which cheque the mall had recorded — the single most common "did you get it?"
+            // call — and one who paid by CARD had no gateway reference to quote to their own bank
+            // when a charge was queried. `notes` is the operator's line about this receipt, which
+            // is often where "credited against August, not September" is written down.
+            'gateway_transaction_id' => $this->gateway_transaction_id,
+            'cheque_number' => $this->cheque_number,
+            'cheque_clearance_date' => optional($this->cheque_clearance_date)->toDateString(),
+            'notes' => $this->notes,
+
             // Per-invoice allocation. A single payment can clear several
             // invoices; each row carries how much of this payment landed on
             // that invoice (the invoice_payment.allocated_amount pivot value).

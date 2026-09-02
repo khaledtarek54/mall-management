@@ -63,6 +63,18 @@ the registry is `App\Support\TenantVisibility` and it is shared with the mobile 
 portal and `/api/v1` are the same surface with different renderers. See
 [module 20](20-mobile-api.md#3-business-rules--invariants).
 
+> **That rule is GATED since 2026-09-02, and it had drifted seven times before it was.**
+> `PortalAndApiAnswerTheSameQuestionsConformanceTest` + `App\Support\PortalApiParity` require an
+> `/api/v1` counterpart for every portal resource and every field its detail view renders. It had
+> been honoured for VISIBILITY — drafts hidden from both, fixed twice, each with a test — and
+> silently not for CONTENT, because there was a gate for the first question and none for the
+> second. The two worst gaps were not incompleteness but silence: the **deposit shortfall**, which
+> is never invoiced, so the portal figure was the ONLY channel by which a tenant was ever told they
+> still owed one; and **credit on account**, the tenant's own money, which looked lost in the app
+> and then silently part-settled an invoice. Neither was a bug in an endpoint — every endpoint
+> returned exactly what it promised. They were commits that landed on the portal and stopped there,
+> which only a comparison can see.
+
 ## 2. Domain model
 
 ### TenantUser table & model

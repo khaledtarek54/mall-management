@@ -4132,6 +4132,38 @@
                 ],
                 "title": "CreateTenantRequestRequest"
             },
+            "CreditNoteItemResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "vatRate": {
+                        "type": "number"
+                    },
+                    "vatAmount": {
+                        "type": "number"
+                    },
+                    "total": {
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "id",
+                    "description",
+                    "amount",
+                    "vatRate",
+                    "vatAmount",
+                    "total"
+                ],
+                "title": "CreditNoteItemResource"
+            },
             "CreditNoteResource": {
                 "type": "object",
                 "properties": {
@@ -4170,6 +4202,13 @@
                     },
                     "appliedAt": {
                         "type": "string"
+                    },
+                    "items": {
+                        "type": "array",
+                        "description": "WHAT was credited. The portal has rendered these lines since it shipped and this\nresource sent only the totals, so a tenant saw a number and a one-word `reason` and\ncould not tell which charge had been credited.",
+                        "items": {
+                            "$ref": "#/components/schemas/CreditNoteItemResource"
+                        }
                     },
                     "invoice": {
                         "type": [
@@ -4392,6 +4431,13 @@
                             "$ref": "#/components/schemas/InvoiceItemResource"
                         }
                     },
+                    "unitCode": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The shop this document is FOR, through whichever agreement raised it. The client can\nreach it through `lease` or `unit_ownership` below, and should not have to: the\nportal learnt the same lesson the hard way, where reading `lease.unit.code` directly\n\"rendered every owner assessment with a blank unit\". One accessor, one answer."
+                    },
                     "unitOwnership": {
                         "type": "object",
                         "description": "**An owner's assessment carries no lease**, and until now it carried nothing else\neither: `invoices.lease_id` is nullable and `unit_ownership_id` exists precisely so a\nunit owner with no tenancy can be billed. `whenLoaded` guards the null, so nothing\ncrashed \u2014 the invoice simply rendered with no unit, no floor and no property, and an\nowner of three shops saw three identical-looking bills.",
@@ -4490,7 +4536,8 @@
                     "notes",
                     "isOverdue",
                     "daysOverdue",
-                    "paymentLinkUrl"
+                    "paymentLinkUrl",
+                    "unitCode"
                 ],
                 "title": "InvoiceResource"
             },
@@ -5130,6 +5177,28 @@
                         "type": "string",
                         "description": "When the captured-payment receipt fired (null until captured)."
                     },
+                    "gatewayTransactionId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "**The references a tenant needs to chase their own money**, all four rendered on the\nportal's payment view and none of them on the wire. A tenant who paid by CHEQUE could\nnot see which cheque the mall had recorded \u2014 the single most common \"did you get it?\"\ncall \u2014 and one who paid by CARD had no gateway reference to quote to their own bank\nwhen a charge was queried. `notes` is the operator's line about this receipt, which\nis often where \"credited against August, not September\" is written down."
+                    },
+                    "chequeNumber": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "chequeClearanceDate": {
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "allocations": {
                         "type": "array",
                         "description": "Per-invoice allocation. A single payment can clear several\ninvoices; each row carries how much of this payment landed on\nthat invoice (the invoice_payment.allocated_amount pivot value).",
@@ -5164,7 +5233,11 @@
                     "paymentDate",
                     "gateway",
                     "channel",
-                    "receiptAt"
+                    "receiptAt",
+                    "gatewayTransactionId",
+                    "chequeNumber",
+                    "chequeClearanceDate",
+                    "notes"
                 ],
                 "title": "PaymentResource"
             },
@@ -6068,11 +6141,31 @@
                             },
                             "reference": {
                                 "type": "string"
+                            },
+                            "unit": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "description": "The shop the turnover is for. The portal shows it on both the list and the\ndetail; a tenant trading from two units could not tell their declarations apart\nin the app, and a percentage-rent lease is exactly the kind that has two.",
+                                "properties": {
+                                    "id": {
+                                        "type": "integer"
+                                    },
+                                    "code": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "code"
+                                ]
                             }
                         },
                         "required": [
                             "id",
-                            "reference"
+                            "reference",
+                            "unit"
                         ]
                     },
                     "attachments": {

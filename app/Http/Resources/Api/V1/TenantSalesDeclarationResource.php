@@ -44,6 +44,13 @@ class TenantSalesDeclarationResource extends JsonResource
             'lease' => $this->whenLoaded('lease', fn () => [
                 'id' => $this->lease->id,
                 'reference' => $this->lease->reference,
+                // The shop the turnover is for. The portal shows it on both the list and the
+                // detail; a tenant trading from two units could not tell their declarations apart
+                // in the app, and a percentage-rent lease is exactly the kind that has two.
+                'unit' => $this->lease->relationLoaded('unit') && $this->lease->unit ? [
+                    'id' => (int) $this->lease->unit->id,
+                    'code' => $this->lease->unit->code,
+                ] : null,
             ]),
             // The tenant's uploaded sales report (Spatie `sales_report`
             // collection). Absolute, authenticated, tenant-scoped stream URLs —
