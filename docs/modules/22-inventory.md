@@ -109,8 +109,11 @@ become under-reporting — a portfolio question deserves a portfolio answer).
    hand (no negative stock / phantom COGS); concurrent consumptions serialise.
 7. **Every movement carries a value** — a receipt's `unit_cost` is **required** (prefilled
    from the item; a 0-cost receipt would silently post nothing to the GL); consumption and
-   adjustments default their `unit_cost` to the item's **standard cost** when the caller
-   supplies none, so a shrinkage write-off always hits Inventory Adjustment.
+   adjustments default their `unit_cost` to the **weighted-average cost of the stock on hand**
+   when the caller supplies none (rule 10), so a shrinkage write-off always hits Inventory
+   Adjustment at what the stock was actually loaded at. *(It read the item's STANDARD cost
+   until 2026-08-11; that is the hole rule 10 closed, and this rule described it for months
+   afterwards.)*
 8. **Warehouse soft-delete is GL-safe** — `StockMovement::warehouse()` is `withTrashed`, so
    a live movement stays attributable (its journal entry isn't voided) after its warehouse
    is archived.
@@ -128,12 +131,20 @@ become under-reporting — a portfolio question deserves a portfolio answer).
 
 10. **Stock is relieved at what it was LOADED at — weighted average, per warehouse.**
     `StockMovementService::weightedAverageCost()` is the single answer to "what is this stock
-    worth": the average of the costs on the movements that ADDED it, in that warehouse. Every
-    path that relieves inventory without a stated cost reads it — `record()`'s fallback and the
-    work-order part draw — so the value credited out of Inventory can never diverge from the
-    value debited in. A caller who states a cost still wins (an auditor-valued write-off), and
-    an item with nothing received falls back to the catalogue figure, which is the only answer
-    available.
+    worth": `Σ(quantity × unit_cost) ÷ Σ(quantity)` over every movement, signed, in that
+    warehouse. That is **exactly** the Inventory account's balance divided by the stock on hand
+    — `InventoryMovementJournalizer` posts `abs(quantity) × unit_cost` as a debit for a movement
+    that adds and a credit for one that removes, and `onHand()` sums the same rows — so the two
+    cannot diverge by construction rather than by diligence. Every path that relieves inventory
+    without a stated cost reads it: `record()`'s fallback, the work-order part draw and the
+    tenant-request consumption door. A caller who states a cost still wins (an auditor-valued
+    write-off, or a part frozen at request time), and an item with nothing on hand falls back to
+    the catalogue figure, which is the only answer available.
+
+    *(It averaged only the movements that ADDED stock until 2026-09-02 — every receipt ever, whether
+    still on the shelf or issued three years ago — which diluted each new price with history that no
+    longer existed and left a permanent, compounding residual. See "The average is of what is ON THE
+    SHELF" below, including why a date-ordered replay is the WRONG repair.)*
 
     **This closed a hole in the balance sheet (2026-08-11).** The fallback used to read the
     item's *current* catalogue `unit_cost`. Receive 10 @ 100 (Dr Inventory 1,000), edit the item
@@ -370,25 +381,45 @@ are drawn off these balances. It is the same hole the standard-cost fallback ope
 `InventoryCostBasisDriftTest`), reached by a different road: relieving stock at a figure that is not
 what it was loaded at.
 
-It is now the standard **perpetual moving average** — it replays the movement ledger in order, an ADD
-contributing its own quantity and value and a REMOVE relieving at the average *as it stood at that
-moment*, which is exactly what that movement was posted at. What survives is the value of the stock
-that survived, so the credit out can never diverge from the debit in. No new table: the ledger
-already carries every quantity and the cost it moved at.
+It is now `Σ(quantity × unit_cost) ÷ Σ(quantity)` over every movement, **signed** — which is not one
+plausible average among several. It is **exactly** the Inventory account's balance divided by the
+stock on hand, because `InventoryMovementJournalizer` posts `abs(quantity) × unit_cost` as a debit
+for a movement that adds and a credit for one that removes, and `onHand()` sums the same rows. The
+figure stock is relieved at therefore cannot diverge from the figure the books hold, by construction
+rather than by diligence. One aggregate on the index the register already uses; no new table.
 
-**Order is `moved_on` then `id`**, and it is load-bearing rather than tidiness. `moved_on` is a date,
-several movements land on one day, and a back-dated correction is keyed *after* the movements it
-precedes — so keying order and the order things happened are different sequences, and following the
-wrong one gives a different answer, not a slightly wrong one. Measured on six rows: 15 against 20.
+### Why the OBVIOUS repair is wrong, measured
 
-**An `adjustment` is a SIGNED correction** and is in neither `ADDS_STOCK` nor `REMOVES_STOCK`, so the
-sign decides — a positive one is found stock that carries a cost, a negative one is a write-off
-relieved at the average. That is why the replay reads every type rather than a list.
+Replaying the ledger in date order as a textbook moving average is the intuitive fix, and it
+**re-creates the very residual this exists to remove**. A relief row's `unit_cost` is decided at
+RECORD time, is immutable afterwards (`ChangeImpact` lists `quantity`, `unit_cost` and `moved_on` as
+REFUSED) and is the only thing the GL posts from. A back-dated movement is keyed *after* the
+movements it precedes, so a date-ordered replay computes a cost that was never posted and can never
+be posted:
+
+> Jan receive 100 @ 10 · Mar issue 100 (posted at 10) · Feb receive 100 @ 20, **keyed last**.
+> The replay says **15**. The ledger holds **2,000 for 100 units** — 20. Issue them and Inventory
+> closes at 500 on an empty shelf.
+
+The signed aggregate answers 20 and ties out, because it reads what was POSTED rather than
+re-deriving what should have been. It is immune to the rest of that family too: an over-relief keyed
+before its receipts, a caller stating its own cost, a transfer's two legs (same cost, they net —
+which is what the journalizer already says about a transfer), and per-step rounding, where one
+division absorbs the cents a step-by-step relief strands as a permanent credit on an asset account.
+
+**An `adjustment` needs no special case.** It is a signed correction in neither `ADDS_STOCK` nor
+`REMOVES_STOCK`, and the aggregate reads the sign that is already on the row.
 
 Origination only: every existing movement keeps the `unit_cost` it was posted at, so nothing
-re-values history.
+re-values history and a ledger re-derive moves no entry.
+
+**One door was still relieving at the catalogue cost** — the tenant-request consumption relation
+manager, which the invariant above had claimed for months was covered. Measured: 100 @ 10 then
+100 @ 30 (Inventory 4,000), issue 100 at the catalogue's 10, and 3,000 stands for 100 units really
+worth 2,000 — from a single click. It now states no cost, which is what makes the service value it.
 
 Tests: `StockIsRelievedAtWhatIsOnTheShelfTest` — the diluted cycle, a genuinely mixed shelf that must
 still average to 15 (so a fix that simply took the last price would fail), a part issue then a fresh
-receipt, both signs of adjustment, the empty-shelf fallback, and a back-dated movement. Mutation-
-proved on the average and on the ordering.
+receipt, both signs of adjustment, the empty-shelf fallback, the back-dated movement **with a ledger
+assertion beside it**, unit-at-a-time rounding, the consumption door, and the invariant itself
+(`cost === Inventory balance ÷ on hand`) asserted directly. Mutation-proved two ways.

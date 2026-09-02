@@ -299,84 +299,65 @@ class StockMovementService
      * Per warehouse — the GL dimensions inventory by the warehouse's property, so a portfolio-wide
      * average would relieve one mall's Inventory at another mall's purchase price.
      *
-     * ## It is a MOVING average, and averaging every receipt ever was a permanent residual
+     * ## It is the LEDGER's own value per unit, and that is what makes it un-divergeable
      *
-     * This used to average the ADDS_STOCK movements alone — every receipt the item had ever had,
-     * whether that stock is still on the shelf or was issued three years ago. So a price rise is
-     * diluted by history that no longer exists:
+     * `Σ(quantity × unit_cost) ÷ Σ(quantity)` over every movement, signed. That is not one plausible
+     * average among several — it is **exactly** the Inventory account's balance divided by the stock
+     * on hand, because `InventoryMovementJournalizer` posts `abs(quantity) × unit_cost` as a debit
+     * for a movement that adds and a credit for one that removes, and `onHand()` is `SUM(quantity)`
+     * over the same rows. So the figure this relieves at can never diverge from the figure the books
+     * hold, by construction rather than by diligence.
      *
-     *  - receive 100 @ 10 → Inventory Dr 1,000; issue all 100 → Cr 1,000. On hand 0, Inventory 0.
-     *  - receive 100 @ 20 → Inventory Dr 2,000. The old average is (100×10 + 100×20) ÷ 200 = **15**.
-     *  - issue those 100 → Inventory credited 1,500 against a 2,000 debit.
+     * ## What it replaced, and the trap in between
      *
-     * On hand 0 and Inventory standing at **500** for stock that is gone — and it COMPOUNDS, because
-     * the next receipt is diluted by both. Nothing re-derives a perpetual account, so the residual is
-     * permanent and owner statements are drawn off these balances. It is the same hole the
-     * standard-cost fallback opened (see `record()`), reached by a different road: relieving stock at
-     * a figure that is not what it was loaded at.
+     * It used to average the `ADDS_STOCK` movements alone — every receipt the item had ever had,
+     * whether that stock is still on the shelf or was issued three years ago. A price rise was then
+     * diluted by history that no longer exists: receive 100 @ 10 and issue it all, receive 100 @ 20,
+     * and the average is 15. Issuing those 100 credits Inventory 1,500 against a 2,000 debit — 500
+     * standing in a perpetual asset account for stock that is gone, on hand nil, compounding with
+     * every later receipt.
      *
-     * The perpetual moving average replays the ledger in order: an ADD contributes its own quantity
-     * and value; a REMOVE relieves at the average **as it stood at that moment**, which is exactly
-     * what the movement was posted at. What survives is the value of the stock that survived, so the
-     * credit out can never diverge from the debit in.
+     * **The obvious repair — replaying the ledger in date order as a textbook moving average — is
+     * WRONG here, and was measured to re-create that same residual.** A relief row's `unit_cost` is
+     * decided at RECORD time, is immutable afterwards (`ChangeImpact` lists all three columns as
+     * REFUSED) and is the only thing the GL posts from. A back-dated movement is keyed after the
+     * movements it precedes, so a date-ordered replay computes a cost that was never posted and can
+     * never be posted: Jan receive 100 @ 10, Mar issue 100, Feb receive 100 @ 20 keyed last gives a
+     * replay average of 15 against a ledger holding 2,000 for 100 units. Issue those and Inventory
+     * closes at 500 on an empty shelf — the defect, re-entered through the door the repair added.
+     * The signed aggregate answers 20 and ties out, because it reads what was POSTED rather than
+     * re-deriving what should have been.
      *
-     * **Order is the movement's own date, then id** — `moved_on` is a date, several movements land on
-     * one day, and an average that depends on which row the database returned first is not an
-     * average. A back-dated correction is replayed in its own place, which is the point of replaying
-     * rather than accumulating.
-     *
-     * **An `adjustment` is a signed correction** and is neither in `ADDS_STOCK` nor in
-     * `REMOVES_STOCK`: a positive one is a found-stock ADD (it carries a cost), a negative one is a
-     * write-off RELIEF. The sign decides, which is why this reads every type rather than a list.
+     * It is also immune to the rest of that family: an over-relief keyed before its receipts, a
+     * caller stating its own cost, a transfer's two legs (they carry the same cost and net to
+     * nothing, which is what the journalizer already says about a transfer), and per-step rounding —
+     * one division absorbs the cents that a step-by-step relief leaves stranded.
      *
      * Falls back to the item's standard cost when nothing is on hand: a negative adjustment against
-     * empty stock has no loaded value to derive from, and the catalogue figure is then the only
+     * an empty shelf has no loaded value to derive from, and the catalogue figure is then the only
      * answer available — which is exactly what the old behaviour always did.
      */
     public function weightedAverageCost(InventoryItem $item, ?Warehouse $warehouse = null): float
     {
-        $query = StockMovement::query()
-            ->where('inventory_item_id', $item->id)
-            ->orderBy('moved_on')
-            ->orderBy('id');
+        $query = StockMovement::query()->where('inventory_item_id', $item->id);
 
         if ($warehouse !== null) {
             $query->where('warehouse_id', $warehouse->id);
         }
 
-        $quantity = 0.0;
-        $value = 0.0;
+        // One aggregate on the index the register already uses. The value term is SIGNED — a
+        // removal carries a negative quantity — so it is the Inventory account's own movement.
+        $row = $query->selectRaw(
+            'coalesce(sum(quantity), 0) as qty, coalesce(sum(quantity * unit_cost), 0) as value'
+        )->first();
 
-        foreach ($query->get(['quantity', 'unit_cost']) as $movement) {
-            $moved = round((float) $movement->quantity, 3);
-
-            if ($moved > 0) {
-                $quantity = round($quantity + $moved, 3);
-                $value = round($value + ($moved * (float) $movement->unit_cost), 2);
-
-                continue;
-            }
-
-            if ($moved === 0.0 || $quantity <= 0) {
-                // A zero-quantity adjustment is a deliberate note, and stock cannot be relieved
-                // from an empty shelf — a ledger that went negative is a data problem the
-                // reconciliation reports, not something to average over.
-                continue;
-            }
-
-            // Relieved at the average as it stood, capped at what is actually there.
-            $relieved = min(abs($moved), $quantity);
-            $average = $value / $quantity;
-
-            $quantity = round($quantity - $relieved, 3);
-            $value = round(max($value - ($relieved * $average), 0), 2);
-        }
+        $quantity = round((float) ($row->qty ?? 0), 3);
 
         if ($quantity <= 0) {
             return round((float) ($item->unit_cost ?? 0), 2);
         }
 
-        $average = round($value / $quantity, 2);
+        $average = round(((float) ($row->value ?? 0)) / $quantity, 2);
 
         // A receipt cannot be recorded at zero cost (record() refuses it), so this only trips on
         // legacy rows loaded before that guard existed. The catalogue cost is the better answer

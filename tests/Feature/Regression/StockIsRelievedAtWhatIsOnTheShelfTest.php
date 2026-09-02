@@ -142,16 +142,18 @@ it('still falls back to the catalogue cost when the shelf is empty', function ()
     expect($this->svc->weightedAverageCost($this->item, $this->store))->toEqual(10.0);
 });
 
-it('replays a BACK-DATED movement in its own place, not in the order it was keyed', function () {
-    // `moved_on` is a date and a correction is keyed after the fact, so insertion order and the
-    // order things actually happened are different sequences — and a moving average that follows
-    // the wrong one gives a different answer, not a slightly wrong one.
+it('answers what the LEDGER holds when a movement is back-dated', function () {
+    // **The trap the first version of this fix fell into.** A relief row's `unit_cost` is decided at
+    // RECORD time, is immutable afterwards (`ChangeImpact` refuses all three columns) and is the
+    // only thing the GL posts from. So a date-ordered replay — the textbook moving average — computes
+    // a cost that was never posted and can never be posted, and re-creates the very residual this
+    // whole fix exists to remove.
     //
-    // Keyed:  Jan receive 100 @ 10 · Mar issue 100 · Feb receive 100 @ 20 (entered last)
-    // Happened: Jan @ 10 → Feb @ 20 (avg 15) → Mar issue 100 at 15, leaving 100 worth 15.
+    // Keyed:  Jan receive 100 @ 10 · Mar issue 100 (at 10, and POSTED at 10) · Feb receive 100 @ 20.
+    // A replay in date order says 15. The books say 2,000 for 100 units, which is 20.
     //
-    // Replayed in KEYING order the January stock is relieved by the March issue before February's
-    // receipt exists, leaving 100 @ 20. Fifteen against twenty on the same six rows.
+    // This case is the one that must carry a ledger assertion beside its figure, because the
+    // difference between the two answers is exactly the difference between tying out and not.
     $this->svc->receive($this->store, $this->item, 100, 10, ['moved_on' => '2026-01-10']);
 
     app(StockMovementService::class)->record([
@@ -165,6 +167,70 @@ it('replays a BACK-DATED movement in its own place, not in the order it was keye
     // Entered last, dated in the middle — the receipt somebody forgot to key in February.
     $this->svc->receive($this->store, $this->item, 100, 20, ['moved_on' => '2026-02-10']);
 
-    expect($this->svc->weightedAverageCost($this->item, $this->store))->toEqual(15.0)
-        ->and(round($this->svc->onHand($this->item, $this->store), 3))->toEqual(100.0);
+    expect(round($this->svc->onHand($this->item, $this->store), 3))->toEqual(100.0)
+        ->and(wacInventoryBalance())->toEqual(2000.0)
+        // 2,000 over 100 units. Not the 15 a date-ordered replay would say.
+        ->and($this->svc->weightedAverageCost($this->item, $this->store))->toEqual(20.0);
+
+    // …and issuing them closes Inventory at zero rather than leaving 500 behind.
+    issueStock(100);
+
+    expect(wacInventoryBalance())->toEqual(0.0);
+});
+
+it('leaves no cent stranded when stock is issued one unit at a time', function () {
+    // Per-step rounding against an unrounded running average leaves a permanent credit balance on
+    // an asset account — the same failure in miniature. One division absorbs it.
+    $this->svc->receive($this->store, $this->item, 2, 10);
+    $this->svc->receive($this->store, $this->item, 1, 20);
+
+    expect(wacInventoryBalance())->toEqual(40.0);
+
+    issueStock(1);
+    issueStock(1);
+    issueStock(1);
+
+    expect(round($this->svc->onHand($this->item, $this->store), 3))->toEqual(0.0)
+        ->and(wacInventoryBalance())->toEqual(0.0);
+});
+
+it('is the Inventory account s own value per unit, on every shape in this file', function () {
+    // The invariant stated as an invariant, rather than as six separate figures: whatever the
+    // movements are, the cost this relieves at is the ledger balance over the stock on hand. That is
+    // what makes it un-divergeable, and it is the property a future edit has to preserve.
+    $this->svc->receive($this->store, $this->item, 100, 10);
+    issueStock(60);
+    $this->svc->receive($this->store, $this->item, 60, 20);
+    $this->svc->adjust($this->store, $this->item, 20, ['unit_cost' => 35]);
+    issueStock(15);
+
+    $onHand = round($this->svc->onHand($this->item, $this->store), 3);
+
+    expect($onHand)->toBeGreaterThan(0.0)
+        ->and($this->svc->weightedAverageCost($this->item, $this->store))
+        ->toEqual(round(wacInventoryBalance() / $onHand, 2));
+});
+
+it('relieves at the average from the TENANT-REQUEST consumption door too', function () {
+    // The door the invariant's own docblock claimed was already covered and was not: this relation
+    // manager passed the item's CURRENT standard cost, which is the exact hole
+    // `InventoryCostBasisDrift` closed on every other path. Measured before the fix: 100 @ 10 then
+    // 100 @ 30 (Inventory 4,000), issue 100 at the catalogue's 10 → 3,000 standing for 100 units
+    // really worth 2,000, from one click.
+    //
+    // Asserted through the SERVICE with no cost stated, which is what the relation manager now does
+    // — the relation manager itself is a mounted Livewire component with an owner record, and what
+    // can be wrong here is the valuation, not the form.
+    $this->svc->receive($this->store, $this->item, 100, 10);
+    $this->svc->receive($this->store, $this->item, 100, 30);
+
+    // The catalogue still says 10 — an operator edited it, which is what the field is for.
+    expect((float) $this->item->fresh()->unit_cost)->toEqual(10.0)
+        ->and(wacInventoryBalance())->toEqual(4000.0);
+
+    issueStock(100);
+
+    expect(round($this->svc->onHand($this->item, $this->store), 3))->toEqual(100.0)
+        // 100 units at the average of 20, not 100 at the catalogue's 10.
+        ->and(wacInventoryBalance())->toEqual(2000.0);
 });
