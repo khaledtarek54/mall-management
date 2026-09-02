@@ -24,8 +24,21 @@ class NullAssistantModel implements AssistantModel
         return ['input' => 0, 'output' => 0];
     }
 
+    /**
+     * FALSE — there is no model here to configure, and every caller means it that way.
+     *
+     * It returned true, on the reading that this implementation "can run" (it can: it returns
+     * null). That is technically defensible and was wrong at every call site, because what they all
+     * actually ask is *"is something going to write an answer?"*. It shipped as a defect the moment
+     * the chat used the same predicate to decide whether to gather extra grounding: with no model
+     * at all, `isConfigured()` said yes and the documentation tier ran on every question,
+     * overriding the fallback rule the guides depend on.
+     *
+     * Reading it as "will this word an answer" makes all four call sites correct without a single
+     * `instanceof`.
+     */
     public function isConfigured(): bool
     {
-        return true;
+        return false;
     }
 }

@@ -125,6 +125,30 @@ you would know it needed raising.
 non-text block first in the response: each returns null, and the screen shows the sources exactly as
 it did before phase B existed.
 
+## Two surfaces, one service
+
+| | `/admin/ask` | The floating bubble |
+|---|---|---|
+| Shows | what retrieval **found** — screens, reports, records, handbook sections, ranked | what the model **said**, with sources shrunk to citations |
+| For | looking something up | a conversation |
+| Where | its own screen | **every admin page**, via the panel's `BODY_END` render hook |
+
+**Side is not branched.** The bubble sits bottom-**right** in English and bottom-**left** in Arabic
+because the view uses `inset-inline-end`, a CSS logical property, and the panel's own `dir` decides
+it. There is not one `left` or `right` in `livewire/assistant-chat.blade.php` — the same rule the
+handbook theme follows, and the reason it needs no RTL plugin. The bubbles use `ms-auto`/`me-auto`
+and the send icon carries `rtl:-scale-x-100`, because an arrow pointing right in an Arabic panel
+reads as *back*.
+
+**The model writes every answer on this surface, and retrieval still grounds it.** That is not a
+hedge: without the passages it would answer questions about Egyptian VAT, late-fee clauses and this
+system's own rules from general knowledge — fluently and wrongly, on a screen where somebody is
+deciding what to bill. The citations stay visible so the answer can be checked.
+
+**With a model configured the documentation tier always runs**, rather than only when the guides
+found nothing. The fallback rule is right for a LIST — a screen link beats a paragraph — and wrong
+for a chat, where more grounding is strictly better and the screen link survives as a citation.
+
 ## Switching the model on — the exact steps
 
 **Anthropic has no free tier**, so a demo takes the `openai_compatible` driver. One driver covers
@@ -139,7 +163,7 @@ URL and a model name.
    ASSISTANT_DRIVER=openai_compatible
    ASSISTANT_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
    ASSISTANT_API_KEY=<the key>
-   ASSISTANT_MODEL=gemini-3.6-flash
+   ASSISTANT_MODEL=gemini-flash-lite-latest
    ASSISTANT_RATE_INPUT=0
    ASSISTANT_RATE_OUTPUT=0
    ```
@@ -307,6 +331,18 @@ link, and the report shows its own period selector.
 - **`AuthenticateSession` logs the second user out** when `actingAs` is swapped between two HTTP
   requests in one test: the control then answers a redirect, which blows up inside the session
   middleware as a 500 and makes a working page look broken. `$this->flushSession()` between them.
+- **`NullAssistantModel::isConfigured()` returns FALSE**, and the reading matters. It returned true
+  on the basis that the null implementation "can run" — it can, it returns null — and every caller
+  actually asks *"will something write an answer?"*. It shipped as a defect the moment the chat used
+  the same predicate to decide whether to gather extra grounding: with no model at all it said yes,
+  and the documentation tier ran on every question, overriding the fallback rule the guides depend
+  on. Reading it as *"will this word an answer"* makes all four call sites correct with no
+  `instanceof`.
+- **A free quota is per model per day.** One afternoon of testing exhausted `gemini-3.6-flash` and
+  every later question fell back to sources with a 429 in the log. The default is
+  `gemini-flash-lite-latest`, whose allowance is far larger — and on this workload the model is not
+  choosing anything, only wording a passage it was handed, which is the task where the cheapest
+  model is closest to the best.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and

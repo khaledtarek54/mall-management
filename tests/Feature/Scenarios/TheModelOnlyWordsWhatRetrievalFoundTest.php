@@ -80,6 +80,13 @@ it('ships OFF, and off means phase A exactly', function () {
     });
 });
 
+it('reports no model when there is none, so callers do not expect prose', function () {
+    // It answered TRUE on the reading that the null implementation "can run". Every caller means
+    // "will something write an answer?", and reading it the other way let the chat gather extra
+    // grounding for a model that did not exist — overriding the fallback rule the guides depend on.
+    expect((new NullAssistantModel)->isConfigured())->toBeFalse();
+});
+
 it('is given only what retrieval already found — never a way to choose', function () {
     $asset = makeAsset();
     $this->actingAs(makeUser('super_admin'));

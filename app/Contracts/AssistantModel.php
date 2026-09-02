@@ -28,6 +28,12 @@ interface AssistantModel
     /** Tokens billed by the last call, for the ceiling. */
     public function lastUsage(): array;
 
-    /** Whether this implementation can actually run — a key present, a driver configured. */
+    /**
+     * Whether something will actually WORD an answer — a driver chosen, a key present.
+     *
+     * Not "can this class be called": `NullAssistantModel` can be called and answers false, because
+     * every caller is deciding whether to expect prose. Reading it the other way let the chat
+     * gather extra grounding for a model that did not exist.
+     */
     public function isConfigured(): bool;
 }

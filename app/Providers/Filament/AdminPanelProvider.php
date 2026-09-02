@@ -21,6 +21,7 @@ use Filament\Navigation\NavigationBuilder;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -159,6 +160,13 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => self::renderPerTenantThemeOverride(),
+            )
+            // The assistant, on every page. BODY_END so it is the last thing in the document and
+            // cannot be clipped by a page's own layout — a floating panel inside the content area
+            // gets cut off by the first `overflow: hidden` above it.
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => Blade::render('@livewire(\'assistant-chat\')'),
             )
             ->authMiddleware([
                 Authenticate::class,

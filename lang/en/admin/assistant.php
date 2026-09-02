@@ -32,6 +32,17 @@ return [
         'open_record' => 'Open this record',
         'read_more' => 'Read the full section',
 
+        'chat' => [
+            'title' => 'Ask Atriom',
+            'subtitle' => 'Answers from this system\'s own guides',
+            'subtitle_no_model' => 'No model configured — showing sources only',
+            'empty' => 'Ask anything about this system, in Arabic or English.',
+            'thinking' => 'Thinking…',
+            'clear' => 'Clear the conversation',
+            'close' => 'Close',
+            'no_model_answer' => 'I could not write an answer just now. The sources below are what I found.',
+        ],
+
         'answer_heading' => 'Short answer',
         'answer_caveat' => 'Written from the sources below. Check them before acting on a figure.',
 

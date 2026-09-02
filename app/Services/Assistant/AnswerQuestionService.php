@@ -122,16 +122,23 @@ class AnswerQuestionService
 
         $screens = $this->mergeDuplicateDestinations($results);
 
-        // THE DOCUMENTATION TIER, and only when the guides had nothing. A screen guide answers
-        // with the screen that does the job and a link to it; a paragraph of prose answers with
-        // words, so ranking them together would let a well-written chapter push the actual screen
-        // off the top. This runs exactly where A0 recorded a miss.
-        $docs = $screens === []
+        // THE DOCUMENTATION TIER — a fallback when nobody is wording the answer, and a SOURCE
+        // when somebody is.
+        //
+        // With no model, a screen guide beats prose: it links to the screen that does the job,
+        // where a paragraph only describes it, so ranking them together would let a well-written
+        // chapter push the actual screen off the top. That rule is right for a list of results and
+        // wrong for a chat: when the model is writing the answer, more grounding is strictly
+        // better, and the screen link survives as a citation underneath rather than competing for
+        // the top slot.
+        $wording = app(AssistantModel::class)->isConfigured();
+
+        $docs = ($screens === [] || $wording)
             ? AssistantDocs::find($words, $readerLocale)
             : [];
 
         $results = array_slice(
-            array_merge($records, $screens, $docs),
+            $this->withoutRepeatedTitles(array_merge($records, $screens, $docs)),
             0,
             self::MAX_RESULTS,
         );
@@ -291,6 +298,42 @@ class AnswerQuestionService
             ],
             array_slice($scored, 0, self::MAX_RESULTS),
         );
+    }
+
+    /**
+     * One TITLE, one entry.
+     *
+     * Distinct from `mergeDuplicateDestinations()`, which folds one PAGE appearing as both a
+     * guided screen and a catalogued report. This folds one NAME appearing from different places:
+     * with the model on, the documentation tier always runs, so "Credit Notes" came back as a
+     * screen and again as a handbook heading, and "3. Business rules & invariants" came back twice
+     * from two different module files. As a list that is noise; as citations under a chat answer it
+     * reads as though the assistant is repeating itself.
+     *
+     * Folded through `SearchText` so two spellings of one Arabic title collapse too, and
+     * first-wins, so the higher-ranked entry — which is the one carrying the guide and the link —
+     * survives.
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     * @return array<int, array<string, mixed>>
+     */
+    private function withoutRepeatedTitles(array $results): array
+    {
+        $seen = [];
+        $kept = [];
+
+        foreach ($results as $result) {
+            $title = SearchText::normalize((string) ($result['title'] ?? ''));
+
+            if ($title === '' || isset($seen[$title])) {
+                continue;
+            }
+
+            $seen[$title] = true;
+            $kept[] = $result;
+        }
+
+        return $kept;
     }
 
     /**

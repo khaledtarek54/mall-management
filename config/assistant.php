@@ -64,7 +64,18 @@ return [
     'openai_compatible' => [
         'api_key' => env('ASSISTANT_API_KEY'),
         'base_url' => env('ASSISTANT_BASE_URL'),
-        'model' => env('ASSISTANT_MODEL', 'gemini-3.6-flash'),
+        /*
+        | The LITE model, and that is a free-tier decision rather than a quality one.
+        |
+        | Free quotas are per model per day, and the flagship flash models carry a small one — a
+        | single afternoon of testing exhausted `gemini-3.6-flash` and every later question fell
+        | back to sources with a 429 in the log. The lite model's allowance is far larger, and on
+        | this workload the model is not choosing anything: it is wording an answer from a passage
+        | it was handed. That is the task where the cheapest model is closest to the best one.
+        |
+        | Raise it to `gemini-3.6-flash` if the answers disappoint AND the quota allows.
+        */
+        'model' => env('ASSISTANT_MODEL', 'gemini-flash-lite-latest'),
 
         /*
         | MUCH higher than the Anthropic driver's 600, and that is a measured correction rather
