@@ -52,15 +52,19 @@ beforeEach(function () {
     // Two real bank accounts in ONE mall, each mapped to its own chart account — and NEITHER of
     // them the `bank` or `cash` ROLE account, or the fallback case below would be comparing an
     // account with itself and would pass with this whole change reverted. (It did, first time.)
-    $resolver = app(AccountResolver::class);
-    $roles = [$resolver->id('bank', $this->asset->id), $resolver->id('cash', $this->asset->id)];
-
-    $chart = LedgerAccount::query()
-        ->where('type', 'asset')
-        ->where('is_postable', true)
-        ->whereNotIn('id', $roles)
-        ->take(2)
-        ->get();
+    //
+    // **Excluding EVERY posting role, not just cash and bank (2026-09-02).** This used to take the
+    // first two postable asset accounts that were not those two, which on the seeded chart is
+    // `11201001 Accounts Receivable` — mapped to the `accounts_receivable` role. That became
+    // impossible when `BankAccount::assertLedgerAccountIsItsOwn()` started refusing a bank pointed
+    // at ANY role, and the fixture's premise was simply narrower than the real rule: a bank sharing
+    // the AR control account is a worse version of the mistake this file is about, not an exempt
+    // one. Minted instead, through the method the ledger-account picker's own create button calls,
+    // so the fixture asks for what the running system would actually produce.
+    $chart = collect([
+        BankAccount::mintLedgerAccount('CIB — test leaf', $this->asset->id),
+        BankAccount::mintLedgerAccount('NBE — test leaf', $this->asset->id),
+    ])->filter()->values();
 
     expect($chart)->toHaveCount(2);
 

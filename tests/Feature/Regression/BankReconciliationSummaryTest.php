@@ -27,10 +27,16 @@ use Database\Seeders\ChartOfAccountsSeeder;
  */
 function reconFixture(): array
 {
-    $bankLedger = LedgerAccount::where('code', '11102001')->firstOrFail();
+    // A leaf of its OWN, minted the way the panel mints one. This used to take `11102001`, the
+    // `bank` POSTING ROLE account — which `BankAccount::assertLedgerAccountIsItsOwn()` now refuses,
+    // because the role is where documents naming NO bank land and merging the two is the defect the
+    // whole reconciliation module exists to avoid. The fixture still posts INTO this account, which
+    // is the premise it needs: the matcher finds candidates BY the bank's chart account.
+    $asset = makeAsset();
+    $bankLedger = BankAccount::mintLedgerAccount('CIB — current', $asset->id);
 
     $account = BankAccount::create([
-        'asset_id' => makeAsset()->id,
+        'asset_id' => $asset->id,
         'name' => 'CIB — current',
         'ledger_account_id' => $bankLedger->id,
     ]);

@@ -111,16 +111,32 @@ it('leaves the original entry lines in place — the fact the rule rests on', fu
 it('reads the same closing balance through the reconciliation service itself', function () {
     // Driving the real service, not a hand-rolled query — the GL-registry discipline: a test that
     // reimplements the sum proves only that the test can add up.
-    $entry = postBankEntry(80000);
+    // Its OWN leaf, and the entry is posted INTO it. This used to map the bank account at the `bank`
+    // POSTING ROLE and post there — which `BankAccount::assertLedgerAccountIsItsOwn()` now refuses,
+    // because the role is where documents naming NO bank land. Nothing about what this test proves
+    // depends on which account it is, only that the reconciliation reads the same one the entry
+    // moved; the other cases in this file keep posting to the role, which is untouched.
+    $asset = makeAsset();
+    $leaf = BankAccount::mintLedgerAccount('Main — current', $asset->id);
+
+    $entry = app(JournalPostingService::class)->post([
+        'entry_date' => now()->toDateString(),
+        'description' => 'Receipt',
+        'lines' => [
+            ['ledger_account_id' => $leaf->id, 'debit' => 80000, 'credit' => 0],
+            ['ledger_account_id' => $this->accounts->id('accounts_receivable'), 'debit' => 0, 'credit' => 80000],
+        ],
+    ]);
+
     app(JournalPostingService::class)->void($entry, 'duplicate');
 
     $account = BankAccount::create([
-        'asset_id' => makeAsset()->id,
+        'asset_id' => $asset->id,
         'name' => 'Main',
         'bank_name' => 'CIB',
         'account_number' => '123456789',
         'currency' => 'EGP',
-        'ledger_account_id' => $this->bank->id,
+        'ledger_account_id' => $leaf->id,
         'is_active' => true,
     ]);
 
