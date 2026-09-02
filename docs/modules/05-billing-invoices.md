@@ -862,6 +862,31 @@ only the first would be satisfied by pasting a key everywhere. Twelve off-panel 
 documents; the sweep covers `database/seeders` too, since a seeder is off-panel in exactly the way
 that produced this finding.
 
+### A void cannot leave a bad debt standing (SW-023, 2026-09-02)
+
+A write-off is an accounting ACT, not a status: `WriteOffInvoiceService` posts
+`Dr bad_debt_expense / Cr accounts_receivable` against an `InvoiceWriteOff` row, and it deliberately
+leaves `invoices.balance` alone — the balance is derived from the four settlement channels and a
+write-off is not one of them.
+
+`VoidInvoiceService` knew nothing about that row. Measured on a 10,000 invoice with 4,000 written
+off, the posted books after the void read **AR −14,000** — the void's own reversal plus the
+write-off's credit, with nothing left to relieve — and **4,000 of bad-debt expense against a document
+that no longer exists**. Negative receivables for one debt, and a loss recognised on money that was
+never owed.
+
+**Refused, not cascaded.** That is this codebase's rule for money records: correct them through their
+own workflow, so an auditor can follow what happened. *Reverse write-off* is a real button, and
+reversing first leaves a trail saying the debt was re-opened and then the document withdrawn — which
+is what actually happened. Cascading would silently undo an act somebody took deliberately.
+
+It is the same shape as the refusal one line above it in the service: an invoice carrying captured
+CASH refuses too, and the remedy there is to refund the payment first. Gated in **both** layers — the
+service refuses and the header action hides — with the operator's route out (*Reverse write-off*)
+visible precisely while the void is not. A FULLY written-off invoice never reaches the check:
+`written_off` is already terminal, so this bites only on the partial case, which is the one that
+moves money.
+
 ## 4. Lifecycle / state machine
 
 | Status | Transition trigger | Next state(s) | Terminal? | Mutable via UI? |

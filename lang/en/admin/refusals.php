@@ -21,6 +21,7 @@
 
 return [
     'refusals' => [
+        'invoice_void_has_write_off' => 'This invoice carries a write-off. Reverse the write-off first — voiding on top of it would leave the bad-debt loss standing against a document that no longer exists, and drive receivables negative.',
         'cheque_deposit_future' => 'A cheque cannot be lodged on a future date — you either handed it to the bank or you did not. Use the day you actually presented it.',
         'payroll_approval_in_progress' => 'Another approval for this month is already running. Wait for it to finish, then reload this run before approving.',
         'announcement_window_closed' => 'This notice ends :expired, which has already passed — every tenant would be sent to a notice they cannot open, and a sent notice cannot be corrected. Move the end date forward first.',

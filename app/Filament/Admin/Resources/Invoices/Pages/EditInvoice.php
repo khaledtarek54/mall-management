@@ -500,6 +500,11 @@ class EditInvoice extends EditRecord
                 ->visible(fn () => in_array($this->record->status, ['draft', 'issued', 'overdue'], true)
                     && $this->record->eta_status !== 'valid' // a filed ETA tax invoice: use a credit note
                     && $this->record->capturedCashPaid() <= 0 // reversible credit (notes + tenant credit) doesn't block
+                    // A standing write-off blocks it (SW-023) — the same shape as captured cash, and
+                    // hidden here as well as refused in the service, so the UI and the gate cannot
+                    // drift. The operator's route out is the `Reverse write-off` button, which is
+                    // visible precisely while this one is not.
+                    && ! $this->record->writeOffs()->exists()
                     && (Auth::user()?->can('invoices.void') ?? false))
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->requiresConfirmation()
