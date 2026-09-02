@@ -62,6 +62,12 @@ class RecordDemoPaymentAction
                 'payment_date' => now(),
                 'gateway' => 'demo',
                 'channel' => $channel,
+                // Same as the real initiator, and for the same reason: `payments` has no `asset_id`,
+                // so `RecordsBankAccount` can only fall back to the operator's SELECTED MALL — and
+                // nothing here has one: this action is driven from the mobile API and from the
+                // tenant portal, which is a Filament panel with no tenancy. Without this the receipt
+                // lands on the generic `bank` posting role (SW-228). The invoice names the property.
+                'bank_account_id' => Payment::defaultBankAccountIdFor($invoice->asset_id, 'card'),
                 'gateway_transaction_id' => uniqid('demo:invoice:'.$invoice->id.':', true),
                 'gateway_response' => [
                     'demo' => true,

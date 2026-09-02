@@ -117,23 +117,45 @@ trait RecordsBankAccount
      * null and the document keeps naming nothing — the floor in {@see MoneyAccount} then answers
      * exactly as it does today. A guess is the one outcome not on offer.
      */
+    /**
+     * The account a document on THIS property and THIS rail should default to — the one rule, for a
+     * caller that has to state it because the document cannot work its own property out.
+     *
+     * `payments` has no `asset_id` column, so {@see bankAccountAssetOf()} can only fall back to the
+     * mall the operator is looking at — and a gateway callback, an API request, a console command or
+     * a seeder has none. Those callers know the invoice, so they know the property; what they must
+     * NOT do is re-implement the rest of the rule, which is why this exists rather than a second
+     * `BankAccount::defaultFor()` at each call site.
+     *
+     * **The rail's own tick is the half that would have been dropped.** `requires_bank_account` is
+     * an operator-settable column on the rails screen, and `PaymentMethod::requiresBankAccount()`
+     * reads it with `array_key_exists` precisely so a stored `false` beats the `code !== 'cash'`
+     * floor. An operator who unticks it for `card` stops the panel asking and stops it defaulting —
+     * and a call site calling `defaultFor()` directly would have gone on stamping an account anyway.
+     * That is exactly the door-versus-service drift `MoneyDocumentDoors` exists to catch, arriving
+     * through a door the gate cannot see.
+     */
+    public static function defaultBankAccountIdFor(?int $assetId, ?string $rail): ?int
+    {
+        if ($assetId === null || ! PaymentMethod::requiresBankAccount($rail)) {
+            return null;
+        }
+
+        return BankAccount::defaultFor($assetId, static::bankAccountPurpose())?->id;
+    }
+
     private static function defaultBankAccountOnto($document): void
     {
         if ($document->exists || $document->bank_account_id !== null) {
             return;
         }
 
-        if (! PaymentMethod::requiresBankAccount($document->{static::bankAccountRailColumn()})) {
-            return;
-        }
-
-        $assetId = self::bankAccountAssetOf($document);
-
-        if ($assetId === null) {
-            return;
-        }
-
-        $document->bank_account_id = BankAccount::defaultFor($assetId, static::bankAccountPurpose())?->id;
+        // Through the same method an off-panel caller uses, so the model default and a stated one
+        // cannot answer differently about the same rail.
+        $document->bank_account_id = static::defaultBankAccountIdFor(
+            self::bankAccountAssetOf($document),
+            $document->{static::bankAccountRailColumn()},
+        );
     }
 
     /**

@@ -800,6 +800,68 @@ should have to infer, so it is shown rather than removed.
 > So "`invoices.tenant_id` equals the agreement's party" is NOT a rule this system holds. It holds
 > on the admin form, which never states a debtor, and that is where it is enforced.
 
+### An online receipt names the bank it landed in (SW-228, 2026-09-02)
+
+`RecordsBankAccount` fills a money document's `bank_account_id` from
+`asset_id ?? bill?->asset_id ?? TenantScope::currentAssetId()`. The first two are facts the ROW
+carries; the third is the mall the operator happens to be looking at — and **`payments` has no
+`asset_id` column at all**, deliberately, because a receipt's books dimension comes from the invoices
+it settles and those do not exist yet at `creating`.
+
+So off the panel there is nobody to ask, and the receipt named no account. `MoneyAccount::for()` then
+falls to the generic `bank` POSTING ROLE, which is where money **nobody attributed** lands — and
+`MatchBankStatementLineService::candidatesFor()` finds reconciliation candidates BY the chart
+account, so a named bank's own postings were offered alongside every unattributed one. That is
+precisely the state the bank register was built to end.
+
+**It was not an edge.** `PaymobPaymentInitiator` and `RecordDemoPaymentAction` are the whole online
+CARD channel — the highest volume of inbound receipts on a live install, and the money that lands in
+a merchant settlement account — and `PaymentMethod::requiresBankAccount('card')` falls through to
+`code !== 'cash'`, so `card` is exactly a rail that is supposed to name one. Both now resolve
+`BankAccount::defaultFor($invoice->asset_id, …)`: the invoice knows the mall, so this is a
+derivation, not a guess. With no bank account registered it stays null rather than inventing one —
+the rule the concern already states for its own null case.
+
+**The gate built for this invariant could not see any of it**, and that is the more useful half.
+`MoneyDocumentDoors::doors()` derives a door from a Filament SCHEMA, so an API action, a gateway
+callback, a console command or a queue worker is not a door it can look at.
+`documentsThatCannotSelfDefault()` + `offPanelCreators()` close that: the first is DERIVED (a
+rail-carrying document with no `asset_id` column and no `bill` — today the receipt alone, and a
+document that grows one drops out by having it), the second scans every file under `app/` outside
+`app/Filament` for a `Model::create([` and reads the array it builds.
+
+**What the review of that gate found, because every one of them is a shape that recurs here:**
+
+- It **bypassed the operator's own tick.** `RecordsBankAccount` asks
+  `PaymentMethod::requiresBankAccount($rail)` before defaulting, and `requires_bank_account` is a
+  settable column: unticking it for `card` stops the panel asking *and* stops it defaulting, while a
+  call site calling `defaultFor()` directly would have gone on stamping one. That is door-versus-
+  service drift arriving through a door the gate cannot see, so both creators now go through
+  `RecordsBankAccount::defaultBankAccountIdFor()` — the same method the model default uses.
+- Its array slicer **failed OPEN**: it counted brackets over raw characters, so a `[` inside a STRING
+  in the array (`'cheque [ref missing'`, and `PostDatedChequeService` really does interpolate free
+  text into one) never closed, the slice ran to end of file, and a `'bank_account_id'` from an
+  unrelated method further down made the creator look compliant. It counts TOKENS now, where a
+  bracket inside a string is part of the string.
+- Its discriminator asked the wrong question. `method_exists($model, 'bill')` excluded
+  `VendorBillPayment` on the grounds that it can reach a property through its bill — but
+  `vendor_bills.asset_id` is NULLABLE, so that route can arrive at nothing, and
+  `VendorBillService::recordPayment()` takes `?int $bankAccountId = null` as a default parameter. The
+  set is the two documents with no `asset_id` column, full stop.
+- It matched `VendorBillPayment::create([` for `Payment` — the substring trap that file's own
+  `names()` docblock already warns about — and then matched **the sentence in its own source
+  explaining that trap**, so it reads the source with comments blanked.
+- Keyed by FILE alone, one document's verdict leaked into the next: a seeder that builds several
+  money documents reported a compliant payroll as missing because a different document in it was.
+
+**And there are THREE honest answers, not one.** Name the account; or name the PROPERTY, for a
+document that carries `asset_id`, which the model then defaults from (`SettleMoveOutService`); or
+name a RAIL that needs no account at all — `requiresBankAccount('cash')` is false, the same question
+the model asks, so the gate and the model cannot disagree about a cash receipt. A gate that demanded
+only the first would be satisfied by pasting a key everywhere. Twelve off-panel creators across five
+documents; the sweep covers `database/seeders` too, since a seeder is off-panel in exactly the way
+that produced this finding.
+
 ## 4. Lifecycle / state machine
 
 | Status | Transition trigger | Next state(s) | Terminal? | Mutable via UI? |

@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Concerns\RecordsBankAccount;
+use App\Models\Payment;
+use App\Models\VendorBillPayment;
 use App\Support\MoneyDocumentDoors;
 
 /**
@@ -111,4 +113,76 @@ it('keeps no stale exemption', function () {
     $stale = array_diff(array_keys(MoneyDocumentDoors::EXEMPT), array_keys(MoneyDocumentDoors::doors()));
 
     expect($stale)->toBe([], 'Exempted doors that are no longer doors: '.implode(', ', $stale));
+});
+
+it('has every OFF-PANEL creator of a receipt name the account too', function () {
+    // **The half `doors()` is structurally blind to.** A door is a Filament SCHEMA, so this gate —
+    // built for exactly this invariant — could not see `PaymobPaymentInitiator` or
+    // `RecordDemoPaymentAction`, which between them are the whole online card channel and the
+    // highest volume of inbound receipts on a live install.
+    //
+    // They were invisible for a reason worth keeping: `RecordsBankAccount` resolves the property as
+    // `asset_id ?? bill?->asset_id ?? TenantScope::currentAssetId()`, and `payments` has NO
+    // `asset_id` column — a receipt's books dimension comes from the invoices it settles, which do
+    // not exist yet at `creating`. On an API request or a gateway callback there is no selected
+    // mall, so the fallback answers null and the receipt falls to the generic `bank` POSTING ROLE:
+    // where money nobody attributed lands, and what
+    // `MatchBankStatementLineService::candidatesFor()` then offers alongside a named bank's own
+    // postings (SW-228).
+    //
+    // The set is DERIVED both ways — which documents cannot self-default, and which files create
+    // one — so the next gateway integration is covered by being what it is.
+    $creators = MoneyDocumentDoors::offPanelCreators();
+
+    expect($creators)->not->toBeEmpty('the creator sweep found nothing, so it is reporting on an empty set');
+
+    $missing = collect($creators)
+        ->reject(fn (array $meta) => $meta['passesColumn'])
+        ->keys()
+        ->all();
+
+    expect($missing)->toBe([], "These build a money document outside the panel and say neither where it\n"
+        ."banked nor which property it belongs to, so it falls to the generic `bank` posting role —\n"
+        ."unattributable, and unreconcilable:\n  - ".implode("\n  - ", $missing));
+});
+
+it('accepts the two other ways a creator can be right, so the rule is not just "name the account"', function () {
+    // A gate that only ever demanded one thing would be satisfied by pasting a key everywhere. There
+    // are three honest answers, and the sweep has to accept all three or it is a worse rule than the
+    // one it replaced:
+    //
+    //  - name the ACCOUNT (the receipt and the supplier payment have no other option);
+    //  - name the PROPERTY, for a document that carries `asset_id` — `RecordsBankAccount` then
+    //    defaults from it, which is the ordinary pattern (`SettleMoveOutService`);
+    //  - name a RAIL that needs no account at all — `PaymentMethod::requiresBankAccount('cash')` is
+    //    false, and that is the same question the model asks before defaulting, so the gate and the
+    //    model cannot disagree about a cash receipt.
+    //
+    // Asserted by finding a real example of each, so the branches are exercised by the codebase
+    // rather than by a fixture.
+    $creators = MoneyDocumentDoors::offPanelCreators();
+
+    $byPath = fn (string $needle) => collect($creators)->filter(
+        fn (array $meta, string $key) => str_contains($key, $needle),
+    );
+
+    expect($byPath('SettleMoveOutService')->every(fn (array $m) => $m['passesColumn']))->toBeTrue(
+        'a creator that names the property must pass — the model defaults from it')
+        ->and($byPath('DemoSeeder')->every(fn (array $m) => $m['passesColumn']))->toBeTrue(
+            'the demo seeder pays one invoice in CASH, a rail that needs no account at all');
+});
+
+it('knows WHICH documents cannot work their own property out', function () {
+    // The premise, asserted rather than assumed. Every other rail-carrying document either carries
+    // an `asset_id` or reaches one through its bill, so the model defaults it wherever it is built;
+    // only the receipt cannot, which is why only its creators need the rule above.
+    //
+    // Derived, so a document that GROWS an `asset_id` drops out by having one — and if a second
+    // document ever loses that route, this gate starts covering its creators without being edited.
+    // The receipt AND the supplier payment: neither table has an `asset_id` column. The first
+    // version excluded the supplier payment on `method_exists($model, 'bill')`, which asks whether a
+    // route exists in CODE — and `vendor_bills.asset_id` is nullable, so that route can still arrive
+    // at nothing.
+    expect(array_keys(MoneyDocumentDoors::documentsThatCannotSelfDefault()))
+        ->toBe([Payment::class, VendorBillPayment::class]);
 });

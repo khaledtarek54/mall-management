@@ -121,6 +121,20 @@ class PaymobPaymentInitiator
                 'payment_date' => now(),
                 'gateway' => 'paymob',
                 'channel' => $channel,
+                // **Stated here, because a receipt is the one money document that cannot work it
+                // out for itself.** `RecordsBankAccount` resolves the property as
+                // `asset_id ?? bill?->asset_id ?? TenantScope::currentAssetId()`, and `payments`
+                // has NO `asset_id` column — a receipt's books dimension comes from the invoices it
+                // settles, which do not exist yet at `creating`. There is no Filament tenant on a
+                // gateway request, so the fallback answers null and the receipt fell to the generic
+                // `bank` POSTING ROLE: the state `MatchBankStatementLineService::candidatesFor()`
+                // cannot reconcile, since it finds candidates BY the chart account and would offer
+                // one named bank's postings alongside everything nobody attributed. On the online
+                // card channel that is most of the inbound money on a live install (SW-228).
+                //
+                // The invoice knows the mall, so this is a derivation and not a guess — and `card`
+                // is a rail `PaymentMethod::requiresBankAccount()` answers TRUE for.
+                'bank_account_id' => Payment::defaultBankAccountIdFor($invoice->asset_id, 'card'),
                 'gateway_transaction_id' => self::orderRef($session['order_id']),
                 'gateway_response' => [
                     'order_id' => $session['order_id'],

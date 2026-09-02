@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Concerns\RecordsBankAccount;
+use App\Models\PaymentMethod;
 use App\Support\Filament\BankAccountField;
 use Illuminate\Support\Facades\Schema;
 
@@ -224,6 +225,188 @@ final class MoneyDocumentDoors
     }
 
     /**
+     * The documents that cannot work their own property out, so a creator OUTSIDE the panel has to
+     * state the bank account.
+     *
+     * `RecordsBankAccount::bankAccountAssetOf()` answers
+     * `asset_id ?? bill?->asset_id ?? TenantScope::currentAssetId()`. The first two are facts the
+     * ROW carries; the third is the mall the operator happens to be looking at, and there is no such
+     * mall on an API request, a gateway callback, a console command, a queue worker or a seeder. So
+     * a document with neither an `asset_id` column nor a `bill` gets **no default at all** off the
+     * panel — it falls to the generic `bank` POSTING ROLE, which is where money nobody attributed
+     * lands, and `MatchBankStatementLineService::candidatesFor()` then offers a named bank's
+     * postings alongside it. That is the state the register exists to end.
+     *
+     * Today the answer is `Payment` alone, and it is DERIVED rather than named: a document that
+     * grows an `asset_id` drops out of this list by having one.
+     *
+     * **This is the half {@see doors()} is structurally blind to.** A door is a Filament schema, so
+     * the gate built for this invariant cannot see `PaymobPaymentInitiator` or
+     * `RecordDemoPaymentAction` — which between them are the whole online card channel, the highest
+     * volume of inbound receipts on a live install (SW-228).
+     *
+     * @return array<class-string, array{rail: string, purpose: string}>
+     */
+    public static function documentsThatCannotSelfDefault(): array
+    {
+        return array_filter(
+            self::documentsWithARail(),
+            fn (string $model): bool => ! Schema::hasColumn((new $model)->getTable(), 'asset_id'),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
+     * Files outside `app/Filament` that build one of those documents inline, and whether the array
+     * they build names `bank_account_id`.
+     *
+     * Read off the source the same way {@see doors()} reads a schema: a creator is one BY calling
+     * `Model::create([`, so the next one is classified by being what it is rather than by being
+     * remembered.
+     *
+     * @return array<string, array{path: string, model: class-string, selfDefaults: bool, passesColumn: bool}>
+     */
+    public static function offPanelCreators(): array
+    {
+        $creators = [];
+
+        foreach (self::documentsWithARail() as $model => $meta) {
+            $short = class_basename($model);
+            $selfDefaults = ! isset(self::documentsThatCannotSelfDefault()[$model]);
+
+            foreach (self::offPanelFiles() as $path => $source) {
+
+                // A WORD boundary, because the shorter name is a substring of the longer one —
+                // the same trap {@see names()} records for the basename match, and it attributed
+                // the vendor-bill service's creator to the receipt.
+                //
+                // And matched against the source with its COMMENTS BLANKED. An earlier draft of
+                // this very comment spelled the literal out, and the sweep then reported this file
+                // as a creator of its own — a gate that fires on prose is one that gets weakened
+                // rather than fixed, the finding already recorded for two of the PDF gates. No file
+                // needs the blanking today; it is here so that explaining the rule cannot break it.
+                // Offsets are preserved, so the array literal is still sliced from the real source.
+                if (preg_match_all(self::createPattern($short), self::withoutComments($source), $m, PREG_OFFSET_CAPTURE) === 0) {
+                    continue;
+                }
+
+                foreach ($m[0] as [$match, $at]) {
+                    $array = self::arrayLiteralAt($source, $at + strlen($match) - 1);
+
+                    // **TWO ways to be compliant, and which apply depends on the document.**
+                    // Naming the account outright always does. Naming the PROPERTY does too, for a
+                    // document that carries an `asset_id` — the model then defaults from it through
+                    // `RecordsBankAccount`, which is the ordinary and correct pattern
+                    // (`SettleMoveOutService` sets `asset_id` from the lease's unit and relies on
+                    // exactly that). Only the two documents with no such column are left with one
+                    // option.
+                    $names = fn (string $key): bool => str_contains($array, "'".$key."'")
+                        || str_contains($array, '"'.$key.'"');
+
+                    // **A rail that needs no account is compliant by naming the rail.** The array
+                    // states it (`'method' => 'cash'`), and `PaymentMethod::requiresBankAccount()`
+                    // is the same question `RecordsBankAccount` asks before defaulting — so the gate
+                    // and the model cannot disagree about whether a cash receipt is missing
+                    // anything. Only a LITERAL counts; a rail held in a variable is unreadable from
+                    // here and falls through to needing the account named.
+                    $railIsExempt = preg_match(
+                        '/[\'"]'.preg_quote($meta['rail'], '/').'[\'"]\s*=>\s*[\'"]([a-z0-9_]+)[\'"]/i',
+                        $array,
+                        $rail,
+                    ) === 1 && ! PaymentMethod::requiresBankAccount($rail[1]);
+
+                    // **Keyed by file AND document.** Keyed by file alone, a seeder that builds
+                    // several money documents carried one document's verdict into the next — the
+                    // running `?? true` is per key — and the sweep reported a compliant payroll as
+                    // missing because a different document in the same file was.
+                    $key = $path.' → '.$short;
+
+                    $creators[$key] = [
+                        'path' => $path,
+                        'model' => $model,
+                        'selfDefaults' => $selfDefaults,
+                        // Every creator of THIS document in the file must pass, so one that does
+                        // cannot vouch for a sibling beside it that does not.
+                        'passesColumn' => ($creators[$key]['passesColumn'] ?? true)
+                            && ($railIsExempt
+                                || $names('bank_account_id')
+                                || ($selfDefaults && $names('asset_id'))),
+                    ];
+                }
+            }
+        }
+
+        return $creators;
+    }
+
+    /** `Foo::create([`, never `BarFoo::create([`. */
+    private static function createPattern(string $short): string
+    {
+        return '/(?<![\\w\\\\])'.preg_quote($short, '/').'::create\\(\\[/';
+    }
+
+    /** The same source with every comment replaced by spaces — offsets, and string literals, intact. */
+    private static function withoutComments(string $source): string
+    {
+        $out = $source;
+
+        foreach (token_get_all($source) as $token) {
+            if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+
+            $at = strpos($out, $token[1]);
+
+            if ($at !== false) {
+                $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The balanced `[...]` starting at `$from`, counted over TOKENS.
+     *
+     * Character counting was the first version and it fails OPEN, which is the worst direction for a
+     * gate: a `[` inside a STRING inside the array — `'cheque [ref missing'`, and
+     * `PostDatedChequeService` really does put interpolated free text in one — never closes, so the
+     * slice runs to end of file and picks up a `'bank_account_id'` from an unrelated method further
+     * down. The creator is then reported as compliant when it is not.
+     *
+     * The token stream cannot be fooled that way: a `[` inside a string is part of the string token,
+     * never a bracket of its own.
+     */
+    private static function arrayLiteralAt(string $source, int $from): string
+    {
+        $depth = 0;
+        // A cursor, because `token_get_all()` reports a line for each token but no byte offset.
+        $cursor = 0;
+
+        foreach (token_get_all($source) as $token) {
+            $text = is_array($token) ? $token[1] : $token;
+            $start = $cursor;
+            $cursor += strlen($text);
+
+            if ($start < $from) {
+                continue;
+            }
+
+            if ($text === '[') {
+                $depth++;
+            } elseif ($text === ']') {
+                $depth--;
+
+                if ($depth === 0) {
+                    return substr($source, $from, $cursor - $from);
+                }
+            }
+        }
+
+        return substr($source, $from);
+    }
+
+    /**
      * Every door on disk: `relative/path.php => ['model' => …, 'rail' => …, 'offersField' => bool,
      * 'writesColumn' => ?bool]`.
      *
@@ -264,6 +447,60 @@ final class MoneyDocumentDoors
         ksort($doors);
 
         return $doors;
+    }
+
+    /**
+     * Every PHP file that can build a money document with NO operator in the room.
+     *
+     * `app/` minus `app/Filament` — a Filament file is a door, and {@see doors()} covers those —
+     * plus `database/seeders`, which are off-panel in exactly the same way and are how this whole
+     * finding surfaced: the ledger teaching set put its receipt on the generic posting role because
+     * a seeder has no selected mall either.
+     *
+     * @return array<string, string> relative path => source
+     */
+    private static function offPanelFiles(): array
+    {
+        static $memo = null;
+
+        if ($memo !== null) {
+            return $memo;
+        }
+
+        $files = [];
+
+        foreach ([app_path(), base_path('database/seeders')] as $root) {
+            if (! is_dir($root)) {
+                continue;
+            }
+
+            $files += self::phpFilesUnder($root);
+        }
+
+        return $memo = array_filter(
+            $files,
+            fn (string $path): bool => ! str_starts_with($path, 'app/Filament/'),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /** @return array<string, string> relative path => source */
+    private static function phpFilesUnder(string $root): array
+    {
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
+
+        foreach ($iterator as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $files[str_replace(base_path().'/', '', $file->getPathname())] = (string) file_get_contents($file->getPathname());
+        }
+
+        ksort($files);
+
+        return $files;
     }
 
     /** @return array<string, string> relative path => source */
