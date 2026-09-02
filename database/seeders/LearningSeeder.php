@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Accounting\MintBankLedgerAccountService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -275,7 +276,7 @@ class LearningSeeder extends Seeder
      *
      * ## Minted through the app's own method, deliberately
      *
-     * `BankAccount::mintLedgerAccount()` is what the ledger-account picker's *create* button calls,
+     * `app(MintBankLedgerAccountService::class)->mint()` is what the ledger-account picker's *create* button calls,
      * so the seeded arrangement is one the running system would actually produce — a bug in the
      * minting (the wrong parent, a colliding code) shows up on the demo books instead of hiding
      * behind seeder-specific wiring. The same reasoning as `DemoSeeder::demoBankAccountForPurpose()`
@@ -306,7 +307,7 @@ class LearningSeeder extends Seeder
             return;
         }
 
-        $leaf = BankAccount::mintLedgerAccount(
+        $leaf = app(MintBankLedgerAccountService::class)->mint(
             $this->assetName().' — operating account',
             $asset->id,
             'حساب '.$this->assetName().' — التشغيل',

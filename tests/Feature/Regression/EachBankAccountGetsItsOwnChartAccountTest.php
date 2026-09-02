@@ -4,6 +4,7 @@ use App\Models\AccountMapping;
 use App\Models\BankAccount;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Support\ConfigurationHealth;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -121,7 +122,7 @@ it('mints a dedicated leaf beside the ones already there', function () {
     $role = LedgerAccount::find($this->bankRole);
     $parent = $role->parent;
 
-    $minted = BankAccount::mintLedgerAccount('CIB — operating', $this->asset->id);
+    $minted = app(MintBankLedgerAccountService::class)->mint('CIB — operating', $this->asset->id);
 
     expect($minted)->not->toBeNull()
         ->and($minted->parent_id)->toBe($parent->id)
@@ -141,7 +142,7 @@ it('mints a dedicated leaf beside the ones already there', function () {
     expect($account->ledger_account_id)->toBe($minted->id);
 
     // Twice in a row does not collide.
-    expect(BankAccount::mintLedgerAccount('NBE — service charge', $this->asset->id)?->code)
+    expect(app(MintBankLedgerAccountService::class)->mint('NBE — service charge', $this->asset->id)?->code)
         ->not->toBe($minted->code);
 });
 
@@ -150,7 +151,7 @@ it('refuses to invent a home for a bank when the chart has not said where banks 
     AccountMapping::query()->where('key', 'bank')->delete();
     app()->forgetInstance(AccountResolver::class);
 
-    expect(BankAccount::mintLedgerAccount('Nowhere', $this->asset->id))->toBeNull();
+    expect(app(MintBankLedgerAccountService::class)->mint('Nowhere', $this->asset->id))->toBeNull();
 });
 
 /**
@@ -203,10 +204,10 @@ it('does not report a bank that names no chart account at all', function () {
  * entire job is to be the easy path. Found by reading the code, not by a failing test.
  */
 it('does not re-propose the code of a retired account', function () {
-    $first = BankAccount::mintLedgerAccount('CIB', $this->asset->id);
+    $first = app(MintBankLedgerAccountService::class)->mint('CIB', $this->asset->id);
     $first->delete();
 
-    $second = BankAccount::mintLedgerAccount('NBE', $this->asset->id);
+    $second = app(MintBankLedgerAccountService::class)->mint('NBE', $this->asset->id);
 
     expect($second)->not->toBeNull()
         ->and($second->code)->not->toBe($first->code);

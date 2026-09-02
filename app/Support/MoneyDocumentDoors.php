@@ -79,7 +79,7 @@ final class MoneyDocumentDoors
      */
     public const DOOR_DERIVES = [
         'app/Filament/Admin/Actions/LeaseActions.php::lease_id' => 'The modal is opened FROM the lease, and the action writes `$record->id`. Asking would be asking the operator to re-state what they clicked on — and offering a picker would let them file a deposit against a different lease than the page they are on.',
-        'app/Filament/Admin/Actions/LeaseActions.php::is_opening_balance' => 'A CUTOVER flag: it marks a deposit the operator already held before this system existed, so the register (where migrated balances are keyed in) asks and the day-to-day modal does not. Offering it here would invite an ordinary receipt to be booked as an opening balance, which is the one thing that would make the pot disagree with the books.',
+        'app/Filament/Admin/Actions/LeaseActions.php::is_opening_balance' => 'A CUTOVER flag, and offering it here would be a money defect rather than a convenience. `DepositTransactionJournalizer` returns NO PAYLOAD for an opening balance — the cash arrived in the previous system and the liability is already inside the opening trial balance — so a receipt ticked on this modal would show in the lease\'s deposit pot and never move `deposits_held`. The register is where migrated balances are keyed in and is the only place that question belongs; `DepositTransaction::booted()` already refuses the flag on a refund or forfeit for the mirror-image reason.',
     ];
 
     /**

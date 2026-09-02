@@ -9,6 +9,7 @@ use App\Models\JournalLine;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
+use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Services\Banking\MatchBankStatementLineService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -32,7 +33,7 @@ function bankFixture(): array
     // because the role is where documents naming NO bank land and merging the two is the defect the
     // whole reconciliation module exists to avoid. The fixture still posts INTO this account, which
     // is the premise it needs: the matcher finds candidates BY the bank's chart account.
-    $bankLedger = BankAccount::mintLedgerAccount('CIB — current', $asset->id);
+    $bankLedger = app(MintBankLedgerAccountService::class)->mint('CIB — current', $asset->id);
 
     $account = BankAccount::create([
         'asset_id' => $asset->id,

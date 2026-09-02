@@ -189,68 +189,6 @@ class BankAccount extends Model
     }
 
     /**
-     * Mint a dedicated chart leaf for a bank account — Odoo's behaviour, and the reason the rule
-     * above is a help rather than an obstacle.
-     *
-     * Anchored on the PARENT OF THE `bank` ROLE ACCOUNT, which is this install's own answer to
-     * "where do we keep bank accounts in the chart" — never a hardcoded `11102`, because the real
-     * Egyptian chart has not been supplied and any literal here would be a guess about somebody
-     * else's numbering.
-     *
-     * The code width is taken from the siblings that already exist, so an install on 8-digit codes
-     * and one on 10-digit codes each get a leaf that looks like its neighbours. That question is
-     * open (see `docs/STATUS.md`), and deriving it is how this survives the answer.
-     *
-     * Returns null when the chart cannot say where banks live — an unmapped `bank` role, or a role
-     * account with no parent. Refusing to guess is right: inventing a top-level account would put a
-     * bank somewhere the accountant never agreed to.
-     */
-    public static function mintLedgerAccount(string $name, ?int $assetId = null, ?string $nameAr = null): ?LedgerAccount
-    {
-        $role = AccountMapping::query()
-            ->where('key', 'bank')
-            ->where(fn ($q) => $q->where('asset_id', $assetId)->orWhereNull('asset_id'))
-            ->orderByRaw('case when asset_id is null then 1 else 0 end')
-            ->value('ledger_account_id');
-
-        $parent = LedgerAccount::find($role)?->parent;
-
-        if ($parent === null) {
-            return null;
-        }
-
-        $siblings = LedgerAccount::withTrashed()
-            // `withTrashed()` is load-bearing, not tidiness: `ledger_accounts.code` is a PLAIN unique
-            // index, so a soft-deleted `…002` still occupies that code while the SoftDeletes global
-            // scope hides it from this query. Without it, retiring an account makes the next mint
-            // propose the code it just freed in appearance only — a duplicate-key 500 on a button
-            // whose whole job is to be the easy path.
-            ->where('parent_id', $parent->id)
-            ->pluck('code')
-            ->filter(fn (string $code) => str_starts_with($code, $parent->code) && ctype_digit($code));
-
-        // Match the neighbours. With none, three digits is the shape every seeded chart here uses.
-        $width = $siblings->map(fn (string $c) => strlen($c) - strlen($parent->code))->max() ?: 3;
-
-        $next = ($siblings->map(fn (string $c) => (int) substr($c, strlen($parent->code)))->max() ?? 0) + 1;
-
-        return LedgerAccount::create([
-            // `parent_id` and `normal_balance` are DERIVED in `LedgerAccount::saving` from the code
-            // and the type — passing either here would be a second, conflicting truth.
-            'code' => $parent->code.str_pad((string) $next, $width, '0', STR_PAD_LEFT),
-            'name_en' => $name,
-            // The operator's create-option form asks for ONE name, so the Arabic falls back to it
-            // rather than leaving the column blank — a chart account with no Arabic name renders as
-            // an empty cell on the Arabic panel, which reads as missing data rather than as a name
-            // nobody supplied. A caller that HAS both (a seeder) passes both.
-            'name_ar' => $nameAr ?? $name,
-            'type' => 'asset',
-            'is_postable' => true,
-            'is_active' => true,
-        ]);
-    }
-
-    /**
      * Which account a NEW document on this property should name — the whole reason a requirement is
      * tolerable rather than a chore.
      *

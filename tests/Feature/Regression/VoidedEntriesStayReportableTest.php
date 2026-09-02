@@ -8,6 +8,7 @@ use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Services\Banking\ReconcileBankStatementService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -117,7 +118,7 @@ it('reads the same closing balance through the reconciliation service itself', f
     // depends on which account it is, only that the reconciliation reads the same one the entry
     // moved; the other cases in this file keep posting to the role, which is untouched.
     $asset = makeAsset();
-    $leaf = BankAccount::mintLedgerAccount('Main — current', $asset->id);
+    $leaf = app(MintBankLedgerAccountService::class)->mint('Main — current', $asset->id);
 
     $entry = app(JournalPostingService::class)->post([
         'entry_date' => now()->toDateString(),

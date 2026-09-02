@@ -12,6 +12,7 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Services\Banking\MatchBankStatementLineService;
 use App\Services\VendorBillService;
 use App\Support\Filament\BankAccountFilter;
@@ -62,8 +63,8 @@ beforeEach(function () {
     // one. Minted instead, through the method the ledger-account picker's own create button calls,
     // so the fixture asks for what the running system would actually produce.
     $chart = collect([
-        BankAccount::mintLedgerAccount('CIB — test leaf', $this->asset->id),
-        BankAccount::mintLedgerAccount('NBE — test leaf', $this->asset->id),
+        app(MintBankLedgerAccountService::class)->mint('CIB — test leaf', $this->asset->id),
+        app(MintBankLedgerAccountService::class)->mint('NBE — test leaf', $this->asset->id),
     ])->filter()->values();
 
     expect($chart)->toHaveCount(2);

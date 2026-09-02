@@ -782,7 +782,7 @@ reports the existing ones as the **advisory** they are (the books are correct; t
 merely ambiguous), and a bank naming NO chart account is deliberately not a finding — that is a
 different, earlier question and a legitimate state.
 
-**`BankAccount::mintLedgerAccount()` is Odoo's half**, offered from the ledger-account picker's
+**A SERVICE and not a method on `BankAccount`** — it WRITES a different aggregate, a row in the accountant's own chart, which is business logic rather than something a bank account knows about itself; `BankAccount::defaultFor()` stays on the model because it only READS. **`MintBankLedgerAccountService` is Odoo's half**, offered from the ledger-account picker's
 *create* option, and it is what makes the rule a help rather than an obstacle. It anchors on **the
 parent of the `bank` role account** — this install's own answer to *where do we keep banks in the
 chart* — never a literal `11102`, because the real Egyptian chart has not been supplied and any
@@ -859,7 +859,7 @@ eager-loads the relationship columns that are actually VISIBLE, so one toggled o
 
 **The empty-mall seeders lay one down too (2026-09-02).** `LearningSeeder` — and therefore
 `ValPlazaSeeder`, which extends it — seeds ONE operating bank account, default for its property, on
-a chart leaf minted through `BankAccount::mintLedgerAccount()`. A bank account is SETUP, like the
+a chart leaf minted through `MintBankLedgerAccountService`. A bank account is SETUP, like the
 chart and the posting map that seeder already lays down, and it adds no numbers to the screen, so it
 does not breach that seeder's rule. Without it the first receipt recorded in a demo falls to the
 generic `bank` role, the money forms' bank picker is empty, and the requirement that a bank rail

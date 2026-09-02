@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\BankAccounts\Schemas;
 use App\Models\AccountMapping;
 use App\Models\BankAccount;
 use App\Models\LedgerAccount;
+use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
@@ -107,7 +108,7 @@ class BankAccountForm
                         // and the usual component/livewire — asking for `$get` fatals the button.
                         // The property is the SELECTED one anyway, which is what scopes this whole
                         // form and what `BankAccountField` reads.
-                        ->createOptionUsing(fn (array $data) => BankAccount::mintLedgerAccount(
+                        ->createOptionUsing(fn (array $data) => app(MintBankLedgerAccountService::class)->mint(
                             $data['name'],
                             TenantScope::currentAssetId(),
                         )?->getKey())
