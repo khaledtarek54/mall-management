@@ -7,6 +7,7 @@ return [
         'cam_period_year' => 'The calendar year this pool reconciles. One pool per property per year.',
         'bank_account_on_document' => 'Optional on this rail. Naming one still tells two bank accounts apart when reconciling.',
         'bank_account_required_on_document' => 'This rail moves money through a bank, so the statement will show it. Pick which account.',
+        'bank_mint_ledger_account' => 'A new postable account is created under wherever your chart keeps banks, with the next free code.',
         'bank_account_purpose' => 'What this account holds. A deposit receipt and a rent receipt default to different accounts.',
         'bank_account_is_default' => 'New documents on this property fill themselves in with it. One per purpose.',
         'escalation_index_code' => 'Which published series this rent follows. Enter the figures under Leasing, Rent indices.',

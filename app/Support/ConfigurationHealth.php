@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\AccountingPeriod;
+use App\Models\AccountMapping;
 use App\Models\Asset;
 use App\Models\BankAccount;
 use App\Models\ChargeCode;
@@ -75,6 +76,7 @@ class ConfigurationHealth
             self::postingMapComplete(),
             self::openAccountingPeriod(),
             self::bankAccountDefaultsSet(),
+            self::bankAccountsHaveTheirOwnAccount(),
             self::payrollRatesConfigured(),
         ];
     }
@@ -427,6 +429,57 @@ class ConfigurationHealth
             ok: $undecided->isEmpty(),
             detail: (string) $undecided->count(),
             count: $undecided->count(),
+        );
+    }
+
+    /**
+     * Each bank account should map to a chart account of its OWN.
+     *
+     * The market standard, not a house preference: Yardi's Bank record points at one cash GL
+     * account and its reconciliation is OF that account; NetSuite, QuickBooks and Odoo each make a
+     * bank account its own GL account. The mechanical reason is
+     * `MatchBankStatementLineService::candidatesFor()`, which finds candidates BY the chart account
+     * — so two banks sharing one means reconciling CIB offers NBE's postings, and a POSTING ROLE
+     * account is the subtler version of the same thing, because the role is where every document
+     * naming NO bank account lands.
+     *
+     * **Advisory, and reported rather than refused, because it is a rule about EXISTING rows.**
+     * {@see BankAccount::assertLedgerAccountIsItsOwn()} refuses a new mapping, but only on a dirty
+     * write — an install that predates the rule must stay editable, or the operator cannot rename
+     * their bank without first solving a chart problem. This is the row that tells them, and the
+     * form's *create a dedicated account* button is the one-click fix.
+     *
+     * **An UNMAPPED bank account is not counted here.** Naming no chart account is a different and
+     * earlier gap, it is a legitimate state (the register was built to exist before the chart did),
+     * and `MoneyAccount` falls through it to the rail exactly as designed.
+     */
+    private static function bankAccountsHaveTheirOwnAccount(): array
+    {
+        $assetIds = AssignedAssets::idsForCurrentUser();
+
+        $mapped = BankAccount::query()
+            ->active()
+            ->whereNotNull('ledger_account_id')
+            ->when($assetIds !== null, fn (Builder $q) => $q->whereIn('asset_id', $assetIds))
+            ->get(['id', 'name', 'ledger_account_id']);
+
+        $roleAccounts = AccountMapping::query()->pluck('ledger_account_id')->all();
+
+        $sharedAccounts = $mapped->groupBy('ledger_account_id')
+            ->filter(fn ($group) => $group->count() > 1)
+            ->keys()
+            ->all();
+
+        $offenders = $mapped->filter(fn (BankAccount $account) => in_array($account->ledger_account_id, $roleAccounts, true)
+            || in_array($account->ledger_account_id, $sharedAccounts, true));
+
+        return self::check(
+            key: 'bank_accounts_have_their_own_account',
+            category: self::ACCOUNTING,
+            severity: self::ADVISORY,
+            ok: $offenders->isEmpty(),
+            detail: $offenders->pluck('name')->implode(', '),
+            count: $offenders->count(),
         );
     }
 

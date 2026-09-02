@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\Resources\BankAccounts\Schemas;
 
+use App\Models\AccountMapping;
 use App\Models\BankAccount;
 use App\Models\LedgerAccount;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -74,6 +76,41 @@ class BankAccountForm
                         ->modifyOptionsQuery(fn ($query) => $query
                             ->where('is_postable', true)
                             ->where('is_active', true))
+                        // A dedicated account per bank is the market standard — Yardi's Bank record,
+                        // NetSuite, QuickBooks and Odoo all work this way, and
+                        // `MatchBankStatementLineService` finds candidates BY this account, so two
+                        // banks sharing one means reconciling either offers the other's entries.
+                        //
+                        // SUGGEST rather than filter, which is the rule `BankAccountField`'s own
+                        // docblock states: a hard clause here is the write guard, and Filament
+                        // resolves a submitted value's LABEL through it — so excluding an account
+                        // already taken would make the row that HOLDS it fail its own validation and
+                        // become uneditable. The refusal is `BankAccount::assertLedgerAccountIsItsOwn()`,
+                        // on the model, where it can be dirty-aware.
+                        ->suggest(fn ($query) => $query
+                            ->whereNotIn('id', AccountMapping::query()->select('ledger_account_id'))
+                            ->whereNotIn('id', BankAccount::query()->withTrashed()->whereNotNull('ledger_account_id')->select('ledger_account_id')))
+                        // Odoo creates the GL account when you add the bank; this offers the same
+                        // thing rather than sending the operator to the chart screen to work out
+                        // which code comes next. Null means the chart cannot say where banks live
+                        // (an unmapped `bank` role) — refusing to guess beats inventing a top-level
+                        // account the accountant never agreed to.
+                        ->createOptionForm([
+                            TextInput::make('name')
+                                ->label(__('admin.fields.ledger_account'))
+                                ->required()
+                                ->maxLength(120)
+                                ->helperText(__('admin.helpers.bank_mint_ledger_account')),
+                        ])
+                        // NO `Get $get` here. Filament resolves closure arguments by PARAMETER NAME,
+                        // and `Select`'s create-option action supplies only `data`, `form`/`schema`
+                        // and the usual component/livewire — asking for `$get` fatals the button.
+                        // The property is the SELECTED one anyway, which is what scopes this whole
+                        // form and what `BankAccountField` reads.
+                        ->createOptionUsing(fn (array $data) => BankAccount::mintLedgerAccount(
+                            $data['name'],
+                            TenantScope::currentAssetId(),
+                        )?->getKey())
                         ->helperText(__('admin.helpers.bank_ledger_account'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.bank_ledger_account')),
 

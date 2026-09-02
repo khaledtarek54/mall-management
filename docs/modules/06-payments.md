@@ -757,6 +757,44 @@ column on 2026-09-02 with no relation, no guard and a bare `EntitySelect`, so a 
 another mall's account and stamp it onto every cost it generated. That made the sweep **seven**
 documents, not six. (`ABankRailSaysWhichAccountItMovedThroughTest`, mutation-proved both ways.)
 
+**EACH BANK ACCOUNT GETS A CHART ACCOUNT OF ITS OWN (2026-09-02) — the market standard, and the
+thing that makes any of this reconcilable.** Yardi's Bank record points at one cash GL account and
+its reconciliation is OF that account; NetSuite, QuickBooks and Odoo each make a bank account its own
+GL account, and **Odoo creates the account for you when you add the bank**. The mechanical reason is
+`MatchBankStatementLineService::candidatesFor()`, which finds candidates with
+`where('ledger_account_id', …)` — two banks on one chart account means reconciling CIB **offers
+NBE's postings**, and a wrong match that still balances marks money verified.
+
+**A POSTING ROLE account is refused too, and it is the subtler half.** The `bank` role is where every
+document naming NO bank account lands — the floor in `MoneyAccount` — so pointing a real bank at it
+merges *"money we know went through CIB"* with *"money nobody attributed"*, and every unattributed
+posting becomes a CIB candidate. `DemoSeeder` had been careful about exactly this since the register
+was first seeded (*"neither may BE a posting-role account, and that is the whole point"*) and **the
+FORM was not**, which is how a real install ended up with its only bank on `11102001 Bank Account`.
+Any role is refused, not just `cash`/`bank`: a bank pointing at the AR control account is a worse
+version of the same mistake.
+
+**Refused only on a DIRTY write.** Every install predating the rule has a bank mapped somewhere,
+quite possibly at the role account — refusing on every save would make those rows uneditable, so the
+operator could not rename their own bank without first solving a chart problem. That is the trap
+CLAUDE.md records for `#[NeverDeletable]`. `ConfigurationHealth::bankAccountsHaveTheirOwnAccount()`
+reports the existing ones as the **advisory** they are (the books are correct; the reconciliation is
+merely ambiguous), and a bank naming NO chart account is deliberately not a finding — that is a
+different, earlier question and a legitimate state.
+
+**`BankAccount::mintLedgerAccount()` is Odoo's half**, offered from the ledger-account picker's
+*create* option, and it is what makes the rule a help rather than an obstacle. It anchors on **the
+parent of the `bank` role account** — this install's own answer to *where do we keep banks in the
+chart* — never a literal `11102`, because the real Egyptian chart has not been supplied and any
+hardcoded code would be a guess about somebody else's numbering. **The code width comes from the
+siblings**, so an 8-digit chart and a 10-digit one each get a leaf that looks like its neighbours;
+that question is still open in `docs/STATUS.md`, and deriving it is how this survives the answer. It
+returns **null** rather than inventing a home when the `bank` role is unmapped. The picker
+**suggests** rather than filters — a hard clause is the write guard and Filament resolves a submitted
+value's LABEL through it, so excluding taken accounts would make the row that HOLDS one fail its own
+validation. (`EachBankAccountGetsItsOwnChartAccountTest`, all three teeth mutation-proved, including
+the lockout the dirty check prevents.)
+
 **A DOCUMENT HAS MORE THAN ONE DOOR, and the first pass only reached six of eight.** A deposit
 movement is recorded from the deposit register **and** from the lease's own Security deposit tab —
 and the tab is where an operator actually records one. `LeaseActions::recordDeposit()` did not get

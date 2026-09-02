@@ -6,6 +6,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -102,6 +103,10 @@ class BankAccount extends Model
      */
     protected static function booted(): void
     {
+        static::saving(function (self $account): void {
+            self::assertLedgerAccountIsItsOwn($account);
+        });
+
         static::saved(function (self $account): void {
             if (! $account->is_default) {
                 return;
@@ -115,6 +120,130 @@ class BankAccount extends Model
                 ->where('is_default', true)
                 ->update(['is_default' => false]);
         });
+    }
+
+    /**
+     * A bank account gets its OWN chart account — not a shared one, and never a posting role.
+     *
+     * ## This is the market standard, not a house preference
+     *
+     * Every system that reconciles a bank does it this way. Yardi's Bank record points at one cash
+     * GL account and its reconciliation is OF that account. NetSuite, QuickBooks and Odoo all make
+     * each bank account its own GL account — Odoo goes further and CREATES the account for you when
+     * you add the bank, which is why {@see App\Filament\Admin\Resources\BankAccounts\Schemas\BankAccountForm}
+     * now offers the same thing. SAP maps each house bank account to its own reconciliation account.
+     *
+     * The mechanical reason is `MatchBankStatementLineService::candidatesFor()`, which finds
+     * candidates with `where('ledger_account_id', $account->ledger_account_id)`. Two banks on one
+     * chart account means reconciling CIB OFFERS NBE's postings. The operator matches one, the
+     * statement balances, and the reconciliation is wrong — which
+     * `docs/accounting/BANK-RECONCILIATION-PLAN.md` calls worse than not reconciling at all, because
+     * a wrong match marks money verified.
+     *
+     * ## Why a POSTING ROLE account is refused too, and it is the subtler half
+     *
+     * The `bank` role is where a document naming NO bank account lands — that is the whole floor in
+     * {@see App\Support\MoneyAccount}. Point a real bank at it and the two populations merge:
+     * "money we know went through CIB" and "money nobody said anything about" become one balance, so
+     * every unattributed posting is offered as a CIB candidate. `DemoSeeder` has been careful about
+     * exactly this since the day the register was seeded — *"neither may BE a posting-role account,
+     * and that is the whole point"* — and the FORM was not, which is how an install ends up with its
+     * only bank pointing at `11102001 Bank Account`.
+     *
+     * Any role, not just `cash`/`bank`: a bank pointing at the AR control account or at
+     * `deposits_held` is a worse version of the same mistake.
+     *
+     * ## Only on a DIRTY write
+     *
+     * Every install that predates this has a bank account mapped somewhere, quite possibly at the
+     * role account. Refusing on every save would make those rows uneditable — the operator could not
+     * even rename the bank without first solving a chart problem — which is the trap CLAUDE.md
+     * records for `#[NeverDeletable]`: guarding a row a workflow legitimately touches breaks the
+     * workflow instead of protecting it. `ConfigurationHealth::bankAccountsHaveTheirOwnAccount()`
+     * reports the existing ones as the advisory they are, and the form's *create a dedicated
+     * account* button makes fixing one a click.
+     */
+    private static function assertLedgerAccountIsItsOwn(self $account): void
+    {
+        if ($account->ledger_account_id === null || ! $account->isDirty('ledger_account_id')) {
+            return;
+        }
+
+        if (AccountMapping::query()->where('ledger_account_id', $account->ledger_account_id)->exists()) {
+            throw new DomainException(__('admin.refusals.bank_account_is_a_posting_role', [
+                'account' => LedgerAccount::withTrashed()->find($account->ledger_account_id)?->code ?? '',
+            ]));
+        }
+
+        $taken = static::query()
+            ->withTrashed()
+            ->where('ledger_account_id', $account->ledger_account_id)
+            ->whereKeyNot($account->getKey())
+            ->first();
+
+        if ($taken !== null) {
+            throw new DomainException(__('admin.refusals.bank_account_shares_a_chart_account', [
+                'other' => $taken->name,
+            ]));
+        }
+    }
+
+    /**
+     * Mint a dedicated chart leaf for a bank account — Odoo's behaviour, and the reason the rule
+     * above is a help rather than an obstacle.
+     *
+     * Anchored on the PARENT OF THE `bank` ROLE ACCOUNT, which is this install's own answer to
+     * "where do we keep bank accounts in the chart" — never a hardcoded `11102`, because the real
+     * Egyptian chart has not been supplied and any literal here would be a guess about somebody
+     * else's numbering.
+     *
+     * The code width is taken from the siblings that already exist, so an install on 8-digit codes
+     * and one on 10-digit codes each get a leaf that looks like its neighbours. That question is
+     * open (see `docs/STATUS.md`), and deriving it is how this survives the answer.
+     *
+     * Returns null when the chart cannot say where banks live — an unmapped `bank` role, or a role
+     * account with no parent. Refusing to guess is right: inventing a top-level account would put a
+     * bank somewhere the accountant never agreed to.
+     */
+    public static function mintLedgerAccount(string $name, ?int $assetId = null): ?LedgerAccount
+    {
+        $role = AccountMapping::query()
+            ->where('key', 'bank')
+            ->where(fn ($q) => $q->where('asset_id', $assetId)->orWhereNull('asset_id'))
+            ->orderByRaw('case when asset_id is null then 1 else 0 end')
+            ->value('ledger_account_id');
+
+        $parent = LedgerAccount::find($role)?->parent;
+
+        if ($parent === null) {
+            return null;
+        }
+
+        $siblings = LedgerAccount::withTrashed()
+            // `withTrashed()` is load-bearing, not tidiness: `ledger_accounts.code` is a PLAIN unique
+            // index, so a soft-deleted `…002` still occupies that code while the SoftDeletes global
+            // scope hides it from this query. Without it, retiring an account makes the next mint
+            // propose the code it just freed in appearance only — a duplicate-key 500 on a button
+            // whose whole job is to be the easy path.
+            ->where('parent_id', $parent->id)
+            ->pluck('code')
+            ->filter(fn (string $code) => str_starts_with($code, $parent->code) && ctype_digit($code));
+
+        // Match the neighbours. With none, three digits is the shape every seeded chart here uses.
+        $width = $siblings->map(fn (string $c) => strlen($c) - strlen($parent->code))->max() ?: 3;
+
+        $next = ($siblings->map(fn (string $c) => (int) substr($c, strlen($parent->code)))->max() ?? 0) + 1;
+
+        return LedgerAccount::create([
+            // `parent_id` and `normal_balance` are DERIVED in `LedgerAccount::saving` from the code
+            // and the type — passing either here would be a second, conflicting truth.
+            'code' => $parent->code.str_pad((string) $next, $width, '0', STR_PAD_LEFT),
+            'name_en' => $name,
+            'name_ar' => $name,
+            'type' => 'asset',
+            'is_postable' => true,
+            'is_active' => true,
+        ]);
     }
 
     /**

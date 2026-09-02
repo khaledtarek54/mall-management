@@ -231,6 +231,12 @@ return [
         'severities' => ['blocking' => 'Needs attention', 'advisory' => 'Could be better'],
         'categories' => ['tax' => 'Tax', 'accounting' => 'Accounting', 'billing' => 'Billing', 'payroll' => 'Payroll'],
         'checks' => [
+            'bank_accounts_have_their_own_account' => [
+                'name' => 'Each bank account has a chart account of its own',
+                'advisory' => ':count bank account(s) share a chart account with another bank, or point at a posting role — the account documents that name NO bank fall to. Reconciling one then offers the other\'s entries as matches, which balances and is wrong. Give each its own account under Accounting → Bank accounts (the ledger-account field can create one). (:detail)',
+                'impact' => ':count bank account(s) do not have a chart account of their own. (:detail)',
+                'ok' => 'Every bank account posts to a chart account nothing else uses.',
+            ],
             'bank_account_defaults_set' => [
                 'name' => 'Each property says which bank account its money defaults to',
                 'advisory' => ':count propert(ies) bank in more than one place with no default account set, so every money form there opens blank — most documents end up naming no account, both banks post to one chart account, and the bank reconciliation offers one bank\'s entries against the other\'s statement. Tick "Default" on one account per property under Accounting → Bank accounts.',
