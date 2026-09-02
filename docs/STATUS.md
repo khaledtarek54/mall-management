@@ -225,6 +225,8 @@ the cutover posture.
 
 ---
 
+| **A3.10** | **Writing off an unpaid SECURITY-DEPOSIT invoice line — what should it post?** A deposit line credits `deposits_held`, a **liability**, when the invoice is issued. The write-off journalizer books `Dr bad_debt_expense / Cr accounts_receivable` whatever the line was — so it charges an expense against revenue that was never recognised, and leaves the obligation standing on the balance sheet. | Posts as bad debt, as above. It bites only the day somebody writes off a deposit invoice, which is why it is here and not in §2 — but the entry is wrong on both sides until you rule. Recorded as SW-201. | Accountant |
+
 ## 4 · Confirm a default (silence ships it)
 
 🟡 Built, working, reasonable. Each is one word from you — *"yes"*, or a different number.
@@ -238,6 +240,7 @@ the cutover posture.
 | A1.9 | The **artificial breakpoint** for percentage rent — `(sales − threshold) × rate` | Per lease, with a natural-breakpoint option and monthly-vs-annual cumulation |
 | A1.10 | **Payment terms 7 days** from issue | A per-property setting applied at origination; the lease then carries its own number |
 | A3.2 | **Accrual, revenue at issue.** Straight-line rent (EAS 49) built and **off** | Flip it in Billing settings when your accountant decides |
+| **A3.9** | **A tenant hands you a year of post-dated cheques — is that an ASSET the day you take them, or nothing until each one clears?** | **Nothing until it clears** (module 33's recorded v1 scope: register-only, settle-on-clear). The register tracks maturity, lodgement bank and the bounce lifecycle; the invoice stays open and the receipt is minted on clearing. The alternative is the Notes-Receivable accrual — `Dr 11205001 / Cr AR` on lodging — which is built as a documented refinement, not as code. Flipping it changes when revenue leaves AR, so it is yours |
 | A3.4 | Period close blocks back-dated posting | As described |
 | **A3.8** | **Reporting per property — and CONSOLIDATED is not reachable today.** The books support it (the year-end close already rolls a consolidated bucket) but no screen offers it: the six statements pin their property picker to the mall in the switcher, and All-Properties mode was removed by an earlier decision. A combined P&L for an owner holding both malls is currently two PDFs and a spreadsheet. | Per property, as described. **Consolidated needs a decision** — reopen the All-Properties question (**M**), or accept the per-property split |
 | A5.2 | Payroll withholdings split into their own payable accounts | As described |
@@ -373,6 +376,42 @@ In order, and nothing here is blocked on us:
 5. **Set a go-live date and a parallel-run period (C4.2)**, so the rest can be scheduled against it.
 
 Everything else in §2 and §3 can follow, and §4 needs nothing but a nod.
+
+### 9.1 · The accountant's sitting
+
+**Twenty of the rows above are the accountant's, and they are not twenty conversations.** Taken in
+this order they are one meeting and two follow-ups. Row IDs only — the rows themselves are above, and
+each already states what the system does *today* while it waits.
+
+**Sitting one — nothing correct can be issued without these.** *(§2, plus §3's A3.7.)*
+
+| Order | Rows | The stake in one line |
+|---|---|---|
+| 1 | **A1.1** | Until the TRN is set, no document may call itself a *Tax Invoice* — so **the tenant cannot reclaim the VAT you charged them** |
+| 2 | **A1.x · C-TAX** | Which supplies are taxable, at what rate, from when — including whether **Law 157/2025 now taxes base rent** |
+| 3 | **A4.1** | The real Egyptian chart, and your 8-vs-10-digit code convention. The longest lead time on your side |
+| 4 | **A9.1 / A9.2** | Sign off the 52 posting roles, and rule on the **5% marketing levy: revenue, or a fund you hold** |
+| 5 | **A3.7 · A8.3** | Opening balances and the cut-over date. Without them your first trial balance is wrong by exactly the history before it |
+| 6 | **C-NUM · C-FY** | Both have **hard deadlines**: after the first issued invoice neither can be undone cleanly |
+
+**Sitting two — tax detail.** **A2.9** (withholding rates: the published summaries disagree) ·
+**A2.7** (one seller identity, or one per owner) · **A2.8** (is a trade-name component charged).
+Nothing breaks while these wait; the engines are built and inert.
+
+**Sitting three — payroll.** **C-PAY** is the sharp one: all three statutory rates are **0**, so an
+approved run gives **net = gross on every payslip and no liability in the books**. Then **A5.1 /
+A5.4** (gratuity entitlement, social-insurance coverage) and **A5.3** (compute statutory payroll at
+all, or key each run by hand).
+
+**A nod, not a meeting — five switches that are built and OFF.** Each ships a defensible default and
+changes nothing until ruled on: **A3.2** straight-line rent (EAS 49) · **A3.9** post-dated cheques as
+notes receivable · **A3.10** what a written-off deposit line posts *(the one place the current entry
+is arguably wrong on both sides)* · **C2.4** whether an SLA penalty's benefit reaches tenants through
+the CAM pool · **C-NSF** the returned-cheque fee, hidden until priced.
+
+**Do not send this as twenty questions.** Sitting one is the whole of what stops you issuing a
+correct invoice and opening the books; everything else can follow, because each remaining row either
+ships off or reports rather than guesses.
 
 ---
 
