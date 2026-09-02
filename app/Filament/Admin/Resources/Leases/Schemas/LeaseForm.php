@@ -56,7 +56,10 @@ class LeaseForm
                             ->dehydrated(),
                         EntitySelect::make('unit_id')
                             ->label(__('admin.fields.master_unit'))
+                            // The master unit is the larger half of the let area, so a rate-priced
+                            // rent has to follow it exactly as it follows an expansion below.
                             ->live()
+                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
                             ->entity(Unit::class)
                             // Browsing, not looking up: a leasing officer opens this to see what is
                             // vacant. Server-side folded search still runs the moment they type.
@@ -223,7 +226,14 @@ class LeaseForm
                             })
                             // Live so a rate-priced lease re-derives its rent the moment the let area
                             // changes (LS-04) — the operator sees the money move as they pick space.
+                            //
+                            // `->live()` alone never did that: it makes the round trip, so the area
+                            // in the rate field's helper text updated to 210.00 m² while the rent
+                            // beside it still read the master unit's 7,500. A comment stating an
+                            // intent nothing implements is worse than no comment — it is what let
+                            // the same omission survive on the server side of this form too.
                             ->live()
+                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
                             // ── Read-only once the lease exists, and this one is not tidiness ────
                             // `EditLease::afterSave()` calls `syncUnits()` with whatever this field
                             // holds, and `syncUnits()` is a `sync()` — so REMOVING a unit here
@@ -953,7 +963,6 @@ class LeaseForm
             ->sum('area_sqm');
     }
 
-    /** Show the monthly rent a per-m² rate implies, live, as the deal is typed. */
     /**
      * Recompute the expiry from the commencement and the term.
      *
@@ -986,6 +995,13 @@ class LeaseForm
         }
     }
 
+    /**
+     * Show the monthly rent a per-m² rate implies, live, as the deal is typed.
+     *
+     * Every input it reads has to call it: the rate, the pricing basis, the master unit and the
+     * additional units. Wiring it to the rate alone is what left the form showing the master
+     * unit's rent under a helper text already naming the full let area.
+     */
     private static function deriveRentInto(Get $get, Set $set): void
     {
         if ($get('rent_pricing_basis') !== Lease::RENT_RATE) {

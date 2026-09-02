@@ -3,9 +3,10 @@
 namespace App\Models\Concerns\Lease;
 
 use App\Models\Unit;
-use Carbon\CarbonImmutable;
+use App\Services\LeaseSpaceChangeService;
 // For the `@param Builder|BelongsToMany` docblocks — unimported, `Builder` would resolve to
 // App\Models\Concerns\Lease\Builder, which does not exist.
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -21,6 +22,7 @@ use Illuminate\Support\Collection;
  *   totalAreaSqm()         -> totalAreaSqmOn() -> unitsOn()
  *   totalAreaSqmForPeriod()-> pivotWindow() + totalAreaSqmOn()
  *   deriveBaseRentFromRate() -> totalAreaSqmOn()
+ *   repriceFromPremises()  -> deriveBaseRentFromRate()
  *
  * `deriveBaseRentFromRate()` lives here deliberately rather than in a rent-pricing concern: its
  * whole body is area x rate, and separating it from `totalAreaSqmOn()` would put a cross-trait hop
@@ -230,6 +232,57 @@ trait HasLeasePremises
         return $asOf->startOfDay()->lt($this->holdover_from->startOfDay())
             ? $contracted
             : round($contracted * $premium / 100, 2);
+    }
+
+    /**
+     * Re-price a rate-priced lease from the premises it actually holds — **at origination only**.
+     *
+     * `Lease::saving` derives `base_rent_monthly` on CREATE, and it reads
+     * {@see deriveBaseRentFromRate()}, which reads the `lease_unit` pivot. On a create that pivot
+     * does not exist yet: `LeaseObserver` writes the master row in `created`, and any ADDITIONAL
+     * unit is attached later still — so the derivation fell through to its own master-unit
+     * fallback and a lease opening on two shops was priced on one of them. Measured: A-03 (90 m²)
+     * plus A-04 (120 m²) at 1,000/m²/yr saved 7,500 a month where 17,500 was due, and because the
+     * charge ladder, the marketing levy and the deposit are all built FROM that column, every
+     * figure the lease produced for its whole term inherited it.
+     *
+     * The fallback is not the bug and must stay — a lease built in a test or by an importer that
+     * never touches the pivot has to price on something. What was missing is a caller re-asking
+     * once the premises are known.
+     *
+     * **Origination only, and the guard is not decorative.** Re-deriving a lease that has BILLED
+     * restates months already invoiced from a rent nobody agreed to for them; that act needs an
+     * EFFECTIVE DATE, which is the whole reason {@see LeaseSpaceChangeService}
+     * exists — it re-derives at a date, closes the old charge row and opens the new one. So this
+     * refuses the moment an invoice exists rather than trusting its callers to only be creates.
+     *
+     * Silent on a flat lease: a negotiated sum is not a function of area, and inferring one from
+     * the space it happens to cover would restate the deal.
+     *
+     * @return bool whether the rent actually moved — the caller has to seed the charges from the
+     *              corrected figure, so it needs to know
+     */
+    public function repriceFromPremises(): bool
+    {
+        $derived = $this->deriveBaseRentFromRate();
+
+        if ($derived === null || (float) $this->base_rent_monthly === $derived) {
+            return false;
+        }
+
+        if ($this->invoices()->exists()) {
+            return false;
+        }
+
+        $this->base_rent_monthly = $derived;
+
+        // A plain save, not saveQuietly: `Lease::saving` recomputes `security_deposit` from the
+        // rent and the agreed multiple, and a deposit left at three months of the OLD rent is the
+        // same defect one column along. The rate-derivation hook does not fight this — it treats a
+        // dirty `base_rent_monthly` on an update as a figure the caller stated.
+        $this->save();
+
+        return true;
     }
 
     /**

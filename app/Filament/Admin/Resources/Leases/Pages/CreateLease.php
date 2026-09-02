@@ -50,11 +50,38 @@ class CreateLease extends CreateRecord
      * flow. LeaseObserver handles the unit-status flip (active → occupied).
      * Charges aren't part of the form, so seed them here using the same
      * Egypt-VAT defaults the Quick New Lease wizard produces.
+     *
+     * **The order of the three steps is load-bearing** — premises, then rent, then the charges
+     * derived from it. See the comment on the first block.
      */
     protected function afterCreate(): void
     {
         /** @var Lease $lease */
         $lease = $this->record;
+
+        // ── THE PREMISES ARE ATTACHED FIRST, BECAUSE EVERYTHING BELOW IS PRICED FROM THEM ─────
+        //
+        // This block used to run LAST, after the charges were seeded and the whole term's ladder
+        // projected — so on a rate-priced lease every one of those figures was built from the
+        // MASTER unit's area alone. `Lease::saving` derives the rent from the `lease_unit` pivot,
+        // and at save time that pivot is empty (the observer writes the master row in `created`),
+        // so the derivation fell through to its own master-unit fallback and nothing re-asked
+        // once the second shop was attached.
+        //
+        // Measured on Val Plaza: A-03 (90 m²) + A-04 (120 m²) at 1,000/m²/yr saved 7,500 a month
+        // where 17,500 was due — ladder 7,500 → 8,025 → 8,586.75, levy 375, deposit 22,500 — a
+        // lease under-billed by 10,000 a month for three years, with nothing on screen to say so.
+        //
+        // Nothing has billed yet at this point, so there is no effective date to honour and no
+        // month to restate; that is exactly the boundary `repriceFromPremises()` states and
+        // enforces. A LIVE lease taking more space is `LeaseSpaceChangeService`'s act instead.
+        $additional = $this->data['additional_unit_ids'] ?? [];
+
+        if (! empty($additional)) {
+            $lease->syncUnits([$lease->unit_id, ...$additional], $lease->unit_id);
+            $lease->load('units');
+            $lease->repriceFromPremises();
+        }
 
         LeaseCreationService::seedStandardCharges(
             $lease,
@@ -74,12 +101,5 @@ class CreateLease extends CreateRecord
         // not already in force, and the anniversary sweep later recomputes the same figures and
         // finds them present.
         app(ChargeScheduleService::class)->projectTermEscalations($lease->fresh());
-
-        // Multi-unit lease: attach any additional units, keeping unit_id as the
-        // master. The observer already created the master pivot row.
-        $additional = $this->data['additional_unit_ids'] ?? [];
-        if (! empty($additional)) {
-            $lease->syncUnits([$lease->unit_id, ...$additional], $lease->unit_id);
-        }
     }
 }

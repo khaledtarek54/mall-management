@@ -179,6 +179,34 @@
 > (premium on the contracted figure, each step rounded), so the two cannot disagree about the same
 > lease. A date before the conversion is still contracted.
 
+> **⚠️ A LEASE THAT OPENS ON TWO SHOPS IS PRICED ON BOTH OF THEM (2026-09-02).**
+> Its sibling above, one step earlier in the lease's life. `Lease::saving` derives
+> `base_rent_monthly` on CREATE through `deriveBaseRentFromRate()`, which reads the `lease_unit`
+> pivot — and **on a create that pivot is empty**: `LeaseObserver` writes the master row in
+> `created`, and `CreateLease::afterCreate()` attached the ADDITIONAL units last of all, *after*
+> seeding the charges and projecting the whole term's ladder. So the derivation fell through to
+> its own master-unit fallback and nothing re-asked once the second shop was attached.
+>
+> Measured on Val Plaza: A-03 (90 m²) + A-04 (120 m²) at 1,000/m²/yr saved **7,500** a month where
+> 17,500 was due — ladder 7,500 → 8,025 → 8,586.75, marketing levy 375, deposit 22,500. A lease
+> under-billed by 10,000 a month for a three-year term, and **wrong in five places from one column**
+> because everything downstream is derived from `base_rent_monthly`.
+>
+> `afterCreate()` now runs **premises → rent → charges**, and the re-derivation is
+> `Lease::repriceFromPremises()` — beside its two twins, refusing the moment an invoice exists.
+> That guard is not decorative: re-deriving a lease that has BILLED restates months already
+> invoiced, and that act needs an EFFECTIVE DATE, which is exactly what `LeaseSpaceChangeService`
+> takes. The master-unit fallback in `deriveBaseRentFromRate()` **stays** — an importer or a test
+> that never touches the pivot has to price on something; what was missing was a caller re-asking.
+>
+> **The FORM told the same lie and that is why it survived.** `additional_unit_ids` carried
+> `->live()` under a comment promising the rent re-derives *"the moment the let area changes"* —
+> and `->live()` only makes the round trip. The helper text under the rate updated to 210.00 m²
+> while the rent beside it still read 7,500, so the screen agreed with the database and both were
+> wrong. Both pickers now call `deriveRentInto()`; the master one is the tooth a naive test cannot
+> see, because filling the rate and the unit together lets the RATE field's hook do the work.
+> (`AnExtraUnitIsPricedIntoTheRentAtCreationTest`, four teeth mutation-proved.)
+
 > **⚠️ A RENEWAL is a re-negotiation: the deal wins and the rate follows it (EG-39, 2026-08-22).**
 > `Lease::saving()` re-derives `base_rent_monthly` from rate × area on CREATE — and a renewal is a
 > create — so renewing a 250 m² unit let at 4,800/m²/yr for a negotiated 110,000 used to save
@@ -1612,9 +1640,16 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
 
 **Behavior:**
 - Standard Filament form creates Lease via Eloquent.
-- `afterCreate()` hook:
-  - Seeds standard charges via `LeaseCreationService::seedStandardCharges()`.
-  - Syncs additional units via `Lease::syncUnits()` if `additional_unit_ids` is non-empty.
+- `afterCreate()` hook — **the order is load-bearing** (2026-09-02), because every step is priced
+  from the one before it:
+  1. Syncs additional units via `Lease::syncUnits()` if `additional_unit_ids` is non-empty, then
+     `Lease::repriceFromPremises()` — a rate-priced rent is a function of the let area, and the
+     pivot does not exist until this point.
+  2. Seeds standard charges via `LeaseCreationService::seedStandardCharges()`.
+  3. Projects the whole term's ladder via `ChargeScheduleService::projectTermEscalations()`.
+
+  Running the units last, as it did until 2026-09-02, built the ladder, the marketing levy and the
+  deposit from the master unit's area alone.
 
 ---
 
