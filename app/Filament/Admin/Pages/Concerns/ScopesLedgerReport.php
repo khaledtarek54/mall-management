@@ -68,11 +68,34 @@ trait ScopesLedgerReport
      */
     protected function hydrateLedgerScopeFromQuery(): void
     {
-        $year = request()->query('year');
-        $this->year = is_numeric($year) ? (int) $year : (int) now()->year;
-
         $period = request()->query('period');
-        $this->period = is_string($period) && preg_match('/^\d{4}-\d{2}$/', $period) ? $period : null;
+        $period = is_string($period) ? $period : null;
+
+        // The year first, because `periodOptions()` is built from it. A link normally carries both
+        // (`ReportParameters::urlFor()` writes every declared property), but a hand-typed or
+        // hand-trimmed one may name only the period — and defaulting to THIS year would then throw
+        // away a period from another one, silently, by failing the membership test below.
+        $year = request()->query('year');
+        $this->year = match (true) {
+            is_numeric($year) => (int) $year,
+            $period !== null && preg_match('/^(\d{4})/', $period, $m) === 1 => (int) $m[1],
+            default => (int) now()->year,
+        };
+
+        // **Validated against the page's OWN period options, not against a shape.** The regex here
+        // was `/^\d{4}-\d{2}$/` — every ledger report's period is a month, except the one whose
+        // period is a QUARTER: `WithholdingTaxReturn` files Egypt's Form 41 quarterly and offers
+        // `2026-Q1`. So its own drill-down link, and every saved view of it, came back nulled and
+        // the screen opened on the full YEAR — while the emailed CSV, which never passes through
+        // here, still carried the quarter. One report, two periods, and the tell is a figure that
+        // does not match rather than an error.
+        //
+        // Deriving from `periodOptions()` means a page's accepted set is exactly what its own picker
+        // offers, so a report with a new period shape needs nothing here — the shape written twice
+        // is what drifted.
+        $this->period = ($period !== null && array_key_exists($period, $this->periodOptions()))
+            ? $period
+            : null;
 
         $assetId = request()->query('assetId');
 
