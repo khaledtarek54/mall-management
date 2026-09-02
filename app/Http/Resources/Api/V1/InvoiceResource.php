@@ -55,6 +55,10 @@ class InvoiceResource extends JsonResource
                 $this->receivedPayments->max('payment_date')
             )?->toIso8601String(),
             'currency' => $this->currency,
+            // The operator's note ON the document. Rendered on the portal's invoice view since it
+            // shipped and never put on the wire, so a mobile tenant read a different invoice from
+            // the one their colleague read on the web.
+            'notes' => $this->notes,
             'is_overdue' => $this->isOverdue(),
             'days_overdue' => $this->daysOverdue(),
 

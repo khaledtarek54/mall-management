@@ -1819,6 +1819,126 @@
                 }
             }
         },
+        "/v1/me/request-types": {
+            "get": {
+                "operationId": "v1.me.request-types",
+                "tags": [
+                    "ListRequestTypes"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "types": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "code": {
+                                                                "type": "string"
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "labelAr": {
+                                                                "type": "string"
+                                                            },
+                                                            "requiresDecision": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hasSla": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "subcategories": {
+                                                                "type": "array",
+                                                                "description": "The sub-categories THIS type defines. An empty array is meaningful and not a\nfailure: `inquiry` and `billing` have none, and sending one is `prohibited` on\nthe create endpoint \u2014 so the client must render no picker at all rather than an\nempty one.",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "code": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "label": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "labelAr": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "code",
+                                                                        "label",
+                                                                        "labelAr"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "code",
+                                                            "label",
+                                                            "labelAr",
+                                                            "requiresDecision",
+                                                            "hasSla",
+                                                            "subcategories"
+                                                        ]
+                                                    }
+                                                },
+                                                "priorities": {
+                                                    "type": "array",
+                                                    "description": "The priority set is a closed `ValueSets` list, not a catalogue \u2014 but the app has been\nhardcoding it too, and shipping it here costs one key and removes a second list.",
+                                                    "prefixItems": [
+                                                        {
+                                                            "type": "string",
+                                                            "const": "low"
+                                                        },
+                                                        {
+                                                            "type": "string",
+                                                            "const": "medium"
+                                                        },
+                                                        {
+                                                            "type": "string",
+                                                            "const": "high"
+                                                        },
+                                                        {
+                                                            "type": "string",
+                                                            "const": "urgent"
+                                                        }
+                                                    ],
+                                                    "minItems": 4,
+                                                    "maxItems": 4,
+                                                    "additionalItems": false
+                                                }
+                                            },
+                                            "required": [
+                                                "types",
+                                                "priorities"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/unit-ownerships": {
             "get": {
                 "operationId": "v1.me.unit-ownerships",
@@ -4166,6 +4286,16 @@
                     },
                     "total": {
                         "type": "number"
+                    },
+                    "disputedAt": {
+                        "type": "string",
+                        "description": "**WHICH line is under argument, and what was said.** `invoices.status` can be\n`disputed`, so the app could see that SOMETHING on the invoice was being argued about\nand never which line or why \u2014 while the portal's invoice view has rendered\n`disputed_reason` under the line all along. The tenant cannot raise a dispute on any surface: `DisputeInvoiceItemService` is\ncalled only from the admin invoice actions, i.e. an operator recording what the\ntenant said by telephone. That is deliberate, so the app's route for a billing\nargument is `POST /me/requests` with `requestType: billing` \u2014 and this pair is how it\nshows the tenant that the argument was heard and recorded."
+                    },
+                    "disputedReason": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -4175,7 +4305,9 @@
                     "amount",
                     "vatRate",
                     "vatAmount",
-                    "total"
+                    "total",
+                    "disputedAt",
+                    "disputedReason"
                 ],
                 "title": "InvoiceItemResource"
             },
@@ -4232,6 +4364,13 @@
                     },
                     "currency": {
                         "type": "string"
+                    },
+                    "notes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The operator's note ON the document. Rendered on the portal's invoice view since it\nshipped and never put on the wire, so a mobile tenant read a different invoice from\nthe one their colleague read on the web."
                     },
                     "isOverdue": {
                         "type": "boolean"
@@ -4348,6 +4487,7 @@
                     "payableAmount",
                     "paidAt",
                     "currency",
+                    "notes",
                     "isOverdue",
                     "daysOverdue",
                     "paymentLinkUrl"
@@ -5838,6 +5978,13 @@
                     "status": {
                         "type": "string"
                     },
+                    "locale": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "**The language this tenant is WRITTEN to in**, and the one thing the app could not\nreach. `Accept-Language` governs a JSON response and a PDF the app downloads, because\nthere the caller IS the recipient \u2014 but a PUSH is not a request and has no header, so\nLaravel renders it under `HasLocalePreference`, which reads this column. The same\ngoes for e-mail and for an invoice the OPERATOR sends. The column has been fillable\nand `preferredLocale()` has read it since 2026-08-12; no API could set it, so it\nanswered null for every tenant and the app's language toggle silently reached none of\nthose three channels. Clamped to `SetApiLocale::SUPPORTED` on the way in (see UpdateProfileRequest): an\nunsupported value does not throw, it makes `__()` fall through to the fallback\nlocale \u2014 so a typo leaves the column looking set and every document in English."
+                    },
                     "taxId": {
                         "type": [
                             "string",
@@ -5866,6 +6013,7 @@
                     "contactPersonPhone",
                     "address",
                     "status",
+                    "locale",
                     "taxId",
                     "logoUrl"
                 ],
@@ -6139,6 +6287,17 @@
                             "null"
                         ],
                         "maxLength": 1000
+                    },
+                    "locale": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The language the tenant is WRITTEN to in \u2014 push, e-mail, and any document the\noperator produces for them. Editable here because it is a preference about them, in\nthe same family as their phone number, and because nothing else could ever set it:\n`preferredLocale()` has read this column since 2026-08-12 and no screen or endpoint\nhas ever written it. Validated against the ONE supported list rather than a copy. An unsupported locale\ndoes not throw at render time \u2014 `__()` falls silently through to the fallback \u2014 so an\nunvalidated `fr-CA` leaves the column looking set while every document arrives in\nEnglish, which is the failure mode that makes this a hard rule rather than a nicety.",
+                        "enum": [
+                            "en",
+                            "ar"
+                        ]
                     }
                 },
                 "title": "UpdateProfileRequest"

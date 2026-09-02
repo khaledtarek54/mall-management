@@ -34,6 +34,19 @@ class TenantResource extends JsonResource
             'contact_person_phone' => $this->contact_person_phone,
             'address' => $this->address,
             'status' => $this->status,
+            // **The language this tenant is WRITTEN to in**, and the one thing the app could not
+            // reach. `Accept-Language` governs a JSON response and a PDF the app downloads, because
+            // there the caller IS the recipient — but a PUSH is not a request and has no header, so
+            // Laravel renders it under `HasLocalePreference`, which reads this column. The same
+            // goes for e-mail and for an invoice the OPERATOR sends. The column has been fillable
+            // and `preferredLocale()` has read it since 2026-08-12; no API could set it, so it
+            // answered null for every tenant and the app's language toggle silently reached none of
+            // those three channels.
+            //
+            // Clamped to `SetApiLocale::SUPPORTED` on the way in (see UpdateProfileRequest): an
+            // unsupported value does not throw, it makes `__()` fall through to the fallback
+            // locale — so a typo leaves the column looking set and every document in English.
+            'locale' => $this->locale,
             // Deliberately re-exposed despite Tenant::$hidden. Mobile invoice
             // displays + ETA submissions need it; national_id stays hidden
             // (more sensitive PII). Confirmed at audit M02 F-7 / D-5.

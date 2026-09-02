@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\V1\CamAllocations\CamStatementController;
+use App\Http\Controllers\Api\V1\Catalogue\ListRequestTypesController;
 use App\Http\Controllers\Api\V1\CamAllocations\ListCamAllocationsController;
 use App\Http\Controllers\Api\V1\CamAllocations\ShowCamAllocationController;
 use App\Http\Controllers\Api\V1\CreditNotes\ListCreditNotesController;
@@ -229,6 +230,10 @@ Route::prefix('v1')->group(function () {
             ->whereNumber('id')->whereNumber('media')->name('api.v1.me.announcements.hero');
 
         // --- Maintenance requests ---
+        // What a tenant may raise, and under which sub-category. The set is a CATALOGUE the
+        // operator edits, so a client shipping its own copy is one release behind by construction
+        // — and the symptom is a 422 on a picker the tenant was offered.
+        Route::get('me/request-types', ListRequestTypesController::class)->name('api.v1.me.request-types');
         Route::get('me/requests', ListTenantRequestsController::class)->name('api.v1.me.requests.index');
         Route::post('me/requests', CreateTenantRequestController::class)->name('api.v1.me.requests.store');
         Route::get('me/requests/{id}', ShowTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.show');
