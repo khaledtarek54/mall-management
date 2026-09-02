@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Services\Reports\StatementSpread;
 use App\Support\IssuingEntity;
 use App\Support\Pdf\DocumentLocale;
 use App\Support\Pdf\PdfDocument;
@@ -31,6 +32,27 @@ class LedgerReportPdfService
             'report' => $this->reports->incomeStatement($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
         ], $assetIds, $period, $locale);
+    }
+
+    /**
+     * The income statement read across several columns — month-and-year-to-date, or the twelve
+     * months of a year ({@see StatementSpread}).
+     *
+     * Takes the spread already built rather than the dates to build it from, deliberately: the
+     * screen decides which columns it is showing, and a PDF that re-derived them could hand the
+     * operator a printed statement with different columns from the one they pressed the button on.
+     *
+     * Turned sideways past four money columns. A thirteen-column statement on a portrait page is
+     * either clipped or shrunk past reading, and both are worse than a wide sheet of paper.
+     *
+     * @param  array<string, mixed>  $spread
+     */
+    public function incomeStatementSpread(array $spread, ?array $assetIds, string $property, string $period, ?string $locale = null): string
+    {
+        return $this->render('accounting.pdf.income-statement-spread', fn (): array => [
+            'spread' => $spread,
+            'meta' => $this->meta($property, $period),
+        ], $assetIds, $period, $locale, landscape: count($spread['spans']) > 4);
     }
 
     public function balanceSheet(?array $assetIds, CarbonInterface $asOf, string $property, ?string $locale = null): string
@@ -77,10 +99,11 @@ class LedgerReportPdfService
      * @param  Closure(): array<string, mixed>  $data
      * @param  array<int>|null  $assetIds  the report's property scope; one mall means one letterhead
      */
-    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale): string
+    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale, bool $landscape = false): string
     {
         return PdfDocument::make($view)
             ->locale(DocumentLocale::resolve($locale))
+            ->landscape($landscape)
             // One seam for all four statements — they share `accounting.pdf.layout`, so the issuer
             // is stated here rather than in each of balanceSheet()/incomeStatement()/
             // trialBalance()/cashFlow().

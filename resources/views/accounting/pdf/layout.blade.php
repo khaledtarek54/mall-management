@@ -26,6 +26,9 @@
         .num { text-align: {{ $isRtl ? 'left' : 'right' }}; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .code { font-family: monospace; font-size: 8pt; color: #7D8595; }
         .section-title { font-weight: bold; font-size: 11pt; margin: 14px 0 4px; color: #14213D; }
+        /* The same heading INSIDE a table, for a statement whose sections cannot each be their own
+           table because every one of them shares the spread's column widths. */
+        td.section-heading { font-weight: bold; font-size: 11pt; color: #14213D; padding-top: 12px; border-bottom: none; }
         /* A chart-group subtotal (EG-28) — lighter than the figure the section foots to,
            heavier than a leaf, so the three kinds of line stay distinguishable in print. */
         .subtotal-row td { border-top: 1px solid #C9D0DC; font-weight: 600; color: #4A5468; }

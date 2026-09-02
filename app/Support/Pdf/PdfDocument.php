@@ -79,6 +79,16 @@ final class PdfDocument
     /** Whether the page carries ink to its own edge. See {@see bleed()}. */
     private bool $bleeds = false;
 
+    /**
+     * Turn the page sideways.
+     *
+     * For a document that is genuinely WIDE rather than long — the income statement read across the
+     * twelve months of a year is thirteen money columns, and portrait either clips it or shrinks it
+     * past reading. Stated by the caller, because only the caller knows how many columns it is about
+     * to draw; a renderer that guessed from the content would turn ordinary documents sideways.
+     */
+    private bool $landscape = false;
+
     private function __construct(private readonly string $view) {}
 
     public static function make(string $view): self
@@ -105,6 +115,13 @@ final class PdfDocument
     public function bleed(): self
     {
         $this->bleeds = true;
+
+        return $this;
+    }
+
+    public function landscape(bool $on = true): self
+    {
+        $this->landscape = $on;
 
         return $this;
     }
@@ -266,7 +283,10 @@ final class PdfDocument
 
         return new Mpdf([
             'mode' => 'utf-8',
-            'format' => 'A4',
+            // `A4-L` is mpdf's own landscape spelling. Still ONE construction of mpdf, which is what
+            // `PdfLocaleConformanceTest` gates — an orientation is a parameter of the page, not a
+            // reason for a second renderer.
+            'format' => $this->landscape ? 'A4-L' : 'A4',
             // A bleeding page has NO side or top margin — the band is painted by the document and
             // has to reach the paper edge, and `.page-body` supplies the body's own margin. The
             // bottom is kept whatever happens: the running footer lives in it, and a footer that

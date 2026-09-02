@@ -13,10 +13,10 @@ use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ComparativeStatementService;
 use App\Services\Reports\ReportCsvExporter;
+use App\Services\Reports\StatementSpread;
 use App\Support\IncomeStatementLayout;
 use App\Support\ReportPreferences;
 use App\Support\StatementGroups;
-use App\Support\StatementSection;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -27,6 +27,7 @@ use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -60,12 +61,34 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
      */
     public ?string $comparison = null;
 
+    /**
+     * How many amount columns the statement has — null for one, `ytd` for this month beside the year
+     * to date, `monthly` for the twelve months of the year (RP-07).
+     *
+     * A public typed scalar for the same reason `$comparison` is: it reaches the URL, a saved view
+     * and a scheduled delivery like every other report parameter, and it is remembered per user
+     * because it says how this operator READS a statement rather than which moment they wanted.
+     */
+    public ?string $spread = null;
+
+    /** This month beside the year to date — the layout Yardi's income statement opens in. */
+    public const SPREAD_YTD = 'ytd';
+
+    /** The twelve months of the fiscal year side by side, then a full-year column. */
+    public const SPREAD_MONTHLY = 'monthly';
+
+    /** @var array<int, string> */
+    public const SPREADS = [self::SPREAD_YTD, self::SPREAD_MONTHLY];
+
     public function mount(): void
     {
         $this->hydrateLedgerScopeFromQuery();
 
         $requested = (string) request()->query('comparison', '');
         $this->comparison = in_array($requested, ComparativeStatementService::BASES, true) ? $requested : null;
+
+        $spread = (string) request()->query('spread', '');
+        $this->spread = in_array($spread, self::SPREADS, true) ? $spread : null;
 
         // After the query string, so an explicit ?comparison= still wins — same rule as every other
         // report parameter.
@@ -98,8 +121,97 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                         ->native(false)
                         ->live()
                         ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
+                    Select::make('spread')
+                        ->label(__('admin.reports.spread'))
+                        ->options([
+                            self::SPREAD_YTD => __('admin.reports.spread_ytd'),
+                            self::SPREAD_MONTHLY => __('admin.reports.spread_monthly'),
+                        ])
+                        ->placeholder(__('admin.reports.spread_none'))
+                        ->native(false)
+                        ->live()
+                        // Month-and-year-to-date needs a month. With the whole year selected the two
+                        // columns would be the same figures printed twice, which reads as an error —
+                        // the rule this statement already applies to NOI and to a one-row subtotal.
+                        // Said out loud rather than by silently dropping the option, because an
+                        // option that vanishes reads as a bug in the screen.
+                        ->helperText(fn (): ?string => $this->spread === self::SPREAD_YTD && ! $this->hasSelectedMonth()
+                            ? __('admin.reports.spread_needs_a_month')
+                            : null)
+                        ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
                 ]),
         ]);
+    }
+
+    /**
+     * The columns this statement is read across, or null for the single-period reading.
+     *
+     * @return list<array{key: string, label: string, from: CarbonImmutable, to: CarbonImmutable}>|null
+     */
+    public function spreadGroups(): ?array
+    {
+        if ($this->spread === self::SPREAD_MONTHLY) {
+            $groups = [];
+
+            foreach ($this->periodOptions() as $month => $label) {
+                $start = CarbonImmutable::createFromFormat('Y-m-d', $month.'-01')->startOfDay();
+
+                $groups[] = ['key' => 'm'.str_replace('-', '', $month), 'label' => $label,
+                    'from' => $start, 'to' => $start->endOfMonth()->endOfDay()];
+            }
+
+            // The full-year column. Not the sum of the twelve — read from the ledger like every
+            // other column, so a month the fiscal year does not cover cannot make the total
+            // disagree with the statement an operator gets by picking the whole year.
+            $groups[] = ['key' => 'total', 'label' => __('admin.reports.spread_total'),
+                'from' => CarbonImmutable::instance($this->fiscalYearStart()),
+                'to' => CarbonImmutable::instance($this->fiscalYearEnd())];
+
+            return $groups;
+        }
+
+        if ($this->spread !== self::SPREAD_YTD || ! $this->hasSelectedMonth()) {
+            return null;
+        }
+
+        return [
+            ['key' => 'period', 'label' => $this->periodLabel(),
+                'from' => CarbonImmutable::instance($this->periodStart()),
+                'to' => CarbonImmutable::instance($this->periodEnd())],
+            // Year to date means from the FISCAL year's start, not 1 January — an April-to-March mall
+            // year is ordinary here, and the shared scope already knows where the year begins.
+            ['key' => 'ytd', 'label' => __('admin.reports.spread_period'),
+                'from' => CarbonImmutable::instance($this->fiscalYearStart()),
+                'to' => CarbonImmutable::instance($this->periodEnd())],
+        ];
+    }
+
+    /**
+     * The spread, when one was asked for AND is answerable.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function spreadReport(): ?array
+    {
+        $groups = $this->spreadGroups();
+
+        if ($groups === null) {
+            return null;
+        }
+
+        return app(StatementSpread::class)->incomeStatement(
+            $groups,
+            $this->scopedAssetIds(),
+            // A comparison rides along on the month-and-YTD reading — actual, budget and variance per
+            // group, which IS Yardi's layout. It deliberately does NOT ride along on the twelve-month
+            // one: thirty-six columns is not a statement anybody reads.
+            $this->spread === self::SPREAD_YTD ? $this->comparison : null,
+        );
+    }
+
+    private function hasSelectedMonth(): bool
+    {
+        return is_string($this->period) && preg_match('/^\d{4}-\d{2}$/', $this->period) === 1;
     }
 
     public function getTitle(): string
@@ -121,17 +233,30 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
                     $svc = app(LedgerReportPdfService::class);
-                    $pdf = $svc->incomeStatement(
-                        $this->scopedAssetIds(),
-                        $this->periodStart(),
-                        $this->periodEnd(),
-                        $this->propertyLabel(),
-                        $this->periodLabel(),
-                    );
+                    $spread = $this->spreadReport();
+
+                    // The printed copy is the one that gets filed and argued over, so it prints the
+                    // columns the operator is looking at. A PDF button that quietly reverted to the
+                    // single-period statement would hand them a different document under the same
+                    // name.
+                    $pdf = $spread !== null
+                        ? $svc->incomeStatementSpread(
+                            $spread,
+                            $this->scopedAssetIds(),
+                            $this->propertyLabel(),
+                            $this->periodLabel(),
+                        )
+                        : $svc->incomeStatement(
+                            $this->scopedAssetIds(),
+                            $this->periodStart(),
+                            $this->periodEnd(),
+                            $this->propertyLabel(),
+                            $this->periodLabel(),
+                        );
 
                     return response()->streamDownload(
                         fn () => print ($pdf),
-                        $svc->filename('income-statement', $this->periodSlug()),
+                        $svc->filename('income-statement'.($spread !== null ? '-'.$this->spread : ''), $this->periodSlug()),
                         ['Content-Type' => 'application/pdf'],
                     );
                 }),
@@ -158,6 +283,29 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
      */
     public function reportCsv(): array
     {
+        $spread = $this->spreadReport();
+
+        // The columns travel with the export, for the same reason the comparison does.
+        if ($spread !== null) {
+            return [
+                'filename' => "income-statement-{$this->periodSlug()}-{$this->spread}",
+                'headers' => [
+                    __('admin.reports.section'),
+                    __('admin.tables.ledger_account.code'),
+                    __('admin.tables.ledger_account.account'),
+                    ...array_column($spread['spans'], 'label'),
+                ],
+                'rows' => collect($this->spreadRecords($spread))
+                    ->map(fn (array $r): array => [
+                        $r['section'],
+                        $r['code'] ?? '',
+                        $r['account'],
+                        ...array_map(fn (array $span): float => (float) ($r['a_'.$span['key']] ?? 0), $spread['spans']),
+                    ])
+                    ->all(),
+            ];
+        }
+
         $comparative = $this->comparative();
 
         // The comparison travels with the export. A statement an operator reads with prior-period
@@ -372,74 +520,179 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
     /**
      * The comparative statement's sections, in reading order.
      *
-     * The twin of `IncomeStatementLayout::sections()`, and it deliberately answers the same two
-     * shapes: an unclassified chart reads revenue / expenses / net profit, and a chart with anything
-     * below the line grows the NET OPERATING INCOME row. Choosing a comparison must change how many
-     * COLUMNS the statement has, never what shape it is — a picker that silently relaid the sections
-     * would leave two readings of one statement that nobody could reconcile.
+     * The SAME shape the plain reading uses ({@see IncomeStatementLayout::shape()}), because
+     * choosing a comparison must change how many COLUMNS the statement has and never what shape it
+     * IS — a picker that silently relaid the sections would leave two readings of one statement that
+     * nobody could reconcile.
      *
-     * It cannot simply call the layout class: that class works from the report's own collections,
-     * and a comparative row set is a UNION of two periods — an account that ran last period and
-     * stopped has no row in this one, and dropping it would hide the change most worth seeing. So
-     * this describes the same sections and selects rows by what they carry.
+     * It cannot call `sections()`, which attaches rows from the report's own collections: a
+     * comparative row set is the UNION of two periods, and an account that ran last period and
+     * stopped has no row in this one. Dropping it would hide the change most worth seeing. So the
+     * rows are selected by what they CARRY, which is what `shape()` names `section` and
+     * `statement_section` for.
      *
      * @param  array<string, mixed>  $comparative
-     * @return list<array{label: string, section: ?string, statement_section: ?string, totals_key: string, total_label: ?string, is_net: bool, optional: bool}>
+     * @return list<array<string, mixed>>
      */
     private function comparativeLayout(array $comparative): array
     {
-        if (! ($comparative['has_below_the_line'] ?? false)) {
-            return [
-                self::comparativePart(__('admin.reports.revenue'), 'revenue', null, 'revenue', __('admin.reports.total_revenue')),
-                self::comparativePart(__('admin.reports.expenses'), 'expense', null, 'expense', __('admin.reports.total_expenses')),
-                self::comparativeNet(__('admin.reports.net_profit'), 'net'),
-            ];
+        return IncomeStatementLayout::shape((bool) ($comparative['has_below_the_line'] ?? false));
+    }
+
+    /**
+     * The spread as table records — the same record shape every other reading produces, with one
+     * `a_{span}` key per column instead of a single `amount`.
+     *
+     * Laid out from `IncomeStatementLayout::shape()` like the other two readings, so a statement read
+     * across twelve months has the same sections, in the same order, as the same statement read for
+     * one — a spread that relaid the sections would be a different report wearing this one's name.
+     *
+     * @param  array<string, mixed>  $spread
+     * @return list<array<string, mixed>>
+     */
+    public function spreadRecords(array $spread): array
+    {
+        $locale = app()->getLocale();
+        $records = [];
+        $i = 0;
+
+        $amounts = function (array $source, array $keys): array {
+            $cells = [];
+
+            foreach ($keys as $key) {
+                $cells['a_'.$key] = round((float) ($source[$key] ?? 0), 2);
+            }
+
+            return $cells;
+        };
+
+        $keys = array_column($spread['spans'], 'key');
+
+        foreach (IncomeStatementLayout::shape((bool) $spread['has_below_the_line']) as $part) {
+            $totals = $spread['totals'][$part['totals_key']] ?? [];
+
+            if ($part['is_net']) {
+                $records[] = [
+                    'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
+                    'account' => $part['label'], 'is_total' => true, 'is_subtotal' => false,
+                    'account_id' => null,
+                ] + $amounts($totals, $keys);
+
+                continue;
+            }
+
+            $sectionRows = array_values(array_filter(
+                $spread['rows'],
+                fn (array $row): bool => $row['section'] === $part['section']
+                    && ($part['statement_section'] === null || $row['statement_section'] === $part['statement_section']),
+            ));
+
+            if ($sectionRows === [] && $part['optional']) {
+                continue;
+            }
+
+            // The chart's own subtotals, exactly as the single-period reading gets them (EG-28).
+            // `StatementGroups` totals ONE figure per row and a spread row carries several under
+            // `amounts`, so its own `total` is deliberately left at zero here — the key named below
+            // exists on no spread row — and each group's per-column totals are summed further down.
+            $groups = StatementGroups::for($sectionRows, amountKey: 'amount');
+            $grouped = StatementGroups::worthShowing($groups);
+
+            foreach ($groups as $group) {
+                foreach ($group['rows'] as $row) {
+                    $records[] = [
+                        'id' => 's'.$i++, 'section' => $part['label'], 'code' => $row['code'],
+                        'account' => $locale === 'ar' ? $row['name_ar'] : $row['name_en'],
+                        'is_total' => false, 'is_subtotal' => false,
+                        'account_id' => $row['account_id'] ?? null,
+                    ] + $amounts($row['amounts'], $keys);
+                }
+
+                if (! $grouped || ! $group['show_subtotal']) {
+                    continue;
+                }
+
+                // Summed per COLUMN from the group's own rows. `StatementGroups` cannot do it — it
+                // totals one figure per row and every column here needs its own.
+                $groupTotals = [];
+
+                foreach ($keys as $key) {
+                    $groupTotals[$key] = round(array_sum(array_map(
+                        fn (array $r): float => (float) ($r['amounts'][$key] ?? 0),
+                        $group['rows'],
+                    )), 2);
+                }
+
+                $records[] = [
+                    'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
+                    'account' => __('admin.reports.group_subtotal', [
+                        'group' => $locale === 'ar' ? $group['name_ar'] : $group['name_en'],
+                    ]),
+                    'is_total' => false, 'is_subtotal' => true, 'account_id' => null,
+                ] + $amounts($groupTotals, $keys);
+            }
+
+            $records[] = [
+                'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
+                'account' => $part['total_label'], 'is_total' => true, 'is_subtotal' => false,
+                'account_id' => null,
+            ] + $amounts($totals, $keys);
         }
 
-        return [
-            self::comparativePart(__('admin.reports.operating_revenue'), 'revenue', StatementSection::OPERATING, 'operating_revenue', __('admin.reports.total_operating_revenue')),
-            self::comparativePart(__('admin.reports.operating_expenses'), 'expense', StatementSection::OPERATING, 'operating_expense', __('admin.reports.total_operating_expenses')),
-            self::comparativeNet(__('admin.reports.net_operating_income'), 'noi'),
-            self::comparativePart(__('admin.reports.other_income'), 'revenue', StatementSection::NON_OPERATING, 'other_revenue', __('admin.reports.total_other_income'), optional: true),
-            self::comparativePart(__('admin.reports.other_expenses'), 'expense', StatementSection::NON_OPERATING, 'other_expense', __('admin.reports.total_other_expenses'), optional: true),
-            self::comparativeNet(__('admin.reports.net_profit'), 'net'),
-        ];
+        return $records;
     }
 
     /**
-     * @return array{label: string, section: ?string, statement_section: ?string, totals_key: string, total_label: ?string, is_net: bool, optional: bool}
+     * The spread's table: the shared code/account columns, then one money column per span.
+     *
+     * @param  array<string, mixed>  $spread
      */
-    private static function comparativePart(string $label, string $section, ?string $statementSection, string $totalsKey, string $totalLabel, bool $optional = false): array
+    private function spreadTable(Table $table, array $spread): Table
     {
-        return [
-            'label' => $label,
-            'section' => $section,
-            'statement_section' => $statementSection,
-            'totals_key' => $totalsKey,
-            'total_label' => $totalLabel,
-            'is_net' => false,
-            'optional' => $optional,
+        $columns = [
+            TextColumn::make('code')
+                ->label(__('admin.tables.ledger_account.code'))
+                ->fontFamily('mono')->size('sm')->placeholder(''),
+            TextColumn::make('account')
+                ->label(__('admin.tables.ledger_account.account'))
+                ->weight(fn (array $record): string => $this->statementWeight($record))
+                ->url(fn (array $record): ?string => $this->ledgerUrlFor($record))
+                ->color(fn (array $record): ?string => $this->ledgerUrlFor($record) ? 'primary' : null),
         ];
-    }
 
-    /**
-     * @return array{label: string, section: ?string, statement_section: ?string, totals_key: string, total_label: ?string, is_net: bool, optional: bool}
-     */
-    private static function comparativeNet(string $label, string $totalsKey): array
-    {
-        return [
-            'label' => $label,
-            'section' => null,
-            'statement_section' => null,
-            'totals_key' => $totalsKey,
-            'total_label' => null,
-            'is_net' => true,
-            'optional' => false,
-        ];
+        foreach ($spread['spans'] as $span) {
+            $columns[] = TextColumn::make('a_'.$span['key'])
+                ->label($span['label'])
+                ->money('EGP')
+                ->alignEnd()
+                ->weight(fn (array $record): string => $this->statementWeight($record))
+                // Colour by DIRECTION only, and only on a variance. On an income statement a rise is
+                // welcome in revenue and unwelcome in expenses, and the table does not know which
+                // section a reader is looking at — claiming otherwise would be worse than staying
+                // neutral. The same rule the comparison column already follows.
+                ->color(fn (array $record): ?string => $span['kind'] === 'variance'
+                    ? match (true) {
+                        ($record['a_'.$span['key']] ?? 0) > 0 => 'success',
+                        ($record['a_'.$span['key']] ?? 0) < 0 => 'danger',
+                        default => null,
+                    }
+                    : null);
+        }
+
+        return $table
+            ->columns($columns)
+            ->paginated(false)
+            ->records(fn (): array => $this->spreadRecords($spread));
     }
 
     public function table(Table $table): Table
     {
+        $spread = $this->spreadReport();
+
+        if ($spread !== null) {
+            return $this->spreadTable($table, $spread);
+        }
+
         return $this->statementTable($table, comparative: $this->comparison !== null)
             ->records(function (): array {
                 $comparative = $this->comparative();

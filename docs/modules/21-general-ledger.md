@@ -802,6 +802,65 @@ backfill migration and the seeder.
 
 `APropertyPnlStopsAtNetOperatingIncomeTest` covers it, mutation-proved five ways.
 
+### The income statement reads across COLUMNS (2026-09-02)
+
+`App\Services\Reports\StatementSpread`, driven by a **Columns** picker on the income statement.
+
+A single-period P&L says what happened. It cannot answer the two questions a mall is actually run
+on, and until now neither could this screen:
+
+| Reading | Answers | Columns |
+|---------|---------|---------|
+| **This month and year to date** | *"Where are we against the year?"* | the chosen month, then the fiscal year to its end — the layout **Yardi's income statement opens in** |
+| **Month by month** | *"Is anything running away?"* | the twelve months of the fiscal year, then a full-year column |
+
+Both are ONE feature — a statement with N amount columns instead of one — which is why there is a
+single spread engine. Building them separately would be two definitions of what a column of an
+income statement is, free to drift.
+
+- **A GROUP is what the caller asks for; a SPAN is a column.** With a comparison basis chosen, each
+  group becomes THREE columns — actual, the comparison, and the variance between them — which is
+  exactly how Yardi prints its month-and-YTD statement. The caller never assembles that, so a screen
+  cannot offer a variance column it has no comparison for. **The comparison rides on the
+  month-and-YTD reading and deliberately NOT on the twelve-month one:** thirty-six columns is not a
+  statement anybody reads.
+- **The variance is DERIVED from the two columns beside it**, never queried. A variance that came
+  from anywhere else could disagree with the subtraction a reader does in their head, which is the
+  one thing a variance column may not do.
+- **Every figure comes from the existing services** — `LedgerReportService::incomeStatement()`, or
+  `BudgetService::asIncomeStatement()` for a budget column — queried once per column. A second
+  implementation would drift, and the drift would surface as a variance nobody could explain.
+- **The row set is a UNION and that is load-bearing.** An account with activity in March and none in
+  May still prints a row, or the May column would have no line to put its zero on and the spread
+  would be ragged. `amounts` is rebuilt in SPAN order rather than filled in place, because a row
+  first seen in February would otherwise carry February before January — nothing renders from that
+  order, but a payload whose column order depends on which month an account happened to trade in is
+  not one the next reader can rely on.
+- **Month-and-YTD needs a month.** With the whole year selected the two columns would be identical
+  figures printed twice, which reads as an error — the rule this statement already applies to NOI and
+  to a one-row subtotal. It says so in the picker's help rather than dropping the option, because an
+  option that vanishes reads as a bug in the screen.
+- **Year to date means from the FISCAL year's start**, not 1 January. An April-to-March mall year is
+  ordinary here and `ScopesLedgerReport` already knows where the year begins. The full-year column of
+  the monthly spread is likewise read from the ledger rather than summed from the twelve, so it
+  cannot disagree with the statement an operator gets by picking the whole year.
+- **The columns travel to the CSV and the PDF.** The printed copy is the one that gets filed and
+  argued over, so a button that quietly reverted to the single-period statement would hand the
+  operator a different document under the same name. `PdfDocument::landscape()` turns the page
+  sideways past four money columns — a thirteen-column statement on a portrait page is either clipped
+  or shrunk past reading. Orientation is a parameter of the page, so mpdf is still constructed in
+  exactly one place.
+- **Same shape as every other reading.** The sections come from `IncomeStatementLayout::shape()`, so
+  a statement read across twelve months has the same sections, in the same order, as the same
+  statement read for one.
+
+`AnIncomeStatementCanBeReadAcrossColumnsTest` covers it, mutation-proved five ways — **including the
+PDF, where the obvious test was a false pass**: `callAction('download_pdf')->assertHasNoActionErrors()`
+succeeds on BOTH branches, because reverting to the single-period statement still returns a perfectly
+good PDF. What has to be asserted is WHICH document was built, and separately that the template draws
+every column (`PdfDocument::html()`, the seam that exists so nobody has to inflate a PDF's compressed
+streams to find out).
+
 ### A recurring cost SCHEDULE is not a GL source (EG-33, 2026-08-23)
 
 `recurring_expenses` books the costs that arrive on a calendar rather than on an invoice —

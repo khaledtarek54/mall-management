@@ -61,9 +61,13 @@ class ComparativeStatementService
      * keeps the same calendar dates, because that is the point of it — and a leap day is a real
      * one-day difference rather than an artefact, so it is left alone.
      *
+     * Public because `StatementSpread` derives a comparison column the same way. A second copy of
+     * this derivation would let the spread and the plain comparison disagree about which months they
+     * are looking at, which is the one thing a variance column may not do.
+     *
      * @return array{0: CarbonImmutable, 1: CarbonImmutable}
      */
-    private static function priorSpan(CarbonImmutable $from, CarbonImmutable $to, string $basis): array
+    public static function priorSpan(CarbonImmutable $from, CarbonImmutable $to, string $basis): array
     {
         if ($basis === self::PRIOR_YEAR) {
             return [$from->subYear(), $to->subYear()];
