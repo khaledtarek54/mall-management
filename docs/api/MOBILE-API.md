@@ -5,6 +5,22 @@
 > Auth: Bearer tokens (Laravel Sanctum), `tenants` provider.
 > Last updated: 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships. *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
 
+> ### ⚠️ Read [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md) alongside this file
+>
+> The backend moved on after this document's last revision, and a handful of lines here were
+> already wrong. That sync brief is the **delta, derived from the code** — 7 breaking items,
+> 10 behaviour changes, 5 new fields, 25 endpoints the app is probably not calling, and 8 gaps that are the
+> backend's to close. **Where the two disagree, the sync brief is right.** Known errors in this
+> file, corrected there: §4.3 prints invoice line-item keys in snake_case (the wire is camelCase)
+> and lists 8 of 13+ `type` codes and 8 of 9 invoice statuses; §4.7 lists 7 of 14 maintenance
+> sub-categories; §6 "Not in v1" is stale (Paymob, push and attachments are all built).
+>
+> It also carries a **portal ↔ API parity audit** (Part 11) — seven capabilities the web portal
+> exposed and `/api/v1` did not: the deposit shortfall a tenant is told about nowhere else, credit
+> on account, the whole of CAM, multi-unit leases, unit owners. **All seven shipped on 2026-09-02**,
+> along with six new endpoints and ~30 new fields — the resulting contract is that document's
+> **Part 12**, and it is where a mobile developer should start.
+
 This document is the single reference a mobile developer needs to build the
 app: the business domain, the auth model, every endpoint with request/response
 shapes, error handling, and the conventions that hold across the whole surface.
@@ -887,12 +903,24 @@ badge — "20% OFF"), `startsAt`/`endsAt` (show as "valid until"), `isFeatured`,
 
 ## 6. Not in v1 (so you don't build against them)
 
-- **Pay Now / payment initiation** (Paymob) — deferred (D-33).
-- **Push delivery** — token registration exists; the server-side fan-out lands post-pilot.
-- **Media uploads** on maintenance requests (native camera capture) — text-only for now.
-- **Profile photo / KYC document upload.**
+> **Corrected 2026-09-02.** Three of the five entries here had been true when they were written and
+> were false by the time anybody read them — this section said Paymob, push and attachments were
+> deferred while §4.4, §4.9 and §4.7 documented all three as built, so one document contradicted
+> itself and the stale half is the one a reader trusts. The list is now what it says it is.
+
 - **ETA e-invoice references on invoices** (`etaStatus`, `etaSubmissionId`, `etaLongId`) — module 16
-  is frozen; see the invoice-list note in §4.
+  is **frozen in code** (`App\Support\Modules::FROZEN`), not merely switched off, so nothing files
+  an invoice and the three keys are absent rather than null. See the invoice-list note in §4.
+- **Raising an invoice DISPUTE from the app.** `DisputeInvoiceItemService` is admin-only by design —
+  an operator records what the tenant said. The tenant's route is `POST /me/requests` with
+  `requestType: "billing"`; the resulting `disputedAt` / `disputedReason` on the invoice line is how
+  the tenant sees it was recorded (§4.3).
+- **Profile photo / KYC document upload.** The tenant's `logoUrl` is set by the operator.
+
+**No longer on this list, because they shipped:** *Pay Now / Paymob initiation* (§4.4 — sandbox
+complete, production waits on the operator's KYC, not on code); *push delivery* (§4.9 — FCM is
+wired and fans out every tenant-facing notification once Firebase creds are set); and *media
+uploads* on requests and sales declarations (§4.7, §4.8 — multipart, 1–5 files, image or PDF).
 
 ---
 
