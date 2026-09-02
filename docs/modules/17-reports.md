@@ -1097,3 +1097,39 @@ Two smaller rules worth keeping:
   zero would quietly drag the portfolio rate down.
 - **The headline rate is weighted by area**, so a 20 m² kiosk does not move the mall's number as
   hard as a 2,000 m² anchor.
+
+
+## A schedule that says "every month" reports on a different month (SW-176, fixed 2026-09-02)
+
+A `SavedReport` snapshots every declared parameter of its page, `DeliverSavedReportService`
+re-applies them, and a report page derives its period from `now()` in `mount()`. So the frozen value
+**overwrote the fresh one**: September's ageing was emailed to the owner's accountant in October, in
+November, and every month after that.
+
+**Nothing errors and the CSV arrives on time.** The only tell is that the numbers never move — the
+failure a recipient notices last, if at all, and the recipients here are routinely outside the
+business, invited precisely because they have no login and therefore no other way to check.
+
+The period is **DROPPED** at delivery, never rewritten: `ReportParameters::apply()` skips a key it is
+not given, so the page keeps the default its own `mount()` just derived from today. One definition of
+what "this month" means, on the page that owns the question — the alternative is a second copy of
+every report's period arithmetic living in the delivery service.
+
+**Every other saved parameter is kept**, because it is the operator's SHAPE rather than their moment:
+the ageing bucket, the ledger account, whether to include zero balances, the comparison basis. **And
+the browser is untouched** — opening a saved view still re-applies its period exactly as saved,
+because a link is a moment and a schedule is a cadence.
+
+`ReportCatalogue::REPORTING_PERIOD` says which parameters those are, with
+`NO_REPORTING_PERIOD` naming the three that have none and why — the same two-camps-and-a-gate shape
+as `NOT_DELIVERABLE`, so the next deliverable report cannot ship undecided and a schedule for it
+cannot silently freeze. The gate also checks each named parameter still EXISTS on its page: a renamed
+one stops being dropped, which is the original bug back with a green build.
+
+`RevenueForecast::$horizon` is deliberately absent — it is a SPAN ("the next twelve months"), already
+relative to whenever the report runs, so rewriting it would change the question rather than the
+period.
+
+Tests: `AScheduledReportMovesWithTheCalendarTest` — end to end through the real service and mail (the
+as-at date is in the CSV filename, so the attachment says which date was used), the parameter split,
+the fresh mount, the browser control, and the registry gate.

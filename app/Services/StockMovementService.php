@@ -296,35 +296,85 @@ class StockMovementService
      * perpetual account negative (see `record()`), and it is why this is derived from the movement
      * ledger rather than read off the catalogue.
      *
-     * Averaged over the movements that ADD stock (receipts + transfers in), per warehouse — the GL
-     * dimensions inventory by the warehouse's property, so a portfolio-wide average would relieve
-     * one mall's Inventory at another mall's purchase price.
+     * Per warehouse — the GL dimensions inventory by the warehouse's property, so a portfolio-wide
+     * average would relieve one mall's Inventory at another mall's purchase price.
      *
-     * Falls back to the item's standard cost when nothing has been received: a negative adjustment
-     * against empty stock has no loaded value to derive from, and the catalogue figure is then the
-     * only answer available — which is exactly what the old behaviour always did.
+     * ## It is a MOVING average, and averaging every receipt ever was a permanent residual
+     *
+     * This used to average the ADDS_STOCK movements alone — every receipt the item had ever had,
+     * whether that stock is still on the shelf or was issued three years ago. So a price rise is
+     * diluted by history that no longer exists:
+     *
+     *  - receive 100 @ 10 → Inventory Dr 1,000; issue all 100 → Cr 1,000. On hand 0, Inventory 0.
+     *  - receive 100 @ 20 → Inventory Dr 2,000. The old average is (100×10 + 100×20) ÷ 200 = **15**.
+     *  - issue those 100 → Inventory credited 1,500 against a 2,000 debit.
+     *
+     * On hand 0 and Inventory standing at **500** for stock that is gone — and it COMPOUNDS, because
+     * the next receipt is diluted by both. Nothing re-derives a perpetual account, so the residual is
+     * permanent and owner statements are drawn off these balances. It is the same hole the
+     * standard-cost fallback opened (see `record()`), reached by a different road: relieving stock at
+     * a figure that is not what it was loaded at.
+     *
+     * The perpetual moving average replays the ledger in order: an ADD contributes its own quantity
+     * and value; a REMOVE relieves at the average **as it stood at that moment**, which is exactly
+     * what the movement was posted at. What survives is the value of the stock that survived, so the
+     * credit out can never diverge from the debit in.
+     *
+     * **Order is the movement's own date, then id** — `moved_on` is a date, several movements land on
+     * one day, and an average that depends on which row the database returned first is not an
+     * average. A back-dated correction is replayed in its own place, which is the point of replaying
+     * rather than accumulating.
+     *
+     * **An `adjustment` is a signed correction** and is neither in `ADDS_STOCK` nor in
+     * `REMOVES_STOCK`: a positive one is a found-stock ADD (it carries a cost), a negative one is a
+     * write-off RELIEF. The sign decides, which is why this reads every type rather than a list.
+     *
+     * Falls back to the item's standard cost when nothing is on hand: a negative adjustment against
+     * empty stock has no loaded value to derive from, and the catalogue figure is then the only
+     * answer available — which is exactly what the old behaviour always did.
      */
     public function weightedAverageCost(InventoryItem $item, ?Warehouse $warehouse = null): float
     {
         $query = StockMovement::query()
             ->where('inventory_item_id', $item->id)
-            ->whereIn('type', StockMovement::ADDS_STOCK);
+            ->orderBy('moved_on')
+            ->orderBy('id');
 
         if ($warehouse !== null) {
             $query->where('warehouse_id', $warehouse->id);
         }
 
-        $rows = $query->get(['quantity', 'unit_cost']);
+        $quantity = 0.0;
+        $value = 0.0;
 
-        $quantity = round((float) $rows->sum('quantity'), 3);
+        foreach ($query->get(['quantity', 'unit_cost']) as $movement) {
+            $moved = round((float) $movement->quantity, 3);
+
+            if ($moved > 0) {
+                $quantity = round($quantity + $moved, 3);
+                $value = round($value + ($moved * (float) $movement->unit_cost), 2);
+
+                continue;
+            }
+
+            if ($moved === 0.0 || $quantity <= 0) {
+                // A zero-quantity adjustment is a deliberate note, and stock cannot be relieved
+                // from an empty shelf — a ledger that went negative is a data problem the
+                // reconciliation reports, not something to average over.
+                continue;
+            }
+
+            // Relieved at the average as it stood, capped at what is actually there.
+            $relieved = min(abs($moved), $quantity);
+            $average = $value / $quantity;
+
+            $quantity = round($quantity - $relieved, 3);
+            $value = round(max($value - ($relieved * $average), 0), 2);
+        }
+
         if ($quantity <= 0) {
             return round((float) ($item->unit_cost ?? 0), 2);
         }
-
-        $value = $rows->reduce(
-            fn (float $carry, StockMovement $m) => $carry + (abs((float) $m->quantity) * (float) $m->unit_cost),
-            0.0,
-        );
 
         $average = round($value / $quantity, 2);
 

@@ -10,6 +10,7 @@ use App\Support\ReportCatalogue;
 use App\Support\ReportCsv;
 use App\Support\ReportParameters;
 use Filament\Facades\Filament;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -109,7 +110,25 @@ class DeliverSavedReportService
 
             $instance = app($page);
             $instance->mount();
-            ReportParameters::apply($instance, $saved->parameters ?? []);
+
+            // **THE PERIOD FOLLOWS THE SCHEDULE, NOT THE DAY THE VIEW WAS SAVED.** `mount()` has
+            // just derived this report's period from `now()`; re-applying the snapshot on top of it
+            // put the frozen one back, so "send every month" emailed September's figures in October,
+            // November and for ever. Nothing errors and the CSV arrives on time — the only tell is
+            // that the numbers never move, which is the failure a recipient notices last if at all.
+            //
+            // DROPPED rather than rewritten: `apply()` skips a key it is not given, so the page keeps
+            // the default its own `mount()` produced. One definition of what "this month" means, on
+            // the page that owns the question.
+            //
+            // Every other saved parameter is kept — the ageing bucket, the ledger account, the
+            // comparison basis — because those are the operator's SHAPE rather than their moment.
+            // And the browser is untouched: opening a saved view still re-applies its period exactly
+            // as saved, because a link is a moment and a schedule is a cadence.
+            ReportParameters::apply(
+                $instance,
+                Arr::except($saved->parameters ?? [], ReportCatalogue::reportingPeriodOf($page)),
+            );
 
             $csv = $instance->reportCsv();
         } finally {

@@ -348,3 +348,47 @@ apart from its storeroom, and a portfolio list of them would be a list of duplic
 
 Tests: `tests/Feature/Regression/StorageBinsTest.php` — each refusal paired with a control, and the
 cross-warehouse guard verified by mutation (trusting the payload's `bin_id` turns one case red).
+
+
+## The average is of what is ON THE SHELF (SW-189, fixed 2026-09-02)
+
+`StockMovementService::weightedAverageCost()` averaged the `ADDS_STOCK` movements alone — every
+receipt the item had ever had, whether that stock is still there or was issued three years ago. So a
+price rise is diluted by history that no longer exists:
+
+| | Inventory |
+|---|---|
+| receive 100 @ 10 | Dr 1,000 |
+| issue all 100 (at 10) | Cr 1,000 → **0**, on hand 0 |
+| receive 100 @ 20 | Dr 2,000 |
+| the old average | (100×10 + 100×20) ÷ 200 = **15** |
+| issue those 100 | Cr 1,500 → **500 left**, on hand 0 |
+
+Five hundred standing in a perpetual asset account for stock that is gone — and it **compounds**,
+because the next receipt is diluted by both. Nothing re-derives that account, and owner statements
+are drawn off these balances. It is the same hole the standard-cost fallback opened (see
+`InventoryCostBasisDriftTest`), reached by a different road: relieving stock at a figure that is not
+what it was loaded at.
+
+It is now the standard **perpetual moving average** — it replays the movement ledger in order, an ADD
+contributing its own quantity and value and a REMOVE relieving at the average *as it stood at that
+moment*, which is exactly what that movement was posted at. What survives is the value of the stock
+that survived, so the credit out can never diverge from the debit in. No new table: the ledger
+already carries every quantity and the cost it moved at.
+
+**Order is `moved_on` then `id`**, and it is load-bearing rather than tidiness. `moved_on` is a date,
+several movements land on one day, and a back-dated correction is keyed *after* the movements it
+precedes — so keying order and the order things happened are different sequences, and following the
+wrong one gives a different answer, not a slightly wrong one. Measured on six rows: 15 against 20.
+
+**An `adjustment` is a SIGNED correction** and is in neither `ADDS_STOCK` nor `REMOVES_STOCK`, so the
+sign decides — a positive one is found stock that carries a cost, a negative one is a write-off
+relieved at the average. That is why the replay reads every type rather than a list.
+
+Origination only: every existing movement keeps the `unit_cost` it was posted at, so nothing
+re-values history.
+
+Tests: `StockIsRelievedAtWhatIsOnTheShelfTest` — the diluted cycle, a genuinely mixed shelf that must
+still average to 15 (so a fix that simply took the last price would fail), a part issue then a fresh
+receipt, both signs of adjustment, the empty-shelf fallback, and a back-dated movement. Mutation-
+proved on the average and on the ordering.

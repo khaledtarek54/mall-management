@@ -215,6 +215,76 @@ class ReportCatalogue
         Workflows::class => 'A diagram of how the system works, not a report on data.',
     ];
 
+    /**
+     * WHICH of a report's parameters are its REPORTING PERIOD.
+     *
+     * **A schedule that says "every month" must report on a different month each month**, and it did
+     * not. `SavedReport` snapshots every declared parameter, `DeliverSavedReportService` re-applies
+     * them, and a report page derives its period from `now()` in `mount()` — so the frozen value
+     * overwrote the fresh one and the same September figures were emailed to the owner's accountant
+     * in October, November and for ever. Nothing errors, the CSV arrives on time, and the only tell
+     * is that the numbers never move: the failure a recipient notices last, if at all.
+     *
+     * The period is DROPPED at delivery, never rewritten — `ReportParameters::apply()` skips a key
+     * it is not given, so the page keeps the default its own `mount()` just derived from today. One
+     * definition of what "this month" means, on the page that owns the question.
+     *
+     * **Every other saved parameter is kept**, because it is the operator's SHAPE rather than their
+     * moment: the ageing bucket, the ledger account, whether to include zero balances, the
+     * comparison basis. And the browser is untouched — opening a saved view still re-applies its
+     * period exactly as saved, because a link is a moment and a schedule is a cadence.
+     *
+     * **`RevenueForecast::$horizon` is deliberately absent**: it is a SPAN — "the next twelve
+     * months" — not a point, so it is already relative to whenever the report runs and rewriting it
+     * would change the question rather than the period.
+     *
+     * @var array<class-string, array<int, string>>
+     */
+    public const REPORTING_PERIOD = [
+        IncomeStatement::class => ['year', 'period'],
+        BalanceSheet::class => ['year', 'period'],
+        CashFlow::class => ['year', 'period'],
+        TrialBalance::class => ['year', 'period'],
+        GeneralLedger::class => ['year', 'period'],
+        VatReturn::class => ['year', 'period'],
+        WithholdingTaxReturn::class => ['year', 'period'],
+        TaxDepreciation::class => ['year'],
+        ArAging::class => ['asOf'],
+        ArAgingByType::class => ['asOf'],
+        ArCollections::class => ['asOf'],
+        RentRoll::class => ['asOf'],
+        ExpirationSchedule::class => ['asOf'],
+        SalesAnalytics::class => ['asOf'],
+        WeeklySpend::class => ['from', 'to'],
+        OccupancyCost::class => ['from', 'to'],
+        VendorScorecard::class => ['from', 'to'],
+    ];
+
+    /**
+     * …and the deliverable reports that HAVE no period, with the reason.
+     *
+     * Two camps and a gate over both, the same shape as {@see NOT_DELIVERABLE}: a report that is in
+     * neither is a report whose schedule would silently freeze, and the whole point of the registry
+     * is that the next one cannot ship undecided.
+     *
+     * @var array<class-string, string>
+     */
+    public const NO_REPORTING_PERIOD = [
+        ClauseRegister::class => 'A register of what the leases SAY. A clause is in force or it is not; there is no period to move.',
+        ActivityLog::class => 'The audit feed. Its window is the table\'s own filters rather than a page parameter, so there is nothing here to advance.',
+        RevenueForecast::class => 'Its only parameter is a horizon — a SPAN, "the next twelve months", already relative to whenever it runs. Rewriting it would change the question, not the period.',
+    ];
+
+    /**
+     * The period parameter names for a page — empty when it has none.
+     *
+     * @return array<int, string>
+     */
+    public static function reportingPeriodOf(string $page): array
+    {
+        return self::REPORTING_PERIOD[$page] ?? [];
+    }
+
     /** The page class behind a catalogue key, or null when the key is stale. */
     public static function pageFor(string $key): ?string
     {
