@@ -25,6 +25,17 @@ class CreditNoteExporter extends Exporter
             ExportColumn::make('applied_amount')->label(__('admin.tables.credit_note.applied')),
             ExportColumn::make('balance')->label(__('admin.tables.credit_note.balance')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
+            // **WHETHER THE ROW IS A DOCUMENT AT ALL.** The export carries drafts and voids beside
+            // live notes, so summing the `total` column — which is what an export of credit notes is
+            // FOR — double-counts a note nobody issued and one that was reversed. The status column
+            // is there, but it is a code an operator has to know the meaning of; this is the
+            // judgement itself, from `isOnTheBooks()`, the same predicate the GL and the reconciler
+            // ask. Yes/no rather than a code, so a filter or a subtotal can key on it.
+            ExportColumn::make('on_the_books')
+                ->label(__('admin.tables.credit_note.on_the_books'))
+                ->state(fn (CreditNote $record): string => $record->isOnTheBooks()
+                    ? __('admin.custom_fields.yes')
+                    : __('admin.custom_fields.no')),
         ];
     }
 

@@ -231,9 +231,16 @@ class CreditNote extends Model
         return ! array_key_exists((string) $this->status, self::NOT_ON_THE_BOOKS);
     }
 
+    /**
+     * Money still available to apply — and the third place this judgement used to be re-listed.
+     *
+     * `in_array($this->status, ['issued', 'applied'])` is the complement of
+     * {@see NOT_ON_THE_BOOKS} by coincidence, not by derivation, so a fifth status would have been
+     * spendable here while the GL skipped it. Asked of the registry now, like everything else.
+     */
     public function hasBalance(): bool
     {
-        return (float) $this->balance > 0 && in_array($this->status, ['issued', 'applied']);
+        return (float) $this->balance > 0 && $this->isOnTheBooks();
     }
 
     /**
@@ -378,7 +385,9 @@ class CreditNote extends Model
                 // form and a crafted payload both meet it — `assertOpen` is idempotent, and a
                 // MISSING period is allowed, only a CLOSED one refused. (`CreateCreditNote`
                 // already asserted it on the create path; this is the edit path.)
-                if ($from === 'draft' && in_array($to, ['issued', 'applied'], true)) {
+                // Draft → on the books is the moment the note posts, so the period is checked
+                // here. Asked of the register rather than re-listing its complement.
+                if ($from === 'draft' && ! array_key_exists($to, self::NOT_ON_THE_BOOKS)) {
                     PostingDate::assertOpen($note->issue_date, __('admin.fields.issue_date'));
                 }
             }

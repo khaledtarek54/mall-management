@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Models\Lease;
+use App\Models\CreditNote;
 use App\Support\PostingDate;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -27,7 +28,10 @@ class CreateCreditNote extends CreateRecord
         // Creating a note straight to a posting status (bypassing the Issue action) still posts to
         // the GL dated issue_date — refuse a closed period here too, mirroring issue(). Catch the
         // guard so a closed period is a clean field-level toast, not an uncaught Livewire 500.
-        if (in_array($data['status'] ?? 'draft', ['issued', 'applied'], true)) {
+        // Asked of the register, not of a re-listed pair: the statuses that POST are exactly the
+        // ones that are on the books, and a fifth would otherwise skip this guard while the
+        // journalizer posted it into a closed period.
+        if (! array_key_exists($data['status'] ?? 'draft', CreditNote::NOT_ON_THE_BOOKS)) {
             try {
                 PostingDate::assertOpen($data['issue_date'] ?? null, __('admin.fields.issue_date'));
             } catch (\DomainException $e) {

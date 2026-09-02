@@ -178,9 +178,15 @@ class BooksReconciliationService
         $existingCharges = $chargeIds->isEmpty()
             ? collect()
             : Charge::whereIn('id', $chargeIds)->pluck('id')->flip();
+        // **ON THE BOOKS, not merely present.** This matched a credit note by ID with no status
+        // filter at all, so an allocation still `billed` whose backing note had been VOIDED — or
+        // was never issued out of `draft` — passed `$hasCredit` and the reconciler reported clean.
+        // A check that cannot fail is the family this project gates for: the negative true-up the
+        // tenant was promised has been reversed, the allocation still says billed, and the one
+        // sweep that exists to notice says nothing.
         $existingCredits = $creditIds->isEmpty()
             ? collect()
-            : CreditNote::whereIn('id', $creditIds)->pluck('id')->flip();
+            : CreditNote::whereIn('id', $creditIds)->onTheBooks()->pluck('id')->flip();
         // charge_ids that reached a non-cancelled invoice (the lost-revenue guard).
         $reachedCharges = $chargeIds->isEmpty()
             ? collect()
@@ -293,7 +299,7 @@ class BooksReconciliationService
         // include them so net AR matches Tenant::outstandingBalance() (which nets
         // them) and the accountant doesn't read AR gross.
         $controlTotals['creditOutstanding'] = round((float) CreditNote::query()
-            ->whereIn('status', ['issued', 'applied'])
+            ->onTheBooks()
             ->where('balance', '>', 0)
             ->sum('balance'), 2);
         $controlTotals['netAR'] = round($controlTotals['outstandingAR'] - $controlTotals['creditOutstanding'], 2);
@@ -416,7 +422,9 @@ class BooksReconciliationService
             fn ($q) => $q->whereNotIn('status', $countedStatuses),
         )->sum('amount'), 2);
 
-        $outstandingCredits = round((float) CreditNote::whereIn('status', ['issued', 'applied'])->sum('balance'), 2);
+        // The register, not a re-listed pair: a control total the reconciler compares the GL against
+        // has to count exactly the notes the GL counted.
+        $outstandingCredits = round((float) CreditNote::query()->onTheBooks()->sum('balance'), 2);
         $expectedAr = round($invoiceBalances - $partiallyWrittenOff - $outstandingCredits, 2);
 
         // AP = outstanding vendor-bill balances (excludes draft + cancelled).

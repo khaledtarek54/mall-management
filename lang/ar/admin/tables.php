@@ -199,6 +199,7 @@ return [
             'readings' => 'القراءات',
         ],
         'credit_note' => [
+            'on_the_books' => 'ضمن الدفاتر',
             'number' => 'رقم',
             'tenant' => 'المستأجر',
             'total' => 'الإجمالي',

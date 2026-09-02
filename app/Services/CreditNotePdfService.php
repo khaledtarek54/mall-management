@@ -54,9 +54,17 @@ class CreditNotePdfService
             ->data(fn (): array => $this->data($note))
             ->reference($note->number)
             ->bleed()
-            ->watermark(fn (): ?string => $note->status === 'void'
-                ? __('admin.statuses.credit_note.void')
-                : null);
+            // **A DRAFT IS NOT A DOCUMENT EITHER.** This watermarked `void` alone, so a DRAFT note
+            // downloaded as a clean, numbered tax document — `credit_notes.status` DEFAULTS to
+            // draft at the column, and neither download action gates on status, so it is the
+            // ordinary state of a note somebody is still composing. A tenant handed one files it
+            // with their own accountant and claims a reduction that was never issued.
+            //
+            // `isOnTheBooks()` is the one predicate — the same the journalizer and the reconciler
+            // ask — so the watermark names whichever status put it off them.
+            ->watermark(fn (): ?string => $note->isOnTheBooks()
+                ? null
+                : __('admin.statuses.credit_note.'.$note->status));
     }
 
     /**

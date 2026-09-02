@@ -199,6 +199,7 @@ return [
             'readings' => 'Readings',
         ],
         'credit_note' => [
+            'on_the_books' => 'On the books',
             'number' => 'CN #',
             'tenant' => 'Tenant',
             'total' => 'Total',

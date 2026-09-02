@@ -24,7 +24,12 @@ class CreditNoteJournalizer implements Journalizer
         /** @var CreditNote $note */
         $note = $source;
 
-        if (! in_array($note->status, ['issued', 'applied'], true)) {
+        // **ONE PREDICATE, DERIVED.** This was the hand-rolled allowlist `['issued', 'applied']`,
+        // which is the complement of `CreditNote::NOT_ON_THE_BOOKS` by COINCIDENCE rather than by
+        // derivation — so a fifth status would be counted by every documents-side read (they
+        // EXCLUDE the two that are off the books) and skipped by the GL (it ALLOWED two), silently
+        // and in the direction where the books and the documents disagree.
+        if (! $note->isOnTheBooks()) {
             return null;
         }
 

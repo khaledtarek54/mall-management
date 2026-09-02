@@ -110,7 +110,9 @@ class ReportService
 
         $creditNotes = $this->scopedCreditNotes()
             ->whereBetween('issue_date', [$monthStart, $monthEnd])
-            ->whereIn('status', ['issued', 'applied'])
+            // The register, not a re-listed pair — a credit-note total on a management report must
+            // count exactly what the GL counted.
+            ->onTheBooks()
             ->get();
 
         $expectedThisMonth = (float) $billable->sum('total');
