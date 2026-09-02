@@ -41,6 +41,12 @@ class Expense extends Model
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
     use RecordsBankAccount;
 
+    /** This document calls its rail `paid_from`, not `method`. */
+    public static function bankAccountRailColumn(): string
+    {
+        return 'paid_from';
+    }
+
     /**
      * Expense number, the external reference on the receipt, and what it was for.
      *

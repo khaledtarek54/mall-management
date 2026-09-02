@@ -71,10 +71,12 @@ class ExpenseForm
                         ->disabled($moneyLocked)
                         ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
 
-                    // Which bank account this money moved through — optional, and null means the rail
-                    // decides, exactly as before. Set it and the posting lands in THAT account's chart
-                    // account, which is what lets a mall banking in two places reconcile either one.
-                    BankAccountField::make()
+                    // Which bank account this money moved through. `for()` takes the document class
+                    // because the document declares BOTH the purpose its money belongs to and the
+                    // column naming its rail — so the picker defaults to the same account
+                    // `RecordsBankAccount` would have filled in, and requires one on exactly the
+                    // rails the catalogue says carry bank money.
+                    BankAccountField::for(Expense::class)
                         ->disabled($moneyLocked),
 
                     Select::make('paid_from')
@@ -84,7 +86,12 @@ class ExpenseForm
                         ->native(false)
                         ->required()
                         ->disabled($moneyLocked)
-                        ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
+                        ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null)
+                        // `->live()` so the bank-account field beside it picks up its requirement as soon as the
+                        // rail changes. The refusal itself does not depend on this — `required()` is evaluated at
+                        // validation with the submitted rail in state — this only decides how soon the asterisk
+                        // and the helper sentence catch up.
+                        ->live(),
 
                     DatePicker::make('expense_date')
                         ->label(__('admin.fields.expense_date'))

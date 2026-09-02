@@ -155,6 +155,11 @@ return [
     ],
 
     'enums' => [
+        'bank_account_purpose' => [
+            'operating' => 'Operating',
+            'deposits' => 'Security deposits',
+            'payroll' => 'Payroll',
+        ],
         'requires_sales_reporting' => [
             '1' => 'Required — the tenant declares every month',
             '0' => 'Not required',

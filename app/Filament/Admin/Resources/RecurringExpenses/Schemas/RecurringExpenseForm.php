@@ -2,19 +2,19 @@
 
 namespace App\Filament\Admin\Resources\RecurringExpenses\Schemas;
 
-use App\Models\BankAccount;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use App\Models\RecurringExpense;
 use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Models\VendorContract;
+use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
+use Carbon\CarbonImmutable;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Carbon\CarbonImmutable;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -133,19 +133,35 @@ class RecurringExpenseForm
                 // old default, so nothing an install already runs changes.
                 Select::make('paid_from')
                     ->label(__('admin.fields.paid_from'))
-                    ->options(fn () => PaymentMethod::optionsFor('expenses.paid_from', 'admin.enums.expense_paid_from'))
+                    // Its OWN column, not the expense's. They hold the same set today, and asking
+                    // for the right one is what keeps `optionsFor()` deriving this picker's
+                    // direction and floor from the column it actually writes — the drift
+                    // `PaymentMethodPickersMatchTheirColumnTest` exists to catch.
+                    ->options(fn () => PaymentMethod::optionsFor('recurring_expenses.paid_from', 'admin.enums.expense_paid_from'))
                     ->native(false)
-                    ->placeholder(__('admin.enums.expense_paid_from.cash'))
-                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.recurring_expenses.hints.paid_from')),
+                    // Through the CATALOGUE, never `__()` on the lang group: a rail the operator
+                    // renames must not go on reading its shipped name here, and this placeholder
+                    // states what a blank means — which is the rail the generated cost falls to.
+                    ->placeholder(fn () => PaymentMethod::labelFor('cash', 'admin.enums.expense_paid_from'))
+                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.recurring_expenses.hints.paid_from'))
+                    // `->live()` so the bank-account field beside it picks up its requirement as soon as the
+                    // rail changes. The refusal itself does not depend on this — `required()` is evaluated at
+                    // validation with the submitted rail in state — this only decides how soon the asterisk
+                    // and the helper sentence catch up.
+                    ->live(),
 
                 // The rail says WHICH KIND of account; this says which one. `MoneyAccount` resolves
                 // the document's own bank account first, then the rail's mapped account, then the
                 // posting role — so a mall banking in two places needs this or both banks' money
                 // lands in one chart account.
-                EntitySelect::make('bank_account_id')
-                    ->label(__('admin.fields.bank_account_id'))
-                    ->entity(BankAccount::class)
-                    ->visible(fn (Get $get): bool => ($get('paid_from') ?? 'cash') !== 'cash'),
+                //
+                // This was a bare `EntitySelect` with `->visible(… !== 'cash')` — the ONE screen
+                // that had ever asked "does this rail need an account?", answered with a literal
+                // that goes wrong the day the operator activates Fawry, and with no property scope,
+                // so the schedule could name another mall's account and stamp it onto every cost it
+                // generated. `payment_methods.requires_bank_account` is that question as a row, and
+                // `for()` brings the scope, the default and the requirement with it.
+                BankAccountField::for(RecurringExpense::class),
 
                 Select::make('tax_code')
                     ->label(__('admin.fields.tax_code'))

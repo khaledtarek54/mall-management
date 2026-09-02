@@ -63,6 +63,16 @@ class PaymentMethodForm
                 ->default(true)
                 ->helperText(__('admin.payment_methods.help.for_outbound')),
 
+            // WHETHER recording money on this rail means naming which bank account it moved
+            // through. A row, not a rule: `RecurringExpenseForm` used to answer this with a
+            // hardcoded `!== 'cash'`, which is a filter written twice and wrong the day this
+            // operator activates Fawry. Off leaves the picker optional, exactly as every form
+            // behaved before.
+            Toggle::make('requires_bank_account')
+                ->label(__('admin.fields.requires_bank_account'))
+                ->default(true)
+                ->helperText(__('admin.payment_methods.help.requires_bank_account')),
+
             TextInput::make('settlement_days')
                 ->label(__('admin.fields.settlement_days'))
                 ->numeric()->minValue(0)->maxValue(365)->default(0)

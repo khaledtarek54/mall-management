@@ -6,6 +6,7 @@ use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Models\PaymentMethod;
+use App\Models\VendorBillPayment;
 use App\Services\VendorBillService;
 use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\BankAccountField;
@@ -158,12 +159,19 @@ class EditVendorBill extends EditRecord
                         ->options(fn () => PaymentMethod::optionsFor('vendor_bill_payments.method', 'admin.enums.vendor_bill_payment_method'))
                         ->default('bank_transfer')
                         ->native(false)
-                        ->required(),
+                        ->required()
+                        // `->live()` so the bank-account field beside it picks up its requirement as soon as the
+                        // rail changes. The refusal itself does not depend on this — `required()` is evaluated at
+                        // validation with the submitted rail in state — this only decides how soon the asterisk
+                        // and the helper sentence catch up.
+                        ->live(),
 
-                    // Which bank account this money moved through — optional, and null means the rail
-                    // decides. Set it and the posting lands in THAT account's chart account, which is
-                    // what lets a mall banking in two places reconcile either one.
-                    BankAccountField::make(),
+                    // Which bank account this money moved through. `for()` takes the document class
+                    // because the document declares BOTH the purpose its money belongs to and the
+                    // column naming its rail — so the picker defaults to the same account
+                    // `RecordsBankAccount` would have filled in, and requires one on exactly the
+                    // rails the catalogue says carry bank money.
+                    BankAccountField::for(VendorBillPayment::class),
                     DatePicker::make('payment_date')
                         ->label(__('admin.fields.payment_date'))
                         ->default(now())

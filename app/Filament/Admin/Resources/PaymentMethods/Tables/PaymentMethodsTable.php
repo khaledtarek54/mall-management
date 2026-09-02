@@ -41,6 +41,7 @@ class PaymentMethodsTable
 
                 IconColumn::make('for_inbound')->label(__('admin.fields.for_inbound'))->boolean(),
                 IconColumn::make('for_outbound')->label(__('admin.fields.for_outbound'))->boolean(),
+                IconColumn::make('requires_bank_account')->label(__('admin.fields.requires_bank_account'))->boolean(),
 
                 TextColumn::make('settlement_days')
                     ->label(__('admin.fields.settlement_days'))
@@ -53,6 +54,7 @@ class PaymentMethodsTable
                 TernaryFilter::make('is_active')->label(__('admin.fields.is_active')),
                 TernaryFilter::make('for_inbound')->label(__('admin.fields.for_inbound')),
                 TernaryFilter::make('for_outbound')->label(__('admin.fields.for_outbound')),
+                TernaryFilter::make('requires_bank_account')->label(__('admin.fields.requires_bank_account')),
             ])
             ->recordActions([
                 // A read-only view, for the role that holds `.view` and not `.edit`. Its schema is the

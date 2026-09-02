@@ -38,6 +38,21 @@ class Payroll extends Model
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
     use RecordsBankAccount;
 
+    /**
+     * Salaries leave the payroll account where the operator holds one — an Egyptian bank issuing a
+     * salary transfer file wants its own — and the operating account otherwise.
+     */
+    public static function bankAccountPurpose(): string
+    {
+        return BankAccount::PURPOSE_PAYROLL;
+    }
+
+    /** This document calls its rail `paid_from`, not `method`. */
+    public static function bankAccountRailColumn(): string
+    {
+        return 'paid_from';
+    }
+
     protected $fillable = [
         'bank_account_id',
         'number',

@@ -56,7 +56,10 @@ class PaymentMethodSeeder extends Seeder
             $existing = PaymentMethod::query()->where('code', $code)->first();
 
             if ($existing !== null) {
-                // Names and direction are ours to correct; the operator's own decisions are not.
+                // Names and direction are ours to correct; the operator's own decisions are not —
+                // and `requires_bank_account` is one of theirs, a tick on the rail screen, so a
+                // reseed must never re-impose the shipped answer on a rail they have ruled on.
+                // Existing rows were given the derivation once, by the migration.
                 $existing->fill([
                     'name_en' => $en,
                     'name_ar' => $ar,
@@ -74,6 +77,15 @@ class PaymentMethodSeeder extends Seeder
                 'name_ar' => $ar,
                 'for_inbound' => $in,
                 'for_outbound' => $out,
+                // DERIVED from the code, and derived the same way in three places on purpose: here,
+                // in the migration that backfills existing rows, and in
+                // `PaymentMethod::requiresBankAccount()`'s fall-through for a rail with no row. All
+                // three are `code !== 'cash'`, which is verbatim the floor
+                // `accountIdOrFloor()` already applies — if the posting engine books this money to
+                // the `bank` role, the form has business asking which bank. Written as a derivation
+                // rather than an eighth column in RAILS so a new rail cannot be added here with a
+                // different answer from the one the engine will give it.
+                'requires_bank_account' => $code !== PaymentMethod::FLOOR_CASH_ROLE,
                 'settlement_days' => $days,
                 'is_active' => $active,
                 'sort_order' => $sort,

@@ -304,9 +304,14 @@ it('refuses it on a document that carries its own property too', function () {
     expect($ok->fresh()->bank_account_id)->toBe($this->nbe->id);
 });
 
-it('refuses the same on every one of the six documents', function () {
+it('refuses the same on every one of the seven documents', function () {
     // A guard on one model is a guard on one model. This is a concern, and the sweep is what says
     // so — the six were converted by a script, and a script can miss one silently.
+    //
+    // SEVEN since 2026-09-02. `RecurringExpense` grew a `bank_account_id` the day before with no
+    // relation and no guard, so a schedule could name ANOTHER MALL's account and stamp it onto
+    // every cost it generated — the cross-property posting this sweep exists to refuse, arrived at
+    // from one document upstream. Counting rather than listing is what made that visible.
     //
     // The first cut of this case asserted only that each model was FILLABLE with the column and had
     // a `bankAccount()` method, and called itself a refusal sweep. That is the weaker-property trap
@@ -327,12 +332,19 @@ it('refuses the same on every one of the six documents', function () {
         ->map(fn ($f) => 'App\\Models\\'.$f->getFilenameWithoutExtension())
         ->values();
 
-    expect($models)->toHaveCount(6);
+    expect($models)->toHaveCount(7);
 
     // Did naming this account raise the REFUSAL? A save that dies further down on a NOT NULL column
-    // is not a refusal — the guard runs on `saving`, before the insert, so a document with nothing
+    // is not a refusal — the guard runs on `creating`, before the insert, so a document with nothing
     // else filled in reaches it and no per-model fixture is needed. Anything other than a
     // `DomainException` is therefore "the guard let this through".
+    //
+    // `creating` and not `saving`, and the difference is the whole reason the guard works on the
+    // documents that do not carry a typed `asset_id`: a trait's boot method runs before the class's
+    // own `booted()`, so a `saving` listener registered in a concern fires BEFORE the model derives
+    // its own property — and `DepositTransaction` derives it from its lease in exactly such a hook.
+    // On `saving` this guard saw a null property there and skipped, which is how a deposit receipt
+    // naming another mall's account was being accepted.
     $refuses = function (string $model, int $bankAccountId): bool {
         $document = new $model;
 

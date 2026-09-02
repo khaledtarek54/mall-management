@@ -57,6 +57,12 @@ const CLASSIFICATION_SUFFIXES = [
     // silently into the fallback language, so a typo'd `fr-CA` leaves the column looking set and
     // every document rendering in English.
     'locale',
+    // What kind of money a bank account holds (2026-09-02). Classification-shaped for the same
+    // reason `locale` is: a small fixed set whose wrong value does not error —
+    // `BankAccount::defaultFor()` simply never matches it, so the account silently stops being
+    // anybody's default while the register still shows it flagged, which reads as the defaulting
+    // being broken rather than the row being wrong.
+    'purpose',
 ];
 
 /**

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\AccountingPeriod;
 use App\Models\Asset;
+use App\Models\BankAccount;
 use App\Models\ChargeCode;
 use App\Models\Employee;
 use App\Models\LedgerAccount;
@@ -73,6 +74,7 @@ class ConfigurationHealth
             self::withholdingConfigured(),
             self::postingMapComplete(),
             self::openAccountingPeriod(),
+            self::bankAccountDefaultsSet(),
             self::payrollRatesConfigured(),
         ];
     }
@@ -373,6 +375,58 @@ class ConfigurationHealth
             ok: (bool) ($readiness['ok'] ?? false),
             detail: (string) ($readiness['detail'] ?? ''),
             count: $mapped,
+        );
+    }
+
+    /**
+     * Every property that banks in more than one place should say WHICH account its money defaults to.
+     *
+     * Advisory, and the severity is the whole judgement. Nothing is wrong: a property with no
+     * default still bills, still posts and still reconciles — {@see App\Support\MoneyAccount} falls
+     * to the rail and then the `bank` posting role, which is what every install did before EG-12.
+     * What is lost is the thing that register exists for. With two accounts and no default, every
+     * money form opens blank, most documents get saved naming nothing, both banks land in one chart
+     * account, and `MatchBankStatementLineService::candidatesFor()` — which finds candidates BY that
+     * account — offers one bank's postings against the other's statement. An operator matches one,
+     * it balances, and it is wrong.
+     *
+     * **A property with ONE account is not a finding.** {@see BankAccount::defaultFor()} already
+     * answers with it — one account is not a choice — so demanding a tick would be a permanently red
+     * row asking somebody to state what the data says, and a row that is red on a healthy install is
+     * one people stop reading.
+     *
+     * **A property with NO account is not a finding either.** That is a different and earlier
+     * question, it is a legitimate state (a mall taking cash only), and the requirement on the money
+     * forms already lifts itself there rather than blocking a receipt over a register nobody has
+     * reached yet. Reporting it would make this row fire on every fresh install, which is exactly
+     * the training-to-ignore this file's own severity rule warns about.
+     */
+    private static function bankAccountDefaultsSet(): array
+    {
+        $assetIds = AssignedAssets::idsForCurrentUser();
+
+        $counts = BankAccount::query()
+            ->active()
+            // `bank_accounts.asset_id` is NOT NULL and the model is plain `#[PropertyOwned]` — there
+            // is no portfolio tier here, so a strict `whereIn` is right and hides nothing. Null means
+            // an unrestricted reader (a super admin, or `atriom:config-health` from the console with
+            // no user at all), which is when the whole install is the honest scope.
+            ->when($assetIds !== null, fn (Builder $q) => $q->whereIn('asset_id', $assetIds))
+            ->selectRaw('asset_id, count(*) as total, sum(case when is_default = 1 then 1 else 0 end) as defaults')
+            ->groupBy('asset_id')
+            ->get();
+
+        // More than one account and none flagged: a real choice the operator has not stated. `> 1`
+        // is the whole test — see the docblock for why 1 and 0 are not findings.
+        $undecided = $counts->filter(fn ($row) => (int) $row->total > 1 && (int) $row->defaults === 0);
+
+        return self::check(
+            key: 'bank_account_defaults_set',
+            category: self::ACCOUNTING,
+            severity: self::ADVISORY,
+            ok: $undecided->isEmpty(),
+            detail: (string) $undecided->count(),
+            count: $undecided->count(),
         );
     }
 

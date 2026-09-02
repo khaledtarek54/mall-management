@@ -154,6 +154,11 @@ return [
     ],
 
     'enums' => [
+        'bank_account_purpose' => [
+            'operating' => 'التشغيل',
+            'deposits' => 'تأمينات المستأجرين',
+            'payroll' => 'المرتبات',
+        ],
         'requires_sales_reporting' => [
             '1' => 'مطلوب — يقرّ المستأجر شهريًا',
             '0' => 'غير مطلوب',

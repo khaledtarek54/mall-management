@@ -322,6 +322,8 @@ return [
         'origin' => 'Origin',
         'vat_applicable' => 'VAT applicable',
         'purpose' => 'Purpose',
+        'is_default' => 'Default',
+        'requires_bank_account' => 'Needs a bank account',
         'hire_date' => 'Hire date',
         'terminated_on' => 'Terminated on',
         'criticality' => 'Criticality',

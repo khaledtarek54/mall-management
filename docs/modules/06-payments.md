@@ -696,6 +696,67 @@ it (EG-12): the document's own `bank_account_id` first, then the rail's account 
 ternary each of them carried. So the catalogue ships behaviour-identical and an operator opts in one
 rail at a time.
 
+**Asked, defaulted, required — and all three or none (2026-09-02).** EG-12 shipped the field
+**optional on every form with no default**, so on a real install almost every document named nothing,
+every posting fell to the generic `bank` role, and the separation above stayed theoretical. Yardi
+makes the cash account **mandatory** on every money movement, and it is liveable there for one
+reason: the **property carries default cash accounts** (operating · security-deposit trust ·
+reserve), so a receipt arrives with its bank filled in and the operator *confirms* rather than
+chooses. **Required without a default is the worst half of that design** — somebody picking the same
+value three hundred times a month eventually picks the wrong one, and a wrong bank account is worse
+than none, because `MatchBankStatementLineService::candidatesFor()` finds candidates BY the chart
+account and presents the mistake as a real match against the wrong statement.
+
+So three things ship together. **`payment_methods.requires_bank_account`** is whether naming an
+account is part of recording money on this rail — a ROW, because `RecurringExpenseForm` was the one
+screen that had ever asked and it answered with a hardcoded `!== 'cash'`, which is a filter written
+twice and wrong the day the operator activates Fawry. A rail with **no row falls to `code !== 'cash'`
+— verbatim the ternary `accountIdOrFloor()` applies** — which is load-bearing rather than tidy:
+`payrolls.paid_from`, `expenses.paid_from` and `deposit_transactions.method` all accept the legacy
+literal **`bank`**, a `ValueSets` member that has never been a `payment_methods` code, so reading
+"no row" as "no requirement" would exempt the most obviously bank-borne value in the system. The
+lookup uses `array_key_exists`, not `??`: "the operator said no" and "there is no row" are both
+falsy, and confusing them makes `requires_bank_account = false` unsettable for every rail but cash.
+
+**`bank_accounts.purpose`** (`operating` · `deposits` · `payroll`) is Yardi's own split, and
+`deposits` is the row that earns the column — a security deposit is money the operator HOLDS
+(`deposits_held` is a liability), not working cash. Egypt mandates no trust account, so it is a
+facility rather than a rule: leave every account `operating` and the ladder falls back to operating,
+which is what a mall without a separate account actually does. There is deliberately **no
+`cash`/`till` purpose** — a petty-cash box is the `cash` posting role, and a row here would sit in
+the reconciliation register waiting for a statement that never arrives.
+
+**`bank_accounts.is_default`** is which account a new document fills itself in with.
+`BankAccount::defaultFor()` is the ladder: this purpose → the default **operating** account → **the
+only active account there is** (one account is not a choice) → nothing, which is verbatim today's
+behaviour. One default per (property, purpose), kept by demoting the previous holder on write and
+**not by an index** — MySQL has no partial unique index, and a plain one would forbid a second
+operating account outright, which is the situation EG-12 exists for.
+
+`App\Support\Filament\BankAccountField::for($model)` takes the document CLASS because the document
+declares both its purpose and the column naming its rail (`RecordsBankAccount::bankAccountPurpose()`
+/ `::bankAccountRailColumn()`), so the picker and the model-level default cannot disagree. The
+requirement is conditional **twice** — the rail says an account is part of the record, AND the
+property has one to offer; an install that has not reached the register must still be able to record
+a receipt, and `ConfigurationHealth::bankAccountDefaultsSet()` raises the gap as the advisory it is
+(only where a property banks in **more than one place** with no default — one account and no account
+are both legitimate, and a row that is red on a healthy install is one people stop reading).
+
+**The field is deliberately NOT hidden on a cash rail.** The obvious `->visible()` is wrong twice: a
+hidden Filament field is not dehydrated, so a document switched from transfer to cash would silently
+KEEP the account it names while the picker vanishes — and `bank_account_id` is classified DERIVED,
+so clearing it to compensate would void and re-post the entry.
+
+**The hook is on `creating`/`updating`, never `saving`, and that fixed a shipped hole.** A trait's
+boot method runs during `bootTraits()`, before the class's own `booted()` — so a `saving` listener in
+a concern fires *before* the model derives its own property, and `DepositTransaction` derives
+`asset_id` from its lease in exactly such a hook. Measured: a deposit receipt was never defaulted,
+and the **cross-property guard skipped it too**, so a deposit receipt naming another mall's bank
+account was being accepted. `RecurringExpense` also joined the concern the same day — it grew the
+column on 2026-09-02 with no relation, no guard and a bare `EntitySelect`, so a schedule could name
+another mall's account and stamp it onto every cost it generated. That made the sweep **seven**
+documents, not six. (`ABankRailSaysWhichAccountItMovedThroughTest`, mutation-proved both ways.)
+
 **Reading it back.** `App\Support\Filament\BankAccountColumn` and `…\BankAccountFilter` are the
 read half of `BankAccountField`. The field shipped write-only — no column, no infolist entry, no
 filter anywhere — so an operator could set the account and never see it again, and *"which documents

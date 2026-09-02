@@ -231,6 +231,12 @@ return [
         'severities' => ['blocking' => 'Needs attention', 'advisory' => 'Could be better'],
         'categories' => ['tax' => 'Tax', 'accounting' => 'Accounting', 'billing' => 'Billing', 'payroll' => 'Payroll'],
         'checks' => [
+            'bank_account_defaults_set' => [
+                'name' => 'Each property says which bank account its money defaults to',
+                'advisory' => ':count propert(ies) bank in more than one place with no default account set, so every money form there opens blank — most documents end up naming no account, both banks post to one chart account, and the bank reconciliation offers one bank\'s entries against the other\'s statement. Tick "Default" on one account per property under Accounting → Bank accounts.',
+                'impact' => ':count propert(ies) bank in more than one place with no default account set.',
+                'ok' => 'Every property that banks in more than one place has chosen a default.',
+            ],
             'seller_tax_identity' => [
                 'name' => 'Seller tax registration number',
                 'impact' => 'Your tax invoices print without a registration number, so a tenant cannot use them to reclaim the VAT you charged them. Set it under Settings → Tax.',

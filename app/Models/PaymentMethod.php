@@ -87,6 +87,7 @@ class PaymentMethod extends Model
         'ledger_account_id',
         'for_inbound',
         'for_outbound',
+        'requires_bank_account',
         'settlement_days',
         'is_active',
         'sort_order',
@@ -96,6 +97,7 @@ class PaymentMethod extends Model
     protected $casts = [
         'for_inbound' => 'boolean',
         'for_outbound' => 'boolean',
+        'requires_bank_account' => 'boolean',
         'is_active' => 'boolean',
         'settlement_days' => 'integer',
         'sort_order' => 'integer',
@@ -104,6 +106,11 @@ class PaymentMethod extends Model
     protected $attributes = [
         'for_inbound' => true,
         'for_outbound' => true,
+        // TRUE for a rail somebody is adding, while the COLUMN defaults to false. The two are
+        // different questions: the column default protects an insert written by code that predates
+        // this feature, and this one answers "what is an operator most likely registering?" — a new
+        // way to be paid is a bank-borne one far more often than a second till.
+        'requires_bank_account' => true,
         'is_active' => true,
         'settlement_days' => 0,
         'sort_order' => 0,
@@ -143,7 +150,53 @@ class PaymentMethod extends Model
      */
     protected static function catalogueMemoSuffixes(): array
     {
-        return ['roles', 'codes.inbound', 'codes.outbound'];
+        return ['roles', 'codes.inbound', 'codes.outbound', 'needs_bank'];
+    }
+
+    /**
+     * Does recording money on this rail mean naming WHICH bank account it moved through?
+     *
+     * The ONE answer to a question that was being answered in two places and neither of them a row:
+     * `RecurringExpenseForm` hid its bank-account picker behind a hardcoded `!== 'cash'`, and the
+     * other six money forms never asked at all. A literal is wrong the moment the operator activates
+     * Fawry — a collection network is not cash, and its money is not in the bank the same day
+     * either — which is exactly the class of change {@see PaymentMethod} exists to make a tick.
+     *
+     * **A rail with no ROW takes the FLOOR, verbatim: `code !== 'cash'`.** That is not a guess, it
+     * is the same ternary {@see accountIdOrFloor()} applies one method down — if the posting engine
+     * is going to book this money to the `bank` role, the form has every business asking WHICH bank.
+     * It is also load-bearing rather than theoretical: `payrolls.paid_from`, `expenses.paid_from`,
+     * `deposit_transactions.method` and three more columns accept the legacy literal **`bank`**,
+     * which is a value set member and NOT a catalogue code — no `payment_methods` row has ever had
+     * `code = 'bank'`. Reading "no row" as "no requirement" would have exempted the single most
+     * obviously bank-borne value in the system, on the four screens most likely to use it.
+     *
+     * `null` is still false: on the one form where the rail is optional the placeholder says the
+     * blank means cash, so an unanswered rail must not demand a bank account.
+     *
+     * Memoised for the request and dropped on write like the other three maps — the reason is in
+     * {@see catalogueMemoSuffixes()}: `queue:work` is one long-lived process, so a rail changed at
+     * 10:00 would otherwise stay invisible to it until it restarted.
+     */
+    public static function requiresBankAccount(?string $code): bool
+    {
+        if ($code === null) {
+            return false;
+        }
+
+        $memo = self::catalogueMemoKey().'.needs_bank';
+
+        $map = app()->has($memo)
+            ? app($memo)
+            : tap(static::query()->pluck('requires_bank_account', 'code')->all(),
+                fn (array $m) => app()->instance($memo, $m));
+
+        // `array_key_exists`, not `??`: a row that says FALSE must beat the floor, and `?? ` cannot
+        // tell "the operator said no" from "there is no row" — both are falsy. Getting this wrong
+        // would make `requires_bank_account = false` unsettable for every rail except cash.
+        return array_key_exists($code, $map)
+            ? (bool) $map[$code]
+            : $code !== self::FLOOR_CASH_ROLE;
     }
 
     public function scopeInbound(Builder $query): Builder

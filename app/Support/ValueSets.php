@@ -10,6 +10,7 @@ use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
 use App\Http\Middleware\SetLocale;
+use App\Models\BankAccount;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CustomField;
@@ -110,6 +111,12 @@ class ValueSets
         // Where an account's movement lands on the cash-flow statement (EG-28). Registered because
         // a typo here does not error — it silently sends the movement to the operating default.
         'ledger_accounts.cash_flow_section' => [CashFlowSection::class, 'SECTIONS'],
+
+        // Whether an account's result sits above or below the NET OPERATING INCOME line. Registered
+        // for the same reason its sibling is, and it fails the same quiet way: an unrecognised value
+        // floors to `operating`, so a typo does not error — it silently carries a financing cost
+        // above the line and understates the number a valuation is built on.
+        'ledger_accounts.statement_section' => [StatementSection::class, 'SECTIONS'],
 
         'document_templates.key' => [DocumentText::class, 'KEY_NAMES'],
 
@@ -213,6 +220,11 @@ class ValueSets
         'cam_pool_accounts.cost_nature' => ['fixed', 'variable'],
         'leases.currency' => ['EGP'],
         'bank_accounts.currency' => ['EGP'],
+        // What kind of money an account holds, and therefore which one a document DEFAULTS to.
+        // Registered because a mistyped purpose does not error — `BankAccount::defaultFor()` simply
+        // never matches it, so the account silently stops being anybody's default while the register
+        // still shows it flagged, which reads as the defaulting being broken rather than the row.
+        'bank_accounts.purpose' => [BankAccount::class, 'PURPOSES'],
         'charges.currency' => ['EGP'],
         'credit_notes.currency' => ['EGP'],
         'invoices.currency' => ['EGP'],
@@ -287,6 +299,12 @@ class ValueSets
         // category the expense cannot would mint a row the saving listener then refuses, nightly.
         'recurring_expenses.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
         'expenses.paid_from' => ['cash', 'bank'],
+        // The schedule's rail (EG-33 + 2026-09-02). It shipped with no entry at all, so the column
+        // accepted anything a payload sent while every sibling rail column was guarded — and it
+        // dictates the rail of every cost it generates, so a value no picker offers would reach the
+        // generated document too. Same floor and same catalogue as `expenses.paid_from`, because it
+        // IS that column one document upstream.
+        'recurring_expenses.paid_from' => ['cash', 'bank'],
         'expenses.status' => ['recorded', 'cancelled'],
         'fiscal_years.status' => ['open', 'closed'],
         'fixed_assets.status' => ['active', 'disposed'],
@@ -549,6 +567,7 @@ class ValueSets
         'deposit_transactions.method' => [PaymentMethod::class, 'inboundCodes'],
         'vendor_bill_payments.method' => [PaymentMethod::class, 'outboundCodes'],
         'expenses.paid_from' => [PaymentMethod::class, 'outboundCodes'],
+        'recurring_expenses.paid_from' => [PaymentMethod::class, 'outboundCodes'],
         'disbursements.method' => [PaymentMethod::class, 'outboundCodes'],
         'custody_transactions.category' => [ExpenseCategory::class, 'codes'],
         'expenses.category' => [ExpenseCategory::class, 'codes'],

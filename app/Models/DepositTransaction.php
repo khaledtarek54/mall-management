@@ -40,6 +40,18 @@ class DepositTransaction extends Model
     use RecordsBankAccount;
 
     /**
+     * A security deposit is money the operator HOLDS, not money it has earned — `deposits_held` is
+     * a liability — so it defaults to the property's deposits account where one is registered. With
+     * none, {@see BankAccount::defaultFor()} falls back to operating, which is what an Egyptian mall
+     * without a separate trust account actually does; Egypt mandates no such account, so this is a
+     * facility rather than a rule.
+     */
+    public static function bankAccountPurpose(): string
+    {
+        return BankAccount::PURPOSE_DEPOSITS;
+    }
+
+    /**
      * The transaction number.
      *
      * @return array<int, string|int|float|null>

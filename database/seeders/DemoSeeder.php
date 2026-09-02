@@ -180,6 +180,8 @@ class DemoSeeder extends Seeder
 
     private ?BankAccount $nbeAccount = null;
 
+    private ?BankAccount $depositAccount = null;
+
     public function run(): void
     {
         mt_srand(self::DEMO_RNG_SEED);
@@ -3045,7 +3047,7 @@ class DemoSeeder extends Seeder
                 'period_month' => $month,
                 'description' => 'Monthly payroll — '.$month->format('F Y'),
                 'paid_from' => 'bank',
-                'bank_account_id' => $this->demoBankAccountFor('bank', $monthsBack),
+                'bank_account_id' => $this->demoBankAccountForPurpose(BankAccount::PURPOSE_PAYROLL, $asset->id),
                 'status' => 'draft',
                 'gross_salaries' => 0,
                 'salary_tax' => 0,
@@ -4105,6 +4107,12 @@ class DemoSeeder extends Seeder
                 'iban' => 'EG380019000500000000263180002',
                 'currency' => 'EGP',
                 'ledger_account_id' => $leaf('11102002', 'CIB — Operating Account', 'حساب البنك التجاري الدولي — التشغيل')->id,
+                'purpose' => BankAccount::PURPOSE_OPERATING,
+                // The property's DEFAULT: every money form on Atriom Walk opens with this filled in
+                // and the operator confirms rather than chooses, which is the half that makes
+                // requiring an account on a bank rail reasonable rather than a chore. Without it the
+                // demo shows a register nobody is obliged to use — the state EG-12 actually shipped.
+                'is_default' => true,
                 'is_active' => true,
                 'notes' => 'Rent collections and supplier payments.',
             ],
@@ -4118,12 +4126,38 @@ class DemoSeeder extends Seeder
                 'iban' => 'EG210003000600000000123456789',
                 'currency' => 'EGP',
                 'ledger_account_id' => $leaf('11102003', 'NBE — Service Charge Account', 'حساب البنك الأهلي المصري — الخدمات')->id,
+                // Service-charge money is still the operator's working cash — a second OPERATING
+                // account, not a second purpose. It is deliberately not the default: two accounts
+                // with one default is the situation the whole design is about, and a demo where
+                // every account is a default demonstrates nothing.
+                'purpose' => BankAccount::PURPOSE_OPERATING,
+                'is_default' => false,
                 'is_active' => true,
                 'notes' => 'Service-charge collections, kept separate for the owner reconciliation.',
             ],
         );
 
-        $this->command->info('   Seeded 2 bank accounts (CIB, NBE) on their own chart leaves');
+        // A tenant's security deposit is money the operator HOLDS — `deposits_held` is a liability,
+        // not working cash — and an Egyptian mall that keeps it apart banks it apart. Its own
+        // purpose AND its own default, so a deposit receipt fills itself in with THIS account while
+        // a rent receipt beside it fills in with CIB: the purpose ladder doing visible work, which
+        // two operating accounts could never show.
+        $this->depositAccount = BankAccount::updateOrCreate(
+            ['asset_id' => $asset->id, 'account_number' => '900-8007-004488'],
+            [
+                'name' => 'NBE — tenant deposits',
+                'bank_name' => 'National Bank of Egypt',
+                'iban' => 'EG210003000600000000998877665',
+                'currency' => 'EGP',
+                'ledger_account_id' => $leaf('11102004', 'NBE — Tenant Deposits Account', 'حساب البنك الأهلي المصري — تأمينات المستأجرين')->id,
+                'purpose' => BankAccount::PURPOSE_DEPOSITS,
+                'is_default' => true,
+                'is_active' => true,
+                'notes' => 'Security deposits held on behalf of tenants, kept out of working cash.',
+            ],
+        );
+
+        $this->command->info('   Seeded 3 bank accounts (CIB operating, NBE service charge, NBE deposits) on their own chart leaves');
     }
 
     /**
@@ -4151,6 +4185,20 @@ class DemoSeeder extends Seeder
      * different money. Cash and the deferred rails stay null, which is the honest state and also
      * the one the floor covers.
      */
+    /**
+     * The account a document of this PURPOSE banks in — resolved through the app's own ladder.
+     *
+     * `BankAccount::defaultFor()` rather than a second rule written here, so the demo cannot show an
+     * arrangement the running system would not produce: a bug in the ladder (a deposit receipt
+     * quietly landing in working cash, say) shows up on the demo books instead of hiding behind
+     * seeder-specific wiring. The demo has no payroll account, so the payroll run falls to the
+     * operating default — which is the fallback being demonstrated, not a gap.
+     */
+    private function demoBankAccountForPurpose(string $purpose, ?int $assetId): ?int
+    {
+        return BankAccount::defaultFor($assetId, $purpose)?->id;
+    }
+
     private function demoBankAccountFor(string $method, int $seq): ?int
     {
         if ($this->cibAccount === null || $this->nbeAccount === null) {
@@ -4186,7 +4234,7 @@ class DemoSeeder extends Seeder
                 'amount' => (float) $lease->security_deposit,
                 'transaction_date' => $lease->commencement_date,
                 'method' => 'bank',
-                'bank_account_id' => $this->demoBankAccountFor('bank', $lease->id),
+                'bank_account_id' => $this->demoBankAccountForPurpose(BankAccount::PURPOSE_DEPOSITS, $lease->asset_id),
                 'status' => 'recorded',
                 'notes' => 'Security deposit received on lease commencement.',
             ]);
@@ -4201,7 +4249,7 @@ class DemoSeeder extends Seeder
                 'amount' => round((float) $leases[0]->security_deposit * 0.25, 2),
                 'transaction_date' => Carbon::now()->subDays(10),
                 'method' => 'bank',
-                'bank_account_id' => $this->demoBankAccountFor('bank', 0),
+                'bank_account_id' => $this->demoBankAccountForPurpose(BankAccount::PURPOSE_DEPOSITS, $leases[0]->asset_id),
                 'status' => 'recorded',
                 'notes' => 'Partial deposit refund after fit-out damage settlement.',
             ]);
@@ -4211,7 +4259,7 @@ class DemoSeeder extends Seeder
                 'amount' => round((float) $leases[1]->security_deposit * 0.10, 2),
                 'transaction_date' => Carbon::now()->subDays(6),
                 'method' => 'bank',
-                'bank_account_id' => $this->demoBankAccountFor('bank', 1),
+                'bank_account_id' => $this->demoBankAccountForPurpose(BankAccount::PURPOSE_DEPOSITS, $leases[1]->asset_id),
                 'status' => 'recorded',
                 'notes' => 'Portion forfeited against unpaid utilities on exit.',
             ]);

@@ -124,6 +124,7 @@ class ActivityVocabulary
         'deposit_transaction.method' => PaymentMethod::class,
         'disbursement.method' => PaymentMethod::class,
         'expense.paid_from' => PaymentMethod::class,
+        'recurring_expense.paid_from' => PaymentMethod::class,
         'employee_advance.paid_from' => PaymentMethod::class,
         'employee_advance_repayment.method' => PaymentMethod::class,
 
@@ -173,6 +174,10 @@ class ActivityVocabulary
         // The SAME catalogue: module 11 and module 26 promise on one set of clocks, and a
         // second list of words for it would be a second answer to one question.
         'tenant_request.sla_clock' => 'admin.facility.sla_clocks',
+        // Not a `status`, so the `admin.statuses.{log_name}` convention never fires — and it is a
+        // closed set the operator picks from, so a diff reading `deposits` instead of "Security
+        // deposits" is the raw-column-value failure this registry exists to prevent.
+        'bank_account.purpose' => 'admin.enums.bank_account_purpose',
         // Statuses whose catalogue is not `admin.statuses.{log_name}`.
         'disbursement.status' => 'admin.disbursements.statuses',
         'employee.status' => 'admin.employees.statuses',
@@ -226,6 +231,7 @@ class ActivityVocabulary
         'lease.percentage_rent_billing_frequency' => 'admin.enums.percentage_rent_billing_frequency',
         'lease_option.rent_basis' => 'admin.lease_options.rent_bases',
         'ledger_account.cash_flow_section' => 'admin.enums.cash_flow_section',
+        'ledger_account.statement_section' => 'admin.enums.statement_section',
         'ledger_account.normal_balance' => 'admin.enums.normal_balance',
         'marketing_post.type' => 'admin.marketing_posts.types',
         'owner_statement_run.basis' => 'admin.owner_statements.bases',

@@ -52,7 +52,12 @@ it('demonstrates two banks in one mall on a fresh demo', function () {
 
     $accounts = BankAccount::with('ledgerAccount')->get();
 
-    expect($accounts)->toHaveCount(2);
+    // THREE since 2026-09-02: two operating accounts (CIB, and NBE for service charge) plus the
+    // tenant-deposits account. The third is not decoration — a demo whose accounts all share one
+    // purpose can show the DEFAULT being picked but never the purpose ladder choosing between
+    // them, so a deposit receipt landing somewhere other than the rent receipt beside it has
+    // nothing pinning it.
+    expect($accounts)->toHaveCount(3);
 
     $assetId = $accounts->first()->asset_id;
     $resolver = app(AccountResolver::class);
@@ -72,8 +77,31 @@ it('demonstrates two banks in one mall on a fresh demo', function () {
     }
 
     // …and not to each other's, or the reconciliation matcher offers one bank's postings against
-    // the other's statement — the defect EG-12 exists to fix.
-    expect($accounts[0]->ledger_account_id)->not->toBe($accounts[1]->ledger_account_id);
+    // the other's statement — the defect EG-12 exists to fix. Asked of ALL of them rather than of
+    // the first pair, so a fourth account sharing a leaf with the third cannot slip past.
+    expect($accounts->pluck('ledger_account_id')->unique())->toHaveCount($accounts->count());
+
+    // ── Each property states where its money defaults to ─────────────────────────────────────────
+    // The half that makes requiring an account on a bank rail reasonable rather than a chore: a
+    // money form opens with this filled in. Exactly one default per purpose, and the deposits
+    // account is a DIFFERENT one from the operating default — otherwise the ladder is untested and
+    // a deposit receipt would quietly bank with the working cash.
+    $operating = BankAccount::defaultFor($assetId, BankAccount::PURPOSE_OPERATING);
+    $deposits = BankAccount::defaultFor($assetId, BankAccount::PURPOSE_DEPOSITS);
+
+    expect($operating)->not->toBeNull('No default operating account, so every money form opens blank.')
+        ->and($deposits)->not->toBeNull()
+        ->and($deposits->id)->not->toBe($operating->id)
+        ->and($deposits->purpose)->toBe(BankAccount::PURPOSE_DEPOSITS);
+
+    foreach (BankAccount::PURPOSES as $purpose) {
+        expect(BankAccount::where('asset_id', $assetId)->where('purpose', $purpose)->where('is_default', true)->count())
+            ->toBeLessThanOrEqual(1, "More than one default {$purpose} account, so the default is whichever row is read first.");
+    }
+
+    // And the deposit movements actually went there, or the purpose column is a label on nothing.
+    expect(DepositTransaction::whereNotNull('bank_account_id')->pluck('bank_account_id')->unique()->all())
+        ->toBe([$deposits->id]);
 
     // ── Real money through both, with the floor still visible ────────────────────────────────────
     foreach ($accounts as $account) {
@@ -82,7 +110,14 @@ it('demonstrates two banks in one mall on a fresh demo', function () {
         // A generous floor on purpose: the exact figure moves whenever a lease, a rail or a payment
         // site changes, and pinning it would make an unrelated seeder edit look like a regression.
         // What must never come back is the "1 of 194" shape — a register seeded after the money.
-        expect($lines)->toBeGreaterThan(10, "{$account->name} carries almost no posted money.");
+        //
+        // Split by PURPOSE rather than lowered for everybody. A deposits account holds deposit
+        // movements and nothing else, so it is an order of magnitude quieter than an account
+        // taking every rent receipt — one floor for both would either exempt the busy accounts or
+        // fail the quiet one for being exactly what it is.
+        $floor = $account->purpose === BankAccount::PURPOSE_DEPOSITS ? 5 : 10;
+
+        expect($lines)->toBeGreaterThan($floor, "{$account->name} carries almost no posted money.");
     }
 
     // The generic `bank` role still holds the documents that name no account — the floor working,

@@ -321,6 +321,8 @@ return [
         'origin' => 'المصدر',
         'vat_applicable' => 'خاضع لضريبة القيمة المضافة',
         'purpose' => 'الغرض',
+        'is_default' => 'الافتراضي',
+        'requires_bank_account' => 'يتطلب حسابًا بنكيًا',
         'hire_date' => 'تاريخ التعيين',
         'terminated_on' => 'تاريخ إنهاء الخدمة',
         'criticality' => 'درجة الحرجية',

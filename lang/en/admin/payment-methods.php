@@ -10,6 +10,7 @@ return [
             'ledger_account' => 'Leave blank to use the default: cash to Cash, everything else to Bank.',
             'for_inbound' => 'Offered when recording money received.',
             'for_outbound' => 'Offered when paying a vendor, an expense or a payout.',
+            'requires_bank_account' => 'On means a document paid this way must say which bank account it went through.',
             'settlement_days' => 'Days until the money actually reaches the bank.',
             'is_active' => 'Switching off hides it from pickers; documents already using it are unchanged.',
         ],

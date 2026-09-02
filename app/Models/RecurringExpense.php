@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\GenerateRecurringExpensesService;
 use App\Support\ActivityLogging;
@@ -49,6 +50,12 @@ use Spatie\Activitylog\Support\LogOptions;
 class RecurringExpense extends Model
 {
     use LogsActivity;
+
+    // The column shipped on 2026-09-02 with no relation, no property guard and a bare
+    // `EntitySelect` on the form — so a schedule could name ANOTHER MALL's bank account and stamp
+    // it onto every cost it generated, which is precisely the cross-property posting the concern
+    // exists to refuse. A schedule is not itself a money document, but it DICTATES one.
+    use RecordsBankAccount;
     use RefusesDeletionWhenReferenced;
     use SoftDeletes;
 
@@ -246,6 +253,12 @@ class RecurringExpense extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /** This schedule calls its rail `paid_from`, not `method`. */
+    public static function bankAccountRailColumn(): string
+    {
+        return 'paid_from';
     }
 
     public function getActivitylogOptions(): LogOptions

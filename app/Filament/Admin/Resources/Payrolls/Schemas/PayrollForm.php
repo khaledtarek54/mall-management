@@ -54,12 +54,19 @@ class PayrollForm
                         ->default('bank')
                         ->native(false)
                         ->required()
-                        ->disabled($locked),
+                        ->disabled($locked)
+                        // `->live()` so the bank-account field beside it picks up its requirement as soon as the
+                        // rail changes. The refusal itself does not depend on this — `required()` is evaluated at
+                        // validation with the submitted rail in state — this only decides how soon the asterisk
+                        // and the helper sentence catch up.
+                        ->live(),
 
-                    // Which bank account this money moved through — optional, and null means the rail
-                    // decides. Set it and the posting lands in THAT account's chart account, which is
-                    // what lets a mall banking in two places reconcile either one.
-                    BankAccountField::make()
+                    // Which bank account this money moved through. `for()` takes the document class
+                    // because the document declares BOTH the purpose its money belongs to and the
+                    // column naming its rail — so the picker defaults to the same account
+                    // `RecordsBankAccount` would have filled in, and requires one on exactly the
+                    // rails the catalogue says carry bank money.
+                    BankAccountField::for(Payroll::class)
                         ->disabled($locked),
 
                     Textarea::make('description')
