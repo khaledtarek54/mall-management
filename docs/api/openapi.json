@@ -76,6 +76,46 @@
                 }
             }
         },
+        "/v1/me/cam-allocations/{id}/statement": {
+            "get": {
+                "operationId": "v1.me.cam.statement",
+                "tags": [
+                    "CamStatement"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Content-Disposition": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/requests/{id}/cancel": {
             "post": {
                 "operationId": "v1.me.requests.cancel",
@@ -967,6 +1007,158 @@
                                             "type": "array",
                                             "items": {
                                                 "$ref": "#/components/schemas/AnnouncementResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "currentPage": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 1
+                                                },
+                                                "lastPage": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "links": {
+                                                    "type": "array",
+                                                    "description": "Generated paginator links.",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "active": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "url",
+                                                            "label",
+                                                            "active"
+                                                        ]
+                                                    }
+                                                },
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "perPage": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "description": "Number of the last item in the slice.",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items being paginated.",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "currentPage",
+                                                "from",
+                                                "lastPage",
+                                                "links",
+                                                "path",
+                                                "perPage",
+                                                "to",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/cam-allocations": {
+            "get": {
+                "operationId": "v1.me.cam.index",
+                "tags": [
+                    "ListCamAllocations"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `CamAllocationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/CamAllocationResource"
                                             }
                                         },
                                         "links": {
@@ -2625,6 +2817,47 @@
                 }
             }
         },
+        "/v1/me/cam-allocations/{id}": {
+            "get": {
+                "operationId": "v1.me.cam.show",
+                "tags": [
+                    "ShowCamAllocation"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`CamAllocationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/CamAllocationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/credit-notes/{id}": {
             "get": {
                 "operationId": "v1.me.credit-notes.show",
@@ -3451,6 +3684,139 @@
                     "readAt"
                 ],
                 "title": "AnnouncementResource"
+            },
+            "CamAllocationResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "periodYear": {
+                        "type": "integer"
+                    },
+                    "totalActualExpense": {
+                        "type": "number",
+                        "description": "What the mall actually spent on the common areas that year \u2014 the denominator the\nshare is a percentage OF. Without it \"your share is 1.8%\" is a number the tenant\ncannot check anything against."
+                    },
+                    "proRataSharePct": {
+                        "type": "number"
+                    },
+                    "allocatedAmount": {
+                        "type": "number"
+                    },
+                    "estimatedPaid": {
+                        "type": "number"
+                    },
+                    "trueUpAmount": {
+                        "type": "number",
+                        "description": "Positive: the tenant owes the difference. Negative: it comes back as a credit note."
+                    },
+                    "currency": {
+                        "type": "string",
+                        "const": "EGP"
+                    },
+                    "property": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "code",
+                            "name"
+                        ]
+                    },
+                    "unit": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "The shop this share was calculated for, from whichever agreement carries it.",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "floor": {
+                                "type": "string",
+                                "description": "`floors.code` \u2014 a scalar, never the Floor object. Same rule as LeaseResource."
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "code",
+                            "floor"
+                        ]
+                    },
+                    "agreement": {
+                        "description": "Which agreement it is \u2014 so the app can label an owner's assessment as such rather\nthan showing a blank lease reference, which is what the portal's own View page does\ntoday (a known open row).",
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "kind": {
+                                        "type": "string",
+                                        "const": "lease"
+                                    },
+                                    "reference": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "kind",
+                                    "reference"
+                                ]
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "kind": {
+                                        "type": "string",
+                                        "const": "ownership"
+                                    },
+                                    "reference": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "kind",
+                                    "reference"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "status",
+                    "proRataSharePct",
+                    "allocatedAmount",
+                    "estimatedPaid",
+                    "trueUpAmount",
+                    "currency",
+                    "unit",
+                    "agreement"
+                ],
+                "title": "CamAllocationResource"
             },
             "ChangePasswordRequest": {
                 "type": "object",

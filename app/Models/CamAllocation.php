@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Contracts\BillableAgreement;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -86,6 +87,32 @@ class CamAllocation extends Model
     public function unitOwnership(): BelongsTo
     {
         return $this->belongsTo(UnitOwnership::class);
+    }
+
+    /**
+     * The shares belonging to one tenant — through EITHER agreement.
+     *
+     * **The OR branch is the whole predicate, not a refinement.** An allocation belongs to a lease
+     * *or* to a unit ownership, because a unit owner is a CAM participant in his own right; scoping
+     * through `lease` alone returns NOTHING for him, which is exactly how an owner came to be
+     * billed a true-up whose basis he could not see. The portal's resource states this in its own
+     * `getEloquentQuery()`, and the mobile API needed the same answer — so it is defined ONCE here
+     * rather than copied into a third and fourth place.
+     *
+     * The two clauses are GROUPED inside one closure deliberately. `AND` binds tighter than `OR`,
+     * so written flat alongside any other constraint the ownership branch escapes the tenant scope
+     * entirely — the same trap `Tenant::creditBalance()` and `CamExpensePool`'s participant query
+     * each carry a note about.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<CamAllocation>  $query
+     */
+    public function scopeOwnedBy(Builder $query, Tenant|int $tenant): void
+    {
+        $tenantId = $tenant instanceof Tenant ? $tenant->getKey() : $tenant;
+
+        $query->where(fn (Builder $q) => $q
+            ->whereHas('lease', fn (Builder $l) => $l->where('tenant_id', $tenantId))
+            ->orWhereHas('unitOwnership', fn (Builder $o) => $o->where('tenant_id', $tenantId)));
     }
 
     /**

@@ -9,6 +9,9 @@ use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\V1\CamAllocations\CamStatementController;
+use App\Http\Controllers\Api\V1\CamAllocations\ListCamAllocationsController;
+use App\Http\Controllers\Api\V1\CamAllocations\ShowCamAllocationController;
 use App\Http\Controllers\Api\V1\CreditNotes\ListCreditNotesController;
 use App\Http\Controllers\Api\V1\CreditNotes\ShowCreditNoteController;
 use App\Http\Controllers\Api\V1\Devices\ListDevicesController;
@@ -184,6 +187,18 @@ Route::prefix('v1')->group(function () {
         // Only for a payment whose money actually arrived; see the controller.
         Route::get('me/payments/{id}/receipt', PaymentReceiptController::class)
             ->whereNumber('id')->name('api.v1.me.payments.receipt');
+
+        // --- Common-area recoveries (module 08): the tenant's share of a year's service charge ---
+        // CAM had no API surface at all while the annual reconciliation put `cam_recovery` and
+        // `cam_admin_fee` lines straight onto the invoice — so the app showed a large once-a-year
+        // charge with no way to see the pool, the share, or the statement explaining it.
+        Route::get('me/cam-allocations', ListCamAllocationsController::class)->name('api.v1.me.cam.index');
+        Route::get('me/cam-allocations/{id}', ShowCamAllocationController::class)
+            ->whereNumber('id')->name('api.v1.me.cam.show');
+        // The tenant's own copy of the service-charge statement — the same PDF the portal hands
+        // out. An audit right only the operator can print is one the tenant has to ask for.
+        Route::get('me/cam-allocations/{id}/statement', CamStatementController::class)
+            ->whereNumber('id')->name('api.v1.me.cam.statement');
 
         // --- Credit notes (read-only — issued by the operator) ---
         Route::get('me/credit-notes', ListCreditNotesController::class)->name('api.v1.me.credit-notes.index');
