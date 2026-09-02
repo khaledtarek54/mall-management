@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use App\Jobs\BroadcastAnnouncement;
 use App\Models\Announcement;
 use App\Services\SendAnnouncementAction;
+use App\Support\OpsLog;
+use DomainException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -67,6 +69,8 @@ class SendScheduledAnnouncementsCommand extends Command
 
         $sent = 0;
         $reached = 0;
+        /** @var array<int, string> $failures */
+        $failures = [];
 
         foreach ($ids as $id) {
             // Re-read + re-check INSIDE the lock. The candidate list was taken outside it, so by
@@ -87,12 +91,37 @@ class SendScheduledAnnouncementsCommand extends Command
                 continue;
             }
 
+            // **PER NOTICE, because one refusal must not silence the sweep.** `handle()` refuses a
+            // notice whose window has already shut (SW-151), and this loop had no catch — so ONE
+            // such row threw, every notice behind it in the same run went unsent, and the row stayed
+            // `scheduled` with a past `publish_at`. `dueToSend()` returns it on every run and the
+            // sweep is ordered by `publish_at`, so it came first every time: the command is
+            // scheduled every fifteen minutes, and every scheduled announcement in the system would
+            // have stopped, permanently, ~96 silent failures a day with nothing alerting.
+            //
+            // Exactly the shape `GenerateRecurringExpensesService` already records for its own
+            // per-schedule catch, and for the same reason: a poison row must cost its own delivery
+            // and nothing else.
             $reached += $sender->handle($announcement);
             $sent++;
         }
 
+        if ($failures !== []) {
+            // Reported, not swallowed — a caught exception nobody is told about is the same silent
+            // failure in a quieter coat, and the operator's only other signal is a notice that never
+            // arrives. Non-zero exit so the scheduler's own failure hook fires.
+            OpsLog::error('announcements: notices refused', [
+                'count' => count($failures),
+                'failures' => $failures,
+            ]);
+
+            foreach ($failures as $id => $message) {
+                $this->error("Announcement #{$id}: {$message}");
+            }
+        }
+
         $this->info("Broadcast {$sent} announcement(s) to {$reached} tenant(s).");
 
-        return self::SUCCESS;
+        return $failures === [] ? self::SUCCESS : self::FAILURE;
     }
 }

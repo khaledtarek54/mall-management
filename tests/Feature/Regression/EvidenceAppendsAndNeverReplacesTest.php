@@ -1,9 +1,11 @@
 <?php
 
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
 use App\Filament\Vendor\Resources\WorkOrders\Pages\ListWorkOrders;
 use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use App\Models\VendorContact;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
@@ -33,7 +35,7 @@ use Livewire\Livewire;
 beforeEach(function () {
     Storage::fake('local');
     // The admin door is reached through the real list page, whose canAccess() needs the catalogue.
-    $this->seed(Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 
     $this->asset = makeAsset();
@@ -97,7 +99,7 @@ it('keeps the contractor photograph when the operator attaches one from the admi
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($this->asset, isQuiet: true);
 
-    Livewire::test(App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders::class)
+    Livewire::test(ListFacilityWorkOrders::class)
         ->callAction(
             TestAction::make('attachEvidence')->table($this->job),
             data: ['evidence' => [UploadedFile::fake()->image('operator.jpg')]],

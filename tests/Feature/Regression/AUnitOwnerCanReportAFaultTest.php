@@ -5,6 +5,7 @@ use App\Enums\UnitOwnershipStatus;
 use App\Filament\Portal\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Models\TenantRequest;
 use App\Models\UnitOwnership;
+use App\Services\TenantRequestService;
 use Database\Seeders\TenantRequestSubcategorySeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -140,7 +141,7 @@ it('refuses with a message, not a 500, when the account has no shop at all', fun
     // what a person can act on.
     $stranded = makeTenant(['name' => 'No shop']);
 
-    expect(fn () => app(App\Services\TenantRequestService::class)->create([
+    expect(fn () => app(TenantRequestService::class)->create([
         'title' => 'Anything',
         'description' => 'Anything at all',
         'request_type' => 'maintenance',

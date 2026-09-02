@@ -1,12 +1,14 @@
 <?php
 
+use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Admin\Resources\TenantRequests\Pages\EditTenantRequest;
-use App\Models\TenantRequest;
 use App\Models\TenantRequestSubcategory;
+use App\Support\Filament\CatalogueAwareSelect;
 use Database\Seeders\RolesPermissionsSeeder;
 use Database\Seeders\TenantRequestSubcategorySeeder;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Select;
 use Livewire\Livewire;
 
 /**
@@ -53,14 +55,14 @@ it('still offers a retired code to the record that already carries it', function
     // The control: while active, it is an ordinary option.
     $sub = TenantRequestSubcategory::where('code', 'electrical')->sole();
 
-    expect(TenantRequestSubcategory::optionsFor(\App\Enums\TenantRequestType::Maintenance))
+    expect(TenantRequestSubcategory::optionsFor(TenantRequestType::Maintenance))
         ->toHaveKey('electrical');
 
     // The operator retires it — the request already on the board still says `electrical`.
     $sub->update(['is_active' => false]);
     TenantRequestSubcategory::flushCatalogue();
 
-    expect(TenantRequestSubcategory::optionsFor(\App\Enums\TenantRequestType::Maintenance))
+    expect(TenantRequestSubcategory::optionsFor(TenantRequestType::Maintenance))
         ->not->toHaveKey('electrical');
 
     asTenant($this->asset, function () {
@@ -136,7 +138,7 @@ it('falls through for a detached component, rather than throwing', function () {
     // this binding existed. It is NOT a statement about ordinary Selects — a detached component
     // returns at the container check long before the registry is consulted, which is exactly why
     // the case above had to be driven through a real page.
-    $select = \App\Support\Filament\CatalogueAwareSelect::make('category')
+    $select = CatalogueAwareSelect::make('category')
         ->options(['open' => 'Open', 'closed' => 'Closed']);
 
     expect($select->getOptions())->toBe(['open' => 'Open', 'closed' => 'Closed']);
@@ -145,6 +147,6 @@ it('falls through for a detached component, rather than throwing', function () {
 it('binds the catalogue-aware Select in the container', function () {
     // The binding IS the fix — a Select built with `new` would behave correctly and every screen
     // would still be broken. Pinned so a refactor cannot quietly remove it.
-    expect(\Filament\Forms\Components\Select::make('probe'))
-        ->toBeInstanceOf(\App\Support\Filament\CatalogueAwareSelect::class);
+    expect(Select::make('probe'))
+        ->toBeInstanceOf(CatalogueAwareSelect::class);
 });

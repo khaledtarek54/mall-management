@@ -3,7 +3,7 @@
 use App\Models\CreditNote;
 use App\Models\Payment;
 use App\Services\TenantStatementPdfService;
-use Carbon\CarbonImmutable;
+use App\Services\WriteOffInvoiceService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -165,7 +165,7 @@ it('prints the collectable figure on the tenant s own document', function () {
         'subtotal' => 20000, 'vat_amount' => 0, 'total' => 20000, 'balance' => 20000,
     ]);
 
-    app(App\Services\WriteOffInvoiceService::class)->write($invoice->fresh(), [
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
     ]);
 

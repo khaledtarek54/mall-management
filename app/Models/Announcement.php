@@ -215,6 +215,33 @@ class Announcement extends Model implements HasMedia
         return ! $this->isSent();
     }
 
+    /**
+     * Refuse a broadcast into a window that has already shut.
+     *
+     * **The blast is not the failure — the deep link is.** Every tenant gets the push and the bell,
+     * `announcement_recipients` records who was reached, and then the portal's own scope
+     * (`whereNull('expires_at')->orWhere('expires_at', '>=', now())`) excludes the notice, so the
+     * link every one of them taps lands on nothing. And there is no repair: a sent notice is
+     * evidence — tenants hold a notification quoting its text — so `isEditable()` refuses it and the
+     * only correction is a second notice explaining the first.
+     *
+     * On the MODEL because three callers need the same answer and only one of them has a form: the
+     * send action (the gate), the create-and-send page (so the refusal reaches the operator instead
+     * of a `failed_jobs` row), and the scheduled sweep — where an `expires_at` that was in the
+     * future when the notice was scheduled can be in the past by the time the sweep arrives, which
+     * no form rule can see.
+     *
+     * @throws \DomainException
+     */
+    public function assertSendable(): void
+    {
+        if ($this->expires_at !== null && $this->expires_at->isPast()) {
+            throw new \DomainException(__('admin.refusals.announcement_window_closed', [
+                'expired' => $this->expires_at->format('d/m/Y H:i'),
+            ]));
+        }
+    }
+
     /** Ready to broadcast: composed, not yet sent, and (if scheduled) its time has come. */
     public function isDueToSend(): bool
     {

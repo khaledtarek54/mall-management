@@ -105,3 +105,65 @@ it('leaves an already-sent notice alone, whatever its window says', function () 
 
     expect(app(SendAnnouncementAction::class)->handle($notice->fresh()))->toBe(1);
 });
+
+it('lets ONE poison notice cost only its own delivery', function () {
+    // **The refusal nearly bricked the whole sweep.** The command's loop had no catch, so one
+    // expired notice threw, every notice behind it in the same run went unsent, and the bad row
+    // stayed `scheduled` with a past `publish_at` — which `dueToSend()` returns on EVERY run,
+    // ordered by `publish_at`, so it came first every time. The command runs every fifteen minutes:
+    // all scheduled announcements would have stopped, permanently, with nothing alerting.
+    $shut = Announcement::create([
+        'asset_id' => $this->asset->id,
+        'title' => 'Water shut-off', 'body' => 'Tuesday.',
+        'status' => Announcement::STATUS_SCHEDULED,
+        'publish_at' => now()->subDays(3)->toDateTimeString(),
+        'expires_at' => now()->subDays(2)->toDateTimeString(),
+    ]);
+
+    $healthy = Announcement::create([
+        'asset_id' => $this->asset->id,
+        'title' => 'Ramadan hours', 'body' => 'From next week.',
+        'status' => Announcement::STATUS_SCHEDULED,
+        // LATER than the poison row, so the sweep's `orderBy('publish_at')` reaches it second —
+        // which is exactly the ordering that made one bad row starve everything behind it.
+        'publish_at' => now()->subDay()->toDateTimeString(),
+        'expires_at' => now()->addMonths(3)->toDateTimeString(),
+    ]);
+
+    $this->artisan('announcements:send-scheduled')->assertFailed();
+
+    expect($healthy->fresh()->sent_at)->not->toBeNull('the healthy notice behind the poison row was starved')
+        ->and($shut->fresh()->sent_at)->toBeNull();
+});
+
+it('tells the operator on the CREATE page, not a failed_jobs row', function () {
+    // The broadcast goes off the request thread and the job is `tries = 1` on the database queue,
+    // so a refusal inside it becomes a failed job the operator never sees: the record is created,
+    // the success toast shows, `sent_at` stays null, and nothing on screen says it was refused. The
+    // window check is cheap and needs no tenants, so it is asked on the request.
+    $page = file_get_contents(base_path('app/Filament/Admin/Resources/Announcements/Pages/CreateAnnouncement.php'));
+
+    expect($page)->toContain('assertSendable()')
+        ->and($page)->toContain('Notification::make()->danger()');
+});
+
+it('asks ONE rule from all three callers', function () {
+    // The service, the create page and the sweep each need the same answer and only one of them has
+    // a form, so the rule is on the model. Three copies of a refusal is how they drift.
+    // No message argument: `toContain()`'s second parameter is ANOTHER NEEDLE, not a description —
+    // the trap this project already records for Pest matchers, and it turns a passing assertion
+    // into a failing one that reads like a bug in the code under test.
+    $restating = [];
+
+    foreach ([
+        'app/Services/SendAnnouncementAction.php',
+        'app/Filament/Admin/Resources/Announcements/Pages/CreateAnnouncement.php',
+    ] as $file) {
+        if (! str_contains(file_get_contents(base_path($file)), 'assertSendable()')) {
+            $restating[] = $file;
+        }
+    }
+
+    expect($restating)->toBe([], 'These restate the window rule instead of asking the model: '
+        .implode(', ', $restating));
+});

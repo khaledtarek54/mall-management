@@ -28,14 +28,20 @@
 | branding by CREATING the first document, which is also the demo itself.
 */
 
+use App\Models\AccountingPeriod;
 use App\Models\Asset;
 use App\Models\ChargeCode;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\Lease;
 use App\Models\LedgerAccount;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\Accounting\LedgerPoster;
+use App\Services\LeaseCreationService;
+use App\Services\MonthlyBillingService;
+use App\Settings\TaxSettings;
 use Carbon\CarbonImmutable;
 use Database\Seeders\LearningSeeder;
 use Database\Seeders\ValPlazaSeeder;
@@ -61,7 +67,7 @@ it('is ready to post, so the first invoice reaches the ledger', function () {
     // these the demo bills perfectly and the trial balance never moves.
     expect(LedgerAccount::count())->toBeGreaterThan(0)
         ->and(ChargeCode::count())->toBeGreaterThan(0)
-        ->and(\App\Models\AccountingPeriod::where('status', 'open')->count())->toBeGreaterThan(0);
+        ->and(AccountingPeriod::where('status', 'open')->count())->toBeGreaterThan(0);
 });
 
 /*
@@ -80,9 +86,9 @@ it('numbers the first documents for Val Plaza, and the trial balance moves', fun
         'base_rent_monthly' => 90000,
         'service_charge_monthly' => 13500,
     ]);
-    \App\Services\LeaseCreationService::seedStandardCharges($lease, rent: 90000, service: 13500);
+    LeaseCreationService::seedStandardCharges($lease, rent: 90000, service: 13500);
 
-    $invoice = app(\App\Services\MonthlyBillingService::class)
+    $invoice = app(MonthlyBillingService::class)
         ->generateForLease($lease->fresh(), CarbonImmutable::parse('2026-09-01'), false)['invoice'];
 
     expect($invoice)->not->toBeNull()
@@ -91,9 +97,9 @@ it('numbers the first documents for Val Plaza, and the trial balance moves', fun
         ->and($lease->reference)->toStartWith('LSE-VP-')
         ->and($invoice->number)->toStartWith('INV-VP-');
 
-    app(\App\Services\Accounting\LedgerPoster::class)->sync($invoice->fresh());
+    app(LedgerPoster::class)->sync($invoice->fresh());
 
-    $lines = \App\Models\JournalLine::selectRaw('coalesce(sum(debit),0) d, coalesce(sum(credit),0) c')->first();
+    $lines = JournalLine::selectRaw('coalesce(sum(debit),0) d, coalesce(sum(credit),0) c')->first();
 
     expect((float) $lines->d)->toBeGreaterThan(0.0)
         ->and((float) $lines->d)->toBe((float) $lines->c);
@@ -112,5 +118,5 @@ it('leaves the default empty mall as Atriom Walk', function () {
 it('does not invent a tax registration', function () {
     $this->seed(ValPlazaSeeder::class);
 
-    expect(app(\App\Settings\TaxSettings::class)->seller_tax_registration_number)->toBeEmpty();
+    expect(app(TaxSettings::class)->seller_tax_registration_number)->toBeEmpty();
 });

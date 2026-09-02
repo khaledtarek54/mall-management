@@ -32,6 +32,7 @@ use App\Models\WorkOrderProposal;
 use App\Services\CommentOnWorkOrderService;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Illuminate\Support\Arr;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -288,7 +289,7 @@ it('renders the thread as SEPARATE items, not one collapsed paragraph', function
         $property->setAccessible(true);
         $children = $property->getValue($section);
 
-        return is_array($children) ? \Illuminate\Support\Arr::flatten($children) : [];
+        return is_array($children) ? Arr::flatten($children) : [];
     };
 
     $entries = collect(JobBrief::of($this->job->fresh()))->flatMap($childrenOf);

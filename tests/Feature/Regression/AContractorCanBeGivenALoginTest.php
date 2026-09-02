@@ -1,7 +1,7 @@
 <?php
 
-use App\Filament\Admin\Resources\Vendors\RelationManagers\ContactsRelationManager;
 use App\Filament\Admin\Resources\Vendors\Pages\EditVendor;
+use App\Filament\Admin\Resources\Vendors\RelationManagers\ContactsRelationManager;
 use App\Models\Vendor;
 use App\Models\VendorContact;
 use Database\Seeders\RolesPermissionsSeeder;

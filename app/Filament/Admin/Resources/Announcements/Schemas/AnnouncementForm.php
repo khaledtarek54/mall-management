@@ -135,8 +135,13 @@ class AnnouncementForm
                         // a `minDate(now())` would allow and a `after(publish_at)` gets right. The
                         // fallback covers "send immediately", where the start is the moment of
                         // sending.
-                        ->minDate(fn ($get) => $get('publish_at') ?: now())
-                        ->after(fn ($get) => $get('publish_at') ?: 'now')
+                        // `max(publish_at, now())`, not `?:` — `publish_at` is only VISIBLE for a
+                        // scheduled notice, but its state survives a switch back to "Send now", and
+                        // a scheduled one whose time has slipped into the past would otherwise let
+                        // an already-shut window through the form and leave the refusal to the
+                        // service.
+                        ->minDate(fn ($get) => self::windowOpensAt($get('publish_at')))
+                        ->after(fn ($get) => self::windowOpensAt($get('publish_at')))
                         ->helperText(__('admin.announcements.fields.expires_at_hint')),
 
                     Toggle::make('is_pinned')
@@ -145,5 +150,24 @@ class AnnouncementForm
                         ->default(false),
                 ]),
         ]);
+    }
+
+    /**
+     * The earliest a notice's window can close: its own start, or now, whichever is later.
+     *
+     * A stale `publish_at` — hidden by a switch back to "Send now", or scheduled for a time that has
+     * since passed — must not widen the bound below today.
+     */
+    private static function windowOpensAt(mixed $publishAt): \Carbon\CarbonInterface
+    {
+        $now = \Carbon\CarbonImmutable::now();
+
+        if (blank($publishAt)) {
+            return $now;
+        }
+
+        $starts = rescue(fn () => \Carbon\CarbonImmutable::parse($publishAt), null, false);
+
+        return $starts !== null && $starts->greaterThan($now) ? $starts : $now;
     }
 }

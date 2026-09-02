@@ -1,11 +1,11 @@
 <?php
 
-use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
+use App\Filament\Admin\Resources\Payments\PaymentResource;
 use Database\Seeders\RolesPermissionsSeeder;
-use App\Filament\Admin\Pages\ArCollections;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Symfony\Component\Finder\Finder;
 
 /**
  * "RECORD PAYMENT" BUILT A 404, AND THE PREFILL IT EXISTS FOR COULD NEVER FIRE.
@@ -82,7 +82,7 @@ it('never lets a producer use Filament s reserved tenancy key', function () {
     // Livewire component — and a sweep covers the THIRD producer somebody adds next.
     $offenders = [];
 
-    foreach (\Symfony\Component\Finder\Finder::create()->files()->in(base_path('app'))->name('*.php') as $file) {
+    foreach (Finder::create()->files()->in(base_path('app'))->name('*.php') as $file) {
         // **CODE ONLY.** The first version swept raw source and reported `CreatePayment` — whose
         // docblock quotes the broken call as the description of the bug. A gate that fires on a
         // SENTENCE is one that gets weakened rather than fixed, which this project has already

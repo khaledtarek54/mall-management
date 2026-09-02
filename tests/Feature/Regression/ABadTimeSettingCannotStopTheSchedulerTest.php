@@ -27,9 +27,15 @@ it('proves the hazard: one bad expression aborts the whole run, not one event', 
     $ran = [];
     $schedule = app(Schedule::class);
 
-    $schedule->call(function () use (&$ran) { $ran[] = 'before'; })->dailyAt('00:00');
-    $schedule->call(function () use (&$ran) { $ran[] = 'bad'; })->dailyAt('24:00');
-    $schedule->call(function () use (&$ran) { $ran[] = 'every-minute'; })->everyMinute();
+    $schedule->call(function () use (&$ran) {
+        $ran[] = 'before';
+    })->dailyAt('00:00');
+    $schedule->call(function () use (&$ran) {
+        $ran[] = 'bad';
+    })->dailyAt('24:00');
+    $schedule->call(function () use (&$ran) {
+        $ran[] = 'every-minute';
+    })->everyMinute();
 
     expect(fn () => $schedule->dueEvents(app())->each(fn ($e) => $e->run(app())))
         ->toThrow(InvalidArgumentException::class);

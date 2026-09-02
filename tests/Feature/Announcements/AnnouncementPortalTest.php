@@ -86,7 +86,14 @@ it('never lists a notice that has expired, and keeps a standing one', function (
     noticeBoardActor($asset);
 
     $standing = broadcastNotice($asset, ['title' => 'Standing']);
-    $expired = broadcastNotice($asset, ['title' => 'Gone', 'expires_at' => now()->subDay()]);
+
+    // Broadcast while its window is still OPEN, then let the clock pass it. A notice can no longer
+    // be sent into a window that has already shut (SW-151) — the blast would go out and every deep
+    // link would land on nothing — so the only reachable way to have an expired sent notice is the
+    // way one really happens: it was sent, and then its end date arrived.
+    $expired = broadcastNotice($asset, ['title' => 'Gone', 'expires_at' => now()->addHour()]);
+
+    test()->travel(2)->hours();
 
     Livewire::test(ListAnnouncements::class)
         ->assertCanSeeTableRecords([$standing])

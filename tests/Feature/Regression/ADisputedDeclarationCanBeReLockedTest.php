@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Actions\SalesDeclarationActions;
 use App\Models\Charge;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Models\User;
@@ -116,7 +117,7 @@ it('completes the void → correct → re-bill loop the module documents', funct
 
     // **And the corrected overage is actually BILLED**, which is the whole claim. Asserting the
     // stored figure alone passes with `settleBillingPeriods()` stubbed out — measured.
-    $items = \App\Models\InvoiceItem::query()
+    $items = InvoiceItem::query()
         ->where('type', 'percentage_rent')
         ->whereHas('invoice', fn ($q) => $q->whereNotIn('status', ['cancelled', 'draft']))
         ->get();
