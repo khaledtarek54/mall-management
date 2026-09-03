@@ -20,8 +20,9 @@ return [
         ],
         'statuses' => ['active' => 'Active', 'terminated' => 'Terminated'],
         'methods' => ['cash' => 'Cash', 'bank' => 'Bank'],
-        'actions' => ['terminate' => 'Terminate', 'grant_advance' => 'Grant advance', 'record_repayment' => 'Record repayment', 'reverse_repayment' => 'Reverse a repayment'],
+        'actions' => ['terminate' => 'Terminate', 'reinstate' => 'Reinstate', 'reinstate_confirm' => 'This person returns to active. Their termination date is cleared, so every payroll run, picker and report treats them as employed again.', 'grant_advance' => 'Grant advance', 'record_repayment' => 'Record repayment', 'reverse_repayment' => 'Reverse a repayment'],
         'terminated' => 'Employee terminated',
+        'reinstated' => 'Employee reinstated',
         'advances' => 'Advances & loans',
         'advance_fields' => [
             'type' => 'Type', 'amount' => 'Amount', 'advance_date' => 'Date', 'paid_from' => 'Paid from',

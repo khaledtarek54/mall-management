@@ -20,8 +20,9 @@ return [
         ],
         'statuses' => ['active' => 'نشط', 'terminated' => 'منتهي الخدمة'],
         'methods' => ['cash' => 'نقدًا', 'bank' => 'بنك'],
-        'actions' => ['terminate' => 'إنهاء الخدمة', 'grant_advance' => 'صرف سلفة', 'record_repayment' => 'تسجيل سداد', 'reverse_repayment' => 'عكس سداد'],
+        'actions' => ['reinstate' => 'إعادة إلى الخدمة', 'reinstate_confirm' => 'يعود هذا الشخص إلى الخدمة، ويُمسح تاريخ إنهاء خدمته، فتتعامل معه مسيرات الرواتب والقوائم والتقارير كموظف على رأس العمل.', 'terminate' => 'إنهاء الخدمة', 'grant_advance' => 'صرف سلفة', 'record_repayment' => 'تسجيل سداد', 'reverse_repayment' => 'عكس سداد'],
         'terminated' => 'تم إنهاء خدمة الموظف',
+        'reinstated' => 'تمت إعادة الموظف إلى الخدمة',
         'advances' => 'السلف والقروض',
         'advance_fields' => [
             'type' => 'النوع', 'amount' => 'المبلغ', 'advance_date' => 'التاريخ', 'paid_from' => 'مصروف من',

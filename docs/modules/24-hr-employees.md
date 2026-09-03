@@ -129,6 +129,19 @@ unchanged and the GL tie-out is untouched.
    `employees.edit`, server-side re-checked). It lives on the employee's own Edit page — moved off
    the list row 2026-08-30, the list FINDS and the record ACTS
    (`App\Filament\Admin\Actions\EmployeeActions`).
+
+   **And `Reinstate` is the way back, which did not exist until 2026-09-03 (SW-097).** Terminate was
+   the only act that touched the status and the form carries no status field, so a mis-click on a
+   list — the wrong row, which is how this happens — was permanent: the person drops out of payroll,
+   the org chart and every active-only picker, with nothing on any screen offering a correction. A
+   dead-end status is the shape this codebase fixed twice in the same sweep (a draft invoice with no
+   way out, a cheque whose only exit from `cleared` was a bank return that never happened), and the
+   rule they all follow is `RefusesDeletionOfCommittedRecords`': correct a record through a workflow
+   that leaves a trail, never by editing a column and never by having no answer.
+
+   The pair is **exclusive** — each is visible for exactly the status the other is not — and
+   `terminated_on` is cleared with the status, because leaving it behind would say the person left on
+   a day they are still employed, and it is what every *was this person here then* read looks at.
 5. **Advances/loans post to the GL** (see §3.5). No advance may be **granted to a
    terminated employee**; a **repayment can't exceed outstanding** (lock-safe re-check in
    `RecordAdvanceRepaymentService`, so concurrent repayments can't drive the receivable

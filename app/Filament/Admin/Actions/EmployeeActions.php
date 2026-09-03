@@ -51,6 +51,39 @@ class EmployeeActions
                     $record->update(['status' => 'terminated', 'terminated_on' => $data['terminated_on']]);
                     Notification::make()->title(__('admin.employees.terminated'))->success()->send();
                 }),
+
+            // **The way back, which did not exist (SW-097).** `terminate` was the only act that
+            // touched the status and the form carries no status field, so a mis-clicked termination
+            // — the wrong row on a list — was permanent: the person drops out of payroll, the org
+            // chart and every active-only picker, with nothing on any screen offering a correction.
+            //
+            // A dead-end status is the shape this codebase has just had to fix twice (a draft
+            // invoice with no way out, a cheque that could only ever go to `bounced`). The rule it
+            // follows is `RefusesDeletionOfCommittedRecords`': correct a record through a workflow
+            // that leaves a trail, rather than by editing a column or by having no answer at all.
+            //
+            // `terminated_on` is cleared with it: leaving the date behind would say the person left
+            // on a day they are still employed, and it is what every "was this person here then"
+            // read looks at. The change is audited — `employees` is one of the 85 models
+            // `ActivityLogging::for()` covers — so who reinstated whom, and when, is in the trail
+            // without a second bespoke record.
+            Action::make('reinstate')
+                ->label(__('admin.employees.actions.reinstate'))
+                ->icon('heroicon-o-user-plus')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.employees.actions.reinstate_confirm'))
+                ->visible(fn (Employee $record) => $record->status === 'terminated' && EmployeeResource::canEdit($record))
+                ->authorize(fn (Employee $record) => EmployeeResource::canEdit($record))
+                ->action(function (Employee $record): void {
+                    // Server-side re-check, exactly as its twin does: `visible()` is a UI decision
+                    // and the payload still arrives.
+                    abort_unless(EmployeeResource::canEdit($record) && $record->status === 'terminated', 403);
+
+                    $record->update(['status' => 'active', 'terminated_on' => null]);
+
+                    Notification::make()->title(__('admin.employees.reinstated'))->success()->send();
+                }),
         ];
     }
 }
