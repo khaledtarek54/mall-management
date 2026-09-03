@@ -105,6 +105,35 @@ held ──deposit──▶ deposited ──clear──▶ cleared   (records a 
   than settling AR that has left the books. This mirrors `refitAllocationsToBalance()` on the gateway
   path. Correct all along, but untested until the 2026-08-11 validation sweep gave it a witness.
 
+### A voided clearing is not a bank return (SW-020, 2026-09-02)
+
+When a payment that CLEARED a cheque leaves the received set, the cheque is reconciled back — and
+**which state it goes to depends on WHICH reversal it was.** It used to go to `bounced` in every
+case, on the reading that a reversed clearing means the bank returned the cheque. That is true of
+exactly one of the three acts `Payment::REVERSED_STATUSES` distinguishes, and telling them apart is
+the whole point of keeping them apart: *a receipt keyed in error* is not *a cheque the bank
+returned*.
+
+| the payment became | the cheque becomes | why |
+|---|---|---|
+| `bounced` / `failed` | `bounced` | the bank did not honour it — the case the original rule was written for |
+| `voided` | `deposited` if it carries a `deposited_on`, else `held` | keyed in ERROR; no bank ever returned anything |
+| `refunded` | stays `cleared` | the bank honoured it; the refund is its own outbound movement |
+
+It is not cosmetic. `BillBouncedChequeFeeService` refuses any status but `bounced`, so a cashier
+clearing the wrong cheque and voiding the receipt left an honoured cheque marked as returned **and an
+NSF fee billable on it** — a charge for a bank event that never happened.
+
+The prior state is DERIVED from the cheque's own lodgement facts rather than remembered, and `held` /
+`deposited` are exactly the two states `PostDatedChequeService::clear()` accepts, so the cheque lands
+somewhere it can legitimately be cleared from again.
+
+**And the carve-out is identified by the PAYMENT, not by the destination.** `PostDatedCheque::updating`
+permits a way out of `cleared` only while the clearing payment is no longer received. The old
+shape-only test was enough while `bounced` was the single destination; widening it would otherwise
+have let the form walk a cleared cheque straight back to `held` — which is what the
+terminal-immutability rule refuses, and its own test is what caught it.
+
 ### One physical cheque, one register row (2026-08-11)
 
 `cheque_number` had **no uniqueness at any layer** — no DB constraint, no model guard, not even a form

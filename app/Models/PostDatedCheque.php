@@ -199,15 +199,30 @@ class PostDatedCheque extends Model
                 return;
             }
 
-            // The ONE legitimate way out of `cleared`: a reversal to `bounced` when the clearing
-            // Payment is voided (the bank returned the cheque after all). Payment::saved drives
-            // this (audit M33 F-3) and it mirrors the money reversal — VoidPaymentService re-opens
-            // the invoice's AR. Without the carve-out the cheque would be stranded `cleared`
-            // forever, pointing at a refunded payment, invisible to the matured-uncleared surfaces.
+            // The ONE legitimate way out of `cleared`: the clearing Payment leaving the received
+            // set. `Payment::reconcileClearedChequeOnReversal()` drives it (audit M33 F-3) and it
+            // mirrors the money reversal — `VoidPaymentService` re-opens the invoice's AR. Without
+            // the carve-out the cheque would be stranded `cleared` for ever, pointing at a reversed
+            // payment and invisible to the matured-uncleared surfaces.
+            //
+            // **THREE destinations, not one** (SW-020). `bounced` is a bank return; a clearing keyed
+            // in ERROR never involved the bank, so that cheque goes back to where it was — and
+            // sending it to `bounced` made an NSF fee billable to a tenant whose cheque was
+            // honoured. `held` and `deposited` are the two states
+            // `PostDatedChequeService::clear()` accepts, so the cheque lands somewhere it can
+            // legitimately be cleared from again.
+            // Identified by the clearing PAYMENT having left the received set, not by the
+            // destination alone. The shape test was enough while the only destination was
+            // `bounced`; widening it to the two states a cheque can be cleared FROM would otherwise
+            // have let an operator hand-edit a cleared cheque straight back to `held` through the
+            // form — which is exactly what `it('makes a cleared cheque terminal-immutable')` exists
+            // to refuse, and it caught this.
             $isClearingReversal = $original === self::STATUS_CLEARED
-                && $cheque->status === self::STATUS_BOUNCED
+                && in_array($cheque->status, [self::STATUS_BOUNCED, self::STATUS_DEPOSITED, self::STATUS_HELD], true)
                 && ! $cheque->isDirty('amount')
-                && ! $cheque->isDirty('cleared_payment_id');
+                && ! $cheque->isDirty('cleared_payment_id')
+                && $cheque->clearedPayment !== null
+                && ! $cheque->clearedPayment->isReceived();
             if ($isClearingReversal) {
                 return;
             }

@@ -125,11 +125,17 @@ it('makes a cleared cheque terminal-immutable', function () {
 | CLOSE_NOW fixes it surfaced.
 */
 
-it('reverses a cleared cheque back to bounced when its clearing payment is voided (F-3)', function () {
+it('reverses a cleared cheque when its clearing payment leaves the received set (F-3)', function () {
     // The documented remedy for a cleared cheque is "void its payment". That re-opens the invoice's
     // AR — but nothing reconciled the cheque, so it stayed permanently `cleared` pointing at a
-    // refunded payment, invisible to the matured-uncleared surfaces. Now the payment's saved hook
-    // reverses it to `bounced`.
+    // reversed payment, invisible to the matured-uncleared surfaces. Now the payment's saved hook
+    // puts it back.
+    //
+    // **Back to where it WAS, not to `bounced` (SW-020).** A void is a receipt keyed in ERROR — no
+    // bank returned anything — and `bounced` is the one status
+    // `BillBouncedChequeFeeService` accepts, so sending a mis-keyed clearing there made an NSF fee
+    // billable to a tenant whose cheque was honoured. This cheque was never lodged
+    // (`deposited_on` is null), so it goes back to the drawer.
     $asset = makeAsset();
     $invoice = invoiceOf($asset, 5000);
     $pdc = pdcFor($asset, $invoice, 5000);
@@ -138,13 +144,13 @@ it('reverses a cleared cheque back to bounced when its clearing payment is voide
         ->and((float) $invoice->fresh()->balance)->toBe(0.0);
 
     $payment = Payment::find($pdc->fresh()->cleared_payment_id);
-    app(VoidPaymentService::class)->void($payment, 'bank returned it');
+    app(VoidPaymentService::class)->void($payment, 'keyed against the wrong cheque');
 
     // The register stops reporting it collected, and the invoice's AR re-opened.
-    expect($pdc->fresh()->status)->toBe('bounced')
+    expect($pdc->fresh()->status)->toBe('held')
         ->and((float) $invoice->fresh()->balance)->toBe(5000.0);
 
-    // ...and the bounced lifecycle is available again (it can be re-presented).
+    // ...and the lifecycle is available again — it can be lodged and cleared afresh.
     app(PostDatedChequeService::class)->deposit($pdc->fresh());
     expect($pdc->fresh()->status)->toBe('deposited');
 });

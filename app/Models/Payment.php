@@ -474,23 +474,54 @@ class Payment extends Model
     }
 
     /**
-     * When a payment that CLEARED a post-dated cheque is voided/refunded, the clearing was
-     * reversed (the bank returned the cheque) — move the cheque back to `bounced` so the PDC
-     * register stops showing it collected and the matured-uncleared scan/card/filter re-surface
-     * it. Without this the cheque stays permanently `cleared` pointing at a refunded payment while
-     * the invoice's AR (correctly) re-opens, and its own terminal-immutability guard blocks any
-     * later correction (audit M33 F-3). The cheque's `updating` hook carves out exactly this
-     * cleared→bounced reversal. Called from the saved() hook, gated on a real reversal.
+     * When a payment that CLEARED a post-dated cheque leaves the received set, put the cheque back
+     * where the reversal says it belongs — **and which state that is depends on WHICH reversal it
+     * was** (SW-020).
+     *
+     * This used to send every reversal to `bounced`, on the reading that a reversed clearing means
+     * the bank returned the cheque. That is true of exactly one of the three acts
+     * {@see REVERSED_STATUSES} distinguishes, and the distinction is the whole point of keeping them
+     * apart — *"a receipt keyed in error"* is not *"a cheque the bank returned"*:
+     *
+     *  - **`bounced` / `failed`** — the bank did not honour it. The cheque is `bounced`. This is the
+     *    case the original rule was written for, and it is unchanged.
+     *  - **`voided`** — the clearing was keyed in ERROR; no bank ever returned anything. Marking the
+     *    cheque `bounced` asserts a bank return that never happened, and it is not cosmetic:
+     *    `BillBouncedChequeFeeService` refuses any status but `bounced`, so a cashier's mis-key made
+     *    an **NSF fee billable to a tenant whose cheque was honoured**. The cheque goes back to where
+     *    it was before the clearing.
+     *  - **`refunded`** — the cheque cleared and the money was later sent back. The bank honoured it;
+     *    a refund is its own outbound movement, and the register is right to go on saying the cheque
+     *    was collected. Left `cleared`.
+     *
+     * The prior state is DERIVED from the cheque's own lodgement facts rather than remembered: a
+     * cheque with a `deposited_on` was lodged with a bank and returns to `deposited`, one without it
+     * was in a drawer and returns to `held`. `PostDatedChequeService::clear()` accepts exactly those
+     * two, so the cheque lands somewhere it can legitimately be cleared from again.
      */
     public function reconcileClearedChequeOnReversal(): void
     {
+        $restoreTo = match ($this->status) {
+            'bounced', 'failed' => PostDatedCheque::STATUS_BOUNCED,
+            'voided' => null,   // resolved per cheque, from its own lodgement facts
+            default => null,
+        };
+
+        if ($restoreTo === null && $this->status !== 'voided') {
+            return;             // a refund: the cheque really did clear
+        }
+
         $cheques = PostDatedCheque::query()
             ->where('cleared_payment_id', $this->getKey())
             ->where('status', PostDatedCheque::STATUS_CLEARED)
             ->get();
 
         foreach ($cheques as $cheque) {
-            $cheque->update(['status' => PostDatedCheque::STATUS_BOUNCED]);
+            $cheque->update([
+                'status' => $restoreTo ?? ($cheque->deposited_on
+                    ? PostDatedCheque::STATUS_DEPOSITED
+                    : PostDatedCheque::STATUS_HELD),
+            ]);
         }
     }
 

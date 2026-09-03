@@ -93,7 +93,10 @@ it('refuses to settle mall B\'s owner assessment with mall A\'s credit note', fu
         'tenant_id' => $this->owner->id,
         'issue_date' => '2026-03-05',
         'status' => 'issued',
-        'reason' => 'Assessment corrected',
+        // `adjustment`, not free text: `credit_notes.reason` is a CLASSIFICATION registered in
+        // `ValueSets`, and the wildcard saving listener refuses anything outside it. The prose
+        // belongs in `notes`.
+        'reason' => 'adjustment',
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000,
         'currency' => 'EGP',
     ]);
@@ -117,7 +120,10 @@ it('still settles the owner\'s assessment in the note\'s OWN property — the co
         'tenant_id' => $this->owner->id,
         'issue_date' => '2026-03-05',
         'status' => 'issued',
-        'reason' => 'Assessment corrected',
+        // `adjustment`, not free text: `credit_notes.reason` is a CLASSIFICATION registered in
+        // `ValueSets`, and the wildcard saving listener refuses anything outside it. The prose
+        // belongs in `notes`.
+        'reason' => 'adjustment',
         'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000,
         'currency' => 'EGP',
     ]);
