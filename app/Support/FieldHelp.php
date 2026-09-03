@@ -69,6 +69,8 @@ class FieldHelp
         // Live feedback rather than explanation. These report the record's STATE — what is locked,
         // what was derived from which tariff, what looks mistyped — and a hint icon is the wrong
         // home for a message that is only shown when it applies.
+        'posting_role_repoint_open' => 'A COUNT of what this change will restate, shown only when the account already carries postings (SW-134). Never a paragraph on a fresh install, and the number is the whole message.',
+        'posting_role_repoint_closed' => 'Its closed-period twin, and the longer of the two because it has to say three separate things: how many lines re-derive, how many never can, and what the operator should do instead. Shortening it would drop the escape, and a warning with no way out is one people dismiss.',
         'billing_frequency_locked' => 'Shown only once the lease has been invoiced; the field\'s own hint icon carries the explanation.',
         'percentage_rent_threshold_annual' => 'The field already switches its LABEL and carries a warning ->hint(); a third affordance would be clutter.',
         'percentage_rent_threshold_annual_warning' => 'A conditional warning ->hint() — it appears only when the figure looks mistyped.',

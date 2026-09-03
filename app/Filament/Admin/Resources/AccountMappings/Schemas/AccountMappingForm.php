@@ -2,9 +2,11 @@
 
 namespace App\Filament\Admin\Resources\AccountMappings\Schemas;
 
+use App\Models\AccountMapping;
 use App\Models\LedgerAccount;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\PostingRoleExposure;
 use App\Support\PostingRoles;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
@@ -51,6 +53,34 @@ class AccountMappingForm
                             ->where('is_postable', true)
                             ->where('is_active', true))
                         ->required()
+                        // ── WHAT RE-POINTING THIS ROLE WILL DO TO WHAT IS ALREADY POSTED (SW-134) ──
+                        //
+                        // Accounts are resolved at PAYLOAD time and never frozen onto the entry, and
+                        // `LedgerPoster::matches()` includes `ledger_account_id` in its line
+                        // signature — so changing this row means the next `accounting:sync-ledger`
+                        // sweep voids and re-posts every historical document that used it, up to a
+                        // week later, with nobody having confirmed it. Nothing gated that: the
+                        // model guards duplicates and the deletion of a global default,
+                        // `SealedPeriod` returns early because `AccountMapping` is not a GL source,
+                        // and `ChangeImpact` classifies the columns of sources rather than of a
+                        // configuration table.
+                        //
+                        // Measured on the QA baseline: 487 posted lines on `accounts_receivable`.
+                        //
+                        // The split between OPEN and CLOSED is the substance. An open-period entry
+                        // is re-derived and the books stay coherent; a closed-period one CANNOT be,
+                        // so it keeps the old account while the mapping says otherwise and
+                        // `billing:reconcile --deep` reports drift for ever — which turns
+                        // `atriom:preflight` permanently red and blocks the next deploy for a reason
+                        // that has nothing to do with the deploy.
+                        //
+                        // This WARNS; it does not refuse. Whether a mapping change should be
+                        // PROSPECTIVE is an accounting decision nobody has taken (Yardi's answer is
+                        // that it is), and refusing on this operator's behalf would be taking it.
+                        ->hint(fn (?AccountMapping $record) => $record
+                            ? PostingRoleExposure::warningFor($record->ledger_account_id)
+                            : null)
+                        ->hintColor('warning')
                         ->helperText(__('admin.helpers.posting_map_account')),
 
                     // Null = the global default every property falls back to. A property here makes

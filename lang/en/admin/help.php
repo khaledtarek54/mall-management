@@ -82,6 +82,8 @@ return [
         'posting_role' => 'The role the code posts to by name.',
         'posting_role_expects' => 'Normally points at a :group account.',
         'posting_map_account' => 'Only postable, active accounts are listed — the ledger refuses to post to a summary account.',
+        'posting_role_repoint_open' => 'Changing this account re-posts :total existing journal line(s): the ledger sync voids each entry and re-derives it against the new account. All of them are in open periods, so the books stay coherent — but past statements will change.',
+        'posting_role_repoint_closed' => 'Changing this account re-posts :open journal line(s) in open periods — and :closed line(s) sit in CLOSED periods, which cannot be re-derived. Those keep the old account while this row says otherwise, and billing:reconcile reports the difference as drift permanently. Point it at a new account for future postings, or reopen those periods first.',
         'posting_map_property' => 'Blank = the global default. Pick a property only to override that default for that property.',
         'posting_map_type_mismatch' => 'This account is not the kind this role usually posts to — check it is what you meant.',
         'cam_cap_scope' => 'Most clauses cap only controllable costs and carve out rates, insurance and utilities.',
