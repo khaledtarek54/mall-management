@@ -178,6 +178,11 @@ class ActivityVocabulary
         // closed set the operator picks from, so a diff reading `deposits` instead of "Security
         // deposits" is the raw-column-value failure this registry exists to prevent.
         'bank_account.purpose' => 'admin.enums.bank_account_purpose',
+        // Same shape, and pointed at the group the post's own FORM renders from
+        // (`MarketingPostForm` maps over `admin.marketing_posts.audiences`) — never at a group
+        // chosen because its keys happen to overlap, which is how `expense.category` once got the
+        // retail list. Without it an Arabic diff prints `both`.
+        'marketing_post.audience' => 'admin.marketing_posts.audiences',
         // Statuses whose catalogue is not `admin.statuses.{log_name}`.
         'disbursement.status' => 'admin.disbursements.statuses',
         'employee.status' => 'admin.employees.statuses',
