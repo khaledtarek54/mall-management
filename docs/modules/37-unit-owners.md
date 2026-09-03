@@ -276,6 +276,18 @@ would not have caught it either. Membership is now one definition —
 `CamExpensePool::participantOwnershipQuery()`, read by the allocator and the estimate alike — so they
 cannot drift again. See [modules/08 §2](08-cam.md).
 
+**A resale splits the year, and a co-owned unit counts once (SW-220, 2026-09-02).** The
+reconciliation asked `covering(31 December)` for ownerships while the lease branch beside it asked an
+OVERLAP — so a unit sold in June left the seller out of the pool entirely and billed the buyer twelve
+months of common cost for six months of ownership. And `areaForPeriod()` used the unit's flat current
+`area_sqm`, ignoring `ownership_share_pct` — which the monthly assessment has always applied — so two 50%
+co-owners each
+carried a whole unit and inflated the denominator with it. `UnitOwnership::scopeOverlapping()` and
+`::areaSqmForPeriod()` answer both, the latter mirroring `Lease::totalAreaSqmForPeriod()` in m²·days —
+and the STATUS filter in front of the overlap was the real bar, since the transfer service sets the
+seller `Transferred` (`UnitOwnershipStatus::everHadPossession()`).
+See [modules/08 §2](08-cam.md).
+
 What an ownership does NOT bring is CAM **clause** machinery — ceiling, controllable carve-out,
 banked carry-forward. Those are negotiated into a lease; a sale has none, so the cap block is skipped
 rather than answered with neutral values.

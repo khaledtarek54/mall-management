@@ -150,6 +150,51 @@ Three things to keep right when touching it, or `CamReconciliationService::parti
   the other door, and outbound is the worse direction. So the scope went on both callers together; it
   does move allocations for an area pool, which is what `participant_scope` means.
 
+**A RESALE splits the year, and a CO-OWNED unit counts once (SW-220, 2026-09-02).** Two defects on
+the ownership arm, one cause: it asked a POINT-IN-TIME question and then used a FLAT area.
+
+- **Membership** was `covering(31 December)` — true only of whoever holds the unit on the last day.
+  The lease branch beside it is an OVERLAP, because a tenant who left in July still occupied common
+  area for six months of the year being reconciled; the ownership branch was left asking the older
+  question. So on a mid-year resale the SELLER was not a participant at all and the BUYER carried the
+  whole year. `UnitOwnership::scopeOverlapping()` is the ownership half of that predicate.
+
+  **And the overlap alone is not the fix — the STATUS filter in front of it was the real bar.**
+  `TransferUnitOwnershipService` sets the seller `Transferred`, so `where('status', HandedOver)`
+  excluded him before the tenure was ever consulted. Fixing only the overlap made it *worse*:
+  measured on a 100,000 pool with a 1 July sale, the buyer's share correctly shrank to his own days
+  and the remainder landed on **an unrelated tenant** — the shop next door went from 50,000 to
+  **66,484.50** on the `occupied` basis, and fell unrecovered on `gla`. That is the very "moved his
+  share onto the remaining tenants" failure the ownership arm exists to prevent, arriving through
+  the fix for it. `UnitOwnershipStatus::everHadPossession()` is the twin of `isBillable()`:
+  *does this owe the assessment NOW* is a different question from *did this own the unit during a
+  year that has already run*, and `Transferred` is a terminal state, not a claim that the keys never
+  changed hands.
+
+  **A DEED share needs the same weighting.** `participation_pct` is a share of the BUILDING and the
+  transfer copies it verbatim to the buyer, so once both tenures are in the pool each claimed the
+  whole deed: with two 50% deeds and one resale, `projectedTotalShare` reached **150%** and the
+  over-recovery guard REFUSED the reconciliation outright — which `autoTrueUpForYear()` swallows into
+  an ops log, so the scheduled sweep would have gone quiet on that mall for good.
+  `UnitOwnership::tenureFractionOfPeriod()` is the one definition of *how much of the period was this
+  owner's*, read by the deed bases and by the area basis alike.
+- **Weight** was `unit->area_sqm` — the CURRENT measurement, un-weighted by how long it was owned and
+  ignoring `ownership_share_pct` — which the MONTHLY assessment has always applied
+  (`BillUnitOwnershipsService`), so the annual true-up disagreed with the monthly bill about the
+  same co-owner. Two 50% co-owners
+  each contributed a full unit, to their own share AND to the `occupied` denominator, which is summed
+  from the same method — so the tenant next door was under-charged by a third.
+
+`UnitOwnership::areaSqmForPeriod()` is the twin of `Lease::totalAreaSqmForPeriod()`, m²·days over the
+period's days, so the two weightings — how long it was OWNED and what the unit MEASURED — compose
+without rounding in between. Each participant answers for its own area; the service dispatches. It
+eager-loads `unit.areas`, because `areaSqmDaysBetween()` reads the dated area rows and
+`areaForPeriod()` runs four times per participant — measured without it, 30 ownerships added 120
+queries on `unit_areas` that were not there before.
+
+**Nothing caught it because nothing could**: Σ allocated = the actual expense by construction on the
+occupied basis, so the tie-out held throughout while the money moved between the parties.
+
 Each pool ties out on its own: `Σ allocated + landlord_unrecovered_amount = total_actual_expense`.
 
 ## 3. Business rules & invariants

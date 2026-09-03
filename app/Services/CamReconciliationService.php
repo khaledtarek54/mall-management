@@ -556,12 +556,33 @@ class CamReconciliationService
 
         // Sold units are participants too. An owner occupies common area, so leaving him out did not
         // merely under-recover — it moved his share onto the remaining tenants, who paid it without
-        // anything on any screen saying so. Only HANDED-OVER ownerships whose tenure covers the
-        // reconciled year: before handover the operator still carries the unit's cost.
+        // anything on any screen saying so. Ownerships that ever took possession, whose tenure
+        // OVERLAPS the reconciled year: before handover the operator still carries the unit's cost.
+        // **OVERLAPPING the year, not covering its last day.** `covering(31 December)` is a
+        // point-in-time question, and the lease branch above was deliberately changed to an overlap
+        // on 2026-08-17 for exactly the reason it is wrong here: on a mid-year resale the SELLER
+        // does not cover 31 December, so he was allocated nothing at all, while the buyer — who does
+        // — was allocated the whole year (SW-220). Both owned common area, each for part of it.
+        // **EVER HAD POSSESSION, not billable TODAY** — and the overlap is only half the fix without
+        // it. `TransferUnitOwnershipService` sets the seller to `Transferred`, so a
+        // `where('status', HandedOver)` excluded him BEFORE the tenure was ever consulted: on every
+        // real resale the seller still had no row, the buyer's share merely shrank to his own days,
+        // and the remainder landed on an unrelated tenant (`occupied`) or fell unrecovered (`gla`).
+        // Measured on a 100,000 pool with a 1 July sale: the shop next door went from 50,000 to
+        // **66,484.50** — the very "moved his share onto the remaining tenants" failure the ownership
+        // arm exists to prevent, arriving through the fix for it.
+        //
+        // `Transferred` is a terminal state, not a statement that the keys never changed hands. Same
+        // shape as the lease branch above, which excludes what never occupied anything rather than
+        // requiring `active`.
         $ownerships = $pool->participantOwnershipQuery()
-            ->where('status', UnitOwnershipStatus::HandedOver->value)
-            ->covering(CarbonImmutable::create((int) $pool->period_year, 12, 31))
-            ->with('unit')
+            ->whereIn('status', UnitOwnershipStatus::everHadPossession())
+            ->overlapping($periodStart, $periodEnd)
+            // `unit.areas`, not `unit`: `areaSqmDaysBetween()` reads the dated area rows, and
+            // `areaForPeriod()` runs four times per participant (denominator, occupancy, projected
+            // share, the loop itself). Measured without it: 30 ownerships → 120 queries on
+            // `unit_areas` that were not there before.
+            ->with('unit.areas')
             ->get();
 
         return $leases->concat($ownerships);
@@ -591,14 +612,19 @@ class CamReconciliationService
      * The participant's area over the reconciled year.
      *
      * A lease is time-weighted across every unit on it (an expansion part-way through the year must
-     * not carry a whole year of CAM). An ownership is one unit, and its tenure is already what
-     * decides whether it participates at all, so its area is the unit's.
+     * not carry a whole year of CAM). **An ownership is time-weighted too** — it is one unit, but a
+     * unit sold mid-year was owned by two people, and its `ownership_share_pct` may split it between
+     * co-owners. Both live on {@see UnitOwnership::areaSqmForPeriod()}.
      */
     private static function areaForPeriod($participant, CarbonImmutable $start, CarbonImmutable $end): float
     {
+        // Each participant answers for its own area, so the two weightings that matter — how long it
+        // was HELD, and what share of it was owned — live with the facts rather than in a ternary
+        // here. The ownership arm read the unit's flat CURRENT `area_sqm`, which billed a mid-year
+        // buyer for the whole year and counted a co-owned unit once per co-owner (SW-220).
         return $participant instanceof Lease
             ? $participant->totalAreaSqmForPeriod($start, $end)
-            : (float) ($participant->unit?->area_sqm ?? 0);
+            : $participant->areaSqmForPeriod($start, $end);
     }
 
     /**
@@ -866,7 +892,7 @@ class CamReconciliationService
         $ownerships = $leases->filter(fn ($participant): bool => $participant instanceof UnitOwnership);
 
         $stated = $ownerships
-            ->mapWithKeys(function (UnitOwnership $ownership): array {
+            ->mapWithKeys(function (UnitOwnership $ownership) use ($periodStart, $periodEnd): array {
                 // Asked of the ENUM, never of a literal, so a fifth basis cannot be added without
                 // answering which column it reads — the same rule the form's `required()` follows.
                 if ($ownership->assessment_basis?->requiredColumn() !== 'participation_pct') {
@@ -875,7 +901,24 @@ class CamReconciliationService
 
                 $pct = (float) ($ownership->participation_pct ?? 0);
 
-                return $pct > 0 ? [self::agreementKeyFor($ownership) => $pct / 100] : [];
+                // **Weighted by the part of the year this owner actually held the unit.** A deed
+                // share is a share of the BUILDING, and `TransferUnitOwnershipService` copies it
+                // verbatim to the buyer — so once a resale puts both tenures in the pool (SW-220),
+                // each claimed the whole deed and the pool over-promised. Measured with two 50%
+                // deeds and one mid-year sale: `projectedTotalShare` reached **150%** and the
+                // reconciliation was REFUSED outright by the over-recovery guard, which
+                // `autoTrueUpForYear()` swallows into an ops log — so the scheduled sweep would
+                // silently stop reconciling that mall. With three 30% deeds it billed 60% of the
+                // pool for a 30% deed instead.
+                //
+                // The area branch has always been time-weighted (it is m²·days); this makes the
+                // stated branch agree, and a whole-year owner is unchanged because his fraction
+                // is 1.
+                $held = $ownership->tenureFractionOfPeriod($periodStart, $periodEnd);
+
+                return $pct > 0 && $held > 0
+                    ? [self::agreementKeyFor($ownership) => $pct / 100 * $held]
+                    : [];
             })
             ->toBase();
 

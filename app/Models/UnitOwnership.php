@@ -318,6 +318,113 @@ class UnitOwnership extends Model implements BillableAgreement
             ->where(fn (Builder $q) => $q->whereNull('ended_at')->orWhereDate('ended_at', '>=', $date));
     }
 
+    /**
+     * Ownerships whose tenure OVERLAPS a window — the question a period asks, as against
+     * {@see scopeCovering()}, which asks about one day.
+     *
+     * The lease branch of `CamReconciliationService::participants()` was deliberately changed to an
+     * overlap on 2026-08-17, because a tenant who left in July still occupied common area for six
+     * months of the year being reconciled. The ownership branch kept asking `covering(31 December)`
+     * and so answered the same question wrongly for the same reason: on a mid-year resale the SELLER
+     * does not cover 31 December, so he was allocated nothing at all, while the buyer — who does —
+     * was allocated the whole year (SW-220).
+     *
+     * Whether a share is then time-weighted is {@see areaSqmForPeriod()}'s job, not this one's; this
+     * only decides who is in the pool.
+     */
+    public function scopeOverlapping(Builder $query, \DateTimeInterface|string $from, \DateTimeInterface|string $to): void
+    {
+        $from = Carbon::parse($from)->toDateString();
+        $to = Carbon::parse($to)->toDateString();
+
+        $query->where(fn (Builder $q) => $q->whereNull('started_at')->orWhereDate('started_at', '<=', $to))
+            ->where(fn (Builder $q) => $q->whereNull('ended_at')->orWhereDate('ended_at', '>=', $from));
+    }
+
+    /**
+     * The fraction of a period this ownership actually held the unit — 1.0 for a whole year, ~0.5
+     * for a unit sold at midsummer, 0.0 for a tenure that does not overlap it at all.
+     *
+     * Split out from {@see areaSqmForPeriod()} because the DEED bases need the same weighting
+     * without the area: `participation_pct` is a share of the BUILDING, and the transfer service
+     * copies it verbatim to the buyer, so two tenures of one unit each claimed the whole deed and
+     * the pool over-promised (SW-220). One definition of "how much of the period was this owner's",
+     * read by both, so the area basis and the deed bases cannot answer differently.
+     */
+    public function tenureFractionOfPeriod(CarbonImmutable $start, CarbonImmutable $end): float
+    {
+        $days = $start->diffInDays($end) + 1;
+
+        if ($days <= 0) {
+            return 1.0;
+        }
+
+        $from = $this->started_at && $this->started_at->greaterThan($start)
+            ? CarbonImmutable::parse($this->started_at)
+            : $start;
+        $to = $this->ended_at && $this->ended_at->lessThan($end)
+            ? CarbonImmutable::parse($this->ended_at)
+            : $end;
+
+        if ($to->lessThan($from)) {
+            return 0.0;
+        }
+
+        return round(($from->diffInDays($to) + 1) / $days, 6);
+    }
+
+    /**
+     * This ownership's share of its unit's area across a period, in m² — time-weighted, and weighted
+     * by the share actually owned.
+     *
+     * The twin of `Lease::totalAreaSqmForPeriod()`, and it exists because the CAM reconciliation
+     * used the unit's flat CURRENT `area_sqm` for an ownership. Two things went wrong with that, and
+     * both moved money between the parties in a pool:
+     *
+     *  - **A mid-year resale billed the buyer for the whole year.** He owned the unit for six months
+     *    and carried twelve months of common cost, while the seller carried none.
+     *  - **A co-owned unit counted twice.** `ownership_share_pct` defaults to 100 and was read by
+     *    nothing here, so two 50% owners each contributed the unit's FULL area — to the numerator
+     *    AND to the `occupied` denominator, which is summed from the same method.
+     *
+     * m²·days rather than area × a fraction, exactly as the lease twin does it, so the two
+     * weightings — how long it was OWNED and what the unit MEASURED — compose without rounding in
+     * between.
+     */
+    public function areaSqmForPeriod(CarbonImmutable $start, CarbonImmutable $end): float
+    {
+        $unit = $this->unit;
+
+        if (! $unit) {
+            return 0.0;
+        }
+
+        $days = $start->diffInDays($end) + 1;
+        $share = ((float) ($this->ownership_share_pct ?? 100)) / 100;
+
+        if ($days <= 0) {
+            return round((float) ($unit->area_sqm ?? 0) * $share, 4);
+        }
+
+        // Narrowed to the part of the period this owner actually held. The window is computed the
+        // same way {@see tenureFractionOfPeriod()} computes it — but the m²·days are read over the
+        // window rather than derived from the fraction, because the unit's own area may have MOVED
+        // mid-period and `areaSqmDaysBetween()` is what knows that. Multiplying a flat area by a
+        // fraction would lose it.
+        $from = $this->started_at && $this->started_at->greaterThan($start)
+            ? CarbonImmutable::parse($this->started_at)
+            : $start;
+        $to = $this->ended_at && $this->ended_at->lessThan($end)
+            ? CarbonImmutable::parse($this->ended_at)
+            : $end;
+
+        if ($to->lessThan($from)) {
+            return 0.0;
+        }
+
+        return round($unit->areaSqmDaysBetween($from, $to) / $days * $share, 4);
+    }
+
     // ============ BillableAgreement ============
     //
     // The moment an ownership becomes billable. Everything downstream — `IssueInvoiceService`, AR

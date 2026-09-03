@@ -61,4 +61,25 @@ enum UnitOwnershipStatus: string
     {
         return $this === self::Transferred;
     }
+
+    /**
+     * Did this ownership ever take possession — i.e. can it owe common cost for a PAST period?
+     *
+     * The twin of {@see isBillable()}, and the difference between them is a period. `isBillable()`
+     * asks *"does this owe the assessment NOW"*, which only a live `handed_over` does. A CAM
+     * reconciliation asks about a year that has already run, and a unit **sold on** was owned for
+     * part of it — `Transferred` is a terminal state, not a statement that the owner never had the
+     * keys.
+     *
+     * Reading `isBillable()` there excluded the seller from every resale (SW-220), which is the same
+     * shape the lease branch of `CamReconciliationService::participants()` avoids by excluding the
+     * states that never occupied anything (`draft`, `pending_approval`, `cancelled`) rather than
+     * requiring `active`.
+     *
+     * @return list<string>
+     */
+    public static function everHadPossession(): array
+    {
+        return [self::HandedOver->value, self::Transferred->value];
+    }
 }
