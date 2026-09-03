@@ -14,6 +14,7 @@ use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\CamReconciliationService;
 use App\Services\CreditNoteService;
@@ -109,8 +110,19 @@ it('does not apply a late fee if the invoice was paid between snapshot and lock'
     ]);
     // Stale snapshot (as the batch scan captured it: overdue, balance 10000)…
     $stale = Invoice::find($invoice->id);
-    // …then a payment settles it before the per-invoice lock.
-    $invoice->update(['status' => 'paid', 'balance' => 0, 'paid_amount' => 10000]);
+
+    // …then a payment settles it before the per-invoice lock. A REAL receipt, not typed columns:
+    // `recomputeTotals()` derives `paid_amount` and `balance` from the four settlement channels, so
+    // `['status' => 'paid', 'balance' => 0]` with nothing behind it is restored to a balance of
+    // 10,000 — a state the auto-status block cannot produce. The old guard matched three status
+    // strings and so was satisfied by the word `paid` alone; the guard asks whether money is
+    // actually owed, which is the question a late fee turns on.
+    $payment = Payment::create([
+        'tenant_id' => $invoice->tenant_id, 'amount' => (float) $invoice->total, 'method' => 'cash',
+        'status' => 'captured', 'payment_date' => '2026-01-05',
+    ]);
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => (float) $invoice->total]);
+    $invoice->fresh()->recomputeTotals();
 
     $applied = app(LateFeeService::class)->applyTo($stale);
 

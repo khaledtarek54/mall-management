@@ -87,7 +87,7 @@ final class TenantBalances
         // --- outstanding: the SAME statuses and the SAME collectable SQL as the model ----------
         $invoiceBalances = Invoice::query()
             ->whereIn('tenant_id', $ids)
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->stillOwed()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->groupBy('tenant_id')
             // selectRaw + alias, NOT pluck(DB::raw(...)): pluck treats a raw expression as a
@@ -114,9 +114,8 @@ final class TenantBalances
         // --- delinquent: the SAME predicate, asked of the set ---------------------------------
         $delinquent = Invoice::query()
             ->whereIn('tenant_id', $ids)
-            ->whereCollectable()
             ->where('due_date', '<', now())
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->stillOwed()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->distinct()
             ->pluck('tenant_id');

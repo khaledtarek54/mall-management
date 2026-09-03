@@ -55,8 +55,7 @@ class LateFeeService
         //     was safe from that by accident, because it snapshotted first. Taking the ids up front
         //     keeps that property on purpose, and states why.
         $ids = Invoice::query()
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->whereCollectable()
+            ->chaseable()
             ->whereDate('due_date', '<=', $today->toDateString())
             ->orderBy('id')
             ->pluck('id');
@@ -155,7 +154,10 @@ class LateFeeService
                 // Recurrence must never reach through it.
                 || $locked->items()->where('type', 'late_fee')->exists()
                 || $locked->collectableBalance() <= 0
-                || ! in_array($locked->status, ['issued', 'partially_paid', 'overdue'], true)) {
+                // The row twin of `->chaseable()`: LIVE, and not under dispute. A hand-kept list
+                // here excluded `disputed` only by accident of which three statuses got copied;
+                // now it says so, and it cannot drift from the query that selected the batch.
+                || ! $locked->isChaseable()) {
                 return false;
             }
 

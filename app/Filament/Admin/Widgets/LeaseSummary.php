@@ -157,10 +157,15 @@ class LeaseSummary extends StatsOverviewWidget
     private function receivable(Lease $lease): Stat
     {
         $open = $lease->invoices()
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->stillOwed()
+            ->with('writeOffs')
             ->get(['id', 'balance', 'due_date', 'status']);
 
-        $owed = round((float) $open->sum('balance'), 2);
+        // COLLECTABLE, not the raw balance. The rows are already selected as still owed, and this
+        // is the figure a collections call opens with — quoting a partially written-off invoice at
+        // its full balance asks the tenant for money the operator forgave. `writeOffs` is eager
+        // loaded because `collectableBalance()` prefers a loaded relation to a query per row.
+        $owed = round((float) $open->sum(fn ($invoice): float => $invoice->collectableBalance()), 2);
         $overdue = $open->where('status', 'overdue')->count();
 
         return Stat::make(__('admin.lease_summary.outstanding'), 'EGP '.number_format($owed, 2))

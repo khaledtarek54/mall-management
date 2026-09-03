@@ -22,7 +22,7 @@ class BalanceController extends ApiController
         // `writeOffs` is eager-loaded because every figure below is COLLECTABLE, and
         // `Invoice::collectableBalance()` prefers a loaded relation over an aggregate per row.
         $openInvoices = $tenant->invoices()
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->stillOwed()
             ->with('writeOffs')
             ->get(['id', 'balance', 'due_date', 'status']);
 

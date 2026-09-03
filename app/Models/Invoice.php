@@ -499,6 +499,71 @@ class Invoice extends Model
         return $query->whereRaw(self::collectableBalanceSql($query->getQuery()->from).' > 0');
     }
 
+    /**
+     * The statuses that are OWED but must never be chased or penalised.
+     *
+     * `disputed` because a contested amount is still claimed and only not chargeable. `paid`
+     * because the old allowlist refused it outright and that refusal is load-bearing:
+     * `InvoiceSettlement::LIVE['paid']` says in writing that an invoice **can carry `status = paid`
+     * with a standing balance**, and `Invoice::saving` recomputes `balance` on a header-dirty write
+     * while leaving the status to the next `recomputeTotals()`. Measured through that path — a
+     * receipted invoice whose `total` is later raised — a late fee applied to an invoice the
+     * operator sees as PAID. No shipped screen produces the state (every UI path self-corrects, and
+     * `EditInvoice` does not offer `paid` at all), but a console or data-fix write does.
+     */
+    private const NOT_CHASEABLE = ['disputed', 'paid'];
+
+    /**
+     * **Money still owed** — the selection twin of `collectableBalance()`.
+     *
+     * `acceptingSettlement()` says which invoices may RECEIVE money; asked of a whole ledger it is
+     * very nearly the same partition read from the other side, and `whereCollectable()` supplies the
+     * rest: an invoice that is live and has something left on it is one that is still owed. The
+     * exception worth naming is `paid`, which is LIVE for a reason about receipts inside a reversal
+     * window rather than about being owed — it contributes nothing while its balance agrees with
+     * its status, and when it does not, the money really is outstanding (see `NOT_CHASEABLE`).
+     *
+     * It exists because that question was answered by a hand-kept `['issued','partially_paid',
+     * 'overdue']` — **23 occurrences in `app/` at the time, of which this change routes 15** — and
+     * every copy omitted **`disputed`**, which `InvoiceSettlement::LIVE` has classified as owed
+     * since its first commit and which `InvoiceForm` still offers as one of the two statuses an
+     * operator may set. Measured: a tenant whose only open invoice was disputed read **0.00
+     * outstanding and NOT delinquent**, and their arrears were invisible to AR aging, the
+     * collections worklist, the CSV and their own mobile balance.
+     */
+    public function scopeStillOwed(Builder $query): Builder
+    {
+        return $query->acceptingSettlement()->whereCollectable();
+    }
+
+    /**
+     * **Money we may CHASE or PENALISE** — still owed, less `NOT_CHASEABLE`.
+     *
+     * The SELECTION counterpart to `chargeableBalance()`, and deliberately not its twin: this
+     * filters the HEADER status, while `chargeableBalance()` subtracts LINE-level disputed
+     * outstanding. They answer the same question at different grains, and both are needed —
+     * `DisputeInvoiceItemService` states outright that the header status is the wrong tool because
+     * an invoice is rarely disputed in full, so an invoice whose every line is disputed still
+     * passes this scope and is stopped by `chargeableBalance() <= 0` at the amount instead.
+     *
+     * A disputed amount is still CLAIMED (so it belongs in every measurement of what the mall is
+     * owed) and only not CHARGEABLE (so it belongs in no dunning letter and no late fee). The
+     * overdue scan and the dunning sweep excluded disputed only as a side effect of the hand-kept
+     * list they happened to copy; routing them here makes it a decision.
+     */
+    public function scopeChaseable(Builder $query): Builder
+    {
+        return $query->stillOwed()->whereNotIn('status', self::NOT_CHASEABLE);
+    }
+
+    /** The row twin of `chaseable()`, for a re-check after a locking read. */
+    public function isChaseable(): bool
+    {
+        return ! in_array($this->status, InvoiceSettlement::relievedStatuses(), true)
+            && ! in_array($this->status, self::NOT_CHASEABLE, true)
+            && $this->collectableBalance() > 0;
+    }
+
     public function payments(): BelongsToMany
     {
         return $this->belongsToMany(Payment::class)

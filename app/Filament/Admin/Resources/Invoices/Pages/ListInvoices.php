@@ -51,7 +51,7 @@ class ListInvoices extends ListRecords
         return StatusTabs::build(InvoiceResource::class, [
             'all' => ['label' => __('admin.tabs.all')],
             'draft' => ['label' => __('admin.tabs.draft'), 'statuses' => ['draft'], 'badge' => true, 'color' => 'gray'],
-            'outstanding' => ['label' => __('admin.tabs.outstanding'), 'statuses' => ['issued', 'partially_paid', 'overdue'], 'badge' => true, 'color' => 'warning'],
+            'outstanding' => ['label' => __('admin.tabs.outstanding'), 'statuses' => ['issued', 'partially_paid', 'overdue', 'disputed'], 'badge' => true, 'color' => 'warning'],
             'overdue' => ['label' => __('admin.tabs.overdue'), 'statuses' => ['overdue'], 'badge' => true, 'color' => 'danger'],
             'disputed' => ['label' => __('admin.tabs.disputed'), 'statuses' => ['disputed'], 'badge' => true, 'color' => 'danger'],
             'paid' => ['label' => __('admin.tabs.paid'), 'statuses' => ['paid']],

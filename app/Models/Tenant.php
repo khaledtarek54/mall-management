@@ -481,7 +481,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         // standing (it is not a settlement channel), so summing it reported the tenant as owing the
         // part the operator had already forgiven — on their statement, on the hub and in the API.
         $invoiceBalance = (float) $this->invoices()
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->stillOwed()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->sum(DB::raw(Invoice::collectableBalanceSql()));
 
@@ -575,9 +575,8 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     public function isDelinquent(?array $assetIds = null): bool
     {
         return $this->invoices()
-            ->whereCollectable()
             ->where('due_date', '<', now())
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->stillOwed()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->exists();
     }

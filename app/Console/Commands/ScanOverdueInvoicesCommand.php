@@ -23,7 +23,7 @@ class ScanOverdueInvoicesCommand extends Command
     public function handle(): int
     {
         $overdue = Invoice::query()
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->chaseable()
             // COLLECTABLE, not `balance`: a partial write-off leaves the invoice live with its
             // whole balance standing, so this chased the operator's own forgiveness.
             ->whereCollectable()

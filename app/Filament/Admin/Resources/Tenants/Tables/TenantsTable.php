@@ -9,8 +9,6 @@ use App\Services\TenantStatementPdfService;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\PdfDownloadAction;
-use Illuminate\Contracts\Pagination\Paginator;
-use Filament\Tables\Contracts\HasTable;
 use App\Support\TenantBalances;
 use App\Support\TenantScope;
 use Carbon\Carbon;
@@ -26,11 +24,13 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 
 class TenantsTable
@@ -204,14 +204,12 @@ class TenantsTable
                         // `isDelinquent()`. Filtering to *Delinquent* used to return tenants whose
                         // own badge said *Current*, because only one of the two nets write-offs.
                         true: fn (Builder $query) => $query->whereHas('invoices', fn (Builder $q) => $q
-                            ->whereCollectable()
                             ->where('due_date', '<', now())
-                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                            ->stillOwed()
                             ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         false: fn (Builder $query) => $query->whereDoesntHave('invoices', fn (Builder $q) => $q
-                            ->whereCollectable()
                             ->where('due_date', '<', now())
-                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                            ->stillOwed()
                             ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         blank: fn (Builder $query) => $query,
                     ),

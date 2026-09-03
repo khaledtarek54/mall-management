@@ -45,7 +45,7 @@ class RemindOverdueTenantsCommand extends Command
         $maxNotices = max(0, (int) $settings->dunning_max_notices);
 
         $due = Invoice::query()
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->chaseable()
             // Same reduction as the owner-facing sweep — and this one writes to the TENANT, so
             // chasing a forgiven slice is a letter asking for money nobody is owed.
             ->whereCollectable()

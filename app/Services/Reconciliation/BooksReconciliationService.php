@@ -19,6 +19,7 @@ use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
 use App\Support\DepositHoldings;
+use App\Support\InvoiceSettlement;
 
 /**
  * Independently re-derives the accounts-receivable books from SOURCE records
@@ -289,8 +290,11 @@ class BooksReconciliationService
             // COLLECTABLE, so that claim stays true: both of those now net a partial write-off, and
             // a control total printed beside them that did not would be the operator's first
             // reconciling item on a set of books that actually tie.
+            // The same partition `Invoice::stillOwed()` selects on — this is an in-memory
+            // collection, so the statuses are read from the register rather than the scope, but
+            // there is only one list and it is not written here.
             'outstandingAR' => round((float) $invoices
-                ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                ->reject(fn (Invoice $i): bool => in_array($i->status, InvoiceSettlement::relievedStatuses(), true))
                 ->sum(fn (Invoice $i): float => $i->collectableBalance()), 2),
             'vatTotal' => round((float) $invoices->sum('vat_amount'), 2),
         ];

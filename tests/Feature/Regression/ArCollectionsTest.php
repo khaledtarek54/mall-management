@@ -135,7 +135,19 @@ it('leaves settled and cancelled invoices out of the worklist entirely', functio
     $settled = openInvoiceFor($tenant, $this->asset, '2026-05-01', 3000);
     $cancelled = openInvoiceFor($tenant, $this->asset, '2026-05-01', 9000);
 
-    $settled->update(['status' => 'paid', 'paid_amount' => 3000, 'balance' => 0]);
+    // SETTLED BY A REAL RECEIPT, not by typing the columns. `Invoice::recomputeTotals()` derives
+    // `paid_amount` and `balance` from the four settlement channels, so an invoice hand-written as
+    // `paid / balance 0` with no payment behind it is restored to a balance of 3,000 — a state no
+    // service can produce, and one this test's old status-only filter hid rather than fixed. It
+    // surfaced the moment the worklist started asking `stillOwed()` (is money owed?) instead of
+    // matching three status strings.
+    $payment = Payment::create([
+        'tenant_id' => $tenant->id, 'amount' => 3000, 'method' => 'cash',
+        'status' => 'captured', 'payment_date' => '2026-05-02',
+    ]);
+    $payment->invoices()->attach($settled->id, ['allocated_amount' => 3000]);
+    $settled->fresh()->recomputeTotals();
+
     $cancelled->update(['status' => 'cancelled', 'balance' => 0]);
 
     $row = app(ReportService::class)->arCollectionsByTenant($this->asOf)->sole();
