@@ -375,6 +375,8 @@ return [
         'contractual_deposit' => 'Deposit per the lease',
         'deposit_held' => 'Deposit actually held',
         'deposit_shortfall' => 'Never collected',
+        'disputed_ar' => 'Of which under dispute',
+        'on_account_credit' => 'Held on account (not deducted)',
         'open_ar' => 'Unpaid invoices',
         'tenant_credit' => 'Credit owed to the tenant',
         'deductions' => 'Deductions',
@@ -563,7 +565,6 @@ return [
         'empty_heading' => 'No meters on this unit',
         'empty_description' => 'Register a meter and its readings can be recharged to whoever occupies the unit at the time.',
     ],
-
 
     'percentage_rent' => [
         'no_clause' => 'no percentage-rent clause',

@@ -41,7 +41,9 @@ class MoveOutStatementService
      *   deposit_shortfall: float,
      *   open_invoices: Collection<int, Invoice>,
      *   open_ar: float,
+     *   disputed_ar: float,
      *   tenant_credit: float,
+     *   on_account_credit: float,
      *   pending_trueups: array<int, array{kind: string, detail: string}>,
      *   net_to_tenant: float,
      *   residual_debt: float
@@ -61,18 +63,55 @@ class MoveOutStatementService
         $depositHeld = $depositHeld ?? $this->depositHeld($lease);
         $contractual = (float) ($lease->security_deposit ?? 0);
 
+        // ── WHAT THE SETTLEMENT WILL DEDUCT, and nothing else ────────────────────────────────
+        //
+        // `->acceptingSettlement()`, the ONE register (`InvoiceSettlement`), because that is
+        // literally the scope `ApplyDepositToInvoiceService` uses when `SettleMoveOutService` nets
+        // arrears off the deposit. This read a hand-kept `issued|partially_paid|overdue` and so
+        // omitted **`disputed`**, which `InvoiceSettlement::LIVE` classifies as settleable — so the
+        // statement said the tenant was owed 540,000 and the Settle button beside it deducted
+        // 50,000 and refunded 490,000. Measured at `d1a4ee0e^`, and the direction matters: the
+        // statement UNDERSTATED the deduction, which is the opposite of what SW-031 claimed.
+        //
+        // A forecast that disagrees with the act it forecasts is the whole failure. One register,
+        // both sides.
         $openInvoices = Invoice::query()
             ->where('lease_id', $lease->id)
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->acceptingSettlement()
+            // Belt and braces, and honestly redundant today: a FULL write-off moves the status,
+            // which `acceptingSettlement()` already excludes, and a PARTIAL one is netted per row
+            // by `collectableBalance()` below. Kept because it is the clause that would still be
+            // right if either of those two changed — but nothing can mutate it red, so do not read
+            // its presence as coverage.
             ->whereCollectable()
             ->orderBy('due_date')
-            ->with('writeOffs')
+            ->with(['writeOffs', 'items'])
             ->get();
 
         // COLLECTABLE, and this is the one reader where the difference is money rather than a
         // misstatement: `$openAr` is subtracted from the deposit below, so counting a forgiven slice
         // here withholds that much of the tenant's own deposit for a debt the operator wrote off.
         $openAr = round((float) $openInvoices->sum(fn (Invoice $i): float => $i->collectableBalance()), 2);
+
+        // ── WHAT IS BEING ARGUED ABOUT, stated BESIDE the total (SW-031) ─────────────────────
+        //
+        // **From the ITEM flag, and it is NOT subtracted from anything.** That is the position this
+        // project already shipped for AR aging (MF-07, 2026-08-09): *"the disputed figure sits
+        // BESIDE the aged one rather than being netted out of it: deducting it would understate
+        // what the mall is owed"*, and *"the header status is deliberately untouched … an invoice is
+        // rarely disputed in full … the flag belongs on the line"*. `ReportService::arAgingByChargeType()`
+        // reads it that way, and a final account that meant something else by the same word would
+        // give one tenant two answers on two screens.
+        //
+        // Reading `invoices.status = 'disputed'` instead — which a first pass did — labels the whole
+        // document: measured, a 50,000 invoice with only its 20,000 service-charge line flagged
+        // reported all 50,000 as under dispute, putting 30,000 of undisputed rent under that
+        // heading. `chargeableBalance()` is `collectableBalance()` less exactly this figure, so the
+        // two are one definition read from both ends.
+        $disputedAr = round(
+            (float) $openInvoices->sum(fn (Invoice $i): float => DisputeInvoiceItemService::disputedOutstanding($i)),
+            2,
+        );
 
         // Credit notes with a balance are money owed BACK to the tenant — typically the unearned
         // rent this very termination just credited (MF-02). Netting them here is the difference
@@ -90,7 +129,38 @@ class MoveOutStatementService
             ->where('balance', '>', 0)
             ->sum('balance'), 2);
 
+        // ── SW-032: the FOURTH pot, and the document promised all of them ─────────────────────
+        //
+        // On-account credit is money the tenant PAID that was never allocated to an invoice — an
+        // overpayment, or the Egyptian norm of a cleared SERIES cheque naming no invoice. It is one
+        // of the four settlement channels `Invoice::recomputeTotals()` counts, and a final account
+        // that omits it hands a departing tenant back less than the operator is holding of theirs.
+        //
+        // **Scoped to the LEASE's property**, because that is the ledger this account settles;
+        // `Tenant::creditBalance()` is per tenant and per property, with no lease dimension (a
+        // receipt is not tied to a lease). The stated limit that follows: a tenant with TWO leases
+        // in ONE mall sees the same on-account balance on both final accounts. That is the same
+        // limit the figure has everywhere it is shown, and the alternative — splitting one pot
+        // between two documents by a rule nobody agreed — would be worse.
+        // `$lease->unit?->asset_id`, never a column: a lease is `#[PropertyOwned(via: 'unit')]` and
+        // carries no `asset_id` of its own. `SettleMoveOutService` resolves it the same way.
+        $leaseAssetId = $lease->unit?->asset_id;
+
+        $onAccountCredit = ($leaseAssetId === null || $lease->tenant === null)
+            ? 0.0
+            : round($lease->tenant->creditBalance([$leaseAssetId]), 2);
+
         // What the tenant is owed, before any deductions the operator itemises at settlement.
+        //
+        // **`$onAccountCredit` is deliberately NOT a term.** `SettleMoveOutService` never calls
+        // `ApplyTenantCreditService`, so netting it here forecasts an act the settlement does not
+        // perform — and these figures are FROZEN onto an immutable lease event, so the signed
+        // document then fails to add up from its own keys. Measured with a 100,000 deposit, 250,000
+        // of arrears and 60,000 on account: the event said the departing tenant owed **90,000**
+        // while the ledger said **150,000** and the 60,000 sat unapplied. Understating a debt on
+        // the document that closes a tenancy is the worse direction, and the class docblock's own
+        // promise — *the net position it reports is the one the settlement carries out* — is what
+        // makes stating it the only honest option until `settle()` actually applies it.
         $net = round($depositHeld + $tenantCredit - $openAr, 2);
 
         return [
@@ -103,7 +173,9 @@ class MoveOutStatementService
             'deposit_shortfall' => round(max($contractual - $depositHeld, 0), 2),
             'open_invoices' => $openInvoices,
             'open_ar' => $openAr,
+            'disputed_ar' => $disputedAr,
             'tenant_credit' => $tenantCredit,
+            'on_account_credit' => $onAccountCredit,
             'pending_trueups' => $this->pendingTrueUps($lease, $asOf),
             'net_to_tenant' => (float) max($net, 0),
             'residual_debt' => $net < 0 ? (float) abs($net) : 0.0,

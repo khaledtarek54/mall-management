@@ -1,15 +1,13 @@
 <?php
 
 use App\Models\CamExpensePool;
-use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\DepositTransaction;
-use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Services\MoveOutStatementService;
 use App\Services\SettleMoveOutService;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Tests\Support\MoveOut;
 
 /**
  * One document settles a departing tenant (phase 4, story MF-03 — scenario S8).
@@ -26,40 +24,9 @@ use Carbon\CarbonImmutable;
  */
 afterEach(fn () => CarbonImmutable::setTestNow());
 
-function movingOutLease(float $deposit = 540000): Lease
-{
-    $lease = makeLease(makeUnit(makeAsset()), null, [
-        'status' => 'active',
-        'commencement_date' => '2028-01-01',
-        'expiry_date' => '2030-12-31',
-        'base_rent_monthly' => 180000,
-        'security_deposit' => $deposit,
-        'has_marketing_levy' => false,
-    ]);
-
-    Charge::create([
-        'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
-        'origin' => Charge::ORIGIN_SEED, 'amount' => 180000, 'currency' => 'EGP',
-        'frequency' => 'monthly', 'vat_applicable' => false, 'vat_rate' => Vat::EXEMPT,
-        'start_date' => '2028-01-01', 'is_active' => true,
-    ]);
-
-    DepositTransaction::create([
-        'lease_id' => $lease->id,
-        'tenant_id' => $lease->tenant_id,
-        'asset_id' => $lease->unit->asset_id,
-        'type' => 'receipt',
-        'amount' => $deposit,
-        'transaction_date' => '2028-01-01',
-        'status' => 'recorded',
-    ]);
-
-    return $lease->fresh();
-}
-
 it('states the deposit held, the open AR and the credit owed back in one place', function () {
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease(540000);
+    $lease = MoveOut::lease(540000);
 
     makeInvoice($lease, ['status' => 'overdue', 'balance' => 120000, 'due_date' => '2028-08-08']);
 
@@ -76,7 +43,7 @@ it('states the deposit held, the open AR and the credit owed back in one place',
 
 it('reports a deposit that was never fully collected', function () {
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease(540000);
+    $lease = MoveOut::lease(540000);
 
     // Only 300,000 ever arrived. Nothing in the system reconciled that against the contract before.
     DepositTransaction::where('lease_id', $lease->id)->first()->update(['amount' => 300000]);
@@ -89,7 +56,7 @@ it('reports a deposit that was never fully collected', function () {
 
 it('shows a tenant who still owes money as a residual debt, not a negative refund', function () {
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease(100000);
+    $lease = MoveOut::lease(100000);
 
     makeInvoice($lease, ['status' => 'overdue', 'balance' => 250000, 'due_date' => '2028-08-08']);
 
@@ -103,7 +70,7 @@ it('says which numbers are not knowable yet', function () {
     // S8: the tenant leaves in September; their share of the year's service charge will not be
     // computed until the following March.
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease();
+    $lease = MoveOut::lease();
 
     CamExpensePool::create([
         'asset_id' => $lease->unit->asset_id,
@@ -124,7 +91,7 @@ it('reports nothing pending once the year is reconciled', function () {
     // The control: the warning must disappear when it no longer applies, or operators learn to
     // ignore it.
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease();
+    $lease = MoveOut::lease();
 
     CamExpensePool::create([
         'asset_id' => $lease->unit->asset_id,
@@ -139,7 +106,7 @@ it('reports nothing pending once the year is reconciled', function () {
 
 it('settles as one disposition — the kept part forfeited, the rest refunded', function () {
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease(540000);
+    $lease = MoveOut::lease(540000);
     $lease->update(['status' => 'terminated']);
 
     $result = app(SettleMoveOutService::class)->settle($lease->fresh(), [
@@ -161,7 +128,7 @@ it('settles as one disposition — the kept part forfeited, the rest refunded', 
 
 it('freezes the settled statement on the lease history, where it cannot be edited', function () {
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease(540000);
+    $lease = MoveOut::lease(540000);
     makeInvoice($lease, ['status' => 'overdue', 'balance' => 120000, 'due_date' => '2028-08-08']);
     $lease->update(['status' => 'terminated']);
 
@@ -192,7 +159,7 @@ it('freezes the settled statement on the lease history, where it cannot be edite
 
 it('refuses deductions larger than the deposit actually held', function () {
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease(100000);
+    $lease = MoveOut::lease(100000);
     $lease->update(['status' => 'terminated']);
 
     expect(fn () => app(SettleMoveOutService::class)->settle($lease->fresh(), [
@@ -209,7 +176,7 @@ it('refuses deductions larger than the deposit actually held', function () {
 
 it('refuses to settle a lease that has not ended', function () {
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease();
+    $lease = MoveOut::lease();
 
     expect(fn () => app(SettleMoveOutService::class)->settle($lease, []))
         ->toThrow(InvalidArgumentException::class);
@@ -219,7 +186,7 @@ it('nets the unearned-rent credit from termination into the final account', func
     // The join between MF-02 and MF-03: the credit note trailing proration raised is money owed
     // back, and a final account that ignored it would short the tenant by exactly that amount.
     CarbonImmutable::setTestNow('2028-09-20');
-    $lease = movingOutLease(540000);
+    $lease = MoveOut::lease(540000);
 
     CreditNote::create([
         'tenant_id' => $lease->tenant_id,

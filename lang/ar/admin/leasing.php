@@ -359,6 +359,8 @@ return [
         'contractual_deposit' => 'التأمين حسب العقد',
         'deposit_held' => 'التأمين المحتفظ به فعليًا',
         'deposit_shortfall' => 'لم يُحصَّل',
+        'disputed_ar' => 'منها محل نزاع',
+        'on_account_credit' => 'مبالغ محصَّلة تحت الحساب (غير مخصومة)',
         'open_ar' => 'فواتير غير مسددة',
         'tenant_credit' => 'رصيد دائن للمستأجر',
         'deductions' => 'الخصومات',
@@ -546,7 +548,6 @@ return [
         'empty_heading' => 'لا توجد عدادات على هذه الوحدة',
         'empty_description' => 'سجّل عدادًا لتتمكن من إعادة تحميل قراءاته على شاغل الوحدة في حينه.',
     ],
-
 
     'percentage_rent' => [
         'no_clause' => 'لا يوجد بند إيجار نسبي',

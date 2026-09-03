@@ -806,6 +806,45 @@
 > remainder is refunded. Arrears go first because an unpaid rent invoice is a real document that may
 > already have reached the tax authority, while a deduction is an assessment made at settlement.
 >
+> **A FORECAST HAS TO AGREE WITH THE ACT IT FORECASTS (SW-031, 2026-09-03).** The statement's own
+> docblock promises *"the net position it reports is the one the settlement carries out"* — and its
+> open-invoice query was a hand-kept `issued|partially_paid|overdue` while the settlement narrows
+> with `->acceptingSettlement()`, the `InvoiceSettlement` register, in which **`disputed` is
+> classified LIVE**. So on a 540,000 deposit with a 50,000 disputed invoice the statement said the
+> tenant was owed 540,000 and the Settle button beside it deducted the 50,000 and refunded 490,000 —
+> and those figures are FROZEN onto the immutable termination event, so the disagreement is signed.
+>
+> Note the direction, because the finding that opened this had it backwards: the statement
+> **understated** the deduction. It was never refunding a deposit in full over the operator's claim,
+> and a first fix that printed *"under dispute (claimed, not deducted)"* beside an amount the next
+> button deducts was worse than the bug — a false statement on a document the tenant signs. Both
+> sides read the one register now.
+>
+> **What is being ARGUED about is a separate figure, from the ITEM flag, shown BESIDE the total** —
+> the position MF-07 shipped for AR aging on 2026-08-09 (*"the disputed figure sits BESIDE the aged
+> one rather than being netted out of it: deducting it would understate what the mall is owed"*, and
+> *"an invoice is rarely disputed in full … the flag belongs on the line"*). Reading
+> `invoices.status` instead labels the whole document: measured, a 50,000 invoice with only its
+> 20,000 service line flagged reported all 50,000 as under dispute. `chargeableBalance()` is
+> `collectableBalance()` less exactly this figure, so the two are one definition read from both ends.
+>
+> **ON-ACCOUNT CREDIT IS STATED, NEVER NETTED (SW-032).** `Tenant::creditBalance()` — money the
+> tenant paid and never used — was omitted entirely, which is one of the pots this document promises.
+> It is scoped to the lease's property (`$lease->unit?->asset_id`; a lease carries no `asset_id`) and
+> it is **not a term in `net_to_tenant`**, because `SettleMoveOutService` never calls
+> `ApplyTenantCreditService`: netting it forecasts an act the settlement does not perform, and the
+> frozen event then fails to add up from its own keys. Measured with 100,000 held, 250,000 of arrears
+> and 60,000 on account, the signed document said the tenant owed **90,000** where the ledger said
+> **150,000**. A receipt naming no property at all is honestly 0 here — `payments` has no `asset_id`
+> column, so an unallocated bank transfer has neither an allocation nor a cheque to take one from —
+> and it stays visible in the tenant's whole-company balance.
+>
+> **The modal body lives in `LeaseActions::finalAccountSummary()` so it can be tested.** There is no
+> final-account PDF, so that modal is the entire operator-facing surface of the statement — and a
+> `Placeholder`'s `content()` closure is evaluated nowhere a test can reach (Filament renders a
+> mounted action's schema in a later pass, so the component's own HTML does not contain it). A
+> mutation deleting both new rows from it left the whole suite green.
+>
 > **The whole final account is ONE transaction (fixed 2026-08-11).** Arrears settlement used to run
 > before and outside it, so a settlement that then failed — most reachably on "the deductions exceed
 > the deposit held" — left the deposit already spent against the tenant's invoices while the operator

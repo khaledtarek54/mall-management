@@ -38,6 +38,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 
 /**
  * **Everything you can DO to a lease, defined once.**
@@ -667,38 +668,7 @@ class LeaseActions
                     Placeholder::make('statement')
                         ->hiddenLabel()
                         ->columnSpanFull()
-                        ->content(function (Lease $record) {
-                            $s = app(MoveOutStatementService::class)->for($record);
-                            $money = fn (float $v) => 'EGP '.number_format($v, 2);
-
-                            $rows = [
-                                [__('admin.move_out.contractual_deposit'), $money((float) $s['contractual_deposit'])],
-                                [__('admin.move_out.deposit_held'), $money((float) $s['deposit_held'])],
-                            ];
-
-                            if ((float) $s['deposit_shortfall'] > 0) {
-                                $rows[] = [__('admin.move_out.deposit_shortfall'), $money((float) $s['deposit_shortfall'])];
-                            }
-
-                            $rows[] = [__('admin.move_out.open_ar'), $money((float) $s['open_ar'])];
-                            $rows[] = [__('admin.move_out.tenant_credit'), $money((float) $s['tenant_credit'])];
-                            $rows[] = [
-                                (float) $s['residual_debt'] > 0
-                                    ? __('admin.move_out.residual_debt')
-                                    : __('admin.move_out.net_to_tenant'),
-                                $money((float) $s['residual_debt'] > 0 ? (float) $s['residual_debt'] : (float) $s['net_to_tenant']),
-                            ];
-
-                            $lines = collect($rows)->map(fn (array $r) => "**{$r[0]}:** {$r[1]}")->join("  \n");
-
-                            $pending = collect($s['pending_trueups'])->pluck('detail');
-                            $lines .= "\n\n**".__('admin.move_out.pending').'**  '."\n"
-                                .($pending->isNotEmpty() ? '- '.$pending->join("\n- ") : __('admin.move_out.pending_none'));
-
-                            $lines .= "\n\n_".__('admin.move_out.ar_note').'_';
-
-                            return str($lines)->markdown()->toHtmlString();
-                        }),
+                        ->content(fn (Lease $record) => self::finalAccountSummary($record)),
                     Repeater::make('deductions')
                         ->label(__('admin.move_out.deductions'))
                         ->addActionLabel(__('admin.move_out.add_deduction'))
@@ -1159,5 +1129,66 @@ class LeaseActions
     private static function heldItemOptions(Lease $record): array
     {
         return RentableItemOptions::held($record);
+    }
+
+    /**
+     * The final account, as the operator reads it — the ONE place these figures are ever shown.
+     *
+     * **Extracted so it can be tested.** There is no final-account PDF, so this modal is the whole
+     * operator-facing surface of the statement, and a `Placeholder`'s `content()` closure is
+     * evaluated nowhere a test can reach: Filament renders a mounted action's schema in a later
+     * pass, so the component's own HTML does not contain it, and `Action::getSchema()` needs a
+     * `Schema` the page owns. A mutation that deleted both new rows from this body left the whole
+     * suite green — the same test seam `PdfDocument::html()` and `viewData()` exist for.
+     */
+    public static function finalAccountSummary(Lease $record): HtmlString
+    {
+        $s = app(MoveOutStatementService::class)->for($record);
+        $money = fn (float $v) => 'EGP '.number_format($v, 2);
+
+        $rows = [
+            [__('admin.move_out.contractual_deposit'), $money((float) $s['contractual_deposit'])],
+            [__('admin.move_out.deposit_held'), $money((float) $s['deposit_held'])],
+        ];
+
+        if ((float) $s['deposit_shortfall'] > 0) {
+            $rows[] = [__('admin.move_out.deposit_shortfall'), $money((float) $s['deposit_shortfall'])];
+        }
+
+        $rows[] = [__('admin.move_out.open_ar'), $money((float) $s['open_ar'])];
+
+        // BESIDE the total it is part of, never subtracted from it — the
+        // position MF-07 already shipped for AR aging, so one tenant does not
+        // get two meanings of "disputed" on two screens. Only when there is one:
+        // a zero row reads as a settled question.
+        if ((float) $s['disputed_ar'] > 0) {
+            $rows[] = [__('admin.move_out.disputed_ar'), $money((float) $s['disputed_ar'])];
+        }
+
+        $rows[] = [__('admin.move_out.tenant_credit'), $money((float) $s['tenant_credit'])];
+
+        // Stated, NOT netted: `SettleMoveOutService` does not apply on-account
+        // credit, so folding it into the net below would promise an act the
+        // Settle button does not perform — on figures frozen onto an immutable
+        // lease event.
+        if ((float) $s['on_account_credit'] > 0) {
+            $rows[] = [__('admin.move_out.on_account_credit'), $money((float) $s['on_account_credit'])];
+        }
+        $rows[] = [
+            (float) $s['residual_debt'] > 0
+                ? __('admin.move_out.residual_debt')
+                : __('admin.move_out.net_to_tenant'),
+            $money((float) $s['residual_debt'] > 0 ? (float) $s['residual_debt'] : (float) $s['net_to_tenant']),
+        ];
+
+        $lines = collect($rows)->map(fn (array $r) => "**{$r[0]}:** {$r[1]}")->join("  \n");
+
+        $pending = collect($s['pending_trueups'])->pluck('detail');
+        $lines .= "\n\n**".__('admin.move_out.pending').'**  '."\n"
+            .($pending->isNotEmpty() ? '- '.$pending->join("\n- ") : __('admin.move_out.pending_none'));
+
+        $lines .= "\n\n_".__('admin.move_out.ar_note').'_';
+
+        return str($lines)->markdown()->toHtmlString();
     }
 }
