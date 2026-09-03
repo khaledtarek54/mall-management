@@ -499,6 +499,7 @@ class ValueSets
         // ── Governed by a CATALOGUE, which is a stronger and more current answer than a list ──
         'charges.type' => 'Validated against the CHARGE CODE catalogue by Charge::assertTypeIsAKnownChargeCode(), so the operator adds a charge type as a row. A fixed list here would refuse one they just created.',
         'invoice_items.type' => 'The CHARGE CODE the line was raised under, and the accountant adds one with no deploy (AccountantAddedChargeCodeBillsTest bills `key_money`). `InvoiceItemType` names the codes that SHIP and the ones the journalizer has posting roles for — it is not the set the column may hold, and registering it refused every code the operator created.',
+        'credit_note_items.type' => 'The CHARGE CODE the line CREDITS — the mirror of invoice_items.type and governed by the same catalogue, so a code the accountant added can be credited as freely as it can be billed. Null is the normal state for every row written before the column existed (SW-216) and means "not stated", which the recovery pools treat as un-nettable rather than guessing.',
         'charge_codes.posting_role' => 'A key into App\Support\PostingRoles, which is the registry of what may be posted to. Duplicating its keys here would drift the moment a role is added.',
         'tax_codes.posting_role' => 'A key into App\Support\PostingRoles — see charge_codes.posting_role.',
 

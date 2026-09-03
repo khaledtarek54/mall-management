@@ -17,6 +17,10 @@ class CreditNoteItem extends Model
 {
     protected $fillable = [
         'credit_note_id',
+        // WHICH charge this line credits — the charge code, exactly as `invoice_items.type` is
+        // (SW-216). Nullable, and null means "not stated", which every reader treats as un-nettable
+        // rather than guessing.
+        'type',
         'description',
         'tax_code',
         'amount',

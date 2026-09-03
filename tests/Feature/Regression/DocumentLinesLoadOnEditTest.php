@@ -99,7 +99,7 @@ it('loads the lines of a credit note', function () {
 
     $note = CreditNote::create([
         'invoice_id' => $invoice->id, 'tenant_id' => $invoice->tenant_id, 'asset_id' => $this->asset->id,
-        'status' => 'draft', 'issue_date' => '2026-02-05', 'reason' => 'goodwill',
+        'status' => 'draft', 'issue_date' => '2026-02-05', 'reason' => 'discount',
         'subtotal' => 1000, 'vat_amount' => 140, 'total' => 1140, 'applied_amount' => 0,
     ]);
     CreditNoteItem::create([

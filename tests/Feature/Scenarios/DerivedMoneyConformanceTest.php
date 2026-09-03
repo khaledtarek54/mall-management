@@ -1,13 +1,13 @@
 <?php
 
 use App\Models\CreditNote;
+use App\Models\CreditNoteApplication;
 use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Support\DerivedMoney;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
-use App\Models\CreditNoteApplication;
 
 /**
  * Self-enforcing gate — a derived money column may not be written by whoever posts the form.
@@ -142,7 +142,7 @@ describe('the derived columns resist tampering', function () {
             'tenant_id' => $this->invoice->tenant_id,
             'status' => 'draft',
             'issue_date' => now()->toDateString(),
-            'reason' => 'billing_error',
+            'reason' => 'adjustment',
             'subtotal' => 0, 'vat_amount' => 0, 'total' => 0,
             'applied_amount' => 0, 'balance' => 0,
         ]);
@@ -165,7 +165,7 @@ describe('the derived columns resist tampering', function () {
             'tenant_id' => $this->invoice->tenant_id,
             'status' => 'issued',
             'issue_date' => now()->toDateString(),
-            'reason' => 'billing_error',
+            'reason' => 'adjustment',
             'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000,
             'applied_amount' => 1000, 'balance' => 0,
         ]);

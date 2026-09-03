@@ -160,14 +160,23 @@ class CreditNote extends Model
      * **`$taxCode` must be passed by the caller.** This docblock used to say the classification was
      * "left to the model layer's own default, the same seam invoice lines use" — and there is no such
      * seam here: `InvoiceItem` defaults `tax_code` from its own `type` through the charge-code
-     * catalogue, and a credit-note line has no `type` column to derive from. So every system-raised
+     * catalogue, and a credit-note line HAD no `type` column to derive from (it does since SW-216 —
+     * see below — so the seam is now available and simply not yet taken). So every system-raised
      * note was posting an unclassified line, and `CreditNoteJournalizer` — which since 2026-08-24
      * reverses tax at the SUPPLY'S OWN posting role — would fall back to the VAT floor for all of
      * them. The caller knows what it is crediting; it passes that down.
+     *
+     * **`$type` is the CHARGE CODE the credit relieves**, added 2026-09-03 for the same reason and
+     * on the same terms (SW-216). A credit note could be matched to an invoice but never to a
+     * charge, so `SyncCamPoolFromLedgerService` — which sums the service-charge lines a pool already
+     * billed its participants — was gross of every credit note, and a PARTIAL credit moves no
+     * invoice status, so no status filter could ever have seen one. Null means *not stated*: not
+     * netted, rather than guessed.
      */
-    public function describeAs(string $description, float $amount, float $vatRate, float $vatAmount, ?string $taxCode = null): CreditNoteItem
+    public function describeAs(string $description, float $amount, float $vatRate, float $vatAmount, ?string $taxCode = null, ?string $type = null): CreditNoteItem
     {
         return $this->items()->create([
+            'type' => $type,
             'description' => $description,
             'tax_code' => $taxCode,
             'amount' => round($amount, 2),

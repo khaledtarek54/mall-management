@@ -44,7 +44,7 @@ beforeEach(function () {
         'tenant_id' => $this->tenant->id,
         'issue_date' => CarbonImmutable::now()->startOfMonth()->addDays(3)->toDateString(),
         'status' => 'issued',
-        'reason' => 'Owner assessment corrected',
+        'reason' => 'adjustment',
         'subtotal' => 5000,
         'vat_amount' => 0,
         'total' => 5000,

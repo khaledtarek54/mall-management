@@ -92,7 +92,7 @@ it('derives a credit note\'s header from its OWN lines, not the browser\'s arith
         'tenant_id' => $this->invoice->tenant_id,
         'status' => 'draft',
         'issue_date' => now()->toDateString(),
-        'reason' => 'billing_error',
+        'reason' => 'adjustment',
         'subtotal' => 9000, 'vat_amount' => 0, 'total' => 9000,
         'applied_amount' => 0, 'balance' => 9000,
     ]);
@@ -117,7 +117,7 @@ it('re-derives the credit note header when a line is removed', function () {
         'tenant_id' => $this->invoice->tenant_id,
         'status' => 'draft',
         'issue_date' => now()->toDateString(),
-        'reason' => 'billing_error',
+        'reason' => 'adjustment',
         'subtotal' => 0, 'vat_amount' => 0, 'total' => 0,
         'applied_amount' => 0, 'balance' => 0,
     ]);

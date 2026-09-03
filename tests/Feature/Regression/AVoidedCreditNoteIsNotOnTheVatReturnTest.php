@@ -68,7 +68,11 @@ function vatBearingInvoice(float $net, float $vat): Invoice
 }
 
 /** A credit note against $invoice, issued through the real service. */
-function issuedCreditNote(Invoice $invoice, float $net, float $vat, string $reason): CreditNote
+/**
+ * `$why` is the human note, not the classification. `credit_notes.reason` is a registered value set,
+ * so the wildcard saving listener refuses free text; the prose belongs in `notes`.
+ */
+function issuedCreditNote(Invoice $invoice, float $net, float $vat, string $why): CreditNote
 {
     $note = CreditNote::create([
         'tenant_id' => $invoice->tenant_id,
@@ -77,14 +81,15 @@ function issuedCreditNote(Invoice $invoice, float $net, float $vat, string $reas
         'invoice_id' => $invoice->id,
         'status' => 'draft',
         'issue_date' => CarbonImmutable::now()->startOfMonth()->addDays(2)->toDateString(),
-        'reason' => $reason,
+        'reason' => 'adjustment',
+        'notes' => $why,
         'subtotal' => $net, 'vat_amount' => $vat, 'total' => $net + $vat,
         'applied_amount' => 0, 'balance' => $net + $vat, 'currency' => 'EGP',
     ]);
 
     $note->items()->create([
         'type' => 'service_charge',
-        'description' => $reason,
+        'description' => $why,
         'amount' => $net,
         'vat_rate' => 14,
         'vat_amount' => $vat,
@@ -224,7 +229,7 @@ it('leaves a CLOSED period exactly as it was filed when the note is voided later
         'tenant_id' => $invoice->tenant_id, 'lease_id' => $invoice->lease_id,
         'asset_id' => $invoice->asset_id, 'invoice_id' => $invoice->id,
         'status' => 'draft', 'issue_date' => $filedStart->addDays(3)->toDateString(),
-        'reason' => 'Agreed reduction',
+        'reason' => 'discount',
         'subtotal' => 20000, 'vat_amount' => 2800, 'total' => 22800,
         'applied_amount' => 0, 'balance' => 22800, 'currency' => 'EGP',
     ]);

@@ -37,7 +37,7 @@ beforeEach(function () {
     // Issued — the tenant's own, and the one that must appear.
     $this->mine = CreditNote::create([
         'tenant_id' => $this->tenant->id, 'invoice_id' => $this->invoice->id,
-        'asset_id' => $this->asset->id, 'status' => 'issued', 'reason' => 'billing_error',
+        'asset_id' => $this->asset->id, 'status' => 'issued', 'reason' => 'adjustment',
         'issue_date' => '2026-02-01', 'subtotal' => 1000, 'vat_amount' => 0,
         'total' => 1000, 'applied_amount' => 0, 'balance' => 1000, 'currency' => 'EGP',
     ]);
@@ -45,7 +45,7 @@ beforeEach(function () {
     // A DRAFT of the tenant's own — theirs, but not yet a document.
     $this->draft = CreditNote::create([
         'tenant_id' => $this->tenant->id, 'invoice_id' => $this->invoice->id,
-        'asset_id' => $this->asset->id, 'status' => 'draft', 'reason' => 'billing_error',
+        'asset_id' => $this->asset->id, 'status' => 'draft', 'reason' => 'adjustment',
         'issue_date' => '2026-02-02', 'subtotal' => 5000, 'vat_amount' => 0,
         'total' => 5000, 'applied_amount' => 0, 'balance' => 5000, 'currency' => 'EGP',
     ]);
@@ -53,7 +53,7 @@ beforeEach(function () {
     // Another tenant's issued credit note.
     $this->theirs = CreditNote::create([
         'tenant_id' => $this->other->id, 'invoice_id' => makeInvoice($otherLease)->id,
-        'asset_id' => $this->asset->id, 'status' => 'issued', 'reason' => 'billing_error',
+        'asset_id' => $this->asset->id, 'status' => 'issued', 'reason' => 'adjustment',
         'issue_date' => '2026-02-03', 'subtotal' => 7000, 'vat_amount' => 0,
         'total' => 7000, 'applied_amount' => 0, 'balance' => 7000, 'currency' => 'EGP',
     ]);

@@ -84,7 +84,7 @@ function statementInvoiceWithCredit($ctx, float $total, float $credited): Invoic
         'total' => $credited,
         'applied_amount' => $credited,
         'balance' => 0,
-        'reason' => 'Unearned billing on termination',
+        'reason' => 'adjustment',
     ]);
 
     return $invoice;
@@ -119,7 +119,7 @@ it('never shows a DRAFT credit note — the portal and the API render this same 
         'total' => 50000,
         'applied_amount' => 0,
         'balance' => 50000,
-        'reason' => 'Being considered',
+        'reason' => 'dispute',
     ]);
 
     $numbers = $this->svc->data($this->tenant)['credits']->pluck('number');
@@ -142,7 +142,7 @@ it('leaves a VOID credit note off — it settles nothing', function () {
         'total' => 9000,
         'applied_amount' => 0,
         'balance' => 0,
-        'reason' => 'Raised in error',
+        'reason' => 'other',
     ]);
 
     expect($this->svc->data($this->tenant)['credits'])->toHaveCount(1);
@@ -177,14 +177,15 @@ it('renders the credits section into the document itself', function () {
 
     expect($html)->toContain(__('admin.statement.credits_applied'))
         ->and($html)->toContain('80,100.00')
-        ->and($html)->toContain('Unearned billing on termination')
-        // `toContain` matched the TAIL of a raw translation key for as long as this test existed:
-        // the reason was rendered through `__('admin.enums.credit_note_reason.'.$reason)`, that key
-        // does not exist (the catalogue holds return/dispute/adjustment/discount/refund/other), and
-        // `__()` returns the KEY — so the tenant's statement printed
+        // The reason reads as WORDS, in the reader's language. `toContain` matched the TAIL of a
+        // raw translation key for as long as this test existed: the fixture wrote free text into
+        // `reason`, the template renders it through `admin.enums.credit_note_reason.<reason>`, and
+        // `__()` returns the KEY when there is none — so the tenant's statement printed
         // "admin.enums.credit_note_reason.Unearned billing on termination" and this assertion was
-        // satisfied by the last five words of it. A coded reason is now translated and a free-text
-        // one is printed verbatim; neither can be a lang key.
+        // satisfied by the last five words of it. The column is a registered value set since
+        // 2026-09-02, so free text is now refused at the model and the verbatim branch survives
+        // only for rows written before that; `Translate::orFallback()` is what still prints them.
+        ->and($html)->toContain(__('admin.enums.credit_note_reason.adjustment'))
         ->and($html)->not->toContain('admin.enums')
         ->and($html)->toContain('Jul – Sep 2026');
 });
@@ -281,7 +282,7 @@ it('reconciles a statement settled through all FOUR channels at once', function 
         'tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id, 'asset_id' => $this->asset->id,
         'status' => 'applied', 'issue_date' => '2026-08-03',
         'subtotal' => 20000, 'total' => 20000, 'applied_amount' => 20000, 'balance' => 0,
-        'reason' => 'Service failure',
+        'reason' => 'dispute',
     ]);
 
     TenantCreditApplication::create([

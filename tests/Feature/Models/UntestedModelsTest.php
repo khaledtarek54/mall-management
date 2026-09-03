@@ -106,7 +106,7 @@ it('CreditNoteItem belongs to a CreditNote', function () {
         'tenant_id' => $this->tenant->id,
         'issue_date' => now(),
         'status' => 'issued',
-        'reason' => 'goodwill',
+        'reason' => 'discount',
         'subtotal' => 500, 'vat_amount' => 0,
         'total' => 500, 'applied_amount' => 0, 'currency' => 'EGP',
     ]);

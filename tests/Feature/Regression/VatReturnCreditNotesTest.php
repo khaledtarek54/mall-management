@@ -62,7 +62,7 @@ function issueCreditNote(float $amount, float $vatRate): CreditNote
         'tenant_id' => test()->invoice->tenant_id,
         'status' => 'issued',
         'issue_date' => '2026-03-20',
-        'reason' => 'billing_error',
+        'reason' => 'adjustment',
         'subtotal' => $amount, 'vat_amount' => $vat, 'total' => round($amount + $vat, 2),
         'applied_amount' => 0, 'balance' => round($amount + $vat, 2),
     ]);

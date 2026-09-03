@@ -11,6 +11,7 @@ use App\Support\CatalogueTaxRate;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -98,6 +99,12 @@ class CreditNoteForm
                                         // reversal differently from the thing being reversed the moment
                                         // a rate or a ruling moved.
                                         'tax_code' => $it->tax_code,
+                                        // …and the CHARGE CODE, carried across for the same reason:
+                                        // a credit relieves the charge it was raised under, and the
+                                        // recovery pools net by it (SW-216). Prefilled and hidden
+                                        // rather than asked, because the operator is crediting a
+                                        // line that already states it.
+                                        'type' => $it->type,
                                         'amount' => (float) $it->amount,
                                         'vat_rate' => (float) $it->vat_rate,
                                         'vat_amount' => (float) $it->vat_amount,
@@ -226,6 +233,13 @@ class CreditNoteForm
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
                                     ->columnSpan(2),
+                                // The CHARGE the line credits, carried from the invoice line by the
+                                // prefill (SW-216). Never asked for — the operator picks an invoice
+                                // line, not a charge code — but it is what lets the CAM pools net
+                                // this credit off what they billed, by line. A line added by hand
+                                // carries none and is simply not netted.
+                                Hidden::make('type'),
+
                                 // Inherited from the invoice line being reversed, and shown so the
                                 // reversal is classified on the VAT return the same way the supply was.
                                 // Editable only with `tax_codes.override`, like the rate beside it: a

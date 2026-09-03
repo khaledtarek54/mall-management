@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Contracts\BillableAgreement;
 use App\Models\CamExpensePool;
+use App\Models\CreditNote;
+use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
@@ -238,7 +240,16 @@ class SyncCamPoolFromLedgerService
         $start = CarbonImmutable::create((int) $pool->period_year, 1, 1)->toDateString();
         $end = CarbonImmutable::create((int) $pool->period_year, 12, 31)->toDateString();
 
-        return round((float) $this->billedServiceChargeQuery($pool, $start, $end)->sum('invoice_items.amount'), 2);
+        $billed = (float) $this->billedServiceChargeQuery($pool, $start, $end)->sum('invoice_items.amount');
+
+        // Floored, exactly as the cost basis is (`CamReconciliationService::…` uses
+        // `max(0.0, $basis - $excluded)`). Several partial credits against one invoice, or an
+        // operator-typed credit line larger than the charge it relieves, can subtract more than was
+        // billed — and a NEGATIVE `estimated_paid` does not read as an error anywhere: it stores in
+        // a signed decimal, prints on the tenant's CAM statement, and makes the true-up bill the
+        // credit back. Nobody was ever billed a negative estimate, so the floor cannot hide a real
+        // figure; it can only stop an impossible one.
+        return round(max(0.0, $billed - $this->creditedBack($pool, $start, $end)), 2);
     }
 
     /**
@@ -261,9 +272,60 @@ class SyncCamPoolFromLedgerService
         $link = $agreement->invoiceLinkAttributes();
         $column = array_key_first(array_filter($link, fn ($v) => $v !== null));
 
-        return round((float) $this->billedServiceChargeQuery($pool, $start, $end)
+        $billed = (float) $this->billedServiceChargeQuery($pool, $start, $end)
             ->where('invoices.'.$column, $link[$column])
-            ->sum('invoice_items.amount'), 2);
+            ->sum('invoice_items.amount');
+
+        // Floored, exactly as the cost basis is (`CamReconciliationService::…` uses
+        // `max(0.0, $basis - $excluded)`). Several partial credits against one invoice, or an
+        // operator-typed credit line larger than the charge it relieves, can subtract more than was
+        // billed — and a NEGATIVE `estimated_paid` does not read as an error anywhere: it stores in
+        // a signed decimal, prints on the tenant's CAM statement, and makes the true-up bill the
+        // credit back. Nobody was ever billed a negative estimate, so the floor cannot hide a real
+        // figure; it can only stop an impossible one.
+        return round(max(0.0, $billed - $this->creditedBack($pool, $start, $end, [$column => $link[$column]])), 2);
+    }
+
+    /**
+     * What was CREDITED BACK out of those estimates — the term this figure was missing entirely.
+     *
+     * The billed sum was gross of every credit note. A FULLY credited invoice was at least caught by
+     * the `credited` status, but a PARTIAL credit moves no status at all, so no filter written at the
+     * invoice level could ever see one — and partial is the common case:
+     * `CreditUnearnedBillingService::isTimeApportioned()` returns true for exactly a monthly,
+     * not-in-arrears `service_charge`, which is what every mid-period move-out and every mid-year
+     * resale credits. The pool believed it had collected money it had given back, and the annual
+     * true-up under-charged by that amount, silently, per tenant.
+     *
+     * Matched on the credit LINE's own charge code, which is why `credit_note_items.type` had to
+     * exist (SW-216): a credit note points at an invoice, and a pool needs to know how much of a
+     * CHARGE came back. A line that does not state its type is not netted — null means *not stated*,
+     * and guessing is what apportioning across line types would be.
+     *
+     * `onTheBooks()` is the same scope every other reader uses: a draft note was never issued, and a
+     * void one was reversed.
+     *
+     * @param  array<string, mixed>  $link  the agreement's own invoice link, or [] for the whole pool
+     */
+    private function creditedBack(CamExpensePool $pool, string $start, string $end, array $link = []): float
+    {
+        return round((float) CreditNoteItem::query()
+            ->join('credit_notes', 'credit_notes.id', '=', 'credit_note_items.credit_note_id')
+            ->join('invoices', 'invoices.id', '=', 'credit_notes.invoice_id')
+            // The same DERIVATION `CreditNote::scopeOnTheBooks()` uses — excluded by exception, never
+            // allowlisted, so a status this class has not heard of counts and has to be excluded
+            // deliberately. (The scope itself cannot be used here: this query is rooted on the
+            // ITEM, and the notes arrive through a join.)
+            ->whereNotIn('credit_notes.status', array_keys(CreditNote::NOT_ON_THE_BOOKS))
+            ->whereIn('credit_note_items.type', $pool->estimateChargeCodes())
+            ->where(fn ($q) => $q
+                ->whereIn('invoices.lease_id', $pool->participantLeaseQuery()->select('leases.id'))
+                ->orWhereIn('invoices.unit_ownership_id', $pool->participantOwnershipQuery()->select('unit_ownerships.id')))
+            ->whereNotIn('invoices.status', self::INVOICE_NOT_BILLED)
+            ->whereDate('invoices.period_start', '>=', $start)
+            ->whereDate('invoices.period_start', '<=', $end)
+            ->when($link !== [], fn ($q) => $q->where('invoices.'.array_key_first($link), reset($link)))
+            ->sum('credit_note_items.amount'), 2);
     }
 
     /**
@@ -285,6 +347,27 @@ class SyncCamPoolFromLedgerService
      *
      * @return Builder<InvoiceItem>
      */
+    /**
+     * The invoice statuses that never represent money BILLED, for both halves of the estimate.
+     *
+     * **One list, read by the billed query AND by `creditedBack()`, and that is the whole of it.**
+     * The two are two sides of one subtraction, so a status excluded from one and not the other is
+     * relief counted twice. That is not hypothetical: the first pass of SW-216 dropped `credited`
+     * from the billed side only, and a fully credited 30,000 service-charge invoice came back at
+     * **−30,000** — `cam_allocations.estimated_paid` is a signed decimal, so it stored silently, the
+     * tenant's CAM statement printed it, and the true-up billed the credit back.
+     *
+     * `draft` was never raised. `cancelled` left the books and `recomputeTotals()` zeroes it.
+     * `credited` was billed and then fully reversed, so BOTH the invoice and its credits drop out
+     * together and the pair nets to nothing — which is also why netting by line does not change this
+     * membership: it is the PARTIAL credit, which moves no status at all, that no status filter
+     * could ever see, and that is the one SW-216 exists for.
+     *
+     * `written_off` is deliberately NOT here: a write-off forgives a debt that WAS billed and the
+     * tenant WAS asked for.
+     */
+    private const INVOICE_NOT_BILLED = ['draft', 'cancelled', 'credited'];
+
     private function billedServiceChargeQuery(CamExpensePool $pool, string $start, string $end)
     {
         $codes = $pool->estimateChargeCodes();
@@ -328,10 +411,12 @@ class SyncCamPoolFromLedgerService
             //    CLIFF as well as a rule, because `WriteOffInvoiceService` only moves the status on a
             //    FULL write-off — so 9,999.99 counted in full and 10,000.00 counted as nothing.
             //
-            // **Still open (SW-216): a PARTIAL credit note moves no status at all**, so no filter
-            // written here can see one, and `credit_note_items` carries no charge code to net by
-            // line. Every mid-period move-out produces one against exactly these lines.
-            ->whereNotIn('invoices.status', ['draft', 'cancelled', 'credited'])
+            // **A PARTIAL credit note moves no status at all**, so no filter written here can see
+            // one — and every mid-period move-out produces one against exactly these lines. Since
+            // SW-216 `creditedBack()` nets those by LINE, off the same status list this query uses
+            // (`INVOICE_NOT_BILLED`); a second list here is relief counted twice, which is what the
+            // first pass of that fix actually did.
+            ->whereNotIn('invoices.status', self::INVOICE_NOT_BILLED)
             ->whereIn('invoice_items.type', $codes)
             // Keyed on the period the invoice COVERS, not the day it was raised: a December invoice
             // issued on 2 January belongs to the year the tenant occupied, which is the year being

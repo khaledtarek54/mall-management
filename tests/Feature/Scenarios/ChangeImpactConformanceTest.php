@@ -191,7 +191,8 @@ function committedFixtures(): array
                 'lease_id' => $lease->id,
                 'status' => 'issued',
                 'issue_date' => now()->toDateString(),
-                'reason' => 'goodwill',
+                // A registered classification: credit_notes.reason is a ValueSets column.
+                'reason' => 'discount',
                 'subtotal' => 100, 'vat_amount' => 0, 'total' => 100, 'balance' => 100,
             ]);
         },

@@ -1495,6 +1495,13 @@ class CamReconciliationService
             $vatRate,
             $vat,
             ChargeCode::taxCodeFor('cam_recovery'),
+            // …and the charge code itself, so the line says WHAT it relieves and not merely how it
+            // was taxed (SW-216). It is a CLASSIFICATION here, not a netting hook: this note is
+            // raised with no `invoice_id` — a negative true-up credits the year, not a document —
+            // and `SyncCamPoolFromLedgerService::creditedBack()` joins through `credit_notes.
+            // invoice_id`, so it can never reach this note. That is correct: netting it would
+            // subtract the true-up from the estimate the true-up was computed against.
+            'cam_recovery',
         );
 
         return $note;

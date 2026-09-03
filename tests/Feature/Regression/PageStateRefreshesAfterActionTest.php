@@ -73,7 +73,7 @@ it('shows the written-down balance after a credit is applied, without a page ref
     ]);
     $note = CreditNote::create([
         'tenant_id' => $lease->tenant_id, 'asset_id' => $this->asset->id,
-        'issue_date' => now()->toDateString(), 'status' => 'issued', 'reason' => 'goodwill',
+        'issue_date' => now()->toDateString(), 'status' => 'issued', 'reason' => 'discount',
         'subtotal' => 4000, 'vat_amount' => 0, 'total' => 4000, 'balance' => 4000,
     ]);
 

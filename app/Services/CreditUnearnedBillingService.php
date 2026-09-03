@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Contracts\BillableAgreement;
 use App\Models\Charge;
+use App\Models\ChargeCode;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -204,8 +205,11 @@ class CreditUnearnedBillingService
             // whichever tax happened to be first — the classification error the invoice side stopped
             // making on 2026-08-19.
             $rate = round((float) $item->vat_rate, 2);
-            $key = $rate.'|'.($item->tax_code ?? '');
-            $byRate[$key] ??= ['amount' => 0.0, 'vat' => 0.0, 'rate' => $rate, 'tax_code' => $item->tax_code];
+            // Keyed by the line's CHARGE CODE as well as its rate, so a credit says which charge
+            // it relieves (SW-216). Without the type in the key, a rent line and a service-charge
+            // line at the same rate would merge and the credit could not be attributed to either.
+            $key = $rate.'|'.($item->tax_code ?? '').'|'.($item->type ?? '');
+            $byRate[$key] ??= ['amount' => 0.0, 'vat' => 0.0, 'rate' => $rate, 'tax_code' => $item->tax_code, 'type' => $item->type];
             $byRate[$key]['amount'] += $lineAmount;
             $byRate[$key]['vat'] += $lineVat;
         }
@@ -250,21 +254,35 @@ class CreditUnearnedBillingService
             ]);
 
             // The LINES, written BEFORE issue(): a note has to say what it credits by the time it
-            // becomes a document, not after. One per VAT rate — see the accumulator above and
-            // CreditNote::describeAs().
-            $description = __('admin.credit_notes.line_unearned', [
-                'invoice' => $invoice->number,
-                'through' => $periodEnd->format('d/m/Y'),
-            ]);
-
+            // becomes a document, not after.
+            //
+            // **One line per (rate, tax code, CHARGE).** It used to be one per VAT rate, which read
+            // correctly on the common case only because rent is exempt and the service charge is
+            // taxed — so the split by rate happened to split by charge too. An ordinary move-out
+            // from three exempt monthly charges (base rent, marketing, parking) produced ONE line;
+            // splitting by charge alone would produce three, every one of them carrying the same
+            // sentence, which on the tenant's PDF reads as a duplicated row rather than a
+            // breakdown. The charge names itself — through `ChargeCode::labelFor()`, the catalogue
+            // the schedule and the billing forecast already label from, so a code the operator
+            // renamed reads the same here as it does there.
             foreach ($byRate as $part) {
                 if (round($part['amount'] + $part['vat'], 2) <= 0) {
                     continue;
                 }
 
+                $description = __('admin.credit_notes.line_unearned', [
+                    'invoice' => $invoice->number,
+                    'through' => $periodEnd->format('d/m/Y'),
+                ]);
+
+                if ($part['type'] !== null) {
+                    $description = ChargeCode::labelFor($part['type']).' — '.$description;
+                }
+
                 // The source line's own tax code travels onto the credit — a reversal never
-                // re-classifies the supply it reverses.
-                $note->describeAs($description, $part['amount'], $part['rate'], $part['vat'], $part['tax_code']);
+                // re-classifies the supply it reverses. Nor does its charge: `type` is what lets
+                // the CAM pools net this credit off what they billed, by line.
+                $note->describeAs($description, $part['amount'], $part['rate'], $part['vat'], $part['tax_code'], $part['type']);
             }
 
             $service = app(CreditNoteService::class);

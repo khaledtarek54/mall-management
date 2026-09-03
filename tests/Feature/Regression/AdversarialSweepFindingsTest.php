@@ -193,7 +193,7 @@ it('keeps a finalized credit note balance = total - applied after an unrelated e
 
     $note = CreditNote::create([
         'tenant_id' => $lease->tenant_id, 'invoice_id' => $invoice->id, 'lease_id' => $lease->id,
-        'number' => 'CN-TEST-1', 'status' => 'issued', 'issue_date' => '2026-03-01', 'reason' => 'overcharge',
+        'number' => 'CN-TEST-1', 'status' => 'issued', 'issue_date' => '2026-03-01', 'reason' => 'adjustment',
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000, 'applied_amount' => 0, 'balance' => 5000,
     ]);
 

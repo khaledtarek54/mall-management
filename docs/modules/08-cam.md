@@ -120,11 +120,52 @@ denylist of `cancelled` and `written_off`:
   where 30,000 is owed. It was a **cliff** as well as a rule, because `WriteOffInvoiceService` moves
   the status only on a FULL write-off — 9,999.99 counted in full, 10,000.00 counted as nothing.
 
-**Still open (SW-216): a PARTIAL credit note moves no status at all**, so nothing written as a status
-filter can see one, and `credit_note_items` carries no charge code to net by line. Every mid-period
-move-out produces one against exactly these lines (`CreditUnearnedBillingService::isTimeApportioned()`
-returns true for a monthly, not-in-arrears `service_charge`), and the landlord under-recovers by the
-credited amount, silently.
+**And it is now NET of what was credited back (SW-216, 2026-09-03).** The billed sum counted money
+the operator had returned. A fully credited invoice was at least caught by the `credited` status;
+**a PARTIAL credit moves no status at all**, so nothing written as a status filter could ever see
+one — and partial is the common case, because
+`CreditUnearnedBillingService::isTimeApportioned()` returns true for exactly a monthly,
+not-in-arrears `service_charge`, which is what every mid-period move-out and every mid-year resale
+credits. The pool believed it had collected money it had given back, and the annual true-up
+under-charged by that amount, silently, per tenant, with the tie-out green throughout.
+
+The enabling fact was missing from the DATA. A credit note points at an INVOICE, and a pool needs to
+know how much of a CHARGE came back — `CreditNote::describeAs()`'s own docblock said so in writing:
+*"a credit-note line has no `type` column to derive from"*. `credit_note_items.type` is that column,
+the mirror of `invoice_items.type` and governed by the same charge-code catalogue, carried by both
+service callers and by the credit-note form's prefill.
+
+`creditedBack()` subtracts on the credit LINE's own type, the pool's own participants, the same
+period basis as the billed side, and `CreditNote::NOT_ON_THE_BOOKS` — a draft was never issued and a
+void one was reversed. **Null means *not stated* and is not netted**: every row written before the
+column is null, and apportioning a credit across line types is a decision, not a derivation, so a
+migration is the wrong place to take it. The backfill is deliberately narrow — where the credited
+invoice has exactly ONE line type there is nothing to guess.
+
+**Three things the review of that change caught, and two of them made the fix worse than the bug.**
+
+- **The two sides of one subtraction had two status lists.** The billed query excluded `credited`
+  and the new credit query did not, so a fully credited invoice was dropped by one and subtracted by
+  the other. Measured on a 30,000 service-charge invoice: **−30,000**. `cam_allocations.estimated_paid`
+  is a signed decimal, so it stored without a word, printed on the tenant's CAM statement, and the
+  true-up billed the credit back. `SyncCamPoolFromLedgerService::INVOICE_NOT_BILLED` is now ONE list
+  read by both halves. Note what that means for membership: `credited` stays IN it, because such an
+  invoice was billed and then fully reversed, so the invoice and its credits drop out together and
+  the pair nets to nothing. Netting by line does not change that — it is the PARTIAL credit, which
+  moves no status, that no status filter could ever see, and that is the whole of SW-216.
+- **There was no floor.** Several partial credits against one invoice, or an operator-typed credit
+  line larger than the charge it relieves, drove the estimate negative from ordinary data — measured
+  −20,000 on 30,000 billed against a 50,000 credit. Floored now, exactly as the cost basis one level
+  up already is. Nobody was ever billed a negative estimate, so the floor cannot hide a real figure.
+- **The per-participant narrowing was untested and could be deleted with everything green.** Every
+  case drove `estimateFromInvoices()` — the POOL total, where the clause is a no-op — while
+  `estimateBilledFor()` is the half that writes per-tenant money. A single-participant fixture cannot
+  see the difference, and in production every tenant would carry every other tenant's credits.
+
+A related wording fix travelled with it: the move-out credit note now NAMES the charge on each line.
+Splitting by charge code alone turned an ordinary three-charge move-out (base rent, marketing,
+parking — all exempt, so the old split by VAT rate produced one line) into three lines carrying one
+identical sentence, which on the tenant's PDF reads as a duplicated row rather than a breakdown.
 
 Three things to keep right when touching it, or `CamReconciliationService::participants()`:
 
