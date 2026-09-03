@@ -21,6 +21,7 @@
 
 return [
     'refusals' => [
+        'work_permit_issued_is_fixed' => 'This permit has been issued, so what it authorises is fixed — people may already be working under it. Cancel it and issue a corrected one.',
         'invoice_void_has_write_off' => 'This invoice carries a write-off. Reverse the write-off first — voiding on top of it would leave the bad-debt loss standing against a document that no longer exists, and drive receivables negative.',
         'cheque_deposit_future' => 'A cheque cannot be lodged on a future date — you either handed it to the bank or you did not. Use the day you actually presented it.',
         'payroll_approval_in_progress' => 'Another approval for this month is already running. Wait for it to finish, then reload this run before approving.',
@@ -107,7 +108,7 @@ return [
         'write_off_exceeds_remaining_partial' => 'Cannot write off :amount against invoice :number: only :remaining is left to write off (:written of :outstanding already written off).',
         'owner_statement_finalised_exists' => 'A finalised statement already exists for this property and period — revise it instead of regenerating.',
         'owner_statement_has_active_disbursements' => 'This run cannot be revised while it has active disbursements — cancel the scheduled or approved payouts first. If the owner has already been paid, correct the difference in the next period rather than revising the paid statement.',
-        'lease_option_not_open' => "This option is :status — only an open option can be exercised.",
+        'lease_option_not_open' => 'This option is :status — only an open option can be exercised.',
         'cam_cap_term_incomplete' => 'A :type CAM cap needs :fields. Without them the cap resolves to nothing and the tenant is billed in full, while the lease still shows a cap term.',
     ],
 ];

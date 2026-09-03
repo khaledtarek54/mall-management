@@ -941,6 +941,41 @@ individual, a tenant's own fitter — and then the contractor's name and phone a
 draft and authorising hazardous work are not the same act, and the second is what a named person is
 accountable for.
 
+**And once it is issued, what it authorises is FIXED (SW-066, 2026-09-03).** The register hides its
+Edit shortcut the moment a permit leaves draft, under a comment stating that rule in as many words —
+*"a live authorisation is not a draft"* — and for the whole of this module's life that was the only
+thing enforcing it. A hidden row action is a rendering decision: `EditWorkPermit` is the record hub,
+it is reached by URL, `canEdit()` went on answering true, and nothing at the model refused the save.
+So an issued permit could be re-pointed at another unit, its window extended or its conditions
+rewritten while people were already working under it — and the guard at the door, and the manager
+acting on the hourly closure alert, would both be reading something nobody authorised.
+
+`WorkPermit::updating` refuses it, on a **denylist of substance** (what work, where, when, under what
+conditions, by whom) rather than an allowlist of what the acts write — `getDirty()` is read after
+every `saving` hook, so an allowlist refuses any save carrying a column some other hook derived. The
+acts' own columns (`status`, `issued_*`, `closed_*`, `closure_notes`) stay writable, which is what
+keeps closing and cancelling an issued permit working.
+
+**`canEdit()` is deliberately not the lever.** The acts live on the record page and gate on
+`canIssue()`, so refusing the page would strand *close* and *cancel* for exactly the permits that
+need them — the (role, state) reachability trap `RowActionPolicy::IN_ROW_EXCEPTIONS` records. Correct
+a live permit by cancelling it and issuing a corrected one, which is what the refusal says.
+
+**The form disables itself too, and the page drops a live permit's payload — both halves are needed.**
+A model that refuses under a screen still offering thirteen editable fields is an affordance without
+the right behind it, which is the rule `PropertyField` states for its own case. And a **disabled
+Filament field is still DEHYDRATED** (measured on v4.11.8), so disabling alone does not stop the write:
+`DateTimePicker->seconds(false)` truncates the window to the minute, so filling from an untouched form
+made `valid_from`/`valid_to` dirty against a stored value carrying seconds, and pressing **Save without
+touching anything** was refused. `DemoSeeder` builds every permit from `Carbon::now()`, so that is the
+ordinary state of a real row — while the fixtures that missed it all parse a zero-second literal. The
+same truncation was silently trimming seconds off live safety windows before the freeze existed.
+
+**`issued_at`, `issued_by_user_id` and `reference` are frozen too**, and `status` may move forward but
+never back to `draft`. Who authorised hazardous work and when is the most audit-sensitive pair on the
+row; `reference` is the number quoted at the gate and on the radio; and closed → draft → rewrite →
+issue again is a second authorisation on one reference with the previous closure still attached.
+
 **Closing LATE is allowed; cancelling is not the same thing.** Refusing a late closure would leave
 the register permanently wrong about a job that did finish safely, and would push people to cancel
 instead — destroying the distinction between "closed late" and "never happened", which is the only
@@ -956,8 +991,9 @@ the operator saw a stack trace instead of the permits. The register carries the 
 **danger navigation badge**, scoped through `TenantScope::visibleAssetIds()`, because an alert
 somebody dismissed on Friday is the whole reason the state persists.
 
-**The permit must be readable after it is issued.** Edit disappears the moment a permit is issued —
-correctly, a live authorisation is not a draft — so a View action renders the abstract as a native
+**The permit must be readable after it is issued.** Editing stops the moment a permit is issued (the
+freeze above; the row's Edit shortcut disappears and the form disables itself) — so a View action
+renders the abstract as a native
 infolist, and the *same* abstract is shown inside the issue confirmation. The facts a person needs
 to authorise hazardous work are exactly the facts anyone needs to check it later, and a confirmation
 dialog that says only "are you sure?" asks a named person to accept a risk they cannot see. Missing

@@ -94,7 +94,11 @@ class WorkPermitsTable
             ])
             ->recordActions([
                 // **An issued permit has to be readable.** Edit disappears the moment it is issued
-                // — correctly, a live authorisation is not a draft — and without this the register
+                // — correctly, a live authorisation is not a draft, though for a long time this
+                // hiding was the ONLY thing enforcing that (SW-066): the record page is reached by
+                // URL and nothing at the model refused the save. `WorkPermit::updating` is the gate
+                // now and `WorkPermitForm` disables itself; this stays the first of the three, and
+                // without it the register
                 // could show that a permit exists and never show what it authorises. The guard at
                 // the door and the manager acting on the overdue alert both need the conditions,
                 // and neither is going to read them off a list. Native infolist in the action,

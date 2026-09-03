@@ -129,6 +129,61 @@ class WorkPermit extends Model
                 throw new DomainException(__('admin.errors.work_permit_window_inverted'));
             }
         });
+
+        // ── A LIVE AUTHORISATION IS NOT A DRAFT, and until now only the LIST said so ──────────
+        //
+        // The register hides its Edit shortcut the moment a permit is issued, under a comment
+        // stating exactly this rule. That is a rendering decision: `EditWorkPermit` is the record
+        // hub, it is reached by URL, and `canEdit()` went on answering true — so an issued or closed
+        // permit was fully editable through its own form (SW-066). What a permit AUTHORISES — the
+        // work, the place, the window, the conditions, who is doing it — is what the guard at the
+        // door reads and what a manager acts on when the closure alert fires. Rewriting it after
+        // issue changes an authorisation that people are already working under.
+        //
+        // **A DENYLIST of substance, never an allowlist of what the acts write.** `getDirty()` is
+        // read after every `saving` hook — `HasSearchText` rewrites `search_text` on every save, and
+        // `close()` writes three columns of its own — so an allowlist would have to enumerate every
+        // derived column too, and refuses the day one is added. That is the trap the lease holdover
+        // carve-out records.
+        //
+        // `closed_at`/`closed_by_user_id`/`closure_notes` are the acts' own and stay writable.
+        // **`issued_at` and `issued_by_user_id` are NOT**: they are WHO authorised hazardous work
+        // and WHEN, the most audit-sensitive pair on the row, and freezing them costs nothing
+        // because `issue()` — their only writer — runs from `draft`, where this guard has already
+        // returned. `reference` is frozen for the same reason: it is not fillable, so no form can
+        // reach it, but it is the number quoted at the gate and on the radio.
+        //
+        // `status` is handled separately below, because it must keep MOVING (that is the workflow)
+        // while never moving BACKWARDS.
+        //
+        // `canEdit()` is deliberately NOT the lever. The acts live on the record page and gate on
+        // `canIssue()`, so refusing the page would strand *close* and *cancel* for exactly the
+        // permits that need them — the (role, state) reachability trap `RowActionPolicy` records.
+        // The FORM is disabled instead (`WorkPermitForm`), which is the UI truth beside this gate.
+        static::updating(function (self $permit) {
+            if ($permit->getOriginal('status') === self::STATUS_DRAFT) {
+                // …except that a permit may not be sent BACK to draft. Nothing in the panel offers
+                // it, but this guard has to hold for an import or an API write the way the window
+                // guard above it does — and the route out is the whole freeze: closed → draft →
+                // rewrite everything → issue again, a second authorisation on one reference with
+                // the previous closure still on the row.
+                return;
+            }
+
+            if ($permit->isDirty('status') && $permit->status === self::STATUS_DRAFT) {
+                throw new DomainException(__('admin.refusals.work_permit_issued_is_fixed'));
+            }
+
+            $substance = array_intersect(array_keys($permit->getDirty()), [
+                'type', 'vendor_id', 'contractor_name', 'contractor_phone', 'facility_work_order_id',
+                'unit_id', 'area_id', 'location', 'description', 'conditions', 'valid_from', 'valid_to',
+                'asset_id', 'issued_at', 'issued_by_user_id', 'reference',
+            ]);
+
+            if ($substance !== []) {
+                throw new DomainException(__('admin.refusals.work_permit_issued_is_fixed'));
+            }
+        });
     }
 
     public function getActivitylogOptions(): LogOptions
