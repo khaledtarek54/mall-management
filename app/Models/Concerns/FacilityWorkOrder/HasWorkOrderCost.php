@@ -7,6 +7,7 @@ use App\Models\FacilityWorkOrderLabour;
 use App\Models\FacilityWorkOrderPart;
 use App\Models\VendorBill;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * **The work order as a COST OBJECT** (Maximo §4) — what this job cost, in three buckets.
@@ -80,40 +81,125 @@ trait HasWorkOrderCost
      */
     public function recomputeCosts(): void
     {
-        $labour = $this->labour()
-            ->selectRaw('coalesce(sum(hours), 0) as h, coalesce(sum(cost), 0) as c')
-            ->first();
-
-        $this->act_labour_hours = round((float) ($labour->h ?? 0), 2);
-        $this->act_labour_cost = round((float) ($labour->c ?? 0), 2);
+        // ── ONE STATEMENT, because a read-modify-write here loses money (SW-212) ───────────────
+        //
+        // This used to be four plain aggregates followed by `saveQuietly()`. Two writers on one job
+        // — a vendor-bill payment and an SLA penalty application, which really do land together —
+        // each computed from their own snapshot and the last one won, so a job's cost silently
+        // dropped a bill or a penalty.
+        //
+        // **A `lockForUpdate()` on the work order does NOT fix it.** Under MySQL's REPEATABLE READ
+        // the waiter's consistent-read snapshot was fixed at its FIRST read, so it re-reads the
+        // children from before it waited — the F-09 finding, and the reason
+        // `Unit::isActivelyLeasedForUpdate()` exists beside its plain twin. Making the four child
+        // aggregates locking reads does fix it and introduces a **deadlock**: `VendorBill::saved`
+        // already holds the bill row and would then want the work order, while a labour write holds
+        // the work order and wants the bills. (Measured — and measured to be present in THIS design
+        // too: two transactions that each insert a child take a shared FK lock on the parent and
+        // then deadlock on the S→X upgrade. So the deadlock is a reason not to prefer locking child
+        // reads, not a property that distinguishes the two designs.)
+        //
+        // So the aggregates are computed INSIDE the update, where MySQL documents a SELECT within a
+        // DML statement as reading like READ COMMITTED — measured: after another transaction
+        // committed +2,000, the plain aggregate read 3,000 and the same aggregate inside an UPDATE
+        // read 5,000. That is the whole of the fix.
+        //
+        // **The sub-selects are compiled from the RELATIONS, never hand-written.** All four children
+        // soft-delete, and hand-written SQL would quietly count trashed rows — a second definition
+        // of "what this job cost", which is the one thing this method exists to prevent. Laravel
+        // compiles them per driver, so MySQL and SQLite get their own dialect from one source.
+        [$labourHours, $b1] = $this->costAggregate($this->labour(), 'coalesce(sum(hours), 0)');
+        [$labourCost, $b2] = $this->costAggregate($this->labour(), 'coalesce(sum(cost), 0)');
 
         // Only a part that actually left the store (or was recorded as bought for the job) is a
         // cost. A `pending` request is a proposal and a `rejected` one never happened.
-        $this->act_material_cost = round((float) $this->parts()
-            ->whereIn('status', [FacilityWorkOrderPart::STATUS_APPROVED, FacilityWorkOrderPart::STATUS_RECORDED])
-            ->sum('value'), 2);
-
-        $bills = round((float) $this->vendorBills()
-            ->where('status', '!=', 'cancelled')
-            ->selectRaw('coalesce(sum(subtotal - coalesce(penalty_applied_amount, 0)), 0) as net')
-            ->value('net'), 2);
-
-        $expenses = round((float) $this->expenses()
-            ->where('status', '!=', 'cancelled')
-            ->sum('amount'), 2);
-
-        $this->act_service_cost = round($bills + $expenses, 2);
-
-        $this->act_total_cost = round(
-            (float) $this->act_labour_cost + (float) $this->act_material_cost + (float) $this->act_service_cost,
-            2
+        [$material, $b3] = $this->costAggregate(
+            $this->parts()->whereIn('status', [FacilityWorkOrderPart::STATUS_APPROVED, FacilityWorkOrderPart::STATUS_RECORDED]),
+            'coalesce(sum(value), 0)',
         );
 
-        $this->deriveEstimatedTotal();
+        [$bills, $b4] = $this->costAggregate(
+            $this->vendorBills()->where('status', '!=', 'cancelled'),
+            'coalesce(sum(subtotal - coalesce(penalty_applied_amount, 0)), 0)',
+        );
 
-        // saveQuietly: a derivation, not an operator action. Logging it would bury the change
-        // somebody actually made under a cost row nobody typed.
-        $this->saveQuietly();
+        [$expenses, $b5] = $this->costAggregate(
+            $this->expenses()->where('status', '!=', 'cancelled'),
+            'coalesce(sum(amount), 0)',
+        );
+
+        // The estimate stays in PHP, where its null semantics survive: "nobody estimated anything"
+        // is not zero, and `coalesce` in SQL would flatten the two together.
+        //
+        // **And it is written ONLY when this instance actually moved it.** Writing it every time
+        // reintroduced the very lost update this method exists to remove, one column across:
+        // measured, an operator saving `est_service_cost = 900` mid-flight had their 1,000 replaced
+        // by a 100 read from a snapshot fixed before they typed it. `find()` inside a transaction
+        // reads from that transaction's snapshot, which can be minutes old, so the window is not
+        // microseconds. The old `saveQuietly()` was safe here by accident — an unchanged column is
+        // not dirty, so it never reached the SET list — and that accident is now the rule.
+        $this->deriveEstimatedTotal();
+        $estimateMoved = $this->isDirty('est_total_cost');
+
+        // `act_total_cost` repeats its three terms rather than referring to the columns beside it:
+        // **MySQL evaluates SET assignments left to right and lets a later one read an earlier one;
+        // SQLite reads the ORIGINAL row throughout.** A total written as
+        // `act_labour_cost + act_material_cost + act_service_cost` would therefore be right on the
+        // real database and one recompute behind in every test.
+        $connection = $this->getConnection();
+        $grammar = $connection->getQueryGrammar();
+        $table = $grammar->wrapTable($this->getTable());
+        $col = fn (string $name): string => $grammar->wrap($name);
+
+        $connection->update(
+            "update {$table} set "
+            .$col('act_labour_hours')." = round({$labourHours}, 2), "
+            .$col('act_labour_cost')." = round({$labourCost}, 2), "
+            .$col('act_material_cost')." = round({$material}, 2), "
+            .$col('act_service_cost')." = round(({$bills}) + ({$expenses}), 2), "
+            .$col('act_total_cost')." = round(({$labourCost}) + ({$material}) + ({$bills}) + ({$expenses}), 2), "
+            .($estimateMoved ? $col('est_total_cost').' = ?, ' : '')
+            .$col($this->getUpdatedAtColumn()).' = ? '
+            .'where '.$col($this->getKeyName()).' = ?',
+            [
+                ...$b1, ...$b2, ...$b3, ...$b4, ...$b5,        // the SET expressions, in order
+                ...$b2, ...$b3, ...$b4, ...$b5,                // …and again for the total
+                ...($estimateMoved ? [$this->est_total_cost] : []),
+                $this->freshTimestampString(),
+                $this->getKey(),
+            ],
+        );
+
+        // The row is now authoritative and this instance is not, so the derived columns are refilled
+        // to match what `saveQuietly()` used to leave in memory. (No caller in `app/`, `database/`
+        // or `tests/` actually reads one off the instance — every one re-queries — so this is for
+        // parity, not for a consumer.)
+        //
+        // **`syncOriginalAttributes($those)`, never `syncOriginal()`.** The bare form syncs the
+        // WHOLE attribute array, so a caller holding an unsaved edit had it silently marked clean:
+        // measured, `notes` set in memory read `isDirty() === false` afterwards and the next
+        // `save()` wrote nothing. The value stays on the model, which is what makes it invisible.
+        $derived = (array) $this->newQueryWithoutScopes()
+            ->whereKey($this->getKey())
+            ->first(['act_labour_hours', 'act_labour_cost', 'act_material_cost', 'act_service_cost', 'act_total_cost'])
+            ?->getAttributes();
+
+        if ($derived !== []) {
+            $this->forceFill($derived)->syncOriginalAttributes(array_keys($derived));
+        }
+    }
+
+    /**
+     * One child aggregate, as SQL + bindings, taken from the RELATION so its scopes travel.
+     *
+     * @param  \Illuminate\Database\Eloquent\Relations\Relation<*, *, *>  $relation
+     * @return array{0: string, 1: array<int, mixed>}
+     */
+    private function costAggregate($relation, string $expression): array
+    {
+        $query = $relation->getQuery()->select(DB::raw($expression));
+
+        return ['('.$query->toSql().')', $query->getBindings()];
     }
 
     /**

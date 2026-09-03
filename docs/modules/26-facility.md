@@ -1123,6 +1123,45 @@ channels change the number, so exactly one method computes it and every channel 
 set an `act_*` column anywhere else.** Three channels feed it, and adding a fourth means adding it
 here *and* wiring that model's events:
 
+**It computes INSIDE its UPDATE, and that is a concurrency fix, not a style choice (SW-212,
+2026-09-03).** It used to be four plain aggregates followed by `saveQuietly()` — a read-modify-write
+with no lock. Under MySQL's REPEATABLE READ a transaction's consistent-read snapshot is fixed at its
+first read, so two writers on one job each computed from their own snapshot and the last one won.
+
+Reproduced 3/3 on MySQL 8.0.33: a stored row reading `labour 1,500 + material 0 + service 3,000`
+with a **total of 2,500**. The failure is not a bucket losing a bill — it is **a row that no longer
+adds up**, on the column `costVariance()` reads, because Laravel omits an unchanged column from the
+SET list and the stale service figure simply was not written. It is intermittent (2 runs in 3): a
+child insert takes a shared FK lock on the parent, so whenever the other writer lands last it
+repairs the damage.
+
+**A lock on the work order does NOT fix it** — the waiter re-reads the children from before it
+waited (the F-09 finding). Making the child aggregates locking reads does fix it and deadlocks
+(`VendorBill::saved` holds the bill and wants the order; a labour write holds the order and wants
+the bills) — though that deadlock is present in the single-statement design too, so it is a reason
+not to prefer locking child reads rather than a property that distinguishes them. Computing inside
+the UPDATE works because MySQL documents a SELECT within a DML statement as reading like READ
+COMMITTED: measured, after another transaction committed +2,000 the plain aggregate read 3,000 and
+the same aggregate inside an UPDATE read 5,000.
+
+Three things to keep right when touching it:
+
+- **The sub-selects are compiled from the RELATIONS, never hand-written.** All four children
+  soft-delete, and hand-written SQL would quietly count trashed rows — a second definition of what
+  the job cost, which is the one thing this method exists to prevent.
+- **`act_total_cost` repeats its three terms** rather than referring to the columns beside it.
+  MySQL evaluates SET assignments left to right and lets a later one read an earlier one; **SQLite
+  reads the ORIGINAL row throughout** (measured on both: `update p set a = 100, t = a + b` on
+  `(10, 20)` gives 120 on MySQL and 30 on SQLite). A total written the obvious way would be right on
+  the real database and one recompute behind in every test.
+- **`est_total_cost` is written only when this instance actually moved it, and `syncOriginalAttributes()`
+  syncs only the five derived columns.** Both were regressions in the first version of the fix: the
+  blind estimate write reintroduced the same lost update one column across — an operator's typed
+  1,000 replaced by a 100 read from a snapshot fixed before they typed it — and a bare
+  `syncOriginal()` marked a caller's unsaved edit clean, so the value stayed on the model,
+  `isDirty()` said no, and the next `save()` wrote nothing.
+
+
 - **labour** — `facility_work_order_labour`, hours × the craft rate frozen at entry
 - **material** — approved/recorded part draws (`facility_work_order_parts.value`)
 - **service** — vendor bills + expenses booked to the job

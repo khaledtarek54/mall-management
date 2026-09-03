@@ -2,6 +2,9 @@
 
 /** One racer. argv: <scenario> <startAtUnixMs> <workerLabel> [ids...] */
 require __DIR__.'/boot.php';
+use App\Models\Expense;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderLabour;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
@@ -44,6 +47,65 @@ try {
             $r = app(MonthlyBillingService::class)->generateForLease(
                 Lease::with('charges')->findOrFail($leaseId), CarbonImmutable::parse('2026-09-01'));
             $out('OK '.json_encode(['status' => $r['status'] ?? null, 'reason' => $r['reason'] ?? null, 'invoice' => $r['invoice']->id ?? null]));
+            break;
+
+            // SW-212 — two writers on ONE work order's cost object. Worker A books an expense, worker
+            // B applies an SLA penalty to a bill; both then recompute. Under the old read-modify-write
+            // the loser's aggregate came from its own pre-wait snapshot and the last write won, so one
+            // of the two costs vanished. `recomputeCosts()` computes inside its UPDATE now, so there is
+            // no window to lose it in.
+            // SW-212 — a LOST UPDATE on a work order's cost object.
+            //
+            // **A must have a cost of its OWN, and it must book it after B has finished.** Three
+            // earlier versions of this scenario measured NOTHING, and the third is the instructive one:
+            // A opened a transaction, read (fixing its REPEATABLE READ snapshot), waited, and
+            // recomputed — and its SQL trace showed four aggregate SELECTs and **no UPDATE at all**.
+            // A's stale aggregate equalled A's stale in-memory row byte for byte, so `getDirty()` was
+            // empty and `Model::performUpdate()` short-circuited before issuing anything. B's correct
+            // figure stood, the run read clean, and the scenario was green against the defect.
+            // (The other two: both workers inserting and recomputing back to back just serialised; both
+            // inserting inside one snapshot window collided on the document number instead, so the
+            // UNIQUE index refused one and the cost race never ran — the same accident CLAUDE.md
+            // records for the unit double-booking.)
+            //
+            // So: A opens its snapshot, waits for B to commit, books its OWN labour, and recomputes —
+            // unambiguously the last writer, with something to write. Under the old read-modify-write
+            // its stale service figure was simply ABSENT from the SET list (Laravel omits an unchanged
+            // column), so the row was stored `labour 1500 + material 0 + service 3000` with a TOTAL of
+            // 2500. The failure is not a bucket losing a bill; it is **a row that no longer adds up**,
+            // on the column `costVariance()` reads.
+            //
+            // It is intermittent (2 runs in 3), and what hides it is the FK lock: a child insert takes
+            // a shared lock on the parent, so whenever B lands last B repairs A's damage.
+            //
+            // seed: one 1,000 expense on the order. truth after both: labour 1,500 + service 3,000.
+        case 'wo_cost':
+            $orderId = (int) $args[0];
+            $order = FacilityWorkOrder::findOrFail($orderId);
+
+            if ($label === 'A') {
+                DB::transaction(function () use ($order) {
+                    DB::table('expenses')->where('facility_work_order_id', $order->id)->count();
+                    usleep(1_000_000);
+
+                    FacilityWorkOrderLabour::create([
+                        'facility_work_order_id' => $order->id,
+                        'hours' => 5, 'hourly_rate' => 300, 'cost' => 1500,
+                        'worked_on' => '2026-09-01', 'notes' => 'RACE-A',
+                    ]);
+                });
+            } else {
+                usleep(400_000);
+                Expense::create([
+                    'asset_id' => $order->asset_id, 'facility_work_order_id' => $order->id,
+                    'category' => 'maintenance', 'description' => 'RACE-B', 'amount' => 2000,
+                    'expense_date' => '2026-09-01', 'status' => 'recorded', 'paid_from' => 'cash',
+                ]);
+            }
+
+            $f = $order->fresh();
+            $out(sprintf('OK lab=%s mat=%s svc=%s TOTAL=%s (truth 4500.00)',
+                $f->act_labour_cost, $f->act_material_cost, $f->act_service_cost, $f->act_total_cost));
             break;
 
         case 'payment':
