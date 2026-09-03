@@ -264,14 +264,25 @@ class Payroll extends Model
                 && $payroll->period_month !== null) {
                 $employeeIds = $payroll->lines()->pluck('employee_id')->filter();
 
+                // Another approved run for the same month whose property OVERLAPS this one's.
+                //
+                // A run filed against NO property is portfolio-wide — it covers every mall, so it
+                // clashes with all of them. The old clause was a bare `where('asset_id', $id)`,
+                // which compiles to `asset_id = null` when this run is the consolidated one and
+                // therefore matches nothing: a consolidated run and a mall run for the same month
+                // were both approvable, which is the same hole through a second door.
+                $overlapping = fn ($q) => $q
+                    ->where('status', 'approved')
+                    ->whereDate('period_month', $payroll->period_month)
+                    ->whereKeyNot($payroll->getKey())
+                    ->when($payroll->asset_id !== null, fn ($a) => $a->where(fn ($w) => $w
+                        ->where('asset_id', $payroll->asset_id)
+                        ->orWhereNull('asset_id')));
+
                 if ($employeeIds->isNotEmpty()) {
                     $clashing = PayrollLine::query()
                         ->whereIn('employee_id', $employeeIds)
-                        ->whereHas('payroll', fn ($q) => $q
-                            ->where('status', 'approved')
-                            ->where('asset_id', $payroll->asset_id)
-                            ->whereDate('period_month', $payroll->period_month)
-                            ->whereKeyNot($payroll->getKey()))
+                        ->whereHas('payroll', $overlapping)
                         ->with('employee:id,name')
                         ->get();
 
@@ -281,6 +292,33 @@ class Payroll extends Model
                             'count' => $clashing->pluck('employee_id')->unique()->count(),
                         ]));
                     }
+                }
+
+                // ── A LUMP-SUM RUN NAMES NOBODY, so the per-employee question cannot be asked ────
+                //
+                // The guard above is on the EMPLOYEE, deliberately, so a supplementary payslip run
+                // stays possible. But a lump-sum run has no lines — a SUPPORTED shape, not an abuse:
+                // `PayrollForm` unlocks the header money fields exactly when a run has none — so it
+                // skips the guard entirely on its own approval AND leaves nothing for another run's
+                // guard to find. Measured: a 3-line payslip run of 12,000 and a lineless run of
+                // 12,000 for the same mall and month, both approved, in either order, and two
+                // lineless runs likewise. `PayrollJournalizer` reads `gross_salaries` from the
+                // HEADER, so the ledger carried **24,000 of salaries expense for a 12,000 month** —
+                // overstating the wage bill, understating NOI, and crediting the bank for cash that
+                // never left, which leaves the reconciliation carrying a phantom outflow for good.
+                // Nothing downstream sees it: `billing:reconcile` does not look at payroll at all,
+                // and each entry is internally balanced.
+                //
+                // So when either side cannot answer per employee, fall back to a RUN-level bar. A
+                // run WITH lines still only has to fear the lineless ones — the rest are the
+                // supplementary case the employee guard already covers correctly.
+                $lumpSumClash = static::query()
+                    ->where($overlapping)
+                    ->when($employeeIds->isNotEmpty(), fn ($q) => $q->whereDoesntHave('lines'))
+                    ->exists();
+
+                if ($lumpSumClash) {
+                    throw new \DomainException(__('admin.payroll.errors.lump_sum_month_already_run'));
                 }
             }
 

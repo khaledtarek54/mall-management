@@ -52,6 +52,37 @@ portal), and `departments` (org units). An employee is a *payroll subject*, not 
 > something that does not work. `PayrollHeaderHasOneDefinitionTest`, proven by removing the guard
 > (11 of 12 red).
 
+> **⚠️ …and a LUMP-SUM run walked straight past that guard (SW-100, fixed 2026-09-03).** The bar
+> above is on the EMPLOYEE, which is what keeps the supplementary run possible — and a lump-sum run
+> names nobody. It has no lines, which is a SUPPORTED shape rather than an abuse (`PayrollForm`
+> unlocks the header money fields exactly when a run has none), so it skipped the guard on its own
+> approval **and left nothing for another run's guard to find**.
+>
+> Measured on HEAD: a 3-line payslip run of 12,000 and a lineless run of 12,000, same mall, same
+> month, **both approved in either order**, and two lineless runs likewise. `PayrollJournalizer`
+> reads `gross_salaries` from the HEADER, never from the lines, so the ledger carried **24,000 of
+> salaries expense for a 12,000 month** — overstating the wage bill, understating **net operating
+> income** (the figure a valuation and every owner statement are built on), and crediting the bank
+> for cash that never left, which leaves `MatchBankStatementLineService` carrying a phantom outflow
+> permanently. Nothing downstream objects: `billing:reconcile` does not look at payroll at all, and
+> each journal entry is internally balanced. One user reaches both doors — `accounting` holds
+> `payrolls.create`, `.edit` and `.approve`.
+>
+> So when EITHER side cannot answer per employee, the bar falls back to the RUN. A run WITH lines
+> still only has to fear the lineless ones, which is what keeps the deliberate supplementary payslip
+> run working — and the refusal names the escape (cancel the earlier run, or give this one lines
+> saying who it pays), because a refusal with no way out pushes an operator to back-date into the
+> wrong month, which is worse than what it prevents.
+>
+> **The property clause was the same hole through a second door.** A run filed against NO property is
+> portfolio-wide, and `where('asset_id', $id)` compiles to `asset_id = null` for the consolidated
+> run — matching nothing — so a consolidated run and a mall run for the same month were both
+> approvable. Both clauses are fixed in one pass; fixing one would have looked complete and not been.
+> (`ANoMonthIsPaidTwiceTest`, 8 cases, 3 mutations. Note the fixture takes a SENTINEL rather than
+> `?? $asset->id` for the property: `??` collapses "no property" into "this mall", which made the
+> consolidated case pass for the wrong reason — the clause could be mutated back with the test still
+> green.)
+
 
 ## Importing the payroll register at cut-over (`EmployeeImporter`, 2026-08-12)
 

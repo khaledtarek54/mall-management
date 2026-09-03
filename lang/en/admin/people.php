@@ -41,6 +41,7 @@ return [
     'payroll' => [
         'errors' => [
             'already_paid_this_month' => 'Approving this run would give :count employee(s) a SECOND approved payslip for this month — :names. Cancel the earlier run, or remove them from this one. A supplementary run is fine; paying the same person twice for one month is not.',
+            'lump_sum_month_already_run' => 'A payroll run for this month has already been approved, and one of the two pays a lump sum without naming anyone — so nothing can check whether the same people are being paid twice. Cancel the earlier run, or give this one payslip lines saying who it pays; a supplementary run that names its employees is fine.',
             'approved_immutable' => 'This payroll run has been approved and posted to the ledger, so its amounts, period and source account are settled. Cancel the run to correct it, or record the difference on the next run.',
         ],
     ],

@@ -296,6 +296,16 @@ it('clears when a corrective run in the same month carries the deductions', func
     $stale = Payroll::query()->where('status', 'approved')->firstOrFail();
     expect(fn () => $stale->update(['salary_tax' => 700]))->toThrow(DomainException::class);
 
+    // …and the stale run is CANCELLED before the corrective one is approved. Both of these runs are
+    // lump sums — `approvedPayrollFor()` writes no payslip lines — so leaving the first approved
+    // would post a second full salaries expense for a month that had one, which is SW-100 exactly
+    // (measured: 24,000 booked for a 12,000 month, with every entry internally balanced and nothing
+    // downstream objecting). Cancelling is the escape the refusal names, and it is also the honest
+    // accounting: a run that stated the wrong deductions did not happen as stated.
+    // `fresh()` first: the refused update above left `salary_tax` dirty on this instance, and the
+    // immutability guard reads `getDirty()`, so cancelling would carry the rejected edit with it.
+    $stale->fresh()->update(['status' => 'cancelled']);
+
     approvedPayrollFor($employee, [
         'period_month' => $month,
         'salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310,
