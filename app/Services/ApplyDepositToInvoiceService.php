@@ -37,8 +37,9 @@ class ApplyDepositToInvoiceService
     /**
      * Apply up to `$requested` of the lease's held deposit to one invoice.
      *
-     * Capped at the smaller of the invoice's balance and the deposit actually held, so it can
-     * neither over-settle an invoice nor spend a deposit that is not there.
+     * Capped at the smaller of what is still COLLECTABLE on the invoice and the deposit actually
+     * held, so it can neither over-settle an invoice nor spend a deposit that is not there — and
+     * never draws the forgiven slice of a partially written-off debt out of the tenant's refund.
      *
      * @return float the amount actually applied (0.00 = nothing to do)
      */
@@ -98,7 +99,18 @@ class ApplyDepositToInvoiceService
             // we waited, which is the whole class of bug the lock above exists to prevent.
             $held = $lease->depositHeldForUpdate();
             $amount = round(min(
-                (float) $locked->balance,
+                // COLLECTABLE, not the raw balance — and this one moves CASH. A write-off is not a
+                // settlement channel, so it deliberately leaves `balance` standing; capping here at
+                // `balance` therefore took the forgiven slice of a partially written-off debt out of
+                // the departing tenant's own security deposit. Measured: 6,000 of a 10,000 invoice
+                // written off, and the move-out still netted the full 10,000 off the refund, while
+                // the statement the operator reads and the tenant signs said the debt was 4,000.
+                //
+                // It over-charges, in cash, at the one moment there is no recovery path: the tenant
+                // has gone. `collectableBalanceForUpdate()` is the LOCKING twin, which matters as
+                // much as the netting — a plain read is answered from the snapshot taken before we
+                // waited, which is the whole class of bug the lock above exists to prevent.
+                $locked->collectableBalanceForUpdate(),
                 $held,
                 $requested !== null ? $requested : PHP_FLOAT_MAX,
             ), 2);
@@ -174,8 +186,11 @@ class ApplyDepositToInvoiceService
 
         $open = Invoice::query()
             ->where('lease_id', $lease->id)
-            ->acceptingSettlement()
-            ->where('balance', '>', 0)
+            // `stillOwed()` = accepting settlement AND something left to collect. `balance > 0`
+            // alone selects an invoice written off in full — `apply()` then correctly returns 0.00,
+            // so nothing moved, but the selection said the deposit had arrears to clear when it did
+            // not. One question, one scope, and the same one the arrears reads now use.
+            ->stillOwed()
             ->orderBy('due_date')
             ->orderBy('id')
             ->get();
