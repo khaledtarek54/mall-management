@@ -65,11 +65,43 @@ class LeaseRentChangeService
             // other is how they end up disagreeing. Hold the current rent until it is re-derived.
             $data['base_rent_monthly'] ??= (float) $lease->base_rent_monthly;
 
+            // ── BOTH DERIVATIONS HONOUR THE HOLDOVER PREMIUM (SW-049, EG-40's third door) ────
+            //
+            // This file did the arithmetic inline and the word `holdover` appeared nowhere in it,
+            // so a lease converted to holdover lost its uplift through the ordinary Change Rent
+            // action — and the model hook cannot compensate, because `Lease::saving` deliberately
+            // skips re-derivation when this service states a rent ("must not be second-guessed").
+            //
+            // Rate → rent: the modal PREFILLS the contractual rate and requires it, so even a save
+            // that only meant to change the service charge re-states 4,800 and writes the
+            // contracted rent back. Measured on 250 m² at 4,800/m²/yr under a 150% holdover:
+            // 150,000 → 100,000, a silent 50,000/month drop with nothing on screen to say the
+            // negotiated uplift had gone.
+            //
+            // Rent → rate: `RentEscalationService` keeps holdovers in scope on purpose and passes
+            // the UPLIFTED rent, so the inverse wrote the premium into the contractual rate —
+            // 157,500 gave 7,560/m²/yr where 5,040 is contracted, and every later rate→rent
+            // derivation compounds it.
+            //
+            // Both go through the model's helpers now, which is the only way the two directions
+            // cannot disagree; the inverse is a SECOND method rather than an edit to the shared one
+            // (see `deriveContractedRateFromEffectiveRent()` for why the renewal caller must not
+            // inherit it).
             if (isset($data['base_rent_rate_per_sqm_year']) && $area > 0) {
                 $newRate = round((float) $data['base_rent_rate_per_sqm_year'], 2);
-                $data['base_rent_monthly'] = round($newRate * $area / 12, 2);
+
+                // On the INSTANCE, so the helper reads the rate being set rather than the stored
+                // one — and on a clone, so nothing here can leave a half-applied rent on the model
+                // the caller is holding.
+                $priced = (clone $lease)->forceFill(['base_rent_rate_per_sqm_year' => $newRate])
+                    ->deriveBaseRentFromRate($this->effectiveDate($data));
+
+                $data['base_rent_monthly'] = $priced ?? round($newRate * $area / 12, 2);
             } elseif ($area > 0) {
-                $newRate = round(((float) $data['base_rent_monthly']) * 12 / $area, 2);
+                $newRate = $lease->deriveContractedRateFromEffectiveRent(
+                    (float) $data['base_rent_monthly'],
+                    $this->effectiveDate($data),
+                ) ?? round(((float) $data['base_rent_monthly']) * 12 / $area, 2);
             }
         }
 

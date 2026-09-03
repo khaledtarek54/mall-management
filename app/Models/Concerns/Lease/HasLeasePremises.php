@@ -314,6 +314,41 @@ trait HasLeasePremises
     }
 
     /**
+     * The CONTRACTED rate implied by an EFFECTIVE rent — the premium-aware inverse (SW-049).
+     *
+     * `deriveRateFromBaseRent()` is deliberately NOT taught about the premium, and the reason is
+     * that its two callers pass semantically different rents. `LeaseRenewalService` passes a rent
+     * the parties NEGOTIATED for the new term (EG-39: the deal wins and the rate follows it), and
+     * that figure is already contractual even when the lease it renews is in holdover — stripping
+     * a premium there would divide a freely agreed number by 1.5 and understate every renewal rate
+     * struck off a holdover, which is EG-39's own defect re-created one column along.
+     *
+     * `LeaseRentChangeService` passes the rent the lease is BILLING, which on a converted holdover
+     * carries the uplift. Feeding that to the shared helper wrote the premium INTO the contractual
+     * rate: measured, a 157,500 escalation on a 150% holdover of 250 m² produced 7,560/m²/yr where
+     * 5,040 is the contracted figure — inflated by exactly ×1.5, and every later rate→rent
+     * derivation then compounds it.
+     *
+     * Same inputs and the same rounding order as {@see deriveBaseRentFromRate()}, run backwards, so
+     * a rent set and then re-read comes back to the rate it was derived from. Only from
+     * `holdover_from` — a rent effective before the conversion is still contracted.
+     */
+    public function deriveContractedRateFromEffectiveRent(float $effectiveRent, ?CarbonImmutable $on = null): ?float
+    {
+        $premium = (float) $this->holdover_rate_pct;
+        $asOf = $on ?? CarbonImmutable::now();
+
+        $inHoldover = $this->holdover_from !== null
+            && $premium > 0
+            && ! $asOf->startOfDay()->lt($this->holdover_from->startOfDay());
+
+        return $this->deriveRateFromBaseRent(
+            $inHoldover ? round($effectiveRent * 100 / $premium, 2) : $effectiveRent,
+            $asOf,
+        );
+    }
+
+    /**
      * The lease's total leased area as it stood on a given day (LE-02).
      *
      * Two things vary with the date and both are honoured here: WHICH units the lease held (the

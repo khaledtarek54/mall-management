@@ -179,6 +179,33 @@
 > (premium on the contracted figure, each step rounded), so the two cannot disagree about the same
 > lease. A date before the conversion is still contracted.
 
+> **The SAME defect had a third door, and the two directions were wrong in opposite ways (SW-049,
+> 2026-09-03).** `LeaseSpaceChangeService` was taught the premium in August; `LeaseRentChangeService`
+> was not — it did the arithmetic inline and the word `holdover` appeared nowhere in the file. The
+> model hook cannot compensate: `Lease::saving` deliberately skips re-derivation when this service
+> states a rent, under a comment saying it *"must not be second-guessed"*.
+>
+> **Rate → rent UNDER-CHARGED.** The Change Rent modal PREFILLS the contractual rate and `required()`s
+> it on a rate-priced lease, so even a save that only meant to change the service charge re-states
+> 4,800 and writes the contracted rent back. Measured on 250 m² at 4,800/m²/yr under a 150% holdover:
+> **150,000 → 100,000**, a silent 50,000/month drop, on an edit nobody intended as a rent change.
+>
+> **Rent → rate INFLATED THE CONTRACT.** `RentEscalationService` keeps holdovers in scope on purpose
+> and passes the UPLIFTED rent, so the inverse wrote the premium into the contractual rate — 157,500
+> gave **7,560/m²/yr where 5,040 is contracted**, ×1.5 exactly, and every later rate→rent derivation
+> compounds it.
+>
+> Both now go through the model's helpers, which is the only way the two directions cannot disagree.
+> **The inverse is a SECOND method, not an edit to the shared one** — `deriveRateFromBaseRent()`'s
+> other caller is `LeaseRenewalService`, which passes a rent the parties NEGOTIATED for the new term
+> (EG-39: the deal wins and the rate follows it), and that figure is already contractual even when
+> the lease it renews is holding over. Teaching the shared helper about the premium would divide a
+> freely agreed number by 1.5 and understate every renewal rate struck off a holdover — EG-39's own
+> defect re-created one column along. The two callers pass semantically different rents; that is the
+> whole reason for `deriveContractedRateFromEffectiveRent()`. It honours `holdover_from` in both
+> directions, so a back-dated change into the contracted period carries no premium.
+
+
 > **⚠️ A LEASE THAT OPENS ON TWO SHOPS IS PRICED ON BOTH OF THEM (2026-09-02).**
 > Its sibling above, one step earlier in the lease's life. `Lease::saving` derives
 > `base_rent_monthly` on CREATE through `deriveBaseRentFromRate()`, which reads the `lease_unit`
