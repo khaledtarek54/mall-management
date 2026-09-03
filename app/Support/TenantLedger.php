@@ -21,7 +21,7 @@ use Illuminate\Support\Collection;
  * with nothing netting them and no order between them. An operator on a collections call had to
  * hold both in their head.
  *
- * Yardi answers it with a tenant ledger, and this is that: charge and credit interleaved by date,
+ * Yardi answers it with a tenant ledger, and this is that: debit and credit interleaved by date,
  * each line naming its own document.
  *
  * **Nothing here is stored.** Every row is derived from the documents themselves, and the closing
@@ -31,7 +31,7 @@ use Illuminate\Support\Collection;
  *
  * ## What counts as a movement
  *
- * A charge is an ISSUED invoice; the four settlement channels are what reduce it. Cancelled,
+ * A debit is an ISSUED invoice; the four settlement channels are what reduce it. Cancelled,
  * credited and written-off invoices are excluded — they claim nothing, so a ledger that listed them
  * would show a debt the tenant does not have. A DRAFT invoice is excluded for the harder reason:
  * it is not a document yet, and the tenant has never seen it.
@@ -40,7 +40,7 @@ class TenantLedger
 {
     /**
      * @param  array<int>|null  $visibleAssetIds  restrict to these properties (admin surface)
-     * @return Collection<int, array{date: CarbonInterface, type: string, reference: string, description: string, charge: float, credit: float, balance: float, url: ?string}>
+     * @return Collection<int, array{date: CarbonInterface, type: string, reference: string, description: string, debit: float, credit: float, balance: float, url: ?string}>
      */
     public static function for(Tenant $tenant, ?array $visibleAssetIds = null): Collection
     {
@@ -58,7 +58,7 @@ class TenantLedger
                 'type' => 'invoice',
                 'reference' => $invoice->number,
                 'description' => $invoice->periodLabel(),
-                'charge' => round((float) $invoice->total, 2),
+                'debit' => round((float) $invoice->total, 2),
                 'credit' => 0.0,
                 'model' => $invoice,
             ]);
@@ -86,7 +86,7 @@ class TenantLedger
                     'type' => 'payment',
                     'reference' => $payment->reference ?? '',
                     'description' => PaymentMethod::labelFor($payment->method),
-                    'charge' => 0.0,
+                    'debit' => 0.0,
                     'credit' => $allocated,
                     'model' => $payment,
                 ]);
@@ -108,7 +108,7 @@ class TenantLedger
                 'type' => 'credit_note',
                 'reference' => $note->number ?? '',
                 'description' => $note->reason ? __('admin.enums.credit_note_reason.'.$note->reason, [], app()->getLocale()) : '',
-                'charge' => 0.0,
+                'debit' => 0.0,
                 'credit' => round((float) $note->applied_amount, 2),
                 'model' => $note,
             ]));
@@ -124,7 +124,7 @@ class TenantLedger
                 'type' => 'tenant_credit',
                 'reference' => '',
                 'description' => __('admin.ledger.from_tenant_credit'),
-                'charge' => 0.0,
+                'debit' => 0.0,
                 'credit' => round((float) $application->amount, 2),
                 'model' => null,
             ]));
@@ -137,24 +137,24 @@ class TenantLedger
                 'type' => 'deposit',
                 'reference' => '',
                 'description' => __('admin.ledger.from_deposit'),
-                'charge' => 0.0,
+                'debit' => 0.0,
                 'credit' => round((float) $application->amount, 2),
                 'model' => null,
             ]));
 
         // Oldest first, because a running balance only reads in one direction. Ties break on the
-        // charge: an invoice raised and settled the same day must show the debt before the payment,
+        // debit: an invoice raised and settled the same day must show the debt before the payment,
         // or the balance dips negative on the way to the same answer.
         $balance = 0.0;
 
         return $rows
             ->sortBy([
                 fn (array $a, array $b) => ($a['date'] ?? null) <=> ($b['date'] ?? null),
-                fn (array $a, array $b) => $b['charge'] <=> $a['charge'],
+                fn (array $a, array $b) => $b['debit'] <=> $a['debit'],
             ])
             ->values()
             ->map(function (array $row) use (&$balance) {
-                $balance = round($balance + $row['charge'] - $row['credit'], 2);
+                $balance = round($balance + $row['debit'] - $row['credit'], 2);
                 $row['balance'] = $balance;
 
                 return $row;

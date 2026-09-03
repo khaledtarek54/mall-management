@@ -514,7 +514,7 @@ return [
     ],
     'ledger' => [
         'title' => 'Ledger',
-        'charge' => 'Charge',
+        'debit' => 'Debit',
         'credit' => 'Credit',
         'balance' => 'Balance',
         'from_deposit' => 'Netted from the security deposit',

@@ -59,8 +59,8 @@ class TenantLedgerRelationManager extends RelationManager
                     ->label(__('admin.fields.description'))
                     ->placeholder('—')
                     ->wrap(),
-                TextColumn::make('charge')
-                    ->label(__('admin.ledger.charge'))
+                TextColumn::make('debit')
+                    ->label(__('admin.ledger.debit'))
                     ->money('EGP')
                     ->alignRight()
                     ->placeholder('')

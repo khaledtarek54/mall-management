@@ -505,7 +505,7 @@ return [
     ],
     'ledger' => [
         'title' => 'كشف الحساب',
-        'charge' => 'مدين',
+        'debit' => 'مدين',
         'credit' => 'دائن',
         'balance' => 'الرصيد',
         'from_deposit' => 'خُصم من التأمين',

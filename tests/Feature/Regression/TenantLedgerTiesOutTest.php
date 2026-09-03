@@ -91,13 +91,13 @@ it('nets all four settlement channels, not just cash', function () {
         ->toBe(round((float) $invoice->fresh()->balance, 2));
 });
 
-it('runs oldest first, and shows a charge before a settlement made the same day', function () {
+it('runs oldest first, and shows a debit before a settlement made the same day', function () {
     $invoice = ledgerInvoice($this, 50000, '2026-03-01');
     ledgerPayment($this, $invoice, 50000, '2026-03-01');
 
     $rows = TenantLedger::for($this->tenant);
 
-    // Same-day tie broken on the charge: the other order dips the balance negative on its way to
+    // Same-day tie broken on the debit: the other order dips the balance negative on its way to
     // the same answer, which reads as an error to anyone scanning the column.
     expect($rows->first()['type'])->toBe('invoice')
         ->and($rows->first()['balance'])->toBe(50000.0)

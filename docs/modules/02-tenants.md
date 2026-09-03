@@ -139,7 +139,7 @@ because it looks authoritative.
 Rules worth knowing: it nets **all four settlement channels**, not just cash (omitting one would
 still list movements and quietly stop tying out); a payment contributes only the part **allocated to
 this tenant's invoices**; `draft` and `cancelled` invoices are excluded — one is not a document the
-tenant has seen, the other claims nothing; and a same-day tie breaks on the CHARGE, because the
+tenant has seen, the other claims nothing; and a same-day tie breaks on the DEBIT, because the
 other order dips the balance negative on its way to the same answer and reads as an error.
 
 ---
