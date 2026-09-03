@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Notifications\InvoiceIssuedNotification;
 use App\Support\OpsLog;
@@ -344,6 +345,28 @@ class MonthlyBillingService
      *
      * @return array{0: CarbonImmutable, 1: CarbonImmutable}
      */
+    /**
+     * The latest service month already billed for this charge, or null if nothing recorded one.
+     *
+     * Reads `invoice_items.covered_end`, so it can only see lines the run wrote after the
+     * 2026-09-03 migration — which is exactly right: a null is *not recorded*, and treating it as
+     * *covers nothing* is what keeps every historical invoice meaning what it meant.
+     *
+     * Documents that left the books are excluded. A cancelled or fully credited invoice billed
+     * nobody for anything, so the month it covered is owed again — the same partition
+     * `InvoiceSettlement` draws for money arriving, asked here about months.
+     */
+    private static function lastCoveredEndFor(Charge $charge): ?CarbonImmutable
+    {
+        $end = InvoiceItem::query()
+            ->where('charge_id', $charge->id)
+            ->whereNotNull('covered_end')
+            ->whereHas('invoice', fn ($q) => $q->whereNotIn('status', ['draft', 'cancelled', 'credited']))
+            ->max('covered_end');
+
+        return $end === null ? null : CarbonImmutable::parse($end)->startOfDay();
+    }
+
     public static function coveredWindow(
         Charge $charge,
         CarbonImmutable $periodStart,
@@ -665,6 +688,41 @@ class MonthlyBillingService
             // arrears row (EG-30 / M-2).
             [$coveredStart, $coveredEnd] = self::coveredWindow($charge, $periodStart, $periodEnd, $fullCycleMonths, $isFinalCycle);
 
+            // ── A MONTH IS BILLED ONCE, and `isFinalCycle` is a PREDICTION the lease can falsify ──
+            //
+            // The final cycle settles its own month too, because no later invoice will exist. Then
+            // the lease continues — converted to holdover, or simply extended — and the next run
+            // computes `isFinalCycle = false`, so an arrears row shifts its window back a cycle
+            // onto the month the final invoice already settled. Measured: a lease expiring 31 Aug
+            // with a 20,000/month arrears service charge bills Jul–Aug on the August invoice
+            // (40,000) and Aug AGAIN on the September one — 22,800 gross billed twice, outbound,
+            // and individually plausible on both documents.
+            //
+            // Nothing caught it because `alreadyBilledForMonth()` compares the INVOICES' periods
+            // (Aug 1–31 against Sep 1–30 — no overlap). The right question is which months the
+            // LINES covered, which is now a column rather than prose.
+            //
+            // Clamped rather than refused: the overlap is a prefix, so trimming bills the part that
+            // is genuinely new and drops the part already settled. Null `covered_end` (every row
+            // written before the migration) yields no clamp, so nothing an install has already
+            // billed is reinterpreted.
+            $alreadyCovered = self::lastCoveredEndFor($charge);
+
+            if ($alreadyCovered !== null && ! $coveredStart->greaterThan($alreadyCovered)) {
+                $resumeFrom = $alreadyCovered->addDay()->startOfDay();
+
+                // Wholly covered already — this row has nothing left to bill this cycle. Say so
+                // here rather than letting an inverted window fall through: measured, the line is
+                // dropped downstream anyway (the multiplier zeroes it), so no mutation can turn
+                // this red today and it should not be read as covered. It earns its place by not
+                // computing a negative `$coveredMonths` in the first place.
+                if ($resumeFrom->greaterThan($coveredEnd)) {
+                    return null;
+                }
+
+                $coveredStart = $resumeFrom;
+            }
+
             // Driven by the COVERED window, not by `$cycleMonths` — on a final invoice an arrears
             // row spans two months while the cycle is still one, and branching on the cycle printed
             // "July 2026" over a line that was billing July AND August.
@@ -771,6 +829,12 @@ class MonthlyBillingService
 
             return [
                 'charge_id' => $charge->id,
+                // The window this row COVERS, recorded rather than inferred — the fact the planner
+                // has always computed and always thrown away. `alreadyBilledForMonth()` keys on the
+                // INVOICE's period, which is a different question, and the day the two diverge is
+                // the day a lease continues past a final settle.
+                'covered_start' => $coveredStart->toDateString(),
+                'covered_end' => $coveredEnd->toDateString(),
                 'description' => $label,
                 'type' => $charge->type,
                 'amount' => $amount,

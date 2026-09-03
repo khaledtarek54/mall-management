@@ -18,6 +18,10 @@ class InvoiceItem extends Model
     protected $fillable = [
         'invoice_id',
         'charge_id',
+        // The service months this line paid for — see the 2026-09-03 migration. Null on every row
+        // written before it, meaning NOT RECORDED rather than covers-nothing.
+        'covered_start',
+        'covered_end',
         'description',
         'type',
         'tax_code',
@@ -32,6 +36,8 @@ class InvoiceItem extends Model
     ];
 
     protected $casts = [
+        'covered_start' => 'date',
+        'covered_end' => 'date',
         'amount' => 'decimal:2',
         'vat_rate' => 'decimal:2',
         'vat_amount' => 'decimal:2',

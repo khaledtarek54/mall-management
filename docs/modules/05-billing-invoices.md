@@ -1101,6 +1101,33 @@ public function runForPeriod(?CarbonImmutable $period = null): array
     blank = advance) and an `ImportColumn` on `ChargeImporter`, because settable-in-the-UI-only is
     the gap a migrating operator falls into — they arrive with a spreadsheet of charges, half billed
     in arrears by their previous system, and can express none of it.
+  - **A MONTH IS BILLED ONCE, and the covered window is a COLUMN (SW-051, 2026-09-03).**
+    `$isFinalCycle` is a PREDICTION — *"no later invoice will exist"* — and the lease can falsify it.
+    Convert to holdover, or simply move `expiry_date` forward, and the next run computes it as false,
+    so an arrears row shifts its window back a cycle onto the month the final invoice already
+    settled. Measured on a lease expiring 31 August with a 20,000/month arrears service charge:
+    August's invoice covers Jul–Aug (40,000) and September's covers August AGAIN — 22,800 gross
+    billed twice, outbound, and individually plausible on both documents ("Jul-Aug 2026", then
+    "Aug 2026"). The EXTENSION path is the likelier of the two: no holdover, no expired lease, no
+    card, just an operator moving the date.
+
+    Nothing caught it because `alreadyBilledForMonth()` compares the INVOICES' own periods (Aug 1–31
+    against Sep 1–30 — no overlap), and the covered window was **stored nowhere at all**: the planner
+    computed it, priced from it, labelled from it, and threw it away, leaving it as English inside
+    `description`. `invoice_items.covered_start` / `covered_end` are that fact, and the planner
+    clamps each row's window forward past whatever is already recorded for that charge.
+
+    Three things to keep right. **Null means NOT RECORDED**, not covers-nothing — every row written
+    before the migration — so no historical invoice is reinterpreted; a backfill was refused because
+    the honest source for a legacy row is prose, and guessing the period from the invoice would be
+    right for advance rows and wrong for exactly the arrears rows this protects, which could SUPPRESS
+    a real bill. **It CLAMPS rather than refuses**: the overlap is a prefix, so the row bills what is
+    genuinely new and drops what was settled — and when nothing is left it bills nothing at all,
+    which is the arrears design rather than a missed month (September's own service is not knowable
+    until October, and October picks it up on schedule). **Documents that left the books are
+    excluded** from the lookup: a cancelled or fully credited invoice billed nobody, so the month it
+    covered is owed again.
+
   - **Known limitation: a TERMINATED lease loses its final month's arrears.**
     `LeaseTerminationService` writes `expiry_date = terminationDate`, so `$isFinalCycle` is
     satisfied — but the lease then goes `status = 'terminated'` and `Lease::scopeBillableForPeriod()`
