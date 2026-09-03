@@ -101,8 +101,14 @@ class ActionRequired extends Widget
             ? FacilityWorkOrder::whereIn('asset_id', $assetIds)
             : FacilityWorkOrder::query();
 
-        $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();
-        $overdueAmount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->sum('balance');
+        // `stillOwed()`, not `balance > 0`. The raw balance answers neither half of the question:
+        // it counts a DRAFT nobody issued and a WRITTEN-OFF debt the operator forgave, and it quotes
+        // a partially written-off invoice at its full figure. This card is where an operator starts
+        // their morning, and it deep-links into the AR report — which reads the same scope now, so
+        // the two cannot show different arrears.
+        $overdueCount = $invoiceBase()->stillOwed()->where('due_date', '<', $now)->count();
+        $overdueAmount = $invoiceBase()->stillOwed()->where('due_date', '<', $now)
+            ->with('writeOffs')->get()->sum(fn (Invoice $i): float => $i->collectableBalance());
 
         // Holdover: active leases PAST their end date whose billing has silently stopped, so
         // surface it prominently. `holdoverNeedingAction()`, not `holdover()`: once an operator has

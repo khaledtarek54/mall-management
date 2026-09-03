@@ -203,7 +203,9 @@ class InvoicesTable
                     }),
                 Filter::make('overdue_only')
                     ->label(__('admin.filters.overdue_only'))
-                    ->query(fn ($query) => $query->where('balance', '>', 0)->where('due_date', '<', now())),
+                    // The same definition as the sidebar badge and the dashboard card — a filter
+                    // that returns more rows than the badge counts reads as a broken badge.
+                    ->query(fn ($query) => $query->stillOwed()->where('due_date', '<', now())),
                 // ETA compliance filters. The dashboard EtaCompliance widget
                 // tiles deep-link into these so each tile lands on a real,
                 // filtered list rather than the unfiltered one (audit M08

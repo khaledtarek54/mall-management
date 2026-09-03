@@ -88,7 +88,8 @@ class LeaseInvoicesRelationManager extends RelationManager
                         ->when($data['period_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '<=', $date))),
                 Filter::make('unpaid_only')
                     ->label(__('admin.filters.overdue_only'))
-                    ->query(fn (Builder $query) => $query->where('balance', '>', 0)),
+                    // Still OWED, not merely carrying a balance — see the tenant twin.
+                    ->query(fn (Builder $query) => $query->stillOwed()),
             ])
             ->filtersFormColumns(2)
             ->headerActions([])

@@ -99,8 +99,10 @@ class InvoiceResource extends Resource
         // on the invoice's OWN asset_id — which is what makes an owner assessment (lease_id NULL)
         // count here at all; the old lease.unit chain silently excluded every one of them. The
         // "All Properties" pseudo-asset bypasses scoping and returns the portfolio-wide count.
+        // `stillOwed()`: the badge must count what the "Overdue only" filter shows and what the
+        // dashboard card says, and `balance > 0` alone counts drafts and written-off debts.
         $overdue = static::getEloquentQuery()
-            ->where('balance', '>', 0)
+            ->stillOwed()
             ->where('due_date', '<', now())
             ->count();
 

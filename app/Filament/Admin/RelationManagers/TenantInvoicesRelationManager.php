@@ -97,7 +97,9 @@ class TenantInvoicesRelationManager extends RelationManager
                     ->options(fn () => __('admin.statuses.invoice')),
                 Filter::make('outstanding')
                     ->label(__('admin.tenant_invoices.outstanding_only'))
-                    ->query(fn (Builder $query): Builder => $query->where('balance', '>', 0))
+                    // Still OWED, not merely carrying a balance: a write-off leaves the balance
+                    // standing by design, so the raw column shows forgiven money as outstanding.
+                    ->query(fn (Builder $query): Builder => $query->stillOwed())
                     ->toggle(),
             ])
             ->recordActions([

@@ -385,15 +385,23 @@ class ReportService
                 $buckets = array_fill_keys(array_keys(AgingBuckets::all()), 0.0);
                 $oldest = 0;
 
+                // COLLECTABLE, not the raw balance. `openInvoicesAsOf()` selects what is still
+                // OWED; these two lines then quoted it at what was BILLED. A write-off is not a
+                // settlement channel, so it deliberately leaves `balance` standing — which means
+                // the collections worklist chased, and the aging buckets reported, money the
+                // operator had already forgiven and the bad-debt entry had already relieved. The
+                // selection was fixed at the chokepoint and the amount was not.
                 foreach ($invoices as $invoice) {
-                    $buckets[self::agingBucketKey($invoice, $asOf)] += (float) $invoice->balance;
+                    $buckets[self::agingBucketKey($invoice, $asOf)] += $invoice->collectableBalance();
                     $oldest = max($oldest, self::daysOverdue($invoice, $asOf));
                 }
 
                 return [
                     'tenant_id' => (int) $tenantId,
                     'tenant' => $invoices->first()->tenant,
-                    'total' => round((float) $invoices->sum('balance'), 2),
+                    'total' => round((float) $invoices->sum(
+                        fn (Invoice $invoice): float => $invoice->collectableBalance()
+                    ), 2),
                     'buckets' => array_map(fn (float $v) => round($v, 2), $buckets),
                     'invoice_count' => $invoices->count(),
                     'oldest_days' => $oldest,

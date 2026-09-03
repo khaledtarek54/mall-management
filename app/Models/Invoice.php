@@ -486,7 +486,10 @@ class Invoice extends Model
         // `$table` because the string names its own columns: Laravel aliases a self-relation's inner
         // table (`whereHas('lateFeeInvoice', …)` becomes `laravel_reserved_0`), and a hardcoded
         // `invoices.` then silently binds to the OUTER row — valid SQL, no error, wrong answer. The
-        // scope below passes the query's own table, so the common path cannot get it wrong.
+        // scope below passes the query's own table, which is why it takes the ALIAS off it: Laravel
+        // stores the whole `invoices as laravel_reserved_0` expression in `from`, so passing it raw
+        // built `invoices as laravel_reserved_0.balance - …` — a syntax error on both drivers, and
+        // one the claim that used to sit here (*"the common path cannot get it wrong"*) denied.
         $net = $table.'.balance - COALESCE((select sum(amount) from invoice_write_offs '
             .'where invoice_write_offs.invoice_id = '.$table.'.id and invoice_write_offs.deleted_at is null), 0)';
 
@@ -496,7 +499,26 @@ class Invoice extends Model
     /** Invoices with something still collectable on them — the query half. */
     public function scopeWhereCollectable(Builder $query): Builder
     {
-        return $query->whereRaw(self::collectableBalanceSql($query->getQuery()->from).' > 0');
+        return $query->whereRaw(self::collectableBalanceSql(self::qualifierFor($query)).' > 0');
+    }
+
+    /**
+     * What a raw expression on this query must prefix its columns with.
+     *
+     * `$query->getQuery()->from` is the whole FROM expression, alias and all — for a self-relation
+     * Laravel writes `invoices as laravel_reserved_0`, and concatenating that in front of
+     * `.balance` yields SQL neither driver will parse. The ALIAS is the correct qualifier there,
+     * and the table name everywhere else.
+     */
+    private static function qualifierFor(Builder $query): string
+    {
+        $from = $query->getQuery()->from;
+
+        if (! is_string($from)) {
+            return (new static)->getTable();
+        }
+
+        return preg_split('/\s+as\s+/i', trim($from))[1] ?? $from;
     }
 
     /**
