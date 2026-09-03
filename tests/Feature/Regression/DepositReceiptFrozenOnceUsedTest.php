@@ -119,3 +119,55 @@ it('treats a refund as a use too, so the receipt behind it cannot shrink', funct
     expect(fn () => $this->receipt->fresh()->update(['amount' => 1000]))
         ->toThrow(DomainException::class);
 });
+
+it('refuses to turn a used receipt into a refund — the door the freeze read past', function () {
+    // **SW-017.** The guard asked `$deposit->type === 'receipt'`, which is the value being SAVED. So
+    // flipping the type walked straight past a freeze whose own dirty list names `type` — and it is
+    // the worst way through, because the row stops being a receipt AND takes its money out of the
+    // pot at the same time.
+    // **A SECOND receipt, so the pot stays positive after the flip.** Without it the over-refund cap
+    // refuses first and this case proves nothing about the freeze — the trap this codebase records
+    // for a lock spy seeing another service's lock. With 50,000 also on the pot, flipping the drawn-
+    // on 10,000 receipt to a refund leaves 50,000 − 10,000 − 8,000 = 32,000, which the cap is
+    // perfectly happy with. Only the freeze can refuse it.
+    DepositTransaction::create([
+        'lease_id' => $this->lease->id,
+        'tenant_id' => $this->lease->tenant_id,
+        'asset_id' => $this->lease->unit?->asset_id,
+        'type' => 'receipt',
+        'amount' => 50000,
+        'transaction_date' => now()->toDateString(),
+        'status' => 'recorded',
+    ]);
+
+    app(ApplyDepositToInvoiceService::class)->apply($this->lease, depInvoice(8000));
+
+    expect(round(app(MoveOutStatementService::class)->depositHeld($this->lease->fresh()), 2))->toBe(52000.0);
+
+    // Measured before: accepted, and the pot fell by the receipt twice over — the money left it as a
+    // receipt and left again as a refund, against arrears already settled with it.
+    expect(fn () => $this->receipt->fresh()->update(['type' => 'refund']))
+        ->toThrow(DomainException::class);
+
+    expect($this->receipt->fresh()->type)->toBe('receipt')
+        ->and(round(app(MoveOutStatementService::class)->depositHeld($this->lease->fresh()), 2))->toBe(52000.0);
+});
+
+it('refuses the other direction too, while the pot is depended on', function () {
+    // Either way round changes what the pot is made of while something already rests on it. Asked of
+    // what the row WAS or IS, so neither edit can slip through on the value the other side reads.
+    $refund = DepositTransaction::create([
+        'lease_id' => $this->lease->id,
+        'tenant_id' => $this->lease->tenant_id,
+        'asset_id' => $this->lease->unit?->asset_id,
+        'type' => 'refund',
+        'amount' => 500,
+        'transaction_date' => now()->toDateString(),
+        'status' => 'recorded',
+    ]);
+
+    app(ApplyDepositToInvoiceService::class)->apply($this->lease, depInvoice(8000));
+
+    expect(fn () => $refund->fresh()->update(['type' => 'receipt']))
+        ->toThrow(DomainException::class);
+});

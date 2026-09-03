@@ -689,6 +689,18 @@ against the tenant it actually belongs to. Amount / lease / tenant / property / 
 freeze; `notes` stays editable. An UNUSED receipt stays fully correctable, the same rule as the عهدة
 in module 25. Tests: `DepositReceiptFrozenOnceUsedTest`.
 
+**The guard asked the wrong copy of `type` (SW-017, 2026-09-03).** `$deposit->type` is the value being
+SAVED, so flipping a drawn-on receipt to `refund` or `forfeit` made the condition false and walked
+straight past a freeze whose own dirty list names `type`. It is the worst way through it: the row
+stops being a receipt AND takes its money out of the pot in one edit. Asked of
+`getOriginal('type')` **or** the new value now, so neither direction can slip through on the value
+the other side reads.
+
+*Isolating that in a test took a second receipt on the pot.* With only the drawn-on one, the flip
+drives the pot negative and the over-refund CAP refuses first — so the case passes without the freeze
+existing at all, which is exactly what the mutation run showed. A 50,000 receipt beside it keeps the
+pot positive after the flip, and then only the freeze can refuse.
+
 ### AR Reconciliation
 
 6. **Paid amount is the sum of two sources:**

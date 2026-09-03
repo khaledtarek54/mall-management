@@ -291,8 +291,19 @@ class DepositTransaction extends Model
             // Frozen only once something DEPENDS on it — a receipt keyed wrongly must stay fixable
             // until then, the same rule as the عهدة in module 25. `notes` carries no money and no
             // dimension, so it stays editable. (Deposits close-out, 2026-08-11.)
+            // **Asked of what the row WAS as well as what it is becoming (SW-017).** Reading
+            // `$deposit->type` alone reads the value being SAVED — so flipping a drawn-on receipt to
+            // `refund` or `forfeit` made the condition false and walked straight past a freeze whose
+            // own dirty list names `type`. That is the worst way through it: the row stops being a
+            // receipt AND takes its money out of the pot, so a 10,000 receipt already netted 8,000
+            // against arrears becomes a 10,000 refund and `depositHeld()` reads −18,000.
+            //
+            // Either direction refuses, because both change what the pot is made of while something
+            // already depends on it.
+            $wasOrIsReceipt = $deposit->getOriginal('type') === 'receipt' || $deposit->type === 'receipt';
+
             if ($deposit->exists
-                && $deposit->type === 'receipt'
+                && $wasOrIsReceipt
                 && $deposit->isDirty(['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type', 'status'])
                 && $deposit->hasBeenDrawnOn()) {
                 throw new \DomainException(__('admin.deposits.errors.receipt_in_use'));
