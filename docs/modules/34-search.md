@@ -370,3 +370,15 @@ relation name each fail the specific assertion that claims to cover them.
 - **`TenantScope::selectableTenantOptions()` was deleted 2026-08-17**, once every tenant picker moved to `EntitySelect`. It was the third of the three divergent tenant scopes and the one that leaked (`orWhereDoesntHave('leases')` offered a tenant who owned a unit in another mall to every property). `selectableAssetOptions()` REMAINS and is still correct — the ledger reports use it for the asset DIMENSION, which is a posting concept rather than a place.
 - `ViolationResource::$recordTitleAttribute` is still `reference`, an accessor. That is safe **because** the
   searchable attributes are explicit — it is used for display only. Do not "simplify" it back into a search key.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-129
+
+**A search hit's DETAILS are rendered, not dumped (SW-129, 2026-09-04).** `getGlobalSearchResultDetails()` is the context under a hit, and two of the panel's 23 overrides printed a live `IsCodeCatalogue` code raw while the list beside them formatted the identical column through `labelFor()` — `ViolationResource` (`violations.category`) and `ExpenseResource` (`expenses.category`), both catalogue-widened columns in `ValueSets::CATALOGUE_WIDENED`. That matters beyond tidiness: a rule or cost type the operator ADDED has no lang key at all, so the bar printed `unauthorized_works` beside a register reading \"Unauthorised works\", and a rename reached every screen except this one. Both now resolve through the catalogue, which reads INACTIVE rows on purpose so a retired code still labels the record carrying it, and answers an em dash for null. Two of the remaining `$record->category` details — work orders and equipment — read a column the trade migration DROPPED (neither table has one), so they render a permanently blank row; that is SW-076 and is deliberately not touched here.

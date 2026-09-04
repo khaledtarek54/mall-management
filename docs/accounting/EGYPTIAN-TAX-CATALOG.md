@@ -171,3 +171,22 @@ schedule tax *available* to the accountant; it does not decide that anything is 
 That decision is theirs, and it is the one thing here that software must not guess.
 
 Pinned by `TaxPostsToItsOwnAccountTest`.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-122
+
+append a subsection after **Commissioning stamp and schedule tax (2026-08-19)** (line 133):
+
+### Retiring a code must not brick the records that name it (SW-122, 2026-09-03)
+
+Deactivating is the documented way to retire a tax code — `#[DeletableWhenUnused]` says so in as many words, because every document that carries the code reads its label. It was also, until this change, a way to make every record naming that code unsavable. `TaxCode::options()` is `->active()`-scoped, which is right; but Filament derives a `Select`'s `Rule::in` by LABELLING the stored value (`Select::getInValidationRuleValues()` → `getOptionLabel(withDefault: false)`), and an unlabellable value compiles to `Rule::in([])`, which refuses every value — so the whole form is refused on a field the operator never touched, with nothing on screen to say why. `tax_code` is a `string(32)` on six tables (`charge_codes`, `expenses`, `vendor_bills`, `recurring_expenses`, `invoice_items`, `credit_note_items`) plus `vendors.withholding_tax_code`, and nine pickers feed all of them from `TaxCode::options()`, so retiring one superseded VAT or stamp code bricked the edit form of every charge code, expense, supplier bill, recurring schedule, draft invoice line and credit-note line pointing at it. `App\Support\Filament\CatalogueAwareSelect` — the container binding that already solved this for the sixteen `ValueSets`-widened columns — now consults a second source keyed by COLUMN NAME, because the tax catalogue is deliberately outside `ValueSets` (the rate belongs to the tax, the ruling belongs to the charge code) and nothing there could answer for it. It appends the STORED value only, never the submitted one, and only on a SAVED record: a create form must still refuse a code the accountant has retired, and a crafted payload must still be refused on an existing one. **Still open and deliberately not covered:** the Settings screen's `tax.wht_default_tax_code` (SW-095) — a dotted field name on a page with no record, which no record-keyed carve-out can reach.
+
+Also note for whoever closes the sweep row: the VIOLATION half of SW-122 was already fixed by `bae3a170` and is covered by `ARetiredCodeDoesNotFreezeItsRecordsTest`; only the tax-code half was live.
+

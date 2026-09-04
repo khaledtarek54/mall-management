@@ -254,3 +254,25 @@ Create/Edit/View pages and the crafted-payload case.
 
 Related: [18 · RBAC & scoping](18-rbac-scoping.md) (activity log vocabulary) · [34 · Search](34-search.md)
 (why definitions are exempt) · [02 · Tenants](02-tenants.md) (the record type most often extended).
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-118
+
+append to `## 8. Gotchas`:
+
+**A duplicate key was a 500, and the switched-off case could not be explained (SW-118, fixed 2026-09-04).** The table has carried `unique(['model', 'key'])` since it was created — the key is the ADDRESS of every value already recorded under it — and, measured at HEAD 2026-09-04, nothing above the database asked: `CustomFieldForm`'s key field carried `required`, `maxLength(64)` and the shape regex and **no uniqueness rule**, and `CustomField::booted()` checked the key's SHAPE and its immutability and never whether it was taken. So adding a second `parent_group` to Tenants — the example this doc opens with — came back as a raw duplicate-key `QueryException`, i.e. the 500 page, on an ordinary create. The precedent was two files away and unfollowed: `TenantRequestSubcategoryForm` and `DocumentTemplateForm` both guard their own composite unique index at the form, the latter under the comment *"refused here so the operator gets a field error instead of a duplicate-key 500"*. Two layers now, ONE wording: `CustomField::keyConflictRefusal()` returns the refusal KEY plus its replacements, so the form's field rule (`$fail(__(...))` — inline, keeping everything else the operator typed, where a `DomainException` redirects back and loses the form) and the model's `saving` guard (the gate an import, the console or a crafted payload meets — `model` is disabled on the form and still **dehydrated**, so a payload can MOVE a definition onto a taken pair) cannot word it differently. **The refusal branches on the existing field's state, because the ESCAPE does**: while it is live the answer is "give this one a different key"; once it has been switched off the answer is "turn that one back on", since every answer already recorded sits under that key and a duplicate could never read them. The check is `isDirty(['model', 'key'])`, so a rename, a reorder or a deactivation costs no query, and the index stays the backstop for the race neither guard can close. (`ACustomFieldKeyIsTakenOrItIsFreeTest`, three teeth mutation-proved.)
+
+
+### SW-123
+
+§4 already claims this; append to that section rather than restating it:
+
+That sentence was true of `key` and not of `model` until 2026-09-04 (SW-123). The form disabled both — and both are `->dehydrated()`, so the value still arrives in the Livewire payload, which is why the model is the gate and the form is the UI half. The compounding failure is what makes it worth naming: `deletionBlockers()` counts records of the model the row NOW points at, so re-pointing `tenant` → `lease` both stranded every tenant answer AND emptied the blocker list, turning a recoverable mistake into a deletable definition and permanent orphaning — the one act `#[DeletableWhenUnused]` is on this model to prevent. `CustomField::saving()` refuses `isDirty('model')` on an existing row, and the refusal names the escape: define the field on the other record type and switch this one off, which keeps both sets of answers labelled.
+

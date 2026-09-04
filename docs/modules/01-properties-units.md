@@ -645,3 +645,16 @@ button reappears on a money record.
 |---|---|---|
 | `Unit` | **Only while unreferenced** — blocked by `allLeases`, `maintenanceRequests`, `utilityMeters` | set the unit to maintenance if it is out of service — a unit that has been leased is part of the property record |
 | `Asset` | **Only while unreferenced** — blocked by `units`, `leases`, `camPools`, `utilityMeters`, `owners`, `journalEntries`, `expenses`, `vendorBills`, `payrolls`, `disbursements`, `maintenancePenalties`, `depositTransactions`, `postDatedCheques`, `employees`, `fixedAssets`, `marketingBudgets`, `violations` | deactivate the property — deleting one would orphan (or cascade-destroy) every book, payroll, register and penalty that reports on it |
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-127
+
+**A property cannot let more space than it has (2026-09-04).** `total_area_sqm` (gross building area) and `leasable_area_sqm` (GLA) are a LOAD FACTOR, and the form took them as two unrelated numbers with only `minValue(0)` between them. Measured: 800 gross against 1,000 leasable saved without complaint, and `Asset::leasableEfficiencyPct()` — the figure the properties table prints beside them, under a docblock saying a number far outside the normal range means one of the two is wrong — returned **125%**. The money reading is `CamReconciliationService`, which takes the declared leasable area as the GLA denominator of the whole recovery, so an inflated one shrinks every tenant's share and the mall silently under-recovers its common costs. One closure on BOTH fields, because either one can be the one that moves — guarding only the leasable side leaves the gross area freely editable downward, which is the same mistake through the other door. **Blank is NOT zero:** both columns are optional and a mall that has only ever recorded its GLA is the ordinary case (`leasableEfficiencyPct()` returns null rather than 0% for exactly that), so the rule stands down unless both figures are stated — which is also why it is not Filament's own `->lte('total_area_sqm')`: that resolves the state path correctly, but Laravel's `lte` against a NULL sibling falls through to `isSameType()` and would refuse every unmeasured property. The form is the only door; there is no Asset importer. Pinned by `APropertyCannotLetMoreThanItHasTest` through the real create and edit pages.
+

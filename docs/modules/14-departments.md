@@ -279,3 +279,18 @@ button reappears on a money record.
 | Model | Rule | Instead / why |
 |---|---|---|
 | `Department` | **Only while unreferenced** — blocked by `members` | move its members first, then delete the empty department |
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-108
+
+
+### A derived slug never lands on an existing role
+A department's slug IS its access-role name, and `Department::booted()` mints that role with the department — deliberately with no permissions, because membership grants the department SCOPE MARKER and what the role may do stays an act on the roles screen. Until 2026-09-04 the slug was deduped against DEPARTMENTS only, so a department the operator named "Manager" took the slug `manager` and `Role::findOrCreate()` FOUND the functional role instead of minting an empty one: attaching a member ran `assignRole('manager')` — 225 permissions on the QA books, and a role `UserResource::PROTECTED_ROLES` refuses to let a non-super_admin grant on the user form — while DETACHING ran `removeRole('manager')` and stripped the real role from an account that held it in its own right, silently. `Str::slug()` reaches six seeded roles this way (Manager, Viewer, Owner, Technician, Coordinator, Vendor); the underscore names, `super_admin` and `customer_service`, slug to `super-admin`/`customer-service` and cannot be hit. The loop now also asks the roles TABLE — never a list of role names, so the operator's own custom roles are covered by the same clause — and it does so only outside `Department::ADOPTABLE_ROLES`, the five seeded core departments whose role reuse is the documented intent. A caller that STATES a slug keeps it, which is why `DepartmentSeeder` (it passes `slug` in its `updateOrCreate` key) is untouched. `ADepartmentNeverAdoptsAFunctionalRoleTest` holds both directions and fails when `ADOPTABLE_ROLES` and the seeder drift apart.
+

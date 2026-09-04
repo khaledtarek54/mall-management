@@ -596,3 +596,16 @@ which is what a person can act on.
 Tests: `AUnitOwnerCanReportAFaultTest` — the owner's own shop, one not yet handed over, one since
 sold, an ordinary retailer (the control), and the empty-handed refusal. Mutation-proved on both
 halves.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-045
+
+**An assessment schedule carries only a frequency the run can answer (SW-045, 2026-09-03).** `BillUnitOwnershipsService::appliesToPeriod()` bills a `monthly` row every month and a `one_time` row once, in the month its start date falls in; `quarterly` and `annually` answer false and always have. That narrowing was deliberate — no operator has asked for quarterly صيانة and a half-built arm would bill the wrong month — but it was written down in exactly ONE place: a hardcoded pair of options on the charges form, under a comment saying a quarterly row *"would be silently ignored, which is worse than not offering it"*. `ChargeImporter`, the other door onto the same table, validated `frequency` against `ValueSets::allowed('charges','frequency')` and accepted all four. So a migrating operator's quarterly assessment loaded cleanly, rendered on the schedule as a live charge, and was counted by every run in the ordinary `skipped` bucket beside the tenures that genuinely owed nothing — the owner never billed, for the life of the ownership, and the `unconfigured` counter (F-01's own fix) silent because the rows DO exist. **`BillableAgreement::billableChargeFrequencies()` is the one statement**: a `Lease` derives it from `ValueSets` (its planner has a `match` arm for all four), a `UnitOwnership` returns `BILLABLE_CHARGE_FREQUENCIES`. `Charge::assertFrequencyIsBillable()` refuses at the MODEL rather than at the importer, for the reason `ValueSets::guard()` is one wildcard listener — the three doors that exist and the fourth nobody has written yet are all covered. The picker DERIVES its options from the same constant, so the screen and the write guard cannot drift. **Only on a DIRTY frequency**, so a legacy quarterly row stays editable (amount, dates) instead of being frozen; and the run deliberately does NOT start billing such a row as though it were monthly — that would be twelve invoices a year delivered by a bug fix. **Widening the list is a real feature**: `appliesToPeriod()` needs its own arm (which month of the quarter, measured from what) before `BILLABLE_CHARGE_FREQUENCIES` may grow, and the regression test bills every member of the list so the two cannot drift. Also fixed in the same pass: `ChargeImporter` re-throws a `DomainException` as `RowImportFailedException`, because Filament logs a bare `Throwable` as a failed row with **no message at all** — so the overlap guard's and the unknown-charge-code guard's sentences had never reached the operator's failure CSV either.
+

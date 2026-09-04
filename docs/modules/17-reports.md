@@ -1148,3 +1148,27 @@ period.
 Tests: `AScheduledReportMovesWithTheCalendarTest` — end to end through the real service and mail (the
 as-at date is in the CSV filename, so the attachment says which date was used), the parameter split,
 the fresh mount, the browser control, and the registry gate.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-096 + SW-104 (one defect, one patch)
+
+append to the **Workflow visualization (FR-FIN-04)** paragraph (currently at line 921, immediately before `## 9. UI architecture`):
+
+**Two corrections, 2026-09-03 (SW-096 / SW-104).** The page held its own private opinion of two things and was wrong about both. It printed each status as `ucwords(str_replace('_', ' ', $state))` — the raw database value in English typography — so an operator working the Arabic panel read `Awaiting Tenant`, `In Progress` and `Ordered`, while `admin.statuses.tenant_request`, `admin.facility.statuses` and `admin.procurement.statuses` between them already name all eighteen of these states in both languages and are exactly what the request board, the work-order list and the purchase-request list render. And it gated the WHOLE page on `Modules::enabled('approvals')`, which owns the value-threshold approval ladder (`approval_rules`) and none of the three state machines drawn here — so switching that ladder off took the tenant-request and work-order maps down with it, while switching `procurement` off left its purchase-request map on the page describing a module the install no longer runs; the permission list also omitted `facility.view` although one of the three IS the work-order machine. `Workflows::WORKFLOWS` is now one registry — module, permission, status catalogue, transition matrix — read by both the gate and the rows, so the two cannot disagree again. The permission is a UNION and the rows are deliberately NOT narrowed by it (the page holds no records, only the matrices, so a technician reading the procurement ladder learns nothing they may not know); the rows are narrowed by the MODULE, because mapping a workflow the operator switched off describes something this install does not do. Pinned by `AWorkflowMapReadsInTheOperatorsLanguageTest`, mutation-proved four ways.
+
+
+### SW-117
+
+append at the end (house convention, after `## A schedule that says "every month" reports on a different month`):
+
+## The income statement named the mall it was NOT reporting (SW-117, fixed 2026-09-04)
+
+`ScopesLedgerReport::hydrateLedgerScopeFromQuery()` restores this operator's standing preferences and then PINS `$assetId` to the mall they are standing in, deliberately as the last word — that ordering is the whole of `PropertyField::reportScope()`, whose own docblock says the alternative is a caption naming one mall over another mall's rows, "the more dangerous of the two failures: nobody re-checks a number they believe they asked for". `IncomeStatement::mount()` then called `ReportPreferences::restore()` a **second** time after that hydrate, to pick up `comparison` and `spread` (which it parses from the query string once the hydrate has run) — and `assetId` is a restored parameter too. Measured at HEAD 2026-09-04: `ReportParameters::parametersOf(IncomeStatement::class)` = comparison, spread, year, period, assetId, and `ReportPreferences::VOLATILE` names only year and period of those, so `assetId` is both remembered and restored. Standing in mall B with mall A remembered, the pinned disabled picker read "A" while `TenantScope::reportAssetIds()` clamped the figures back to B. **Not a leak** — with a real tenant selected `visibleAssetIds()` is `[currentId]` for everyone, so the clamp holds and the PDF header, which derives from the clamped set, was right the whole time; what was wrong is the only thing the operator reads. The fix parses this page's own two parameters BEFORE the shared hydrate, so the trait's single restore is the effective one and the pin stays last; the query string still wins, because `restore()` skips any key `request()->query` names. It was the only page with the shape — `ArAging` declares no `assetId`, `MapsOneProperty` returns before its restore whenever a tenant is selected — and a gate now requires the six pages using the bar to leave the restore to it. (`TheIncomeStatementReportsTheMallItNamesTest`, mutation-proved.)
+

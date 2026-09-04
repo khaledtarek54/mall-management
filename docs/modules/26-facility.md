@@ -1819,3 +1819,54 @@ service, which reaches the bill only through `recompute()` and which a fix insid
 `ApplySlaPenaltyService` would have missed); the guard refusing a no-op; the planned-versus-actual
 variance itself; and a bill with no job at all. Mutation-proved in both directions — removing the
 cascade turns 5 of 6 red, removing the guard turns 1 red.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-078
+
+**The list answers "who is on this job?" in ONE column, not two.** `facility_work_orders` carries `vendor_id` and `assigned_to_user_id`, and until 2026-09-03 the work-orders table rendered neither — nineteen columns, and the dispatch board's own first question needed a record page opened per row. It is one column because `FacilityWorkOrder::booted()` enforces an XOR on a CORRECTIVE order (internal may not name a vendor, external may not name a technician), so two columns would render one blank cell per row for ever; the vendor is the headline and the technician sits beneath it, because a PREVENTIVE order is outside that guard and may carry both. It is deliberately NOT sortable — the value is derived from two relations, so a clickable header would sort on one of them and silently mean something else — and "which jobs has nobody taken on" is already the `response_breached` filter. `vendor` and `assignee` join the table's eager loads in the same change: the column reads both relations on every row, which is the per-row-closure cost CLAUDE.md records for `TenantsTable` (181 queries → 44).
+
+
+### SW-079
+
+**An hour count is composed through `admin.facility.sla.hours_count`, never glued to a Latin `h`.** Three column descriptions — the work-order list's response clock and resolution clock, and the SLA-policies list's "operator default" note — wrote `…->hoursOverSla().'h'`, so the Arabic panel printed a Latin letter as the unit inside a right-to-left sentence. The unit belongs to the language and always did everywhere it went through a key: the three SLA breach notification bodies render `:hours ساعة`, and so does `labour.vs_estimate`. ONE key, so a fourth reading of an hour cannot invent a fourth spelling. **`ArabicPanelHasNoEnglishChromeConformanceTest` could not see it** — it reads `getLabel()` on columns, filters and actions and never `getDescriptionBelow()`, the gate-checks-a-weaker-property shape again — so the regression test carries its own source sweep over all 629 files under `app/Filament` and fails on any surviving `.'h'`.
+
+
+### SW-071 + SW-072
+
+insert immediately after the paragraph beginning "**Net of tax, and net of an applied SLA penalty.**" in the cost-object section:
+
+**Which child rows count is the CHILD's question (2026-09-03).** `recomputeCosts()` used to write all three clauses out for itself, and two of them had drifted from the definition the child model already owned. The material clause asked for the STATUS alone (`approved|recorded`) while `partsCost()` — and the table above — follow `FacilityWorkOrderPart::counted()`, which follows the stock ledger: an approved draw counts only while its movement is live. So the stored `act_material_cost` went on charging a job for parts that had gone back on the shelf while the live figure beside it read zero, and this document described a behaviour the column did not have. (Honest bound: `StockMovement` is `#[NeverDeletable]`, so no path in the running system can void one today — this closed a split definition, not a live leak.) The service clause asked for `status != 'cancelled'`, and **`vendor_bills.status` defaults to `draft`** — so a contractor's invoice counted as ACTUAL cost the moment it was keyed: money the general ledger has never seen, on columns whose whole premise is that they are a management dimension over posted money. That one moved money. `AssessSlaPenaltyService::jobValue()` prefers `act_service_cost` over the estimate, so a percent-of-value penalty was priced off an invoice nobody had approved — and `assess()` freezes a penalty the moment the job goes terminal, so approving or correcting the bill afterwards never re-priced it. All three clauses now read the child's own scope: `FacilityWorkOrderPart::counted()`, `VendorBill::postable()`, and a new `Expense::postable()` — an allowlist of `recorded`, added for the same reason, since `!= cancelled` was right only by coincidence and would be wrong the day a third status exists. Note this is exactly the shape the method's own docblock warns against: the sub-selects are compiled from the RELATIONS so scopes travel, and a hand-written clause here is a second definition of what the job cost.
+### SW-124
+
+**Releasing an SLA penalty is a whole-bill write, so it locks the bill (2026-09-04).** `VendorBill::recompute()` re-derives `penalty_applied_amount` from EVERY applied penalty on the bill and then `balance` and `status` from it, so detaching or waiving one rewrites the bill, not the penalty row. `ApplySlaPenaltyService::toBill()` had always locked penalty-then-bill and `VoidVendorBillPaymentService` locks the bill first under a comment giving this exact reason — but `detach()` and `waive()`, the two paths that RELEASE a penalty and which live in two different services, reached the bill through the plain `$locked->bill`. A release racing an apply on the same bill therefore recomputed from a snapshot fixed before the apply committed and wrote a balance with the other penalty's deduction erased: **the payable overstated by that penalty**, money out on the next payment run. `SlaPenalty::billForUpdate()` is the locking twin of `bill()` and is the ONE seam both paths take — a `lockForUpdate()` written into each service is two copies of one rule, which is how the second came to be forgotten. It is taken AFTER the penalty's own lock, matching `toBill()`'s order, or the two deadlock; and it is a locking read rather than a plain read behind a lock because under MySQL REPEATABLE READ the first PLAIN read fixes the snapshot everything after it is answered from. Registered as `app/Models/SlaPenalty.php => 1` in `ConcurrencyPolicy::REGISTERED`; `ReleasingAnSlaPenaltyLocksTheBillItCreditsTest` drives both releases through `LockSpy` and asserts the ordered lock list, so a lock taken by something else in the request cannot stand in for it.
+
+
+### SW-085
+
+#### The four cost channels wire themselves through one concern (SW-085, 2026-09-04)
+
+`recomputeCosts()` has four channels, and each has to call it — including when a document is
+RE-HOMED, which leaves the job it came off still charged. That rule was written out three times:
+`VendorBill`, `Expense` and `FacilityWorkOrderPart` each carried a byte-identical twelve-line
+`saved` block (`grep -rn "getOriginal('facility_work_order_id')" app/` matched exactly those
+three), while `FacilityWorkOrderLabour` — the fourth — carried a one-line `saved` hook and nothing
+else. Three copies is three chances to write it and one chance to miss it.
+`App\Models\Concerns\CostsAWorkOrder` is that hook once, and all four models use it, so a FIFTH
+channel is wired by USING the trait rather than by its author remembering the shape.
+**Not reachable from a screen today, deliberately fixed anyway**: the labour relation manager is a
+child of the job and stamps the parent, so no form re-homes a timesheet line — while `ExpenseForm`
+and `VendorBillForm` both offer a work-order picker, which is why those two were guarded in the
+first place. The trait also resolves the job with a fresh `find()` on the CURRENT foreign key, never
+through a display relation: labour read `$line->workOrder`, a `belongsTo` whose loaded value is
+whatever the key pointed at when first touched, so a row loaded with that relation warm and then
+re-homed recomputed the OLD job and left the NEW one understated — the same fault through the other
+door. `ATimesheetLineRecomputesTheJobItLeftTest` derives the channel list from `recomputeCosts()`'s
+own source, so the gate cannot go stale behind the method it guards.
+

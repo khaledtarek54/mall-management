@@ -677,3 +677,26 @@ lock's key asserted through a `Cache::shouldReceive('lock')` expectation rather 
 source, the timeout refusal, idempotence under the run-row lock, a `LockSpy` run proving the advance
 balance is read under the lock it just took, the SQL-shape case above, the two twins agreeing on
 clean data, the over-repayment refusal, and an ordinary approval. Mutation-proved five ways.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-110
+
+and docs/modules/25-treasury-custody.md (at the end, following the house `## <sentence> (SW-NNN, fixed <date>)` convention):
+
+## A grant is dated the day the money leaves (SW-110, fixed 2026-09-04)
+
+An advance and a عهدة are the same act — cash out of the till or the bank — and the date the operator types becomes the journal entry's `entry_date` (`EmployeeAdvanceJournalizer`, `CustodyJournalizer`). Both SETTLEMENT halves have refused a future date since F-93 (`RecordAdvanceRepaymentService`, `SettleCustodyService`, both with `->maxDate(now())` on their picker); both GRANT halves called `PostingDate::assertOpen()`, which deliberately says nothing about the future, with **no picker bound at all**. Measured at HEAD 2026-09-04: `assertOpen('2027-03-04')` returned the date, `assertNotFuture('2027-03-04')` refused it. So cash could be booked out of a month that has not happened — the money has not moved, the employee is already carrying the balance the payroll deduction reads, and the period will later close around the entry, at which point `SealedPeriod` refuses the correction too. Both grants now call `assertNotFuture` **in the service** (a picker is UX, and the API and console never see it) and both pickers carry the bound their settlement twin already had. Enumerate this class by grepping the guard, not the diff: the two pairs were found by `grep -rn 'PostingDate::assert' app/`, which is also how the asymmetry was visible at all. (`AGrantIsDatedTheDayTheMoneyLeavesTest`, all four teeth mutation-proved.)
+
+
+### SW-102
+
+- **Payroll permissions `payrolls.view/create/edit/approve`.** `hr` holds the first three and NOT `approve`; `accounting` and `manager` hold all four. That split was written down before it was granted: until 2026-09-04 the hr grant carried `payroll_rates.view` under a comment reading *"HR generates the run and must be able to see what it will compute on"* and **nothing from `payrolls.*` at all**, so hr's sidebar had no Payrolls entry and the URL answered 403 — measured on the dev database, hr held exactly one payroll-family permission. The half that reads as a broken screen rather than a missing right is `EmployeePayslipsRelationManager` on the Employee record, which hr reaches through `employees.view`: it prints gross, salary tax, social insurance and net for every month and gates only the payslip PDF, on `payrolls.view`. HR read every figure on the payslip and could not hand the employee the payslip. `approve` stays with the accountant for the same reason `payroll_rates` is read-only for HR — approval is what makes a run POSTABLE and the salary-expense entry is the accountant's to answer for; Yardi splits preparation from approval the same way, and `Payroll`'s own `saving` guard (frozen once `getOriginal('status') === 'approved'`) means `payrolls.edit` cannot restate an approved run.
+- **DEPLOY STEP.** A seeder change reaches an install only by running it: `php artisan db:seed --class='Database\Seeders\RolesPermissionsSeeder' --force`. `applyGrants()` replaces each listed role's set, so re-running is idempotent and picks the new rows up.
+

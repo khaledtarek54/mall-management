@@ -211,3 +211,16 @@ independent analyses: it is the only check whose evidence comes from outside the
 
 Slices 1–3 are the control. 4–6 make it pleasant. **Ship 1–3 before anything in 4–6**, and treat any
 pressure to start at 4 as the warning sign it is.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-148
+
+in the slice-3 (matching workspace) section: "**`coverage()` answers from the eager load the workspace already paid for.** It re-queried a line's matches on every call, and `LinesRelationManager` asks it four times per rendered row (the age cell, the match-state cell, that cell's colour, the Match action's `visible()`) over a query that has already run `->with('matches.journalLine.entry')` — two statements a call, eight throwaway queries a line, plus a ninth from the Unmatch action's `matches()->exists()`. Both now prefer the loaded relation and fall back to a query, the same shape as `Invoice::collectableBalance()` preferring an eager-loaded `writeOffs`. **It is allowed here because `coverage()` decides nothing** — it words a badge and hides a button, while every refusal rests on `match()`'s own `lockForUpdate()` read of the journal line — so no guard is being answered from a possibly-stale in-memory collection. `TheBankMatchingWorkspaceAsksTheDatabaseOnceTest` COUNTS the statements rather than inspecting the code, and pairs the zero-query claim with a cold read that must still be right."
+

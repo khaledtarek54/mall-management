@@ -2139,3 +2139,81 @@ conversation; *closing* → decide; *lapsed* → stop planning around a right th
 **Still open:** the encumbrance is recorded but not yet surfaced in the unit picker when letting a
 space (OP-03), and there is no portfolio-wide critical-dates work-list (UX-09) — today the alerts
 are the delivery mechanism.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-103
+
+beside the holdover section: **A holdover rate is floored at 100% in ONE place — `Lease::HOLDOVER_MIN_RATE_PCT`.** It is a percentage OF the contracted rent (`$lastRent * $rate / 100`, 150 = 150%), so below 100 prices overstaying below renewing, which is the opposite of what the clause is for; a genuinely reduced wind-down rent is a rent change or a relief. The number was stated three times and the three disagreed — measured 2026-09-03: the conversion modal at 100 under a comment explaining why, `ConvertLeaseToHoldoverService` at "greater than zero", and the PORTFOLIO DEFAULT the modal prefills itself from (`billing.holdover_default_rate_pct`, the only tier — `PropertySettings` has no holdover key) at **0**. So an operator could save 80 on /admin/settings and then be refused on a field they had never touched, quoting a minimum the settings screen had just accepted below. The service keeps the floor as well as the modal, because `convert()` may be called with no `rate_pct` at all, in which case the rate IS the portfolio default and the modal's `minValue` never runs. The refusal is `admin.refusals.holdover_rate_below_floor` in both languages and names both escapes (type at least 100%, or raise the portfolio default), because `LeaseActions` catches `\InvalidArgumentException` and renders the message to the operator.
+
+
+### SW-042
+
+, under `## 9. Gotchas, edge cases & recently-fixed bugs`:
+
+### The quick-lease wizard opened on literals, not on the mall's conventions (SW-042, 2026-09-03)
+
+**Two doors create a lease and they disagreed about the defaults.** The full form has read the
+configured conventions since EG-35 — the lease TERM from `AccountingSettings::default_lease_term_months`,
+the PAYMENT TERMS from `PropertySettings::paymentTermsDays()` (property → portfolio). The leases
+list's *Quick new lease* wizard prefilled the literals `36` and `7`. Measured with the portfolio set
+to 45 days and a 30-day override on one mall: the wizard opened on 7.
+
+**`LeaseCreationService`'s own fallback could never rescue it.** Its
+`?? PropertySettings::paymentTermsDays($unit->asset_id)` fires only when the caller states no terms,
+and the wizard's `lease.payment_terms_days` input is always dehydrated — so the payload always
+states a value and that branch is dead for this door. A test of the service would have passed
+throughout; only driving the wizard sees it.
+
+**The term default is now one seam, `App\Support\LeaseTerm::defaultMonths()`**, read by both screens.
+It lives on `LeaseTerm` rather than as a static on `AccountingSettings` because
+`SettingsReachConformanceTest` proves a setting is read by something *outside* `app/Settings` —
+moving the only read into the settings class would blind the gate that exists to catch a setting
+nothing consults. `escalation_rate` is deliberately still the literal `7` in both places: there is no
+configured escalation convention, and routing it through one would invent a setting nothing reads.
+`fillForm()` is now a CLOSURE, so the property is resolved when the modal is opened rather than when
+the table was assembled. (`TheQuickLeaseWizardOpensOnTheMallsConventionsTest`, 3 mutations.)
+
+
+### SW-055
+
+, under `## 9. Gotchas, edge cases & recently-fixed bugs`:
+
+### The deposit filter and the deposit column disagreed on the same page (SW-055, 2026-09-03)
+
+The leases list's **Deposit outstanding** filter re-expressed the pot as one `whereRaw`: receipts
+less refunds and forfeits from `deposit_transactions`, less `deposit_applications`. That is **three
+of the four terms** `Lease::depositHeld()` sums. The missing one is `settledDepositBillings()` — a
+deposit billed on an invoice and since paid — and it is not an edge case:
+`BillSecurityDepositService` raises the deposit on its own invoice and writes no
+`deposit_transactions` row at all, so it is how a deposit is normally collected. Measured: a lease
+agreeing 60,000, billed and paid in full, read **0.00** in the `deposit_shortfall` column and was
+returned by the filter beside it as owing the whole 60,000.
+
+**`Lease::scopeDepositOutstanding()` is the one definition.** It cannot be pure SQL and that is the
+point: the missing term is `DepositBilling::heldOn()` over `InvoiceItemSettlement`, which splits
+`invoices.paid_amount` across the lines in `TYPE_PRIORITY` order and nets credit relief — arithmetic
+no correlated subquery can carry, and re-expressing it beside the original is how the two came to
+disagree. So the CANDIDATES are narrowed in SQL and the POT is asked of the model, once per
+candidate, off the three relations the list already eager-loads. **Chain it last**, after the status
+clause and the property scope, so the candidate query inherits both. Every other consumer — the
+portal infolist, the mobile API, the lease actions, the deposits relation manager,
+`BillSecurityDepositService` — already called the model; this filter was the only re-implementation
+left. (`ADepositAlreadyCollectedIsNotStillOutstandingTest`, 2 mutations.)
+
+
+### SW-048
+
+**Extending a lease re-arms its renewal reminder (SW-048, 2026-09-03).** `leases.expiry_reminder_notified_at` is the idempotency stamp `leases:remind-expiring` keys on (`whereNull(...)`), it had exactly one writer, and nothing ever cleared it. The stamp means *"the tenant has been told about the expiry date this lease carries"* — so the moment the term is EXTENDED it describes a date in the middle of the tenancy, and the renewal conversation is never started again for the rest of it. A silent absence, the failure class nobody reports; `Lease::RENEWAL_RESET` already described the column correctly for the other direction (*"a notification stamp about the original's expiry"*) and the lease that STAYS had no counterpart. **The rule is a `Lease::updating` hook, not a line in `LeaseExtensionService`**, because `expiry_date` is still a plain DatePicker on `LeaseForm` for an un-invoiced lease and `LeaseImporter` writes it too — the same one-seam reasoning that put the rate derivation and the deposit multiple on the model. **FORWARD ONLY, and that asymmetry is the load-bearing part**: `LeaseTerminationService` stamps the termination date onto `expiry_date` and, under notice, leaves the lease ACTIVE — precisely the row the sweep still selects — so clearing on a backwards move would send *"your lease is approaching expiry, start the renewal conversation"* to a tenant who has already served notice. That message is outbound and cannot be recalled. A forward move inside the current 90-day window does re-remind, quoting the new date; that is the intended reading, and the alternative is silence for the rest of the tenancy. Clearing writes no audit noise — `_notified_at` is already a denylisted suffix in `ActivityLogging`.
+
+
+### SW-125
+
+**A refund or forfeit is fixed once the final account has been settled (2026-09-04).** The deposit freeze had one half only: `DepositTransaction`'s `saving` guard asks `$wasOrIsReceipt`, so it never covered the two rows a move-out WRITES, and `ChangeImpact` recorded the module as "already had the freeze, on a BETTER predicate" — true of receipts alone. Measured: 100,000 received, lease terminated, `SettleMoveOutService::settle()` writes a 100,000 refund and `depositHeld()` reads 0; retyping that refund to 10,000 was accepted, the pot climbed back to **90,000**, and a second 90,000 refund against that phantom pot was accepted too — while the first 100,000 had already left the bank. `DepositTransaction::finalAccountIsSettled()` is the second predicate: a termination `LeaseEvent` carrying the settlement payload, which is the document the tenant signed and which quotes `refunded` and `deducted_total`. It deliberately is NOT `hasBeenDrawnOn()` — a recorded refund is itself a draw, so that query finds the row itself and would freeze every refund at birth, killing the correction `potContributionAsPersisted()` exists to support. Unlike its sibling it asks BOTH ends of a re-point, because moving a row out of a settled lease and into one are the same restatement from two directions. **`status` and `notes` stay editable so `cancel_deposit` remains the escape** — it records why, reverses the ledger entry and returns the money to the pot, and the corrected movement is then recorded; correcting a committed movement through a named act rather than by retyping is the discipline every money document here follows. `ASettledFinalAccountIsNotRetypedTest` pins both refusals, both directions of the re-point, the escape, and the two controls (an un-depended-on refund is still correctable; a late receipt can still be recorded).
+

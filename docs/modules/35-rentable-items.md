@@ -249,3 +249,34 @@ holder still counted, and the picker and the register agreeing) ·
 on five, scoped at the QUERY under a tampered selection, empty when no property resolves, the holder
 named on a let tile, and the utilisation figure excluding out-of-service). Both mutation-proved —
 deleting the sweep call turns two cases red, deleting the gate turns six red.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-054
+
+, under `## 7. Gotchas`:
+
+### The third copy, and the mechanism it kept alive (SW-054, 2026-09-03)
+
+`App\Support\RentableItemOptions` was created because *"what could this agreement take"* and *"what
+does it hold"* existed twice and had drifted. A **third** copy survived the consolidation as dead
+`private static` methods on `LeasesTable` — called from nowhere (`LeaseActions` has its own pair,
+which delegates to the shared class) — and it still carried the **pre-2026-08-28 self-holding
+exemption** the shared version was fixed to remove: `isHeldOn(null, ignore: ['type' => 'lease', …])`,
+which offers a lease the bays it already holds so `AssignRentableItemService::assign()` can refuse
+the pick on submit.
+
+Dead code cannot misbehave; **what it does is wait to be copied.** So the block is gone, and with it
+`RentableItem::isHeldOn()`'s `$ignore` parameter — it had no other caller in `app/` or `tests/`, and
+a mechanism kept for a rule that was reversed is how the rule comes back. Two gates:
+`OneDefinitionOfWhatARentableItemPickerOffersTest` pins that the list is built in exactly one file
+and that no call site passes an exemption (asserting its own premise first, so a regex that stopped
+matching cannot pass vacuously); `APickerNeverOffersWhatTheGuardRefusesTest` continues to pin the
+surviving definition's behaviour.
+

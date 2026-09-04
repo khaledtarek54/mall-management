@@ -1708,3 +1708,101 @@ cannot mistake it for data.
 
 `atriom:audit-property-dimension` is still the thing that FIXES such a row; this only stops the books
 hiding it from the people who cannot look.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-136
+
+**A month of a closed year cannot be reopened on its own (SW-136, 2026-09-04).** `YearEndCloseService::close()` reads `profitLossBalancesByAsset()` ONCE and posts, per property, the entry that zeroes that year's P&L into retained earnings — and it is idempotent, returning the existing entries rather than rolling anything new. The periods row action reopened a single month with no reference to any of that, and `JournalPostingService::assertOpenPeriodFor()` gates on the PERIOD's status and has never read `fiscal_years.status`, so the posting went through. The result is durable and quiet: that movement is outside retained earnings for ever — this year's close cannot pick it up and next year's fiscal span does not cover the entry's date — while the balance sheet still balances, because `balanceSheet()` derives `net_income` from whatever P&L is left un-rolled and simply carries the orphan, under a year whose income statement no longer agrees with its equity. `PeriodService::reopenPeriod()` now refuses while a STANDING closing entry covers the period's fiscal year, asked through `YearEndCloseService::closingEntriesFor()` — the same query `close()` re-checks under its lock as the double-close guard, so the two can never disagree. Keyed on the ENTRY, not on `fiscal_years.status`: a year marked closed with nothing rolled does no harm, and a closing entry posted without `closeFiscalYear()` does. **`forceReopenPeriod()` is the named escape and it is the rule's own mechanism, not an exception to it** — `YearEndCloseService::reopen()` relaxes the year-end period precisely so the VOID of the closing entry lands in the year it closed, and the entry is gone by the end of that call; a blanket guard would have broken exactly the path the guard protects. The operator's escape is the YEAR — 'Reopen year' voids the closing entries and unlocks every month — and the refusal names it, because a refusal with no way out is worse than the bug.
+### SW-086
+
+add to "### A recurring cost SCHEDULE is not a GL source (EG-33, 2026-08-23)", after the "Booking a statutory cost twice is real money" paragraph:
+
+**A schedule never books a period it has not reached (SW-086, 2026-09-04).** `nextDueOn()` put
+`day_of_month` inside the MONTH of `starts_on`, and `day_of_month` defaults to 1 in both the form
+and the column while `starts_on` is required with no default — so setting a schedule up mid-month,
+the ordinary act, produced a first document dated BEFORE the cost begins. Measured: `starts_on
+2026-09-20`, `day_of_month 1`, monthly, asked on 2026-09-25 → **2026-09-01**; ANNUALLY the same
+shape → 2026-09-01 and then 2027-09-01, so the series stayed nineteen days early for its whole
+life. The first cursor is now the first scheduled day ON OR AFTER `starts_on`, which is what the
+field's own help had always claimed ("the first period booked… earlier periods are never
+back-filled") and the conservative direction for money going out. A whole PERIOD is stepped, not a
+month, so a quarterly or annual schedule stays anchored to the month of `starts_on`. The operator's
+two escapes are both on the same form — move `day_of_month`, or move `starts_on` — and the
+register's "Next due" column shows the answer before the first run. **The sweep row's second claim,
+that this wedges a schedule permanently, is wrong**: `periodDate()` only moves the date within
+`starts_on`'s own month and accounting periods are monthly, so the pre-start date can never sit in
+a closed period while `starts_on` sits in an open one. The permanent wedge needs a historical
+`starts_on` and is already recorded in `GenerateRecurringExpensesService::generate()`.
+
+
+### SW-138
+
+append a new section at the end:
+
+### A matched statement cannot change banks (SW-138, fixed 2026-09-04)
+
+`MatchBankStatementLineService::match()` has always refused to link a statement line to a posting that is not on the statement's own bank chart account, for a reason its own comment states: *matching across accounts would reconcile one bank with another bank's money and still balance.* **Editing the statement afterwards walked straight past it** — `BankStatementForm` is the resource's form on Edit as well as Create, so `bank_account_id` is an ordinary dropdown on a statement that has already been reconciled, and nothing re-asked the question.
+
+Both reconciliations then go wrong in opposite directions, and both silently. The old bank's posting still carries its `BankMatch`, so `ReconcileBankStatementService` drops it from that bank's *"in the books, not on the statement"* items — an unpresented cheque vanishes from the one list that exists to name it, and the identity whose whole job is to leave the unexplained remainder visible balances without it. Meanwhile the statement line counts as explained on the NEW bank, by a posting that never touched it.
+
+`BankStatement::booted()` refuses the move **only on a dirty write and only while a match exists**: correcting a statement imported under the wrong account with nothing matched yet is the ordinary case, and it is the escape the refusal names (unmatch on the Lines tab, or import the file again under the right account). Guarding a row a workflow legitimately touches breaks the workflow instead of protecting it — the same rule `#[NeverDeletable]` follows. Pinned by `AMatchedStatementCannotChangeBanksTest`, which drives the front-door refusal beside it so the two ends of one invariant stay together.
+
+
+### SW-139
+
+append a new section at the end:
+
+### An opening-balance line names its account (SW-139, fixed 2026-09-04)
+
+`ImportOpeningBalancesService::preview()` read `$account?->name`, and **`ledger_accounts` has no `name` column** — the chart carries `name_en` and `name_ar`. Eloquent answers null for an attribute that is not there rather than failing, so every row came back nameless, and it was silent twice over: the preview's `@if ($row['name'])` guard printed the bare code, so the operator confirming a forty-row paste never saw WHICH account each code is — the one thing the preview exists for, before a figure that follows every later report is committed — and `import()` copies the same value onto every line of the draft entry, so all forty landed with `description => null`, which on a general ledger is indistinguishable from an entry nobody described.
+
+It resolves through `LedgerAccount::displayName()`, the ONE locale-aware reading of an account's name (the picker, the report filters and the posting map all take it), which falls back to the other language rather than returning null — the normal state of a half-translated imported chart. An unknown code still carries no name; it carries an ERROR, which is what the operator can act on.
+
+
+### SW-140
+
+append a new section at the end:
+
+### "Show accounts with no movement" reaches the printed copy (SW-140, fixed 2026-09-04)
+
+`LedgerReportService::trialBalance()` has taken `$includeZeroBalances` since RP-02, the screen has offered the toggle since, and `TrialBalance::reportCsv()` gets it for free because it goes through the page's own `report()`. **`LedgerReportPdfService::trialBalance()` did not take the flag at all**, so it fell to the default: with the toggle on, the screen and the CSV listed every postable account and the PDF listed only those with movement.
+
+That is the one question the toggle exists for — *is that account really nil, or did nobody map it?* — which absence cannot answer either way, and the PDF is the copy an accountant ticks off against. Same rule as the unallocated notice: **fixing the screen and the CSV and not the PDF is worse than fixing neither**, because the PDF is the copy that leaves the building. The parameter is declared after `$locale` so the existing positional call sites are untouched, and the page passes it by name.
+
+**The obvious test is a false pass**: driving `download_pdf` and recording what the report service was asked fills up with the SCREEN's argument, which was always correct — so `ThePrintedTrialBalanceShowsAccountsWithNoMovementTest` records against the PDF service DIRECTLY for that half, and stubs the PDF service for the page half.
+
+
+### SW-141
+
+append a new section at the end:
+
+### The close gate sees the period's last day (SW-141, fixed 2026-09-04)
+
+Part (b) of `PeriodService::assertPeriodsReconciled()` is the gate's answer to a document that has NEVER posted — real-time sync off, the queue backlogged, a best-effort sync that failed once. Close the period underneath it and its post is stranded for good, because posting into a closed period throws.
+
+It scanned `whereBetween($dateColumn, [$period->starts_on, $period->ends_on])`. Both are `date` casts, so the bindings compile to `between '2026-08-01 00:00:00' and '2026-08-31 00:00:00'` — and **every column in `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` is a `date` except one**: `sla_penalties.applied_at` is a `dateTime`. So a penalty applied at any time of day on the LAST day of the period sat past the upper bound and the gate never saw it; the vendor keeps the deduction on their bill and the ledger never records it.
+
+Now half-open on DATE STRINGS — `>= starts_on` and `< ends_on + 1 day` — which is the one form correct for a `date` column AND a `dateTime` column on both drivers: SQLite compares these as strings, and a bare `'2026-08-01'` sorts BEFORE `'2026-08-01 00:00:00'`, so a datetime lower bound silently drops the period's first day. `copy()` on `ends_on` is load-bearing: a date cast is memoised, so the same Carbon instance is handed back on every iteration of the enclosing per-source loop and `addDay()` would walk the window forward one class at a time.
+
+
+### SW-146
+
+under the `AccountMappingResource` bullet in the screens list: "**The posting map names its accounts in the READER's language, on BOTH halves of the screen.** The account picker resolves through `LedgerAccount::displayName()`; until 2026-09-04 the LIST column beside it did not — it read `account.name_ar` for every reader, so an operator working the panel in English chose between accounts named in Arabic on the one screen that decides where money posts. The column keeps its `account.name_ar` name and moves only its state, because Filament derives both the eager load and a saved column layout's key from the column name. `ThePostingMapReadsTheChartInTheReadersLanguageTest` asserts BOTH directions: a fix that hardcoded `name_en` would satisfy an English-only test and re-break the Arabic panel."
+
+
+### SW-147
+
+beside the `AccountingPeriodResource` note in the close-and-compliance row: "**The period register offers no read-only View, and declares no form — the two are one decision.** Filament renders a resource ViewAction from `infolist(form($schema))`, so a resource that DECLARES `form()` and returns it untouched gets a modal with a heading, a Close button and nothing between them; that is what this screen shipped. `accounting_periods` holds nothing a person set beyond the five columns the table already prints, so there is no infolist worth writing. What made it survive is worth more than the fix: `ViewActionCoverageTest` skips a resource only when `form()` is not declared, so a declared-but-empty one counted as having a form and was then REQUIRED to offer the action it could not fill — a gate checking a weaker property than its name. `AViewModalNeverOpensOnAnEmptyFormTest` closes it from the other side, over every admin resource: none may declare a form with no components."
+
+
+### SW-149
+
+appended to the `LedgerAccountImporter` section (EG-28), because the chart importer is the one the row names and the seam covers every other: "**A bulk transfer says it finished in the operator's language, and there is ONE sentence-builder for all nineteen.** All ten importers and all nine exporters wrote their completion notification as an English literal, each its own copy of the same three clauses — while the HEADING above it is Filament's and ships translated, so an Arabic operator read «اكتمل الاستيراد» over 'Your chart of accounts import has completed and 167 rows imported.' `App\Support\DataTransferNotice` is the seam; the sentence is written out per transfer in `lang/{en,ar}/admin/data-transfer.php` rather than composed from a noun and a template, because Arabic governs a noun by definiteness and case. WHICH sentence is DERIVED from the class name, so a new importer needs a key in both files and no code. **It renders in the CURRENT locale, exactly as Filament's title does, and deliberately not in the recipient's**: with a real queue connection both are built in the worker under `config('app.locale')`, and resolving the recipient for the body alone would put an Arabic sentence under an English heading — the half-fix this project already recorded for the statements. `ABulkTransferSaysSoInTheOperatorsLanguageTest` sweeps the nineteen from disk and fails on a missing key, on an English sentence sitting in the Arabic file (`Lang::has()` cannot see that), and on a transfer that builds its own sentence instead of routing through the seam."
+

@@ -855,3 +855,61 @@ request's. Blank is the normal state.
 **Do NOT add an `@page` rule to the template.** Page geometry belongs to the renderer, which is also
 the thing that knows there is a running footer; a template that sets its own margins leaves no room
 for it and the footer renders nowhere at all.
+
+---
+
+## Sweep fixes — 2026-09-04
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a
+time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+
+### SW-081
+
+, under `## 9. Gotchas, edge cases & recently-fixed bugs`:
+
+### A bill that fell due before it was issued (SW-081, 2026-09-03)
+
+**Risk:** nothing paired `bill_date` and `due_date`, so a mistyped year saved cleanly — and
+`VendorBillResource::getNavigationBadge()` counts `balance > 0 AND due_date < today`, so the bill
+read as permanently OVERDUE and the red AP badge carried a number the list could not explain. The AR
+twin has had the rule since it shipped (`InvoiceForm`: `->after('issue_date')`).
+
+**Mitigation:** `->afterOrEqual('bill_date')` on the form, with `admin.validation.bill_due_not_before_bill_date`
+in both languages. **`afterOrEqual`, not `after`** — "due on receipt" is ordinary supplier terms and
+an EG-33 recurring schedule with `payment_terms_days = 0` mints exactly that pair; the AR rule is
+strict for a different reason (an invoice due on its issue date is overdue the moment it is raised,
+which breaks ageing). The form is enough to close the class: only two doors create a `VendorBill` —
+this one and `GenerateRecurringExpensesService`, whose `due_date` is `bill_date + max(0, terms)` and
+can never invert.
+
+**The rule lifts once the bill leaves draft.** Filament validates a DISABLED field anyway
+(`isValidatedWhenNotDehydrated` defaults true), and both dates are disabled past draft — so a bill
+keyed before this rule existed would otherwise be unsavable on the one field that stays open,
+the work-order link. Refusing an untouched form is the trap the work-permit freeze already recorded.
+
+**Test:** `AVendorBillCannotFallDueBeforeItWasIssuedTest` — the refusal, the equal-dates control, an
+ordinary 30-day payable, a blank due date, and the legacy approved bill that must still save.
+
+
+### SW-087
+
+add to "### Withholding tax on vendor payments — خصم وإضافة (module 12b)", after the "The base EXCLUDES VAT" bullet:
+
+- **Resolved for the PAYMENT's date, not today's (SW-087, 2026-09-04).** A withholding rate is a
+  dated rung of the tax catalogue exactly like a VAT rate, and `WithholdingTax::rateFor()` has taken
+  a date since it was written — its docblock says "a back-dated payment must withhold what was due
+  when it was made", and `WithholdingByTaxCodeTest` pins that the primitive obeys it. **Both callers
+  passed none**, so `TaxCode::rateFromLadder()` fell to `CarbonImmutable::now()`.
+  `VendorBillService::recordPayment()` had the normalised `$postingDate` in scope from its own
+  posting-date guard and did not use it; the breakdown on the payment modal — the figure the
+  operator reads before committing, under a comment saying it must be "the SAME call the service
+  makes" — resolved both the rate and the amount at today. Measured: with WH_3_P superseded by 5%
+  from 1 September, a payment back-dated to 20 August withheld 5,000 of a 100,000 net bill where
+  3,000 was due — the supplier short-paid 2,000, the same 2,000 over-remitted, and
+  `WithholdingCertificatePdfService` certifying the wrong figure to the supplier's own accountant.
+  The modal's `payment_date` is `->live()` so the preview follows it. **Origination only**: an
+  existing `vendor_bill_payments.withholding_amount` is frozen and `WithholdingTaxReturnService`
+  keeps deriving the effective rate as withheld ÷ base, so no past quarter is rewritten.
+  (`WithholdingIsResolvedAtThePaymentsDateTest`.)
+
