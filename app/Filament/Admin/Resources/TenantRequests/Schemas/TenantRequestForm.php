@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\Vendor;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
@@ -42,7 +43,10 @@ class TenantRequestForm
 
                         TextInput::make('reference')
                             ->label(__('admin.fields.reference'))
-                            ->default(fn () => TenantRequest::generateReference('AW'))
+                            // The SELECTED property, not a hardcoded 'AW' — unlike Lease, nothing in
+                            // this model allocates a reference, so the form is the only source and a
+                            // literal here brands every mall's requests with Atriom Walk's initials.
+                            ->default(fn () => TenantRequest::generateReference(Filament::getTenant()?->code ?: 'AW'))
                             ->disabled()
                             ->dehydrated(),
                         Select::make('request_type')
@@ -56,7 +60,7 @@ class TenantRequestForm
                             // and clear a now-irrelevant sub-category on type change.
                             ->afterStateUpdated(function ($state, Set $set) {
                                 $type = TenantRequestType::tryFrom((string) $state) ?? TenantRequestType::default();
-                                $set('reference', TenantRequest::generateReference('AW', $type->referencePrefix()));
+                                $set('reference', TenantRequest::generateReference(Filament::getTenant()?->code ?: 'AW', $type->referencePrefix()));
                                 $set('category', null);
                             })
                             // Type is fixed once a request exists (it would invalidate

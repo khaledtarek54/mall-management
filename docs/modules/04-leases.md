@@ -1052,6 +1052,19 @@
 > 'fixed_percent'` and ignores the caller's value — a CPI lease can only be made by editing one
 > after creation.
 
+> **⚠️ Fixed 2026-09-05 — every lease created through the PANEL carried the wrong mall's initials.**
+> `LeaseForm` defaulted the reference field to `Lease::generateReference('AW')` — Atriom Walk's
+> initials, a hardcoded literal — so a lease on any other mall was numbered `LSE-AW-…`. Found on the
+> Val Plaza demo box, and it was **not** the documented "renamed after seeding" hazard: that asset was
+> created once and never updated, and the leases were created days later. `Lease::creating()` already
+> resolves the code from the lease's own UNIT and allocates under the document-number lock — but it
+> returns early when a reference is already filled, so the form computed a wrong answer and silently
+> overrode the right one. That is why a direct model create looked correct and only the panel was
+> wrong. The form no longer pre-fills; the field shows *"Assigned when you save"*. Pre-allocating at
+> RENDER time was a second fault: two operators opening the form both received the same number, and
+> the second save met the unique index instead of taking the next one.
+> (`ADocumentCarriesTheMallItBelongsToTest`, both teeth mutation-proved.)
+>
 > **⚠️ Fixed 2026-08-11 — `Lease::generateReference()` was a deterministic duplicate-key 500.**
 > It was `count() + 1` against a UNIQUE column on a soft-deleting model. The soft-delete scope
 > hides trashed rows from `count()`, so the counter falls behind the numbers actually issued:

@@ -50,7 +50,16 @@ class LeaseForm
                     FormTab::make('admin.sections.lease_details', [
                         TextInput::make('reference')
                             ->label(__('admin.fields.reference'))
-                            ->default(fn () => Lease::generateReference('AW'))
+                            // NO DEFAULT, deliberately. This read `Lease::generateReference('AW')` —
+                            // Atriom Walk's initials, hardcoded — so every lease created through the
+                            // panel carried AW whatever mall it was on. `Lease::creating()` already
+                            // resolves the code from the lease's own UNIT and allocates under the
+                            // document-number lock, but it returns early when a reference is already
+                            // filled, so pre-filling here silently overrode the correct answer with a
+                            // wrong one. Pre-allocating at RENDER time was a second fault: two
+                            // operators opening this form both got the same number, and the second
+                            // save hit the unique index instead of taking the next one.
+                            ->placeholder(__('admin.helpers.assigned_on_save'))
                             ->disabled()
                             ->dehydrated(),
                         EntitySelect::make('unit_id')

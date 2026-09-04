@@ -366,7 +366,11 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 *`create(array $data, Tenant $tenant): TenantRequest`*
 - Wraps in DB transaction.
-- Generates reference via `TenantRequest::generateReference($assetCode)`.
+- Generates reference via `TenantRequest::generateReference($assetCode)`. **The asset code comes from
+  the SELECTED property** (`Filament::getTenant()?->code`), fixed 2026-09-05 — it was the literal
+  `'AW'`, so every mall's requests were branded with Atriom Walk's initials. Unlike a lease, **nothing
+  in this model allocates a reference**, so the form is the only source and there is no model-level
+  answer to fall back on.
 - Derives unit and lease from tenant's active leases (or uses explicit data keys).
 - Sets priority (default 'medium'), category (default 'other'), status='submitted', submitted_at=now().
 - Computes target_resolution_at via `defaultTargetResolution($priority)`.

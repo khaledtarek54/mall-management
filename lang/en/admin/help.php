@@ -116,6 +116,7 @@ return [
         'is_postable' => 'Only postable (leaf) accounts can be used on journal entries.',
         'must_balance' => 'Total debit must equal total credit.',
         'portal_admin' => 'Applies to the web portal and the mobile app. Others can read only.',
+        'assigned_on_save' => 'Assigned when you save',
         'password_leave_blank' => 'Leave blank to keep the current password.',
         'reading_date' => 'Date the meter was read. The widget aggregates by month.',
         'reading_value' => 'Current odometer value. Consumption auto-fills from the previous reading.',
