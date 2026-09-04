@@ -910,6 +910,7 @@ class LeaseActions
                     'termination_date' => now()->toDateString(),
                     'credit_unearned' => true,
                     'cancel_open_invoices' => true,
+                    'bill_final_period' => true,
                 ])
                 ->schema([
                     DatePicker::make('termination_date')
@@ -942,6 +943,14 @@ class LeaseActions
                     Toggle::make('cancel_open_invoices')
                         ->label(__('admin.actions.cancel_open_invoices'))
                         ->helperText(__('admin.actions.cancel_open_invoices_helper'))
+                        ->default(true),
+                    // The mirror of `credit_unearned`, and it must be REACHABLE — this file's own
+                    // comment says a documented escape hatch nobody can reach is not an escape
+                    // hatch, and the flag shipped for one commit with no control behind it.
+                    Toggle::make('bill_final_period')
+                        ->label(__('admin.actions.bill_final_period'))
+                        ->helperText(__('admin.actions.bill_final_period_helper'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.bill_final_period'))
                         ->default(true),
                 ])
                 ->action(function (Lease $record, array $data) {

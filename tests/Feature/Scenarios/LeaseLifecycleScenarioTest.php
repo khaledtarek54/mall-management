@@ -293,8 +293,21 @@ it('termination stamps the end_date on every charge so a later billing run produ
     $stats = app(MonthlyBillingService::class)
         ->runForPeriod(CarbonImmutable::parse('2026-04-01'));
 
-    expect(Invoice::where('lease_id', $lease->id)->count())->toBe(0)
-        ->and($stats['created'])->toBe(0);
+    expect($stats['created'])->toBe(0);
+
+    // ONE invoice, and it is the termination itself asking for the FINAL period the tenant
+    // consumed (SW-050). This read `count() === 0` until 2026-09-05.
+    //
+    // Precisely what changed, because the document produced LOOKS like a complete final bill and is
+    // not: the service bills the billing cycle the termination falls in — here 1–15 March — and not
+    // the unbilled backlog. This lease ran from 1 January with nothing billed, so January and
+    // February are still invoiced by nothing, which is a different problem (nobody ran billing)
+    // with a different answer (the catch-up run). What SW-050 fixes is that the LAST period, the
+    // one netted off the deposit at move-out, is no longer silently dropped.
+    $invoices = Invoice::where('lease_id', $lease->id)->get();
+
+    expect($invoices)->toHaveCount(1)
+        ->and($invoices->first()->period_end->toDateString())->toBe('2026-03-15');
 });
 
 it('a direct single-lease billing call on a terminated lease is refused for BEING terminated', function () {

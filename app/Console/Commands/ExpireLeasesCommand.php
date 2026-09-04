@@ -6,7 +6,9 @@ use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Models\RentableItem;
 use App\Models\Unit;
+use App\Services\BillFinalPeriodService;
 use App\Support\OpsLog;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -137,6 +139,37 @@ class ExpireLeasesCommand extends Command
                     // The observer re-projects the units off the back of this status change.
                     $lease->update(['status' => $terminated ? 'terminated' : 'expired']);
                     $updated++;
+
+                    // ── BILL THE PERIOD IT CONSUMED ON THE WAY OUT (SW-050) ────────────────────
+                    //
+                    // A charge billed IN ARREARS is invoiced one cycle behind, so the days between
+                    // the last invoice and the end of the term are billed by nothing once the lease
+                    // stops being billable — and the move-out statement nets arrears off the deposit
+                    // from EXISTING invoices only, so the refund is larger by exactly that amount.
+                    //
+                    // **This is the half `LeaseTerminationService` cannot do.** A termination dated
+                    // in the future is NOTICE: the lease stays active and keeps billing, and the
+                    // period it will consume has not happened yet, so there is nothing to raise on
+                    // the day the notice is given. The moment the tenancy actually ENDS is here.
+                    // Both doors onto one act, exactly as `Unit::recomputeStatus()` is reached from
+                    // the lease events and from this sweep.
+                    //
+                    // Idempotent through `invoice_items.covered_end`, so a lease terminated
+                    // immediately (already billed by the service) is a no-op when it reaches this
+                    // sweep — no second document, no stamp of its own.
+                    // PER LEASE, so one failure cannot take the sweep with it. `MonthlyBillingService`
+                    // wraps each lease the same way and records `failed_lease_ids`; without it a
+                    // single throw here aborts the transaction, stops every remaining expiry, and
+                    // leaves `reprojectUnits()` and `reprojectRentableItems()` unrun — a nightly job
+                    // that silently does nothing for the rest of the portfolio.
+                    try {
+                        app(BillFinalPeriodService::class)->billFor($lease->fresh(), CarbonImmutable::parse($lease->expiry_date));
+                    } catch (\Throwable $e) {
+                        OpsLog::warning('Final consumed period could not be billed while expiring a lease', [
+                            'lease_id' => $lease->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 }
             });
         }

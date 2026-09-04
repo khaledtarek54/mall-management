@@ -23,7 +23,7 @@ class LeaseTerminationService
      * - Optionally cancels open invoices (status = 'cancelled', balance = 0)
      * - Credits back the unearned part of any invoice billed past the termination date (MF-02)
      *
-     * @param  array{termination_date:string|\DateTimeInterface|null, reason:string|null, cancel_open_invoices?:bool, credit_unearned?:bool}  $data
+     * @param  array{termination_date:string|\DateTimeInterface|null, reason:string|null, cancel_open_invoices?:bool, credit_unearned?:bool, bill_final_period?:bool}  $data
      */
     public function terminate(Lease $lease, array $data): Lease
     {
@@ -38,8 +38,12 @@ class LeaseTerminationService
         $reason = trim((string) ($data['reason'] ?? ''));
         $cancelOpenInvoices = (bool) ($data['cancel_open_invoices'] ?? false);
         $creditUnearned = (bool) ($data['credit_unearned'] ?? true);
+        // Defaults ON, like `credit_unearned` and for the mirror-image reason: the two halves of
+        // ending a tenancy fairly are giving back what was not earned and asking for what was. The
+        // opt-out exists because both write documents that a closed period can refuse.
+        $billFinalPeriod = (bool) ($data['bill_final_period'] ?? true);
 
-        return DB::transaction(function () use ($lease, $terminationDate, $reason, $cancelOpenInvoices, $creditUnearned) {
+        return DB::transaction(function () use ($lease, $terminationDate, $reason, $cancelOpenInvoices, $creditUnearned, $billFinalPeriod) {
             // 1. Lease itself
             $contractedExpiry = $lease->expiry_date
                 ? CarbonImmutable::parse($lease->expiry_date)->toDateString()
@@ -102,9 +106,15 @@ class LeaseTerminationService
 
             // Deactivation is the other half and applies to the WHOLE schedule: once the tenancy is
             // over, nothing on it is live any more, closed rungs included.
-            if (! $underNotice) {
-                Charge::where('lease_id', $lease->id)->update(['is_active' => false]);
-            }
+            //
+            // DEFERRED to the end of the termination (SW-050). The planner skips an inactive row,
+            // so deactivating here made the schedule unreadable before the final consumed period
+            // could be billed off it — `planInvoiceForLease()` answered `no_applicable_charges`.
+            // The row's own stated cause was this line, and it is half right: it is not what stops
+            // the SCHEDULED run (the status refusal fires first, so forcing the flag back on changes
+            // nothing there), but it is exactly what stops an act that has already got past the
+            // status. Setting `end_date` above is what bounds the billing; the flag only says the
+            // row is finished, so it can be set once nothing else needs to read it.
 
             // 4. Cancel open invoices if requested — but only fully unpaid
             // ones. A partially-paid invoice that we silently cancelled would
@@ -191,6 +201,35 @@ class LeaseTerminationService
                 $credits = app(CreditUnearnedBillingService::class)->forTermination($lease->fresh(), $terminationDate);
             }
 
+            // ── AND ASK FOR THE PERIOD THE TENANT ACTUALLY CONSUMED (SW-050) ────────────────────
+            //
+            // The mirror of the credit above, and it was missing. A charge billed IN ARREARS is
+            // invoiced one cycle behind, so the days between the last invoice and the termination
+            // are billed by NOTHING once the lease ends — and `MoveOutStatementService` nets arrears
+            // off the deposit from EXISTING invoices only, so an invoice nobody raised is not open
+            // AR and the refund cheque is larger by exactly that amount. Money the tenant owed,
+            // leaving the building, with nothing on the statement to say so.
+            //
+            // Runs AFTER the credit note deliberately: the credit reverses what was billed in
+            // advance and never earned, this asks for what was earned and never billed. They touch
+            // different rows and neither reads the other, but ordering them this way keeps the
+            // statement's story chronological for anyone reading it later.
+            //
+            // Under NOTICE it does not run — the lease is still active, the schedule is still live,
+            // and the ordinary billing run will raise the final invoice when the month turns. Only a
+            // lease that has actually ENDED has a consumed period nobody will bill.
+            $finalBill = null;
+
+            if ($billFinalPeriod && ! $underNotice) {
+                $result = app(BillFinalPeriodService::class)->billFor($lease->fresh(), $terminationDate);
+                $finalBill = $result['invoice'] ?? null;
+            }
+
+            // Now nothing else reads the schedule — see step 3.
+            if (! $underNotice) {
+                Charge::where('lease_id', $lease->id)->update(['is_active' => false]);
+            }
+
             // ── THE LEASE'S OWN HISTORY MUST RECORD THAT IT ENDED ───────────────────────────────
             //
             // `lease_events` has carried a `termination` type since it shipped, and only two
@@ -226,6 +265,10 @@ class LeaseTerminationService
                     LeaseEventNarrative::KEY => 'lease_terminated',
                     'cancelled_invoices' => $cancelledNumbers,
                     'credit_notes' => collect($credits)->pluck('number')->all(),
+                    // The other half of the money story, beside the credits: what was ASKED for on
+                    // the way out. `$finalBill` was assigned and never read for one commit, which is
+                    // how a fact nobody records becomes a fact nobody can reconstruct.
+                    'final_invoice' => $finalBill?->number,
                     'credited_total' => round((float) collect($credits)->sum('total'), 2),
                     // The contracted end, captured BEFORE step 1 overwrote `expiry_date` with the
                     // termination date. It is still derivable from `commencement_date + term_months`,

@@ -227,7 +227,12 @@ class MonthlyBillingService
         return ['status' => 'created', 'invoice' => $invoice];
     }
 
-    private function notifyInvoiceIssued(Invoice $invoice): void
+    /**
+     * Public because the final-period bill (SW-050) is the last document a departing tenant is
+     * charged — the one netted off their deposit — and it reached them by no channel at all while
+     * this was private. One notifier, not a second copy that can drift from it.
+     */
+    public function notifyInvoiceIssued(Invoice $invoice): void
     {
         $tenant = $invoice->tenant;
         if (! $tenant) {
@@ -481,7 +486,7 @@ class MonthlyBillingService
         return $total;
     }
 
-    public function planInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false): array
+    public function planInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false, bool $forceFinalCycle = false): array
     {
         $nothing = fn (string $reason): array => [
             'billable' => false,
@@ -549,9 +554,16 @@ class MonthlyBillingService
         // invoice has to settle its own month too, because no later invoice will exist — see
         // `coveredWindow()`. A holdover is never final: its expiry is deliberately in the past and
         // `holdover_from` is what keeps it billing.
-        $isFinalCycle = filled($lease->expiry_date)
+        // `$forceFinalCycle` is how the final-period bill (SW-050) says *the tenancy ends here*,
+        // and it exists for the HOLDOVER: a converted holdover's expiry is deliberately in the past
+        // and `holdover_from` is what keeps it billing, so `isBillableHoldoverFor()` is true and this
+        // would answer false — leaving an arrears row to cover the PREVIOUS month only and the days
+        // actually consumed billed by nothing. `leases:expire` excludes holdovers, so termination is
+        // a holdover's only door and the omission would be permanent. Measured: 20,000 raised where
+        // 33,333.33 was due, i.e. the pre-SW-050 behaviour restored for exactly that population.
+        $isFinalCycle = $forceFinalCycle || (filled($lease->expiry_date)
             && ! $lease->isBillableHoldoverFor($periodEnd)
-            && CarbonImmutable::instance($lease->expiry_date)->lessThanOrEqualTo($periodEnd);
+            && CarbonImmutable::instance($lease->expiry_date)->lessThanOrEqualTo($periodEnd));
 
         // Each charge is asked about the window IT covers, which for an arrears row is the previous
         // cycle (EG-30 / M-2). Asking every charge about the invoice's own period is what made

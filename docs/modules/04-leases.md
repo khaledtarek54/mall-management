@@ -2270,3 +2270,68 @@ layers**, so the operator sees a disabled field and the reason rather than a ref
 submitting. Full reasoning in
 [CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
 regression test `AnActOnAPostedDocumentIsWhereItCanBeSeenTest`.
+
+### SW-050
+
+**A TERMINATED LEASE STILL BILLS THE PERIOD IT CONSUMED (SW-050, fixed 2026-09-05) — this one moved
+money OUTBOUND.** A charge billed IN ARREARS is invoiced one cycle behind: September's service
+charge appears on October's invoice, because September's service is not knowable until October. When
+the lease ends no October invoice is ever raised, so the days the tenant genuinely occupied are
+billed by **nothing** — and `MoveOutStatementService` computes `net = depositHeld + tenantCredit −
+openAr` **from existing invoices only**, so an invoice nobody raised is not open AR. Measured on rent
+100,000 in advance + service charge 20,000 in arrears, deposit 300,000, terminated 20 September with
+the tenant paid up: the tenant owed **13,333.33** and was refunded **300,000.00** where 286,666.67
+was right. The tenant has gone, there is no recovery path, and `pendingTrueUps()` has no
+unbilled-period term so nothing on the statement says anything is missing.
+
+**The row's stated cause was half wrong, and the half that was right is not where it pointed.**
+`is_active = false` is not what stops the SCHEDULED run — `isBillableForPeriod()` refuses on the
+STATUS first, and forcing the flag back on changes nothing there. But it is exactly what stopped the
+new act, which has already got past the status: the planner answered `no_applicable_charges` because
+the schedule had been deactivated three steps earlier. Setting `end_date` is what bounds the billing;
+the flag only says a row is finished, so it is now written once nothing else needs to read it.
+
+**`App\Services\BillFinalPeriodService` writes no arithmetic** — `planInvoiceForLease()` already
+gives the right answer once `expiry_date` has moved, and a second copy would let the final bill
+disagree with the credit note beside it on the same statement. **`invoice_items.covered_end` is the
+idempotency stamp**, so terminating twice, re-terminating on a different date and a catch-up run are
+one mechanism, with no new column.
+
+**TWO DOORS.** A termination dated in the future is NOTICE: the lease stays active and the period has
+not happened yet, so `LeaseTerminationService` bills only an immediate termination and `leases:expire`
+bills the lease that ends by notice or by running out — the shape `Unit::recomputeStatus()` already
+has. The sweep wraps its call per lease, because one throw there would abort every remaining expiry
+and leave the unit and rentable-item re-projections unrun.
+
+**Four decisions the review and the mutations changed, each worth more than the original fix:**
+
+- **Not restricted to ARREARS rows.** That was the obvious guard and it UNDER-bills: the run fires on
+  the 1st, so any mid-month termination has an unbilled advance month, and measured, 66,666.67 of
+  prorated rent was billed by nothing. `covered_end` is right for both timings — and it is Yardi's
+  rule, that charges prorate to the move-out date, all of them.
+- **The legacy probe is scoped by `charge_id`.** Unscoped it made the whole service INERT: `covered_end`
+  is written by the recurring run alone, and every one-off raiser (late fee, deposit bill, violation
+  fine, utility recharge, CAM recovery, % rent overage, NSF fee) issues against the lease with no
+  `covered_*`, so one late fee anywhere in the lease's life refused it for ever — hardest on exactly
+  the leases this exists for.
+- **The CYCLE, not the calendar month.** A quarterly lease is billed only on a cycle start, so the
+  planner answered `off_cycle` for two months in three and raised nothing at all.
+- **`forceFinalCycle` for the HOLDOVER.** Its expiry is deliberately in the past and `holdover_from`
+  keeps it billing, so `$isFinalCycle` answered false and an arrears row covered the previous month
+  only. `leases:expire` excludes holdovers, so termination is their one door and the omission would
+  have been permanent.
+
+**A stated deviation on the posting date.** `PostingDate` says refuse rather than re-date, and
+`CreditUnearnedBillingService` — this bill's own mirror — does refuse. This posts FORWARD instead,
+because a credit note is optional relief the operator can re-take while this is the last chance to
+ask for money that otherwise leaves as a larger refund; and if today is closed too it SKIPS loudly
+rather than throwing, since `closeFiscalYear()` closes the current month as well and taking a
+termination down with it is the worse outcome. Every skip is an `OpsLog` warning and the final
+invoice's number goes into the `lease_terminated` event payload beside the credit notes — a lease
+silently un-billed at move-out has no second chance, because a terminated lease never reaches the
+expiry sweep.
+
+**It bills ONE period, not the unbilled backlog** — stated because the document looks like a complete
+final bill. A lease nobody ever ran billing for still has those months uninvoiced; that is a
+different problem with a different answer. `ATerminatedLeaseStillBillsTheMonthItConsumedTest`,
+9 cases, 6 mutations.
