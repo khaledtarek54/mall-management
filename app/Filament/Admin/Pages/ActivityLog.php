@@ -10,6 +10,7 @@ use App\Models\Asset;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
 use App\Support\AssignedAssets;
+use App\Support\Filament\CauserFilter;
 use App\Support\Modules;
 use BackedEnum;
 use Carbon\Carbon;
@@ -211,6 +212,12 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
                 SelectFilter::make('event')
                     ->label(__('admin.activity.event'))
                     ->options(fn () => __('admin.activity.events')),
+
+                // WHO acted. The same definition the per-record Activities tab has always used —
+                // this page, the one an auditor is actually sent to, had no control for it at all,
+                // and `reportCsv()` exports `getFilteredTableQuery()`, so mounting it here answers
+                // the scheduled CSV in the same move. See CauserFilter.
+                CauserFilter::make(),
 
                 // Quick presets — common audit windows. Picking one
                 // overrides the custom date range below.

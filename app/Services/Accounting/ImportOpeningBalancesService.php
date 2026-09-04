@@ -90,7 +90,25 @@ class ImportOpeningBalancesService
             $rows[] = [
                 'line' => $lineNo,
                 'code' => $code,
-                'name' => $account?->name,
+                // `LedgerAccount` has NO `name` column: the chart carries `name_en` and `name_ar`
+                // (2026_06_30_000001_create_ledger_accounts_table), so `$account?->name` resolved
+                // to null for EVERY row — Eloquent returns null for an attribute that is not there
+                // rather than failing. Measured at HEAD (2026-09-04) against the seeded chart:
+                // every parsed row came back `name => null`.
+                //
+                // It was silent twice over. The preview's `@if ($row['name'])` guard printed the
+                // bare account code, so the operator checking a forty-row paste never saw WHICH
+                // account each code is — the one thing the preview exists to confirm before an
+                // opening balance is committed. And `import()` copies this onto every line of the
+                // draft entry, so all forty landed with `description => null`: on a general ledger
+                // a missing description is indistinguishable from an entry nobody described.
+                //
+                // `displayName()` is the ONE locale-aware reading of an account's name (the picker,
+                // the report filters and the posting map all take it) and it falls back to the other
+                // language rather than returning null, which a half-translated imported chart needs.
+                // The line description is a snapshot in the importing operator's language, exactly
+                // like the one they would have typed on the manual journal screen this replaces.
+                'name' => $account?->displayName(),
                 'debit' => $d,
                 'credit' => $c,
                 'error' => $error,

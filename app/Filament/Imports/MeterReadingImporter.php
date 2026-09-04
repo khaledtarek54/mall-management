@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\MeterReading;
 use App\Models\UtilityMeter;
+use App\Support\DataTransferNotice;
 use App\Support\TenantScope;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
@@ -138,12 +139,6 @@ class MeterReadingImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your meter-reading import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
-
-        if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
-        }
-
-        return $body;
+        return DataTransferNotice::forImport($import);
     }
 }

@@ -239,7 +239,12 @@ class LinesRelationManager extends RelationManager
                     ->color('gray')
                     ->requiresConfirmation()
                     ->modalDescription(__('admin.helpers.unmatch_line'))
-                    ->visible(fn (BankStatementLine $record) => $this->canMatch() && $record->matches()->exists())
+                    // `$record->matches`, not `matches()->exists()`: this table's own
+                    // `->with('matches.journalLine.entry')` has already fetched them, so the
+                    // relation query was a further statement per row on top of the four
+                    // `coverage()` used to make. Falls back to a lazy load when nothing is loaded,
+                    // which is the same single query it always was.
+                    ->visible(fn (BankStatementLine $record) => $this->canMatch() && $record->matches->isNotEmpty())
                     ->authorize(fn () => $this->canMatch())
                     ->action(function (BankStatementLine $record) use ($service): void {
                         abort_unless($this->canMatch(), 403);

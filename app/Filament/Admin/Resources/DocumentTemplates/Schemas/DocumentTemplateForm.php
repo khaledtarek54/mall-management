@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\DocumentTemplates\Schemas;
 
 use App\Support\DocumentText;
 use App\Support\Filament\PropertyField;
+use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
@@ -34,9 +35,20 @@ class DocumentTemplateForm
                         ->disabledOn('edit')
                         // One row per block per property, matching the unique index — refused here
                         // so the operator gets a field error instead of a duplicate-key 500.
+                        //
+                        // **The scope is CLAMPED, never read raw.** This screen's property control
+                        // is `PropertyField::scope()`, a Radio whose blank state is the STRING `''`
+                        // and not null, so `$get('asset_id')` handed the rule an empty string for
+                        // the HOUSE row. Measured 2026-09-04 on the dev database: it compiled to
+                        // `where "key" = ? and ("asset_id" = ?)` bound to `""`, and `asset_id = ''`
+                        // can never match a NULL row — so the check never fired for the one scope
+                        // where the index cannot help either (MySQL permits unlimited duplicates on
+                        // a nullable unique column). `clampAssetId('')` is null, which Laravel
+                        // compiles to `is null`; it is also what `HolidayForm` — the same control
+                        // asking the same question — has always done.
                         ->rules([
                             fn ($record, $get) => Rule::unique('document_templates', 'key')
-                                ->where(fn ($q) => $q->where('asset_id', $get('asset_id')))
+                                ->where(fn ($q) => $q->where('asset_id', TenantScope::clampAssetId($get('asset_id'))))
                                 ->ignore($record?->id),
                         ])
                         ->helperText(__('admin.document_templates_screen.help.key')),

@@ -31,8 +31,15 @@ use Illuminate\Support\Str;
 /* ---- helpers -------------------------------------------------------------- */
 
 /**
- * Every Filament resource in both panels, resolved from disk rather than from a
+ * Every Filament resource in EVERY panel, resolved from disk rather than from a
  * list someone maintains — resource #48 is covered the day it is written.
+ *
+ * **The panel directories are globbed, not named.** This read
+ * `[app_path('Filament/Admin/Resources'), app_path('Filament/Portal/Resources')]`, which is a list
+ * someone maintains wearing the clothes of a derivation — so the contractor panel added on
+ * 2026-08-28 was swept by nothing, and its one resource turned out to be the only raw-column global
+ * search left in the application (SW-130). Two globs rather than one `GLOB_BRACE` pattern: brace
+ * expansion is absent on some libc builds, where it fails silently back to zero directories.
  *
  * @return array<int, class-string>
  */
@@ -40,7 +47,7 @@ function searchPolicyResources(): array
 {
     $resources = [];
 
-    foreach ([app_path('Filament/Admin/Resources'), app_path('Filament/Portal/Resources')] as $dir) {
+    foreach (glob(app_path('Filament/*/Resources')) ?: [] as $dir) {
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir)) as $file) {
             if (! str_ends_with($file->getFilename(), 'Resource.php')) {
                 continue;

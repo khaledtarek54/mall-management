@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\LedgerAccount;
 use App\Support\CashFlowSection;
+use App\Support\DataTransferNotice;
 use App\Support\StatementSection;
 use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
@@ -143,13 +144,7 @@ class LedgerAccountImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your chart of accounts import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
-
-        if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
-        }
-
-        return $body;
+        return DataTransferNotice::forImport($import);
     }
 
     /** Queued in production, `sync` locally and in the suite — same as its siblings. */

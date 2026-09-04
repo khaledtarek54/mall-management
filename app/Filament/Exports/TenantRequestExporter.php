@@ -3,6 +3,7 @@
 namespace App\Filament\Exports;
 
 use App\Models\TenantRequest;
+use App\Support\DataTransferNotice;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
@@ -41,7 +42,7 @@ class TenantRequestExporter extends Exporter
 
     public static function getCompletedNotificationBody(Export $export): string
     {
-        return 'Your request export has completed and '.number_format($export->successful_rows).' '.str('row')->plural($export->successful_rows).' exported.';
+        return DataTransferNotice::forExport($export);
     }
 
     public function getJobConnection(): ?string

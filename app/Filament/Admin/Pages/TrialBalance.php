@@ -92,6 +92,12 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
                         $this->periodEnd(),
                         $this->propertyLabel(),
                         $this->periodLabel(),
+                        // "Show accounts with no movement" travels to the PRINTED copy. It reaches
+                        // the screen and the CSV through `report()`; the PDF is built by a different
+                        // service and took the default, so ticking the toggle and pressing Download
+                        // handed the operator a statement without them. Named, because the
+                        // parameter sits after $locale.
+                        includeZeroBalances: $this->includeZeroBalances,
                     );
 
                     return response()->streamDownload(

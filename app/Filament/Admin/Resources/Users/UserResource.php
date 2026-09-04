@@ -12,7 +12,7 @@ use App\Models\Asset;
 use App\Models\User;
 use App\Support\AccessControlAudit;
 use App\Support\AssignedAssets;
-use App\Support\Translate;
+use App\Support\PermissionVocabulary;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -297,7 +297,7 @@ class UserResource extends Resource
     {
         return [
             __('admin.fields.email') => $record->email,
-            __('admin.users.role') => $record->roles->pluck('name')->map(fn ($r) => Translate::orHumanized("admin.users.roles_list.{$r}", $r))->implode(', '),
+            __('admin.users.role') => $record->roles->pluck('name')->map(fn ($r) => PermissionVocabulary::roleLabel($r))->implode(', '),
         ];
     }
 

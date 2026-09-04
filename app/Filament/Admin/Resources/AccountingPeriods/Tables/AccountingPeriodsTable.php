@@ -2,11 +2,9 @@
 
 namespace App\Filament\Admin\Resources\AccountingPeriods\Tables;
 
-use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Models\AccountingPeriod;
 use App\Services\Accounting\PeriodService;
 use Filament\Actions\Action;
-use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -67,13 +65,11 @@ class AccountingPeriodsTable
                     ->relationship('fiscalYear', 'year', fn (Builder $query) => $query->orderByDesc('year')),
             ])
             ->recordActions([
-                // Read the record without opening its edit form — less
-                // friction, and no write surface for view-only roles. The
-                // schema is the resource's own form rendered disabled, so it
-                // cannot drift from the fields that actually exist.
-                ViewAction::make()
-                    ->visible(fn ($record) => AccountingPeriodResource::canView($record))
-                    ->authorize(fn ($record) => AccountingPeriodResource::canView($record)),
+                // No read-only View here, deliberately — the five columns above ARE the record.
+                // `accounting_periods` holds nothing else a person set, so the resource declares no
+                // form, and a View action would render Filament's disabled-form modal from an empty
+                // schema: a heading, a Close button and nothing between them. Closing and reopening
+                // are the two things this screen exists for, and they are below.
                 Action::make('close_period')
                     ->label(__('admin.actions.close_period'))
                     ->icon('heroicon-o-lock-closed')
@@ -110,7 +106,23 @@ class AccountingPeriodsTable
                     ->authorize(fn () => auth()->user()?->can('accounting_periods.manage') ?? false)
                     ->requiresConfirmation()
                     ->action(function (AccountingPeriod $record): void {
-                        app(PeriodService::class)->reopenPeriod($record);
+                        try {
+                            app(PeriodService::class)->reopenPeriod($record);
+                        } catch (\DomainException $e) {
+                            // The year's closing entry still stands, so anything posted into this
+                            // month would never reach retained earnings. Persistent and shaped like
+                            // the close gate above, because the escape it names is a different
+                            // button in the header the operator has to go and find.
+                            Notification::make()
+                                ->title(__('admin.notifications.reopen_blocked_title'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
+
                         Notification::make()
                             ->title(__('admin.notifications.period_reopened'))
                             ->success()

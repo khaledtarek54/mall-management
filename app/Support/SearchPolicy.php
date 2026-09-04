@@ -68,6 +68,7 @@ use App\Filament\Portal\Resources\Announcements\AnnouncementResource as PortalAn
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource as PortalCamAllocationResource;
 use App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource as PortalMarketingPostResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource as PortalTenantSalesDeclarationResource;
+use App\Filament\Vendor\Resources\WorkOrders\WorkOrderResource as VendorWorkOrderResource;
 use App\Models;
 use App\Models\BankAccount;
 
@@ -266,6 +267,9 @@ class SearchPolicy
         PortalTenantSalesDeclarationResource::class => 'A tenant has a handful of declarations, listed by period. Nothing on one is typed to find it.',
         PortalMarketingPostResource::class => 'A retailer has a handful of their own offers, listed on one screen with a status filter. Global search would be a longer route to a shorter list. (The OPERATOR\'s MarketingPostResource IS searchable — they hold every mall\'s.)',
         PortalAnnouncementResource::class => 'A retailer reads their mall\'s notices as a board, newest first, with an unread badge on the nav item. Nobody types a notice\'s title to find one — they open the board. (The OPERATOR\'s AnnouncementResource IS searchable — they hold every mall\'s.)',
+
+        // ---- Vendor (contractor) ----
+        VendorWorkOrderResource::class => 'The contractor panel has no global search at all — `VendorPanelProvider` says so in writing and now calls `->globalSearch(false)`: the whole portal is a list of YOUR jobs, and a search box over one narrow list reads as an invitation to look for other people\'s. It was searchable in fact until 2026-09-04, on the RAW `reference` column, because this gate discovered resources from a hardcoded Admin+Portal directory list and could not see the panel (SW-130).',
     ];
 
     /**

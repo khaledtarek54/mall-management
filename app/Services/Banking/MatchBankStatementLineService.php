@@ -144,7 +144,28 @@ class MatchBankStatementLineService
     {
         $matched = 0.0;
 
-        foreach ($line->matches()->with('journalLine')->get() as $match) {
+        // Prefer what the caller already loaded.
+        //
+        // COUNTED FROM THE CALL SITES, not measured on data — the dev database holds no statement
+        // lines at all. `LinesRelationManager` asks this FOUR times for every row it draws (the age
+        // cell, the match-state cell, that cell's colour, and the Match action's `visible()`) while
+        // its own query has already fetched the answer with `->with('matches.journalLine.entry')`.
+        // Each call re-ran the relation: one statement for `bank_matches` and a second for the
+        // eager load, so eight throwaway queries per line on a screen an operator scrolls.
+        //
+        // Safe because `coverage()` DECIDES nothing. It words a badge and hides a button; `match()`
+        // refuses on its own locking read of the journal line, so no refusal and no money rests on
+        // this figure — which is exactly the condition under which reading a possibly-stale loaded
+        // relation is allowed. Same shape as `Invoice::collectableBalance()` preferring an
+        // eager-loaded `writeOffs`.
+        //
+        // A line whose `matches` are loaded WITHOUT `journalLine` still answers correctly, at one
+        // lazy read per match — the fallback below is for a line with nothing loaded at all.
+        $matches = $line->relationLoaded('matches')
+            ? $line->getRelation('matches')
+            : $line->matches()->with('journalLine')->get();
+
+        foreach ($matches as $match) {
             $journalLine = $match->getRelationValue('journalLine');
             if ($journalLine instanceof JournalLine) {
                 $matched += round((float) $journalLine->debit - (float) $journalLine->credit, 2);

@@ -321,6 +321,40 @@ class PaymentMethod extends Model
     }
 
     /**
+     * The rail a NEW document on this column opens on — or nothing, once the operator retires it.
+     *
+     * Seven money forms stated their default as a LITERAL beside options that come from a catalogue
+     * the operator edits, so the option list moved with the catalogue and the default did not.
+     * Retire the rail a form defaults to and Filament — which derives a Select's `Rule::in` from the
+     * options it resolved, and cannot label a value it was not offered — renders the field EMPTY
+     * while its state still carries the retired code. The operator then submits a form they never
+     * touched that field on and is refused as *invalid*: the 2026-08-18 deposit bug through a door
+     * the operator opens themselves.
+     *
+     * Measured at HEAD 2026-09-04 against the dev database. With `bank_transfer` deactivated,
+     * `optionsFor('disbursements.method')` answers `[cash, cheque, card, instapay, other]`, and the
+     * schedule-payout modal's `->default(Disbursement::METHOD_BANK_TRANSFER)` is not among them.
+     *
+     * **Null, never a substitute rail.** Falling back to whatever the catalogue happens to offer
+     * first would choose a channel for money nobody chose, and the rail decides which chart account
+     * the entry lands in ({@see accountIdOrFloor()}). A blank required field asks the question,
+     * which is the honest answer once the rail this form assumed has been retired.
+     *
+     * Derived from {@see optionsFor()} — the SAME list the picker renders — so the two cannot drift.
+     * The label group is irrelevant here: it changes labels, never keys.
+     *
+     * @param  string  $column  `table.column`, e.g. `disbursements.method`
+     */
+    public static function defaultFor(string $column, ?string $preferred): ?string
+    {
+        if ($preferred === null || $preferred === '') {
+            return null;
+        }
+
+        return array_key_exists($preferred, static::optionsFor($column)) ? $preferred : null;
+    }
+
+    /**
      * `code => label` for a FILTER on one column — retired rails included.
      *
      * A form asks what may be recorded; a filter asks what already WAS. Pointing a filter at

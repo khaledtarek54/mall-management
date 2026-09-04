@@ -7,8 +7,8 @@ use App\Models\FacilityWorkOrder;
 use App\Support\Filament\VendorScope;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Illuminate\Database\Eloquent\Builder;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * **The contractor's jobs** — the only list in the vendor portal, and by design the only one.
@@ -34,6 +34,18 @@ class WorkOrderResource extends Resource
     protected static ?string $model = FacilityWorkOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
+
+    /**
+     * Deliberately absent from global search — the reason is stated in
+     * `App\Support\SearchPolicy::GLOBAL_SEARCH_EXEMPT`, which the conformance gate reads.
+     *
+     * The PANEL also switches search off, and both are wanted: the panel decision is "this portal
+     * offers no search box" and this one is "this resource is not indexed". Without it, Filament
+     * derives searchable attributes from `$recordTitleAttribute` below and searches
+     * `facility_work_orders.reference` RAW — a folded query against an unfolded column, which is
+     * the one thing `SearchPolicy` forbids outright (SW-130).
+     */
+    protected static bool $isGloballySearchable = false;
 
     protected static ?string $recordTitleAttribute = 'reference';
 

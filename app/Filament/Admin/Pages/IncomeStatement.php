@@ -80,19 +80,37 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
     /** @var array<int, string> */
     public const SPREADS = [self::SPREAD_YTD, self::SPREAD_MONTHLY];
 
+    /**
+     * This page's OWN parameters first, the shared scope bar last — and the order is the whole of it.
+     *
+     * `hydrateLedgerScopeFromQuery()` restores this operator's standing preferences and then PINS
+     * `$assetId` to the mall they are standing in, deliberately as the last word: left unpinned, the
+     * disabled picker names one mall while the rows underneath it come from another, which is the
+     * one failure mode a financial statement must not have.
+     *
+     * This page then called `ReportPreferences::restore()` a SECOND time, after that pin, so it
+     * could pick up `comparison` and `spread` — which it parses from the query string after the
+     * hydrate has already run. `assetId` is a restored parameter too, so the preference beat the
+     * pin. Measured at HEAD 2026-09-04:
+     *   ReportParameters::parametersOf(self::class) = comparison, spread, year, period, assetId
+     *   ReportPreferences::VOLATILE                 = asOf, from, to, period, year, date
+     *   → remembered AND restored: comparison, spread, assetId
+     * so an operator who worked mall A yesterday read a pinned picker saying "A" over figures
+     * `TenantScope::reportAssetIds()` had clamped back to the mall they were actually in.
+     *
+     * Parsing the two own parameters BEFORE the hydrate leaves the trait's single restore as the
+     * effective one and the pin last. The query string still wins over the memory, because
+     * `restore()` skips any key `request()->query` names.
+     */
     public function mount(): void
     {
-        $this->hydrateLedgerScopeFromQuery();
-
         $requested = (string) request()->query('comparison', '');
         $this->comparison = in_array($requested, ComparativeStatementService::BASES, true) ? $requested : null;
 
         $spread = (string) request()->query('spread', '');
         $this->spread = in_array($spread, self::SPREADS, true) ? $spread : null;
 
-        // After the query string, so an explicit ?comparison= still wins — same rule as every other
-        // report parameter.
-        ReportPreferences::restore($this);
+        $this->hydrateLedgerScopeFromQuery();
     }
 
     /**

@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Resources\Users\Tables;
 
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\User;
-use App\Support\Translate;
+use App\Support\PermissionVocabulary;
 use Carbon\Carbon;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -15,6 +15,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,7 +47,7 @@ class UsersTable
                         'viewer' => 'gray',
                         default => 'primary',
                     })
-                    ->formatStateUsing(fn (string $state) => Translate::orHumanized("admin.users.roles_list.{$state}", $state)),
+                    ->formatStateUsing(fn (string $state) => PermissionVocabulary::roleLabel($state)),
                 // A suspended account still owns its history, so it stays in the list — but it
                 // must be obvious at a glance which logins actually work.
                 TextColumn::make('status')
@@ -78,7 +79,35 @@ class UsersTable
                 SelectFilter::make('roles')
                     ->label(__('admin.users.role'))
                     ->relationship('roles', 'name')
-                    ->options(fn () => Role::pluck('name', 'name')),
+                    // The DROPDOWN. Without this Filament labels each option with the relationship's
+                    // TITLE ATTRIBUTE — the raw identifier `super_admin` — while the badge column
+                    // above renders «مدير عام». One value, two vocabularies, thirty lines apart.
+                    ->getOptionLabelFromRecordUsing(fn (Role $record): string => PermissionVocabulary::roleLabel($record->name))
+                    // The CHIP is a THIRD rendering and reads neither callback: `SelectFilter::setUp()`
+                    // plucks the title attribute straight off the column. Same trap `EntitySelectFilter`
+                    // records for entity filters; one override answers it here.
+                    //
+                    // The `->options(fn () => Role::pluck('name', 'name'))` that used to sit on this
+                    // chain was inert — a filter that `queriesRelationships()` serves its dropdown
+                    // from the relationship and never reads `getOptions()`, which is just as well,
+                    // because those keys were role NAMES and `apply()` ends in `whereKey()`.
+                    ->indicateUsing(function (SelectFilter $filter, array $state): array {
+                        if (blank($state['value'] ?? null)) {
+                            return [];
+                        }
+
+                        $name = Role::query()->whereKey($state['value'])->value('name');
+
+                        if (blank($name)) {
+                            return [];
+                        }
+
+                        $indicator = $filter->getIndicator();
+
+                        return [$indicator instanceof Indicator
+                            ? $indicator
+                            : Indicator::make($indicator.': '.PermissionVocabulary::roleLabel($name))];
+                    }),
                 Filter::make('created_range')
                     ->label(__('admin.users.created'))
                     ->schema([

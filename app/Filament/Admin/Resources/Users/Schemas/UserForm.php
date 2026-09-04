@@ -5,11 +5,13 @@ namespace App\Filament\Admin\Resources\Users\Schemas;
 use App\Models\Asset;
 use App\Support\AssignedAssets;
 use App\Support\Filament\EntitySelect;
+use App\Support\PermissionVocabulary;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class UserForm
 {
@@ -45,6 +47,10 @@ class UserForm
                     Select::make('roles')
                         ->label(__('admin.users.role'))
                         ->relationship('roles', 'name')
+                        // Named the way the list names it. `->relationship()` labels an option with
+                        // the title attribute — the raw identifier — so this picker offered `hr`
+                        // while the badge column on the list beside it read «الموارد البشرية».
+                        ->getOptionLabelFromRecordUsing(fn (Role $record): string => PermissionVocabulary::roleLabel($record->name))
                         ->multiple()
                         ->preload()
                         ->required()

@@ -132,15 +132,24 @@ class EditVendorBill extends EditRecord
                     // the vendor receives less and the difference is owed to the ETA.
                     Placeholder::make('wht_breakdown')
                         ->label(__('admin.vendors.wht.breakdown'))
-                        ->visible(fn () => WithholdingTax::rateFor($this->record->vendor) > 0)
+                        // **RESOLVED FOR THE PAYMENT'S OWN DATE, NOT TODAY'S** — the same rung the
+                        // service will withhold at. Both sides passed no date and fell through to
+                        // `CarbonImmutable::now()`, so a back-dated payment previewed and recorded
+                        // a rate that was not in force when it was made.
+                        ->visible(fn (Get $get) => WithholdingTax::rateFor($this->record->vendor, $get('payment_date') ?: null) > 0)
                         ->content(function (Get $get) {
                             $gross = (float) ($get('amount') ?: 0);
+
+                            // The date picked below. Blank means "not stated yet" and falls back to
+                            // today, which is what the service will use if it is still blank on
+                            // submit — never `Carbon::parse('')`, which throws.
+                            $on = $get('payment_date') ?: null;
 
                             // The SAME call the service makes. When these two drifted apart the
                             // operator was shown one figure and the bank paid another, which is the
                             // failure mode this placeholder exists to prevent in the first place.
                             $base = WithholdingTax::vatExclusiveShareOf($gross, $this->record);
-                            $withheld = WithholdingTax::onBillPayment($gross, $this->record);
+                            $withheld = WithholdingTax::onBillPayment($gross, $this->record, $on);
 
                             return __('admin.vendors.wht.breakdown_text', [
                                 'gross' => number_format($gross, 2),
@@ -149,7 +158,7 @@ class EditVendorBill extends EditRecord
                                 // see that VAT was excluded from the base.
                                 'base' => number_format($base, 2),
                                 'rate' => rtrim(rtrim(number_format(
-                                    WithholdingTax::rateFor($this->record->vendor), 2), '0'), '.'),
+                                    WithholdingTax::rateFor($this->record->vendor, $on), 2), '0'), '.'),
                                 'withheld' => number_format($withheld, 2),
                                 'net' => number_format($gross - $withheld, 2),
                             ]);
@@ -157,7 +166,8 @@ class EditVendorBill extends EditRecord
                     Select::make('method')
                         ->label(__('admin.fields.method'))
                         ->options(fn () => PaymentMethod::optionsFor('vendor_bill_payments.method', 'admin.enums.vendor_bill_payment_method'))
-                        ->default('bank_transfer')
+                        // The default comes from the same list as the options (SW-116).
+                        ->default(fn () => PaymentMethod::defaultFor('vendor_bill_payments.method', 'bank_transfer'))
                         ->native(false)
                         ->required()
                         // `->live()` so the bank-account field beside it picks up its requirement as soon as the
@@ -176,6 +186,11 @@ class EditVendorBill extends EditRecord
                         ->label(__('admin.fields.payment_date'))
                         ->default(now())
                         ->native(false)
+                        // `->live()` because the withholding preview ABOVE resolves its rate for
+                        // this date: without it the operator moves the date and the breakdown goes
+                        // on quoting the rung in force today, which is the drift the preview exists
+                        // to prevent.
+                        ->live()
                         ->required(),
                     Textarea::make('notes')
                         ->label(__('admin.fields.notes'))

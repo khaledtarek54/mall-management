@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\Tenant;
+use App\Support\DataTransferNotice;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
@@ -214,15 +215,10 @@ class OpeningInvoiceImporter extends Importer
         ]);
     }
 
+    /** The `billing:reconcile` follow-up rides along as `admin.data_transfer.followup.import.opening_invoice`. */
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your opening-balance import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
-
-        if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
-        }
-
-        return $body.' Now run `php artisan billing:reconcile` — the AR tie-out is what proves the figures match your accountant\'s opening trial balance.';
+        return DataTransferNotice::forImport($import);
     }
 
     public function getJobConnection(): ?string

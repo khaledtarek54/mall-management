@@ -71,7 +71,8 @@ class DepositTransactionForm
                         // This form had the right two values by hand; the lease modal picked a
                         // different list and could not save at all.
                         ->options(fn () => DepositTransaction::methodOptions())
-                        ->default('bank')
+                        // The default comes from the same list as the options (SW-116).
+                        ->default(fn () => DepositTransaction::defaultMethod())
                         ->native(false)
                         ->required()
                         ->disabled($locked)

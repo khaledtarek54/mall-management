@@ -78,7 +78,16 @@ class VendorBillService
             // `onBillPayment`, NOT `on`: the WHT base excludes VAT, and `$pay` is capped at the
             // balance, which comes from `total` — net PLUS VAT. Passing it to the primitive
             // over-withheld on every VAT-bearing bill (3,420 instead of 3,000 at 3% on 100,000).
-            $withheld = WithholdingTax::onBillPayment($pay, $bill);
+            // **FOR THE PAYMENT'S OWN DATE, NOT TODAY'S.** A withholding rate is a dated rung of
+            // the tax catalogue like every other rate here, and `WithholdingTax::rateFor()`'s own
+            // docblock says so — "a back-dated payment must withhold what was due when it was
+            // made". This call passed no date, so `TaxCode::rateFromLadder()` fell through to
+            // `CarbonImmutable::now()` (app/Models/TaxCode.php:317) and resolved TODAY's rung.
+            // Measured: with WH_3_P superseded by 5% from 1 September, a payment back-dated to
+            // 20 August withheld 5,000 of a 100,000 net bill where 3,000 was due — the supplier
+            // short-paid by 2,000 and the ETA over-remitted the same, on a figure
+            // `WithholdingCertificatePdfService` then certifies to that supplier.
+            $withheld = WithholdingTax::onBillPayment($pay, $bill, $postingDate);
 
             VendorBillPayment::create([
                 'vendor_bill_id' => $bill->id,

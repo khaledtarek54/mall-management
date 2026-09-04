@@ -13,6 +13,7 @@ use App\Filament\Admin\Resources\Violations\Tables\ViolationTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Tenant;
 use App\Models\Violation;
+use App\Models\ViolationCategory;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -143,7 +144,13 @@ class ViolationResource extends Resource
 
         return [
             __('admin.tables.common.tenant') => $tenant?->name,
-            __('admin.fields.category') => $record->category,
+            // The CATALOGUE's label, exactly as `ViolationTable` renders the same column — never the
+            // stored code. An operator-added house rule has no lang key at all, so a raw code here
+            // reads as `unauthorized_works` beside a list that says "Unauthorised works", and a rule
+            // renamed in the book stays renamed everywhere except in the search results.
+            // `labelFor()` reads inactive rows too, so a retired rule still labels the breach filed
+            // under it (SW-129).
+            __('admin.fields.category') => ViolationCategory::labelFor($record->category),
             __('admin.fields.amount') => 'EGP '.number_format((float) $record->fine_amount, 2),
         ];
     }

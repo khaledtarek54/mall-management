@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use DomainException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,6 +51,55 @@ class BankStatement extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return ActivityLogging::for($this, 'bank_statement');
+    }
+
+    /**
+     * **A statement whose lines are already MATCHED cannot be moved to another bank account.**
+     *
+     * `MatchBankStatementLineService::match()` refuses to link a line to a posting that is not on
+     * the statement's own bank chart account — *"matching across accounts would reconcile one bank
+     * with another bank's money and still balance, the failure the whole module exists to
+     * prevent"*. Editing the statement afterwards walked straight past that: `BankStatementForm`
+     * is the resource's form on Edit as well as Create, so `bank_account_id` is an ordinary
+     * dropdown on a statement that has already been reconciled, and nothing re-asked the question.
+     *
+     * Measured at HEAD (2026-09-04): with one line matched to a CIB posting,
+     * `$statement->update(['bank_account_id' => $nbe->id])` was accepted, and BOTH reconciliations
+     * are then wrong in opposite directions and both silently —
+     *
+     *  - the CIB posting still carries its `BankMatch`, so `ReconcileBankStatementService` drops it
+     *    from CIB's *"in the books, not on the statement"* items. Money the books know about that
+     *    the bank has not shown disappears from the one list that exists to name it, and the
+     *    identity that is supposed to leave the unexplained remainder visible balances without it;
+     *  - the line counts as explained on NBE's statement, by a posting that never touched NBE.
+     *
+     * Only on a DIRTY write, and only while a match exists. An operator who imported a statement
+     * under the wrong account and has matched nothing must still be able to correct it — that is
+     * the ordinary case, and guarding a row a workflow legitimately touches breaks the workflow
+     * instead of protecting it. It is also the escape the refusal names.
+     */
+    protected static function booted(): void
+    {
+        static::updating(function (self $statement): void {
+            if (! $statement->isDirty('bank_account_id')) {
+                return;
+            }
+
+            $matched = BankStatementLine::query()
+                ->where('bank_statement_id', $statement->getKey())
+                ->whereHas('matches')
+                ->count();
+
+            if ($matched === 0) {
+                return;
+            }
+
+            throw new DomainException(__('admin.refusals.bank_statement_rehomed_after_matching', [
+                'count' => $matched,
+                'account' => BankAccount::withTrashed()
+                    ->find($statement->getOriginal('bank_account_id'))?->name ?? '',
+            ]));
+        });
     }
 
     public function bankAccount(): BelongsTo

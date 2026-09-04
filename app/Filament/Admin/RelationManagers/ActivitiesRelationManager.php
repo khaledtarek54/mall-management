@@ -2,11 +2,9 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Models\User;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
-use App\Support\Filament\EntitySelectFilter;
-use App\Support\MorphMap;
+use App\Support\Filament\CauserFilter;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -78,11 +76,9 @@ class ActivitiesRelationManager extends RelationManager
                 SelectFilter::make('event')
                     ->label(__('admin.activity.event'))
                     ->options(fn () => __('admin.activity.events')),
-                EntitySelectFilter::make('causer_id')
-                    ->label(__('admin.filters.causer'))
-                    ->entity(User::class)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['value'] ?? null, fn (Builder $q, $userId) => $q->where('causer_id', $userId)->where('causer_type', MorphMap::alias(User::class)))),
+                // The audit trail's most-asked question, defined once — see CauserFilter for why
+                // the morph type clause has to travel with it.
+                CauserFilter::make(),
                 Filter::make('created_range')
                     ->label(__('admin.activity.when'))
                     ->schema([

@@ -9,7 +9,6 @@ use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Models\AccountingPeriod;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
@@ -54,11 +53,19 @@ class AccountingPeriodResource extends Resource
         return __('admin.resources.accounting_period.plural');
     }
 
-    public static function form(Schema $schema): Schema
-    {
-        // Periods are seeded, not editable — no form.
-        return $schema;
-    }
+    // NO `form()` AT ALL — not an empty one, and the difference is the whole of SW-147.
+    //
+    // A period is seeded from the fiscal calendar and never typed, so there was nothing to put in
+    // a form; what the empty declaration bought was a read-only View action rendered from it.
+    // Filament resolves a resource ViewAction's schema as `infolist(form($schema))`
+    // (ListRecords::getDefaultActionSchemaResolver), and both returned the schema untouched — so
+    // the button opened a modal with a heading, a Close button and nothing between them.
+    // `ViewActionCoverageTest` could not see it: it skips a resource only when `form()` is not
+    // DECLARED, so a declared-but-empty one counted as having a form and was then required to
+    // offer the very action it could not fill.
+    //
+    // Declaring nothing is the shape the three registers that legitimately have no form already
+    // follow (disbursements, owner-statement runs, stock movements), and it is what the gate reads.
 
     public static function table(Table $table): Table
     {

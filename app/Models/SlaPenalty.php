@@ -119,6 +119,43 @@ class SlaPenalty extends Model
         return $this->belongsTo(VendorBill::class, 'vendor_bill_id');
     }
 
+    /**
+     * The bill this penalty is charged to, read under a ROW LOCK — the locking twin of {@see bill()}.
+     *
+     * `VendorBill::recompute()` re-derives `penalty_applied_amount`, `balance` and `status` from
+     * EVERY applied penalty on the bill, so RELEASING one is a whole-bill write and has to serialise
+     * on the bill row. `ApplySlaPenaltyService::toBill()` and `VoidVendorBillPaymentService` both do
+     * that; the two paths that release — `ApplySlaPenaltyService::detach()` and
+     * `AssessSlaPenaltyService::waive()`, in two different services — did not. They locked the
+     * penalty and reached the bill through the plain relation, so a release racing an apply on the
+     * same bill recomputed from a snapshot fixed before the apply committed and wrote a balance with
+     * the OTHER penalty's deduction erased. The payable is then overstated by that penalty, and that
+     * is money leaving on the next payment run.
+     *
+     * A LOCKING read, not a plain one behind a lock: under MySQL REPEATABLE READ a transaction's
+     * consistent-read snapshot is fixed at its first PLAIN read, so `$this->bill` here would open the
+     * read view BEFORE the wait and every figure `recompute()` then sums would be answered from
+     * before it. That premise is measured and recorded in `ConcurrencyPolicy::AUTHORITATIVE_GUARDS`
+     * (F-09, two processes on two connections); what was checked here is only the SQL shape — the
+     * plain relation compiles to `select * from vendor_bills where id = ?` with no lock clause.
+     *
+     * **Called AFTER the penalty's own lock, never before.** `toBill()` takes penalty then bill, and
+     * taking them the other way round here would deadlock against it.
+     *
+     * ONE method rather than a `lockForUpdate()` written into each service: two copies of one rule is
+     * how the second one comes to be forgotten, which is precisely what this was.
+     *
+     * Null when the penalty is charged to nothing, which is the ordinary state of a `final` one.
+     */
+    public function billForUpdate(): ?VendorBill
+    {
+        if ($this->vendor_bill_id === null) {
+            return null;
+        }
+
+        return VendorBill::query()->whereKey($this->vendor_bill_id)->lockForUpdate()->first();
+    }
+
     public function waivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'waived_by_user_id');

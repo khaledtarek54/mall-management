@@ -128,9 +128,30 @@ class Department extends Model
     }
 
     /**
+     * The role names a department's DERIVED slug may land on rather than mint.
+     *
+     * A department's slug IS its access-role name ({@see roleName()}), and `booted()` mints that
+     * role with the department — deliberately with NO permissions, because membership grants the
+     * department SCOPE MARKER and what the role may DO stays an act on the roles screen. Reusing
+     * an EXISTING role is intended for exactly these five, the seeded core departments, which is
+     * what makes `accounting` mean one thing on the org chart and on the roles matrix.
+     *
+     * Everything else is refused by default, and that direction is the point: a fifteenth
+     * functional role, or a custom one the operator builds on the roles screen, is out of reach the
+     * day it is created without anybody having to remember this list. `DepartmentSeeder::CORE` is
+     * where the five come from, and `ADepartmentNeverAdoptsAFunctionalRoleTest` fails when the two
+     * drift.
+     *
+     * @var list<string>
+     */
+    public const ADOPTABLE_ROLES = ['hr', 'marketing', 'accounting', 'leasing', 'operations'];
+
+    /**
      * The spatie role that grants access to this department's resources — access
-     * is RBAC, not the Department model (FR DEPT, hybrid design). Existing
-     * functional roles are reused where they already match a department.
+     * is RBAC, not the Department model (FR DEPT, hybrid design). One of the five
+     * ADOPTABLE_ROLES is reused where a department already matches it; every other
+     * name mints a role of its own, so a department can never inherit the
+     * permissions of a functional role that happens to share its name.
      */
     public function roleName(): string
     {
@@ -212,7 +233,32 @@ class Department extends Model
                 $base = Str::slug($department->name ?? 'department');
                 $slug = $base;
                 $suffix = 1;
-                while (static::withTrashed()->where('slug', $slug)->exists()) {
+                // ── A DERIVED SLUG MUST NOT LAND ON A ROLE THAT ALREADY EXISTS ───────────────
+                // Uniqueness was asked of DEPARTMENTS only, and the slug IS the access-role name —
+                // so a department the operator named "Manager" took the slug `manager`, `created`
+                // below resolved `Role::findOrCreate()` to the EXISTING functional role instead of
+                // minting an empty one, and `registerMember()` then ran `assignRole('manager')`.
+                // Measured on `mall_management_qa` (2026-09-04): `manager` carries **225
+                // permissions**, and it is one a non-super_admin may not hand out at all
+                // (`UserResource::PROTECTED_ROLES`) — so an ordinary CRUD screen granted what the
+                // user form refuses. `Str::slug()` lands on a seeded role for six ordinary
+                // department names — Manager, Viewer, Owner, Technician, Coordinator, Vendor (the
+                // underscore ones, `super_admin` and `customer_service`, slug to `super-admin` and
+                // `customer-service`, and are out of reach). DETACHING was the nastier half:
+                // `unregisterMember()` ran `removeRole('manager')`, stripping the real thing from
+                // an account that held it in its own right, silently.
+                //
+                // Asked of the roles TABLE, under the same guard the `created` hook writes with —
+                // never a list of role names, because the operator's own custom roles collide just
+                // as readily as the seeded fourteen.
+                //
+                // Only on the DERIVED path, and only outside ADOPTABLE_ROLES: a caller that STATES
+                // a slug keeps it (`DepartmentSeeder` passes `slug` in its `updateOrCreate` key, so
+                // the five never reach this branch at all), and a department genuinely named after
+                // one of the five still adopts its role, which is the documented intent.
+                while (static::withTrashed()->where('slug', $slug)->exists()
+                    || (! in_array($slug, self::ADOPTABLE_ROLES, true)
+                        && Role::query()->where('name', $slug)->where('guard_name', 'web')->exists())) {
                     $slug = $base.'-'.(++$suffix);
                 }
                 $department->slug = $slug;

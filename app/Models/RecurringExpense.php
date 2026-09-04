@@ -220,7 +220,28 @@ class RecurringExpense extends Model
         }
 
         $months = $this->periodMonths();
-        $cursor = $this->periodDate(CarbonImmutable::instance($this->starts_on));
+        $start = CarbonImmutable::instance($this->starts_on);
+        $cursor = $this->periodDate($start);
+
+        // **THE FIRST PERIOD MAY NOT FALL BEFORE THE SCHEDULE BEGINS.** `periodDate()` puts the
+        // schedule's own day inside the MONTH of `starts_on`, so a schedule that begins on the 20th
+        // while `day_of_month` is 1 — the form's default AND the column's — produced a first
+        // booking dated the 1st, nineteen days before the operator said the cost begins, for a
+        // period that had not started. Measured at HEAD: `starts_on 2026-09-20`, `day_of_month 1`,
+        // monthly, asked on 2026-09-25 => **2026-09-01**; the same shape ANNUALLY => 2026-09-01
+        // and then 2027-09-01, so the whole series ran early for ever.
+        //
+        // The rule is the one this field's own help states — "the first period booked… earlier
+        // periods are never back-filled" — read strictly: the first scheduled day ON OR AFTER
+        // `starts_on`. It is also the conservative direction for money going OUT, and the operator
+        // has two visible escapes: move `day_of_month` to the day they want, or set `starts_on` to
+        // the start of the period they want booked.
+        //
+        // A whole PERIOD is stepped, not a month, so a quarterly or annual schedule stays anchored
+        // to the month of `starts_on`.
+        if ($cursor->lessThan($start)) {
+            $cursor = $this->periodDate($cursor->addMonthsNoOverflow($months));
+        }
 
         // Skip whole periods already generated. Bounded rather than `while (true)`: a corrupt stamp
         // must not spin a nightly job for ever.

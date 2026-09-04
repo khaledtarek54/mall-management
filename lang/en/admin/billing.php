@@ -185,6 +185,7 @@ return [
         'exceeds_outstanding' => 'That is more than the deposit still outstanding (max EGP :max). Billing more would leave the landlord holding — and owing back — more than the lease agreed.',
         'errors' => [
             'receipt_in_use' => 'This deposit has already been drawn on — netted against an invoice, refunded or forfeited — so the receipt behind it is fixed. Changing it would leave the tenant credited with money no longer recorded as received. Record a further receipt, refund or forfeit instead.',
+            'settled_account_is_evidence' => 'The final account on this lease has been settled, and the statement it was settled on quotes this movement — so :field can no longer be changed. Use Cancel on this movement instead: that records why, reverses its ledger entry and puts the money back in the pot, and you can then record the corrected movement.',
         ],
     ],
     'tenant_invoices' => [

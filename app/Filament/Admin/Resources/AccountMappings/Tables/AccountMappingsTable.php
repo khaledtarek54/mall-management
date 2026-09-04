@@ -34,7 +34,22 @@ class AccountMappingsTable
                     ->searchable()
                     ->sortable(),
 
+                // The chart is bilingual and this column read `name_ar` for EVERY reader, so an
+                // English session read the posting map in Arabic — the same defect this screen's
+                // own account picker was corrected for (AccountMappingForm, `modifyOptionsQuery`
+                // comment). `LedgerAccount::displayName()` is the one seam that answers for the
+                // reader's locale, and it falls back to the other name so a half-translated
+                // imported chart still prints something.
+                //
+                // The column KEEPS its `account.name_ar` name deliberately: Filament derives both
+                // the eager load (`Column::applyEagerLoading()`, off the relationship in the name)
+                // and a saved column layout's key from it, so renaming would drop the eager load
+                // and orphan every stored layout. Only the STATE moves.
+                //
+                // Measured on the dev database 2026-09-04: 167 accounts, every one carrying both
+                // names, so the only symptom today is the language — not a blank cell.
                 TextColumn::make('account.name_ar')
+                    ->state(fn (AccountMapping $r) => $r->account?->displayName())
                     ->label(__('admin.fields.ledger_account'))
                     ->wrap(),
 

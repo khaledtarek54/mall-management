@@ -203,7 +203,10 @@ class YearEndCloseService
         $entries->pluck('period')->filter()->unique('id')
             ->each(function ($period): void {
                 if (! $period->isOpen()) {
-                    $this->periods->reopenPeriod($period);
+                    // The FORCE twin, because `reopenPeriod()` now refuses a lone reopen while the
+                    // year's closing entry stands (SW-136) — and this is the one caller that is
+                    // relaxing the period IN ORDER TO void that entry, three lines below.
+                    $this->periods->forceReopenPeriod($period);
                 }
             });
 

@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Filament\Imports\Concerns\ResolvesVisibleAssetByCode;
 use App\Models\FixedAsset;
+use App\Support\DataTransferNotice;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -146,13 +147,7 @@ class FixedAssetImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your fixed-asset import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
-
-        if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
-        }
-
-        return $body;
+        return DataTransferNotice::forImport($import);
     }
 
     /** Queued in production, `sync` locally and in the suite — same as its siblings. */

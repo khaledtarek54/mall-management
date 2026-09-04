@@ -18,10 +18,29 @@ class LedgerReportPdfService
 {
     public function __construct(private LedgerReportService $reports) {}
 
-    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string
+    /**
+     * ميزان المراجعة, printed.
+     *
+     * **"Show accounts with no movement" travels to the printed copy.** `LedgerReportService::
+     * trialBalance()` has taken `$includeZeroBalances` since RP-02, the screen has offered the
+     * toggle since, and `TrialBalance::reportCsv()` gets it for free because it goes through the
+     * page's own `report()`. This method did not take the flag at all, so it fell to the default:
+     * measured at HEAD (2026-09-04), with the toggle ON the screen and the CSV listed every
+     * postable account and the PDF listed only those with movement.
+     *
+     * That is the one question the toggle exists for — *"is that account really nil, or did nobody
+     * map it?"* — which absence cannot answer either way, and the printed copy is what an
+     * accountant ticks off against. Same rule as the unallocated notice in `render()` below:
+     * fixing the screen and the CSV and not the PDF is worse than fixing neither, because the PDF
+     * is the copy that leaves the building.
+     *
+     * Declared AFTER `$locale` so the five existing positional call sites are untouched; the page
+     * passes it by name.
+     */
+    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null, bool $includeZeroBalances = false): string
     {
         return $this->render('accounting.pdf.trial-balance', fn (): array => [
-            'report' => $this->reports->trialBalance($assetIds, $from, $to),
+            'report' => $this->reports->trialBalance($assetIds, $from, $to, $includeZeroBalances),
             'meta' => $this->meta($property, $period),
         ], $assetIds, $period, $locale, window: [$from, $to]);
     }

@@ -101,7 +101,10 @@ class OwnerStatementRunActions
                         // The catalogue, not a constant: an operator who activates a rail must
                         // see it here without a deploy, and a new rail has no lang key.
                         ->options(fn () => PaymentMethod::optionsFor('disbursements.method', 'admin.disbursements.methods'))
-                        ->default(Disbursement::METHOD_BANK_TRANSFER)
+                        // The catalogue answers the DEFAULT as well as the options, so retiring
+                        // this rail leaves the field blank and required rather than pre-filled with
+                        // a code the picker beside it no longer offers (SW-116).
+                        ->default(fn () => PaymentMethod::defaultFor('disbursements.method', Disbursement::METHOD_BANK_TRANSFER))
                         ->required()->native(false)
                         // `->live()` so the bank-account field beside it picks up its requirement as soon as the
                         // rail changes. The refusal itself does not depend on this — `required()` is evaluated at

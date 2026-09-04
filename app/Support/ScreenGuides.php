@@ -10,9 +10,9 @@ use App\Filament\Admin\Pages\BalanceSheet;
 use App\Filament\Admin\Pages\BillingRunPreview;
 use App\Filament\Admin\Pages\Budget;
 use App\Filament\Admin\Pages\CashFlow;
+use App\Filament\Admin\Pages\ClauseRegister;
 use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
-use App\Filament\Admin\Pages\ClauseRegister;
 use App\Filament\Admin\Pages\ExpirationSchedule;
 use App\Filament\Admin\Pages\GeneralLedger;
 use App\Filament\Admin\Pages\Handbook;
@@ -105,6 +105,7 @@ use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
 use App\Filament\Portal\Pages\CompanyProfile;
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource;
+use App\Filament\Vendor\Resources\WorkOrders\WorkOrderResource as VendorWorkOrderResource;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
 use ReflectionClass;
@@ -305,18 +306,36 @@ class ScreenGuides
      * An empty help panel is worse than no help button: it teaches the operator that help is not
      * worth clicking — so this is the escape hatch for a screen where guidance would be noise.
      *
-     * **It is empty, and that is the honest state.** Every one of the 81 screens the panels render
-     * has a guide. The two obvious candidates — the login form and Filament's tenancy registration
-     * screen — are not in here because they are not screens by construction: both extend
-     * `Filament\Pages\SimplePage`, the full-page auth shell, rather than `Filament\Pages\Page`, so
-     * `discoverScreens()` never offers them for classification. Listing them would have been a
-     * registry entry that classifies nothing, which is the failure mode these registries exist to
-     * prevent. The gate rejects an EXEMPT entry that is not a discovered screen, so this cannot
-     * quietly fill up with the same mistake.
+     * **It held nothing until 2026-09-04, and it holds exactly one entry now.** Every screen in the
+     * operator panel and the tenant portal has a guide. The two obvious further candidates — the
+     * login form and Filament's tenancy registration screen — are not in here because they are not
+     * screens by construction: both extend `Filament\Pages\SimplePage`, the full-page auth shell,
+     * rather than `Filament\Pages\Page`, so `discoverScreens()` never offers them for
+     * classification. Listing them would have been a registry entry that classifies nothing, which
+     * is the failure mode these registries exist to prevent. The gate rejects an EXEMPT entry that
+     * is not a discovered screen, so this cannot quietly fill up with the same mistake.
      *
      * @var array<class-string, string>
      */
-    public const EXEMPT = [];
+    public const EXEMPT = [
+        // The CONTRACTOR's panel, and its only screen (SW-130). Two reasons, and the second is the
+        // load-bearing one:
+        //
+        //  - A guide here would be read by an external maintenance company, not by the operator, so
+        //    it would have to be written in the contractor's voice and live beside `lang/*/vendor.php`
+        //    rather than in the operator's `guides.php`. The screen already explains itself where a
+        //    contractor is looking: an empty-state heading and description, a modal confirmation on
+        //    every one of the four verbs, and per-field helper text on the quote form.
+        //  - `AssistantCorpus::screenEntries()` offers every non-PORTAL entry of `SCREENS` to the
+        //    ADMIN assistant — it filters on `portal_` and `\Portal\` and knows nothing about a
+        //    third panel — so a guide registered here would answer an operator's question with a
+        //    screen they cannot open, in words aimed at somebody else. `DumpHandbookData::screens()`
+        //    splits panel by the same two-way ternary and would file it under "admin".
+        //
+        // Registering it as EXEMPT keeps both of those honest: the day the contractor panel grows a
+        // second screen, the gate asks the question again.
+        VendorWorkOrderResource::class => 'The contractor panel is one list and four verbs, read by an external maintenance company rather than by the operator. Its guidance is the screen itself — empty state, modal confirmations, per-field help — written in `lang/{en,ar}/vendor.php`. A `guides.php` entry would also be offered to the ADMIN assistant by `AssistantCorpus::screenEntries()`, which filters portal screens out by name and has no notion of a third panel, so an operator asking about work orders would be answered with a screen they cannot open.',
+    ];
 
     public static function keyFor(string $screen): ?string
     {
@@ -390,9 +409,25 @@ class ScreenGuides
     {
         $found = [];
 
-        foreach (['Admin/Resources', 'Admin/Pages', 'Portal/Resources', 'Portal/Pages'] as $dir) {
-            $path = app_path("Filament/{$dir}");
+        // EVERY panel, DERIVED — never a hardcoded list of them.
+        //
+        // This read `['Admin/Resources', 'Admin/Pages', 'Portal/Resources', 'Portal/Pages']`, so the
+        // CONTRACTOR panel added on 2026-08-28 (`app/Filament/Vendor`) was invisible to the gate
+        // whose whole job is to force a decision about a new screen — the paragraph above says "a
+        // list nobody updates classifies nothing", and this was that list. Measured 2026-09-04 by
+        // walking `Filament::getPanels()`: 66 admin + 9 portal + 1 vendor resources, and the vendor
+        // one was classified by neither this registry nor `SearchPolicy`. Globbing the panel
+        // directories means panel #4 is swept by EXISTING rather than by being remembered.
+        //
+        // Two globs rather than one `GLOB_BRACE` pattern: brace expansion is a libc extension and is
+        // absent on some builds, where it would fail SILENTLY back to zero directories — which is
+        // exactly the shape of failure this change exists to remove.
+        $panelDirectories = array_merge(
+            glob(app_path('Filament/*/Resources')) ?: [],
+            glob(app_path('Filament/*/Pages')) ?: [],
+        );
 
+        foreach ($panelDirectories as $path) {
             if (! is_dir($path)) {
                 continue;
             }

@@ -31,11 +31,80 @@ class PeriodService
         return $period;
     }
 
+    /**
+     * Reopen ONE month so corrections can be posted into it again.
+     *
+     * **Refused while the year's closing entry still stands (SW-136).** `YearEndCloseService::close()`
+     * posts, per property, the entry that zeroes that year's P&L into retained earnings, reading
+     * `profitLossBalancesByAsset()` ONCE at close time — and it is IDEMPOTENT, returning the existing
+     * entries rather than rolling anything new. So an entry posted into a month reopened afterwards
+     * is permanently outside retained earnings: re-closing cannot pick it up, and next year's close
+     * cannot either, because its fiscal span does not cover the entry's date.
+     *
+     * Nothing downstream notices. `JournalPostingService::assertOpenPeriodFor()` gates on the
+     * PERIOD's status and has never read the fiscal year's, so the posting succeeds; and the balance
+     * sheet still balances, because `balanceSheet()` derives `net_income` from whatever P&L is left
+     * un-rolled as at the date and simply carries the orphaned figure for ever — under a year whose
+     * income statement no longer agrees with its equity.
+     *
+     * **The escape is the YEAR, and it already exists**: "Reopen year" voids the closing entries and
+     * unlocks every month, the accountant posts, and closes the year again — the exact sequence
+     * `ListAccountingPeriods::year_end_reopen` performs. The refusal names it.
+     *
+     * @throws \DomainException when a posted, un-reversed closing entry stands for this period's year
+     */
     public function reopenPeriod(AccountingPeriod $period): AccountingPeriod
+    {
+        $this->assertNoStandingClosingEntry($period);
+
+        return $this->forceReopenPeriod($period);
+    }
+
+    /**
+     * Reopen a period so a year-end REVERSAL can be posted back inside it.
+     *
+     * The one way past the guard above, and it is not an exception to the rule but the rule's own
+     * mechanism: {@see YearEndCloseService::reopen()} relaxes the year-end period precisely so that
+     * the VOID of the closing entry lands in the year it closed rather than being deferred to
+     * today's period, and the entry is gone by the end of that call. Named rather than passed as a
+     * boolean, so `grep` finds every caller that takes the escape.
+     */
+    public function forceReopenPeriod(AccountingPeriod $period): AccountingPeriod
     {
         $period->update(['status' => 'open']);
 
         return $period;
+    }
+
+    /**
+     * Refuse a lone reopen while the year's closing entry stands.
+     *
+     * `YearEndCloseService::closingEntriesFor()` is the ONE definition of "a standing closing entry"
+     * — posted, not a reversal, dated inside the FISCAL year's own span — and it is the same query
+     * `close()` re-checks under its lock as the double-close guard, so this can never disagree with
+     * what a re-close would find. Deliberately keyed on the ENTRY rather than on `fiscal_years.status`:
+     * a year marked closed with nothing rolled (no P&L movement) does no harm, and a year-end entry
+     * posted without `closeFiscalYear()` does.
+     *
+     * Resolved through the container rather than injected: `YearEndCloseService` names `PeriodService`
+     * in its own constructor, so declaring it in this one would be a container cycle.
+     */
+    private function assertNoStandingClosingEntry(AccountingPeriod $period): void
+    {
+        $year = $period->fiscalYear?->year;
+
+        if ($year === null) {
+            return;
+        }
+
+        if (app(YearEndCloseService::class)->closingEntriesFor($year)->isEmpty()) {
+            return;
+        }
+
+        throw new \DomainException(__('admin.refusals.period_reopen_year_is_closed', [
+            'month' => $period->starts_on?->format('Y-m') ?? 'P'.$period->period_no,
+            'year' => $year,
+        ]));
     }
 
     /** Close every period in the year, then mark the year closed (one transaction). */
@@ -99,7 +168,28 @@ class PeriodService
                 if (method_exists(new $class, 'trashed')) {
                     $query->withTrashed();
                 }
-                $query->whereBetween($dateColumn, [$period->starts_on, $period->ends_on])
+                // **DAY bounds, not midnight bounds.** `starts_on`/`ends_on` are `date` casts, so
+                // binding the Carbon instances compiles to `between '2026-08-01 00:00:00' and
+                // '2026-08-31 00:00:00'` — measured on this exact query at HEAD (2026-09-04).
+                // Every column in SOURCE_DATE_COLUMNS is a `date` except ONE:
+                // `sla_penalties.applied_at` is a `dateTime`. So a penalty applied at 09:15 on the
+                // LAST day of the period fell outside the upper bound and this gate never saw it —
+                // and part (b) exists precisely for the never-posted document (real-time off, queue
+                // backlogged, a best-effort sync that failed once). Close the period and its post is
+                // stranded for good: posting into a closed period throws, so the vendor keeps the
+                // deduction on their bill while the ledger never records it.
+                //
+                // Half-open on DATE STRINGS rather than `endOfDay()` datetimes, because that is the
+                // one form correct for a `date` column AND a `dateTime` column on BOTH drivers:
+                // sqlite compares these as strings, and a bare '2026-08-01' sorts BEFORE
+                // '2026-08-01 00:00:00', so a datetime lower bound silently drops the period's
+                // FIRST day for any row written as a plain date.
+                //
+                // `copy()` is load-bearing: a date cast is memoised, so `$period` hands back the
+                // SAME Carbon instance on every iteration of the enclosing per-source loop and
+                // `addDay()` on it would walk the window forward one class at a time.
+                $query->where($dateColumn, '>=', $period->starts_on->toDateString())
+                    ->where($dateColumn, '<', $period->ends_on->copy()->addDay()->toDateString())
                     ->chunkById(500, function ($models) use ($poster, &$pending, $postedInPeriod) {
                         foreach ($models as $model) {
                             if (isset($postedInPeriod[$model->getMorphClass().':'.$model->getKey()])) {

@@ -588,6 +588,7 @@ return [
         'import_asset_out_of_scope' => 'This property code is not found or is outside the properties you can manage.',
         'lease_terminal_immutable' => 'This lease is terminated/expired/cancelled and can no longer be edited. Reverse or renew it instead.',
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
+        'leasable_area_exceeds_gross' => 'The leasable area (:leasable m²) is larger than the gross building area (:gross m²), so this property would let more space than it has. Correct whichever of the two is wrong — or leave the gross area blank if the building has not been measured.',
     ],
 
     'portal' => [
@@ -698,6 +699,7 @@ return [
         'ledger_sync_failed_body' => ':count document(s) could not be posted to the general ledger — usually a closed accounting period. Reopen the period and re-sync (Post to GL now, or accounting:sync-ledger --all).',
         'close_blocked_unsynced' => 'Cannot close: :count document(s) in this period are out of sync with the general ledger. Run “Post to GL now” (or accounting:sync-ledger --all), then close.',
         'close_blocked_title' => 'Close blocked — ledger not in sync',
+        'reopen_blocked_title' => 'Reopen blocked — the year is closed',
         'invoice_voided' => 'Invoice voided',
         'credit_applied' => 'Applied :amount from the tenant\'s credit balance',
         'credit_applied_body' => 'Invoice balance is now :balance · remaining tenant credit :remaining.',

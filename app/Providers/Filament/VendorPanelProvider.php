@@ -53,6 +53,18 @@ class VendorPanelProvider extends PanelProvider
             // in the panel from the start rather than being retrofitted around a live inbox.
             ->databaseNotifications()
             ->databaseNotificationsPolling('60s')
+            // NO GLOBAL SEARCH — the decision in this class's docblock, finally implemented.
+            //
+            // Filament's panel default is ON, and a resource is globally searchable as soon as it
+            // has a record-title attribute, so the box shipped anyway. Measured 2026-09-04 with the
+            // vendor panel current: `Filament::isGlobalSearchEnabled()` answered TRUE, the provider
+            // was Filament's stock `DefaultGlobalSearchProvider` rather than
+            // `AtriomGlobalSearchProvider`, and it searched `facility_work_orders.reference` RAW —
+            // the only raw-column global search left in the application, and invisible to
+            // `SearchPolicy`'s gate because that gate discovered resources from a hardcoded
+            // Admin+Portal list. Never a leak (`VendorScope::jobs()` scopes the query), but an
+            // unfolded query against a blob-free column, and a control the design says not to offer.
+            ->globalSearch(false)
             ->discoverResources(in: app_path('Filament/Vendor/Resources'), for: 'App\\Filament\\Vendor\\Resources')
             ->discoverPages(in: app_path('Filament/Vendor/Pages'), for: 'App\\Filament\\Vendor\\Pages')
             ->discoverWidgets(in: app_path('Filament/Vendor/Widgets'), for: 'App\\Filament\\Vendor\\Widgets')

@@ -120,7 +120,7 @@ class ValueSets
 
         'document_templates.key' => [DocumentText::class, 'KEY_NAMES'],
 
-        // **Which language a party reads.** Five tables, ONE set — `SetLocale::SUPPORTED` is the
+        // **Which language a party reads.** Six tables, ONE set — `SetLocale::SUPPORTED` is the
         // list of languages this app has a catalogue for, and a document written in one it does not
         // is not a document. Registered because the failure is SILENT in both directions: `__()`
         // falls through an unknown locale into the fallback language without erroring, and
@@ -134,12 +134,19 @@ class ValueSets
         'tenants.locale' => [SetLocale::class, 'SUPPORTED'],
         'vendors.locale' => [SetLocale::class, 'SUPPORTED'],
         'employees.locale' => [SetLocale::class, 'SUPPORTED'],
-        // The SIXTH such column, and registered on arrival rather than after the sweep found it —
+        // A contractor's PORTAL LOGIN (2026-09-04). The vendor panel shipped after both migrations
+        // that handed this column out — `2026_08_12_260000` gave it to everyone a NOTIFICATION is
+        // addressed to and `2026_08_28_100000` to the two counterparties a DOCUMENT goes to — so its
+        // login model had neither, and `/locale/{locale}` had nowhere to write a contractor's
+        // choice. Note `vendors.locale` above is the COMPANY's, for its purchase orders and
+        // withholding certificates; this is the PERSON's, for what they read on screen.
+        'vendor_contacts.locale' => [SetLocale::class, 'SUPPORTED'],
+        // The SEVENTH such column, and registered on arrival rather than after the sweep found it —
         // which is the whole reason `locale` was added to CLASSIFICATION_SUFFIXES. Here it records
         // which language a question was ASKED in, so the unanswered list can say whether the gap is
         // in the English guides or the Arabic ones.
         'assistant_questions.locale' => [SetLocale::class, 'SUPPORTED'],
-        // The seventh, and the gate asked for it before anyone had to remember. Here it records
+        // The eighth, and the gate asked for it before anyone had to remember. Here it records
         // which language a documentation chunk is written in, which decides whose question it
         // may answer — a mistyped value would quietly make a whole language's handbook
         // unreachable while every row still looked indexed.

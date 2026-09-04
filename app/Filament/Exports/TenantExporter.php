@@ -3,6 +3,7 @@
 namespace App\Filament\Exports;
 
 use App\Models\Tenant;
+use App\Support\DataTransferNotice;
 use App\Support\Filament\CustomFieldsTable;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
@@ -34,7 +35,7 @@ class TenantExporter extends Exporter
 
     public static function getCompletedNotificationBody(Export $export): string
     {
-        return 'Your tenant export has completed and '.number_format($export->successful_rows).' '.str('row')->plural($export->successful_rows).' exported.';
+        return DataTransferNotice::forExport($export);
     }
 
     public function getJobConnection(): ?string

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\CustomFields\Schemas;
 
 use App\Models\CustomField;
 use App\Support\CustomFields;
+use Closure;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -51,6 +52,20 @@ class CustomFieldForm
                     // A JSON key that is also safe as a form-field path: Filament reads a dot as
                     // nesting, so `parent.group` would silently become a two-level array.
                     ->rule('regex:/^[a-z][a-z0-9_]*$/')
+                    // Unique PER RECORD TYPE, which the table has enforced since it was created and
+                    // nothing above it asked — so a second field on a key this record type already
+                    // uses came back as a raw duplicate-key 500 (SW-118). Refused INLINE rather
+                    // than as a thrown refusal, because a `DomainException` redirects back and
+                    // loses everything else the operator typed; `CustomField::saving()` is the gate
+                    // an import or a crafted payload meets, and both read `keyConflictRefusal()`
+                    // so the field error and the toast cannot word it differently.
+                    ->rule(static fn ($get, ?CustomField $record): Closure => static function (string $attribute, $value, Closure $fail) use ($get, $record): void {
+                        $conflict = CustomField::keyConflictRefusal((string) $get('model'), (string) $value, $record?->getKey());
+
+                        if ($conflict !== null) {
+                            $fail(__($conflict['key'], $conflict['replace']));
+                        }
+                    })
                     ->helperText(__('admin.custom_fields.help.key'))
                     ->disabled(fn (?CustomField $record): bool => $record !== null)
                     ->dehydrated()

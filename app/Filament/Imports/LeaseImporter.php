@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
+use App\Support\DataTransferNotice;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\LeaseTerm;
 use App\Support\ValueSets;
@@ -323,13 +324,7 @@ class LeaseImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your lease import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
-
-        if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
-        }
-
-        return $body;
+        return DataTransferNotice::forImport($import);
     }
 
     /**

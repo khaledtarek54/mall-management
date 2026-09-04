@@ -109,6 +109,12 @@ class EmployeeAdvancesRelationManager extends RelationManager
                             ->prefix('EGP'),
                         DatePicker::make('advance_date')
                             ->label(__('admin.employees.advance_fields.advance_date'))
+                            // UX only — GrantEmployeeAdvanceService is the gate (it also refuses a
+                            // date whose accounting period is closed, which a picker cannot
+                            // express). The repayment picker below has carried this bound since
+                            // F-93; the grant, which is the half that pays the money OUT, carried
+                            // no bound at all.
+                            ->maxDate(now())
                             ->default(now())
                             ->required()
                             ->native(false),
@@ -117,7 +123,8 @@ class EmployeeAdvancesRelationManager extends RelationManager
                             // The catalogue, not a two-entry literal. OUTBOUND: granting an advance
                             // pays the employee, so it is the same direction as an expense.
                             ->options(fn () => PaymentMethod::optionsFor('employee_advances.paid_from', 'admin.employees.methods'))
-                            ->default('cash')
+                            // The default comes from the same list as the options (SW-116).
+                            ->default(fn () => PaymentMethod::defaultFor('employee_advances.paid_from', 'cash'))
                             ->required()
                             ->native(false),
                         Textarea::make('notes')->label(__('admin.employees.fields.notes'))->rows(2)->columnSpanFull(),
@@ -182,7 +189,8 @@ class EmployeeAdvancesRelationManager extends RelationManager
                             // InstaPay can take a deposit by it and could not record a repayment by
                             // it. Inbound — the employee is paying the operator back.
                             ->options(fn () => PaymentMethod::optionsFor('employee_advance_repayments.method', 'admin.employees.methods'))
-                            ->default('cash')
+                            // The default comes from the same list as the options (SW-116).
+                            ->default(fn () => PaymentMethod::defaultFor('employee_advance_repayments.method', 'cash'))
                             ->required()
                             ->native(false),
                         Textarea::make('notes')->label(__('admin.employees.fields.notes'))->rows(2)->columnSpanFull(),

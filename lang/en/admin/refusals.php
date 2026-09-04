@@ -30,6 +30,7 @@ return [
         'tenant_request_needs_a_unit' => 'This account has no shop to report against — a lease that has ended, or a purchase not yet handed over. Ask the operator to check the record.',
         'bank_account_is_a_posting_role' => 'Account :account is a posting role — it is where documents that name no bank account land. Pointing a real bank at it merges the two, so every unattributed entry would be offered when reconciling this bank. Give this account its own chart leaf.',
         'bank_account_shares_a_chart_account' => 'That chart account already belongs to :other. Two banks on one account means reconciling either one offers the other\'s entries as matches — a wrong match that still balances. Each bank needs its own.',
+        'bank_statement_rehomed_after_matching' => 'This statement already explains :count of its lines with postings in :account\'s ledger. Moving it to another bank would leave those matches explaining one bank with another bank\'s money — and both reconciliations would still balance, so nothing would say so. Unmatch those lines first on the Lines tab, or import the file again under the right account.',
         'payment_credit_overdrawn' => 'This receipt cannot be re-allocated in full: :shortfall of it has already been applied to another invoice as on-account credit. Reverse that application first.',
         'credit_note_void_is_terminal' => 'A voided credit note is closed for good — its ledger entry has been reversed. Raise a new note if credit is due.',
         'credit_note_status_is_an_act' => 'A credit note is issued or voided by its own button, not by picking a status. Those acts check the accounting period, post to the ledger and record why — use Issue or Void.',
@@ -57,7 +58,10 @@ return [
         'cf_model_not_extensible' => '[:model] is not a record type that carries custom fields.',
         'cf_bad_key' => '[:key] is not a usable field key — use lower-case letters, digits and underscores, starting with a letter.',
         'cf_key_immutable' => 'A custom field\'s key cannot change — every value already recorded is stored under it. Rename the label instead.',
+        'cf_model_immutable' => 'A custom field cannot be moved to another record type — the record type and the key together are the address of every answer already recorded, so moving it would leave those answers on records that no longer offer or read the field. Add the field on the other record type instead and switch this one off: the answers already given keep their label either way.',
         'cf_choice_needs_option' => 'A choice field needs at least one choice.',
+        'cf_key_taken' => 'This record type already has a field keyed [:key] — ":label". A key is the address of every value recorded under it, so two fields cannot share one. Give this field a different key, or use the existing one and rename its label.',
+        'cf_key_taken_inactive' => 'This record type already has a field keyed [:key] — ":label" — and it is switched off. Turn it back on rather than adding a second: every answer already recorded sits under that key, and a duplicate could never read them. Otherwise give this field a different key.',
         'cheque_deposit_state' => 'Only a held (or re-presented, bounced) cheque can be deposited.',
         'cheque_clear_state' => 'Only a held or deposited cheque can be cleared.',
         'cheque_bounce_state' => 'Only a held or deposited cheque can bounce.',
@@ -96,6 +100,7 @@ return [
         'je_void_no_open_period' => 'Cannot void: neither the original entry\'s period nor the current period is open. Reopen a period first.',
         'je_no_period' => 'No accounting period is defined for :date.',
         'je_period_closed' => 'Accounting period :month is closed — nothing can be posted into it.',
+        'period_reopen_year_is_closed' => 'Period :month cannot be reopened on its own: the year-end closing entry for FY:year still stands, so anything posted into :month would never reach retained earnings. Use “Reopen year” at the top of this screen — it voids the closing entry and unlocks every month — then close the year again once the corrections are in.',
         // ── Added 2026-08-30 — nine refusals that were still raw English ────────────────────
         // These render as a toast to whoever pressed the button, so they are the app talking to a
         // person, not a developer error. Two of them also interpolated a raw status/column value.
@@ -111,5 +116,7 @@ return [
         'owner_statement_has_active_disbursements' => 'This run cannot be revised while it has active disbursements — cancel the scheduled or approved payouts first. If the owner has already been paid, correct the difference in the next period rather than revising the paid statement.',
         'lease_option_not_open' => 'This option is :status — only an open option can be exercised.',
         'cam_cap_term_incomplete' => 'A :type CAM cap needs :fields. Without them the cap resolves to nothing and the tenant is billed in full, while the lease still shows a cap term.',
+        // ── Added 2026-09-04 (SW-119) ───────────────────────────────────────────────────
+        'document_template_duplicate_block' => 'There is already a wording block for :block on this scope. One row per block per property — the house default holds one, and each mall may override it with one — because two rows for one slot is a tie the document would break by whichever happened to be saved first, and that is nobody\'s decision. Open the row that exists and edit it, or switch it off before writing another.',
     ],
 ];

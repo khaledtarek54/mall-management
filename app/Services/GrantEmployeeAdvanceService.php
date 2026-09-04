@@ -31,7 +31,17 @@ class GrantEmployeeAdvanceService
         // grant unguarded — so the employee's outstanding balance could exist with no
         // Dr Employee Advances / Cr Cash behind it, and the repayments that later relieve
         // that receivable would credit an account the grant never debited.
-        $advanceDate = PostingDate::assertOpen($data['advance_date'] ?? null, 'advance_date')->toDateString();
+        // NOT `assertOpen` — that says nothing about the FUTURE, and this date is money leaving the
+        // business. Measured at HEAD 2026-09-04:
+        //   PostingDate::assertOpen('2027-03-04', 'advance_date')      → ACCEPTED, returns the date
+        //   PostingDate::assertNotFuture('2027-03-04', 'advance_date') → refused
+        // So an advance could be granted into a month that has not happened: the cash has not left
+        // the till, the employee is already carrying the balance the payroll deduction reads, and
+        // the period the entry lands in will later close around it — at which point the correction
+        // is refused too, because `SealedPeriod` will not restate a document posted into a sealed
+        // month. `RecordAdvanceRepaymentService` — the settlement half of this same document — has
+        // called `assertNotFuture` since F-93; only the grant half was left open.
+        $advanceDate = PostingDate::assertNotFuture($data['advance_date'] ?? null, 'advance_date')->toDateString();
 
         return $employee->advances()->create([
             'asset_id' => $employee->asset_id, // denormalised — the books dimension

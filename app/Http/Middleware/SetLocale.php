@@ -10,6 +10,25 @@ class SetLocale
 {
     public const SUPPORTED = ['en', 'ar'];
 
+    /**
+     * The SESSION guards a person can be signed in on — one per Filament panel.
+     *
+     * Written out here rather than resolved from `Filament::getPanels()`, because this middleware
+     * runs on every web request and booting the panels to read three strings is work the request
+     * does not need. `AContractorsChosenLanguageOutlivesTheSessionTest` derives the same set FROM
+     * the panels and fails when they disagree, so the list cannot silently fall behind a new one.
+     *
+     * It was `['web', 'portal']` — here and, separately, in the `/locale/{locale}` switcher — for
+     * the whole life of the vendor panel (2026-08-28 → 2026-09-04). The contractor portal therefore
+     * had no durable language at all: the switcher renders in it (the hook is registered panel-wide
+     * in `AppServiceProvider`) and wrote only the session, so a contractor who chose Arabic was back
+     * in English at the next sign-in and no scheduled notification could ever know.
+     *
+     * `tenant-api` is deliberately absent: it is a token guard with no session, and the mobile API
+     * resolves `Accept-Language` in `SetApiLocale` because there the caller IS the recipient.
+     */
+    public const GUARDS = ['web', 'portal', 'vendor'];
+
     public function handle(Request $request, Closure $next): Response
     {
         // Session first, stored preference second.
@@ -32,13 +51,13 @@ class SetLocale
     }
 
     /**
-     * The signed-in reader's stored language, from whichever panel they are in. Checked across both
-     * guards because the portal does not use the default one, and a tenant is the reader least
-     * likely to want English.
+     * The signed-in reader's stored language, from whichever panel they are in. Checked across every
+     * guard in {@see self::GUARDS} because two of the three panels do not use the default one, and a
+     * retailer and a contractor are the readers least likely to want English.
      */
     private function preferenceOf(Request $request): ?string
     {
-        foreach (['web', 'portal'] as $guard) {
+        foreach (self::GUARDS as $guard) {
             $locale = $request->user($guard)?->getAttribute('locale');
 
             if (filled($locale)) {

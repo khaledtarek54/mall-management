@@ -96,8 +96,8 @@ return [
         //
         // A question that leads with a verb is asking how to DO something, so the SCREEN that does
         // it must beat any record whose name happens to collide. Measured on the operator playbook:
-        // "close the accounting period" led with the Accounting *department* and the user
-        // accounting@mall.test, and "write off a bad debt" led with the posting-map row
+        // "close the accounting period" led with the Accounting *department* and the demo
+        // accounting user, and "write off a bad debt" led with the posting-map row
         // `bad_debt_expense` — with the screens that answer both sitting third and fourth.
         //
         // Deliberately SEPARATE from task.verbs, which lifts create FORMS: closing a period is an

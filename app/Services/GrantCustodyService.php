@@ -32,7 +32,12 @@ class GrantCustodyService
         // for it, and Dr Custodies / Cr Cash never posts. The settlement would then be
         // refused too (it may not predate its grant), so the عهدة is stuck: recorded,
         // unbacked in the books, and unsettleable.
-        $custodyDate = PostingDate::assertOpen($data['custody_date'] ?? null, 'custody_date')->toDateString();
+        // NOT `assertOpen` — see the same change on `GrantEmployeeAdvanceService`. A عهدة is cash
+        // handed over: it cannot be handed over next month. Measured at HEAD 2026-09-04,
+        // `assertOpen` accepted a date thirty days out while `assertNotFuture` refused it, and
+        // `SettleCustodyService` — the other half of this document — has refused a future
+        // settlement since F-93.
+        $custodyDate = PostingDate::assertNotFuture($data['custody_date'] ?? null, 'custody_date')->toDateString();
 
         return $employee->custodies()->create([
             'asset_id' => $employee->asset_id, // denormalised — the books dimension

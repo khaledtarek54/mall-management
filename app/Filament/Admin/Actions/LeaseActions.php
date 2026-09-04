@@ -205,7 +205,8 @@ class LeaseActions
                         // submission throw at the ValueSets listener, so the modal appeared to do
                         // nothing (2026-08-18). Same source the deposit resource's own form reads.
                         ->options(fn () => DepositTransaction::methodOptions())
-                        ->default('bank')
+                        // The default comes from the same list as the options (SW-116).
+                        ->default(fn () => DepositTransaction::defaultMethod())
                         // A forfeit moves nothing through a bank — it turns the landlord's liability
                         // into income, so asking "by what method" would be a question with no answer.
                         ->visible(fn (Get $get) => $get('type') !== 'forfeit')

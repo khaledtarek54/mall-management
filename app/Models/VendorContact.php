@@ -8,6 +8,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -33,7 +34,7 @@ use Illuminate\Validation\ValidationException;
 #[DeletionAllowed(reason: 'operational: a contact person')]
 // belongs to the shared Vendor
 #[PortfolioShared]
-class VendorContact extends Authenticatable implements CanResetPasswordContract, FilamentUser
+class VendorContact extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference
 {
     use CanResetPassword, Notifiable;
 
@@ -92,6 +93,22 @@ class VendorContact extends Authenticatable implements CanResetPasswordContract,
         return $panel->getId() === 'vendor'
             && $this->is_portal_user
             && $this->vendor?->status === Vendor::STATUS_ACTIVE;
+    }
+
+    /**
+     * The language this contractor login reads.
+     *
+     * Deliberately NOT `$fillable`, exactly as `TenantUser`'s is not: no screen asks a contractor's
+     * language, and the one channel that states it is the panel's own switcher, which writes through
+     * `forceFill()->saveQuietly()`. Making it fillable would add a payload key nobody validates.
+     *
+     * Declaring the interface is what makes Laravel render a notification — today, the password
+     * reset — in this language: `Notification::send()` wraps the send in
+     * `withLocale($notifiable->preferredLocale())`.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
     }
 
     protected static function booted(): void

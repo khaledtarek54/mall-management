@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\CostsAWorkOrder;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
@@ -46,7 +47,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned(via: 'workOrder')]
 class FacilityWorkOrderLabour extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use CostsAWorkOrder, HasFactory, LogsActivity, SoftDeletes;
 
     protected $table = 'facility_work_order_labour';
 
@@ -77,13 +78,6 @@ class FacilityWorkOrderLabour extends Model
                 ? null
                 : round((float) $line->hours * (float) $line->hourly_rate, 2);
         });
-
-        // The work order is the cost object, and `recomputeCosts()` is its single source of truth —
-        // so every channel that changes what a job cost calls it, exactly as every AR settlement
-        // channel calls `Invoice::recomputeTotals()`.
-        static::saved(fn (self $line) => $line->workOrder?->recomputeCosts());
-        static::deleted(fn (self $line) => $line->workOrder?->recomputeCosts());
-        static::restored(fn (self $line) => $line->workOrder?->recomputeCosts());
     }
 
     public function getActivitylogOptions(): LogOptions

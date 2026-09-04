@@ -45,6 +45,47 @@ class DocumentTemplate extends Model
         'is_active' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        // ONE row per block per property — including the HOUSE row, which neither layer above this
+        // one could see.
+        //
+        // Measured 2026-09-04 at HEAD (83624504). The form's `Rule::unique` scoped itself with the
+        // Radio's raw state, and `PropertyField::scope()`'s blank is the STRING `''`, not null — so
+        // it compiled to `where "key" = ? and ("asset_id" = ?)` bound to `""`, which can never match
+        // a NULL row. And the index underneath is no help: `SHOW CREATE TABLE` gives
+        // `UNIQUE KEY (key, asset_id)` over a nullable column, and MySQL — like SQLite — permits
+        // unlimited duplicates where one side is NULL. So a second house footer saved cleanly and
+        // `DocumentText::operatorText()` chose between the two by storage order, which this table's
+        // own migration calls "a silent tie ... which is nobody's decision".
+        //
+        // Guarded on the model for the reason the `key` value set already is: an import, a seeder
+        // or a crafted payload meets this, not the picker.
+        static::saving(function (self $template): void {
+            // Only on a write that CREATES or MOVES the pair. This shipped unenforced, so an
+            // install may already carry two house rows — refusing every save would make both of
+            // them uneditable and put the refusal's own escape ("switch one off") out of reach.
+            // Same rule and same reason as the bank-account chart guard.
+            if ($template->exists && ! $template->isDirty(['key', 'asset_id'])) {
+                return;
+            }
+
+            $clash = static::query()
+                ->where('key', $template->key)
+                // Laravel compiles `where($column, null)` to `is null`; the empty string the form
+                // was handing it did not, and that is the whole of this bug.
+                ->where('asset_id', $template->asset_id)
+                ->when($template->exists, fn ($query) => $query->whereKeyNot($template->getKey()))
+                ->exists();
+
+            if ($clash) {
+                throw new \DomainException(__('admin.refusals.document_template_duplicate_block', [
+                    'block' => __('admin.document_templates_screen.blocks.'.str_replace('.', '_', (string) $template->key)),
+                ]));
+            }
+        });
+    }
+
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);

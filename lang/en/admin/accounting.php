@@ -31,7 +31,7 @@ return [
             'description' => 'What appears on the expense this books. "Real-estate tax — 2nd instalment" reads better on a P&L than "Tax".',
             'amount' => 'The assessed figure. This system does not compute real-estate tax — the assessment comes from the authority.',
             'day_of_month' => 'Clamped to the month: 31 books on 28 February. Moving it changes when a period books, not whether.',
-            'starts_on' => 'The first period booked. Earlier periods are never back-filled.',
+            'starts_on' => 'The first period booked: the first such day on or after it. Earlier periods are never back-filled.',
             'ends_on' => 'Leave empty for a cost with no end date, such as a licence.',
             'is_active' => 'Switching off stops future bookings; costs already booked are untouched.',
         ],

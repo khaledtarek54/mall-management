@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Roles\Tables;
 
 use App\Filament\Admin\Resources\Roles\RoleResource;
+use App\Support\PermissionVocabulary;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -26,8 +27,11 @@ class RolesTable
                     ->sortable(),
                 TextColumn::make('description')
                     ->label(__('admin.fields.role_description'))
-                    ->state(fn ($record) => RolesPermissionsSeeder::ROLES[$record->name] ?? __('admin.fields.role_custom'))
-                    ->color(fn ($record) => isset(RolesPermissionsSeeder::ROLES[$record->name]) ? null : 'info')
+                    // In the reader's language. The seeder's `ROLES` sentence is a developer note
+                    // beside each role; what an operator reads is `admin.role_descriptions.{role}`,
+                    // floored on that note so a role added to the seeder still describes itself.
+                    ->state(fn ($record) => PermissionVocabulary::roleDescription($record->name))
+                    ->color(fn ($record) => PermissionVocabulary::isSeededRole($record->name) ? null : 'info')
                     ->limit(80),
                 TextColumn::make('permissions_count')
                     ->label(__('admin.tables.role.permissions'))

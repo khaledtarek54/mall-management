@@ -57,7 +57,7 @@ class RolesPermissionsSeeder extends Seeder
         'operations' => 'Operations department — maintenance, vendor dispatch, meters.',
         'accounting' => 'Accounting department — invoices, payments, credit notes, CAM, reports.',
         'marketing' => 'Marketing department — the marketing budget + spend.',
-        'hr' => 'HR department — staff accounts, roles, departments.',
+        'hr' => 'HR department — staff accounts, roles, departments, and preparing the monthly payroll run.',
         // FR-USR-04 — the FRD's "In-house Technician: normal employee; sees only work assigned to
         // them". The one role that deliberately LACKS `*.view_all`, which is what makes the
         // assignment scope bite (App\Support\AssignmentScope).
@@ -882,6 +882,19 @@ class RolesPermissionsSeeder extends Seeder
             // will compute on. Writing it is the accountant's — an HR clerk moving the insurable
             // wage ceiling underneath a run is the escalation this split exists to prevent.
             'payroll_rates.view',
+            // …and the RUN itself, which the line above has claimed HR generates since the day it
+            // was written while this grant carried nothing from `payrolls.*`. Measured on the dev
+            // database 2026-09-04: hr held exactly `payroll_rates.view`, so
+            // `PayrollResource::canViewAny()` refused, Payrolls was absent from hr's sidebar
+            // entirely, and — the half that reads as a broken screen rather than a missing right —
+            // `EmployeePayslipsRelationManager` on the Employee record (reached through
+            // `employees.view`) printed gross, salary tax, social insurance and net for every month
+            // while withholding the payslip PDF beside them, which gates on `payrolls.view`.
+            //
+            // `payrolls.approve` is NOT here, for the same reason the rates are read-only above:
+            // approval is what makes a run POSTABLE, and the accountant answers for the
+            // salary-expense entry. Preparing and approving are two acts — Yardi's split too.
+            'payrolls.view', 'payrolls.create', 'payrolls.edit',
         ];
 
         $this->applyGrants($grants);

@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\TaxCode;
 use App\Models\Vendor;
+use App\Support\DataTransferNotice;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Pdf\DocumentLocale;
 use App\Support\PropertyIsolation;
@@ -169,13 +170,7 @@ class VendorImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your vendor import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
-
-        if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
-        }
-
-        return $body;
+        return DataTransferNotice::forImport($import);
     }
 
     /** Queued in production, `sync` locally and in the suite — same as its siblings. */

@@ -82,7 +82,8 @@ class ExpenseForm
                     Select::make('paid_from')
                         ->label(__('admin.fields.paid_from'))
                         ->options(fn () => PaymentMethod::optionsFor('expenses.paid_from', 'admin.enums.expense_paid_from'))
-                        ->default('cash')
+                        // The default comes from the same list as the options (SW-116).
+                        ->default(fn () => PaymentMethod::defaultFor('expenses.paid_from', 'cash'))
                         ->native(false)
                         ->required()
                         ->disabled($moneyLocked)

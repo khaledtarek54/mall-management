@@ -233,9 +233,15 @@ class ChangeImpact
 
         DepositTransaction::class => [
             'committed' => 'recorded — the deposit is held and on the books (there is no draft)',
-            // ── NOT promoted: this module already had the freeze, on a BETTER predicate.
-            // `DepositTransaction::hasBeenDrawnOn()` fixes a receipt once the pot has been netted
-            // against an invoice, refunded or forfeited — asked of the LEASE, because the deposit is
+            // ── NOT promoted: this module has the freeze in TWO halves, on BETTER predicates.
+            // `DepositTransaction::hasBeenDrawnOn()` fixes a RECEIPT once the pot has been netted
+            // against an invoice, refunded or forfeited, and `finalAccountIsSettled()` fixes a
+            // REFUND or FORFEIT once the move-out statement quoting it has been settled. Only the
+            // first half existed until 2026-09-04, and this note claimed it covered the module: it
+            // covered receipts, so a settled refund could be retyped afterwards and the pot
+            // re-inflated by the difference (measured — 100,000 refunded, retyped to 10,000,
+            // `depositHeld()` back to 90,000, a second payout accepted against it).
+            // Both are asked of the LEASE, because the deposit is
             // one pot per lease. A blanket "committed on `recorded`" is broader and breaks a
             // supported path: re-pointing an UNDRAWN receipt to another lease re-derives its tenant
             // and property, which `DepositTransactionIntegrityTest` pins.

@@ -157,6 +157,7 @@ return [
         'master_unit_locked' => 'The master unit is the lease’s identity. Add or release other units instead.',
         'locked_after_creation' => 'Set once, when the lease is created. A change here would be a different contract.',
         'locked_after_invoicing' => 'Locked — this lease has been invoiced, and these dates are what those invoices were billed from.',
+        'violation_locked_by_fine' => 'Locked — the fine invoice quotes this. Cancel that invoice to change it.',
         'security_deposit' => 'One-time deposit, typically 3× monthly rent. Refundable at lease termination if no damages.',
         'escalation_rate' => 'Annual rent increase percentage. Applied on the lease anniversary.',
         'escalation_type' => 'Fixed % = same rate yearly. Fixed amount = same EGP step. CPI = pegged to a published index.',

@@ -13,6 +13,7 @@ use App\Filament\Admin\Resources\Expenses\Schemas\ExpenseForm;
 use App\Filament\Admin\Resources\Expenses\Tables\ExpensesTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -104,7 +105,11 @@ class ExpenseResource extends Resource
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
-            __('admin.fields.category') => $record->category,
+            // The same defect as the violations register, in the same words, one file over —
+            // `ExpensesTable` already formats this column through `ExpenseCategory::labelFor()` and
+            // the search detail did not, so an accountant who renames a cost type sees the new name
+            // in the register and the old code in the search bar (SW-129).
+            __('admin.fields.category') => ExpenseCategory::labelFor($record->category),
             __('admin.fields.total') => 'EGP '.number_format((float) $record->total, 2),
             __('admin.fields.expense_date') => $record->expense_date->format('d/m/Y'),
         ];

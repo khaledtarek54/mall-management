@@ -102,8 +102,50 @@ class CustomField extends Model
                 throw new \DomainException(__('admin.refusals.cf_bad_key', ['key' => $field->key]));
             }
 
+            // The ADDRESS of every answer already recorded is the PAIR: `model` says which table's
+            // `metadata` holds them, `key` says under which JSON key. Both are refused, because
+            // moving either strands the answers on records nothing will read again.
+            //
+            // Measured 2026-09-04 at HEAD (83624504): only `key` was refused here, while this
+            // class's own docblock, `CustomFieldForm`'s and docs/modules/38 §4 all say both are —
+            // §4 in so many words, "(`CustomField::saving()` refuses the change; the form disables
+            // both)". The form does disable both, and both are `->dehydrated()`, so the value still
+            // arrives in the Livewire payload and a disabled input is a statement of intent rather
+            // than a gate. Re-pointing a definition from `tenant` to `lease` left every tenant
+            // answer in place under a key nothing offers or reads AND emptied `deletionBlockers()`,
+            // which counts records of the model the row NOW names — so the definition became freely
+            // deletable and the orphaning permanent. That is the one act `#[DeletableWhenUnused]`
+            // is on this model to prevent.
             if ($field->exists && $field->isDirty('key')) {
                 throw new \DomainException(__('admin.refusals.cf_key_immutable'));
+            }
+
+            if ($field->exists && $field->isDirty('model')) {
+                throw new \DomainException(__('admin.refusals.cf_model_immutable'));
+            }
+
+            // **Unique PER MODEL, said in words rather than as a 1062.** `custom_fields` has carried
+            // `unique(['model', 'key'])` since the table was created — the key is the ADDRESS of
+            // every value recorded under it — and nothing above the database asked. Measured at
+            // HEAD 2026-09-04: `CustomFieldForm` carried `required`, `maxLength(64)` and the key
+            // regex and no uniqueness rule, and this hook checked the SHAPE of the key and not
+            // whether it was taken, so adding a second `parent_group` to Tenants came back as a raw
+            // QueryException, i.e. the 500 page, on an ordinary create.
+            //
+            // Dirty-only, so a rename, a reorder or a deactivation costs no query. It covers a MOVE
+            // as well as a create, because `model` is disabled on the form and still dehydrated, so
+            // a crafted payload can carry a different one. The index stays the backstop for the
+            // race neither guard can close.
+            if ($field->isDirty(['model', 'key'])) {
+                $conflict = static::keyConflictRefusal(
+                    (string) $field->model,
+                    (string) $field->key,
+                    $field->exists ? $field->getKey() : null,
+                );
+
+                if ($conflict !== null) {
+                    throw new \DomainException(__($conflict['key'], $conflict['replace']));
+                }
             }
 
             // A select with no choices is a dropdown that can never be answered, and `is_required`
@@ -119,6 +161,43 @@ class CustomField extends Model
         // the rest of the day on a `queue:work` daemon.
         static::saved(fn () => CustomFields::flush());
         static::deleted(fn () => CustomFields::flush());
+    }
+
+    /**
+     * The refusal for a (model, key) pair this record type already carries — null when it is free.
+     *
+     * ONE decision about the wording, read by this model's own guard and by the definition form's
+     * field rule, so an inline error and a toast can never say different things. Returns the KEY
+     * and its replacements rather than the finished sentence, so both call sites raise it through
+     * `__()` — which is also what `RefusalsAreTranslatedConformanceTest` reads.
+     *
+     * The existing field's own state chooses the sentence, because the ESCAPE is the opposite one.
+     * While it is live the answer is "give this one a different key". Once it has been switched off
+     * the answer is "turn that one back on": every answer already recorded sits under that key, and
+     * a second definition could never read them.
+     *
+     * @return array{key: string, replace: array<string, string>}|null
+     */
+    public static function keyConflictRefusal(string $model, string $key, mixed $ignoreId = null): ?array
+    {
+        if ($model === '' || $key === '') {
+            return null;
+        }
+
+        $existing = static::query()
+            ->where('model', $model)
+            ->where('key', $key)
+            ->when($ignoreId !== null, fn (Builder $q) => $q->whereKeyNot($ignoreId))
+            ->first();
+
+        if ($existing === null) {
+            return null;
+        }
+
+        return [
+            'key' => $existing->is_active ? 'admin.refusals.cf_key_taken' : 'admin.refusals.cf_key_taken_inactive',
+            'replace' => ['key' => $key, 'label' => $existing->label()],
+        ];
     }
 
     /**

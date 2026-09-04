@@ -7,6 +7,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\UnitOwnership;
 use App\Services\ChargeScheduleService;
+use App\Support\DataTransferNotice;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
 use Carbon\CarbonImmutable;
@@ -233,14 +234,9 @@ class ChargeImporter extends Importer
         );
     }
 
+    /** The `atriom:audit-charge-schedules` follow-up rides along as `admin.data_transfer.followup.import.charge`. */
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your charge-schedule import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
-
-        if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
-        }
-
-        return $body.' Run `php artisan atriom:audit-charge-schedules` to confirm no lease was left with an overlapping or gapped schedule.';
+        return DataTransferNotice::forImport($import);
     }
 }

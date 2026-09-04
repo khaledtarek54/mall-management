@@ -86,6 +86,21 @@ class DepositTransaction extends Model
         return PaymentMethod::optionsFor('deposit_transactions.method', 'admin.enums.expense_paid_from');
     }
 
+    /**
+     * The rail a new deposit movement opens on — from the same list {@see methodOptions()} offers.
+     *
+     * The twin of the options method, and here for the same reason: both deposit surfaces default
+     * to `bank`, and a default that is not one of the options is a form that refuses a field the
+     * operator never touched (SW-116). `bank` has no `payment_methods` row today, so it is a FLOOR
+     * code the catalogue cannot retire and this is behaviour-identical — which is the point. The
+     * two call sites read one seam, so the day somebody registers a `bank` row and switches it off,
+     * the picker and its default move together.
+     */
+    public static function defaultMethod(string $preferred = 'bank'): ?string
+    {
+        return PaymentMethod::defaultFor('deposit_transactions.method', $preferred);
+    }
+
     public function searchTextSources(): array
     {
         return [
@@ -247,6 +262,46 @@ class DepositTransaction extends Model
         };
     }
 
+    /**
+     * Has this lease's FINAL ACCOUNT been settled — the freeze the OTHER half of this table needs.
+     *
+     * `hasBeenDrawnOn()` is the receipt's predicate and cannot serve as the refund's: a recorded
+     * refund or forfeit IS a draw, so that query finds THIS row and would freeze every one of them
+     * the instant it is recorded — which would also make `potContributionAsPersisted()` dead code,
+     * and its docblock exists precisely to let an un-depended-on refund be corrected.
+     *
+     * What a refund or a forfeit depends on is the SIGNED STATEMENT. `SettleMoveOutService` freezes
+     * the final account as an immutable `LeaseEvent` whose payload quotes `refunded` and
+     * `deducted_total`, so moving either row afterwards makes the document the tenant signed
+     * disagree with the pot, with the ledger and with the bank.
+     *
+     * BOTH ends of a re-point are asked, unlike `hasBeenDrawnOn()` (which is keyed on the ORIGINAL
+     * lease alone): moving a row OUT of a settled lease changes the pot that statement was written
+     * from, and moving one IN changes the other lease's.
+     *
+     * `whereNotNull('payload->settlement')` rather than a boolean comparison — the key is only ever
+     * written as `true`, and the null test is the form that compiles the same on both drivers
+     * (checked at HEAD: mysql `json_extract(`payload`, '$."settlement"') is not null AND
+     * json_type(...) != 'NULL'`, sqlite `json_extract("payload", '$."settlement"') is not null`).
+     */
+    public function finalAccountIsSettled(): bool
+    {
+        $leaseIds = array_values(array_unique(array_filter([
+            $this->getOriginal('lease_id'),
+            $this->lease_id,
+        ])));
+
+        if ($leaseIds === []) {
+            return false;
+        }
+
+        return LeaseEvent::query()
+            ->whereIn('lease_id', $leaseIds)
+            ->where('type', LeaseEvent::TYPE_TERMINATION)
+            ->whereNotNull('payload->settlement')
+            ->exists();
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $deposit) {
@@ -307,6 +362,40 @@ class DepositTransaction extends Model
                 && $deposit->isDirty(['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type', 'status'])
                 && $deposit->hasBeenDrawnOn()) {
                 throw new \DomainException(__('admin.deposits.errors.receipt_in_use'));
+            }
+
+            // ── A SETTLED FINAL ACCOUNT IS EVIDENCE ─────────────────────────────────────────
+            // The freeze immediately above asks `$wasOrIsReceipt`, so it has never covered the two
+            // rows a MOVE-OUT writes — and `ChangeImpact` records this model as "already had the
+            // freeze, on a BETTER predicate", which was true of receipts only.
+            //
+            // Measured at HEAD on an in-memory replay (100,000 receipt, lease terminated,
+            // `SettleMoveOutService::settle()` with no arrears and no deductions → a 100,000 refund
+            // and `depositHeld()` 0): `$refund->update(['amount' => 10000])` was ACCEPTED,
+            // `depositHeld()` climbed back to 90,000, and a second 90,000 refund against that
+            // phantom pot was accepted too. The first 100,000 has already left the bank, so the
+            // register then reports 100,000 of refunds against 190,000 actually paid — and the
+            // refund's own entry re-derives (ChangeImpact says DERIVED) to the smaller figure while
+            // the bank statement shows the larger one.
+            //
+            // The predicate is the SETTLEMENT, not `hasBeenDrawnOn()`: that one finds this very row
+            // and would freeze every refund at birth. See `finalAccountIsSettled()`.
+            //
+            // `status` and `notes` are deliberately NOT in the list. `cancel_deposit` on the
+            // register's Edit page is the escape — it records why, reverses the ledger entry and
+            // lets the corrected movement be recorded — and it dirties exactly those two columns
+            // (measured). A freeze with no way out is worse than the bug, and correcting through a
+            // named act is the same discipline every money document here follows.
+            $settledColumns = ['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type'];
+
+            if ($deposit->exists
+                && $deposit->isDirty($settledColumns)
+                && $deposit->finalAccountIsSettled()) {
+                $moved = array_values(array_intersect($settledColumns, array_keys($deposit->getDirty())))[0];
+
+                throw new \DomainException(__('admin.deposits.errors.settled_account_is_evidence', [
+                    'field' => __('admin.fields.'.$moved),
+                ]));
             }
 
             // ── You cannot give back more than you took ──────────────────────────────────────

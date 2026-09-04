@@ -123,8 +123,11 @@ class AssessSlaPenaltyService
                 throw new DomainException(__('admin.facility.errors.penalty_already_waived'));
             }
 
-            // Captured before the update, because clearing vendor_bill_id loses the link.
-            $bill = $locked->isApplied() ? $locked->bill : null;
+            // Captured before the update, because clearing vendor_bill_id loses the link — and read
+            // UNDER A LOCK, because `recompute()` below rewrites the whole bill's derived money from
+            // every applied penalty on it. `detach()` had the identical hole; `SlaPenalty::billForUpdate()`
+            // records what a plain read there costs.
+            $bill = $locked->isApplied() ? $locked->billForUpdate() : null;
 
             $locked->update([
                 'status' => SlaPenalty::STATUS_WAIVED,
@@ -139,7 +142,8 @@ class AssessSlaPenaltyService
 
             // recompute() is the ONLY thing allowed to write a bill's balance — mirrors
             // detach(). Restores the amount the waiver just gave back to the vendor.
-            $bill?->refresh()->recompute();
+            // No `refresh()`: `billForUpdate()` IS the fresh read, taken after the wait.
+            $bill?->recompute();
 
             return $locked->refresh();
         });

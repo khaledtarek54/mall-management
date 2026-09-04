@@ -2,8 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Roles\Schemas;
 
-use App\Support\Translate;
-use Database\Seeders\RolesPermissionsSeeder;
+use App\Support\PermissionVocabulary;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
@@ -24,7 +23,7 @@ class RoleForm
                         ->maxLength(125)
                         ->regex('/^[a-z0-9_]+$/')
                         ->helperText(__('admin.fields.role_name_helper'))
-                        ->disabled(fn ($record) => $record && array_key_exists($record->name, RolesPermissionsSeeder::ROLES))
+                        ->disabled(fn ($record) => $record && PermissionVocabulary::isSeededRole($record->name))
                         ->dehydrated()
                         ->unique(ignoreRecord: true),
                     Hidden::make('guard_name')->default('web'),
@@ -44,8 +43,12 @@ class RoleForm
     {
         $sections = [];
 
-        foreach (RolesPermissionsSeeder::PERMISSIONS as $module => $perms) {
-            $sections[] = Section::make(Translate::orHumanized("admin.permission_modules.{$module}", $module))
+        // The heading AND every checkbox label come from `PermissionVocabulary`. This loop used to
+        // hand the registry's own `key => English sentence` array straight to `->options()`, so 232
+        // checkboxes — on the screen that decides who may do what — read in English on the Arabic
+        // panel. (`humanize()` went with it: nothing had called it since the headings were fixed.)
+        foreach (PermissionVocabulary::modules() as $module) {
+            $sections[] = Section::make(PermissionVocabulary::moduleLabel($module))
                 ->collapsible()
                 ->collapsed()
                 ->columns(1)
@@ -55,7 +58,7 @@ class RoleForm
                         // from the field name, so the Arabic panel read "Permissions module assets"
                         // above every checkbox group. The section heading already names the module.
                         ->hiddenLabel()
-                        ->options($perms)
+                        ->options(PermissionVocabulary::optionsFor($module))
                         ->columns(2)
                         ->bulkToggleable()
                         ->dehydrated(false), // persisted manually in EditRole/CreateRole
@@ -63,10 +66,5 @@ class RoleForm
         }
 
         return $sections;
-    }
-
-    private static function humanize(string $module): string
-    {
-        return ucwords(str_replace('_', ' ', $module));
     }
 }

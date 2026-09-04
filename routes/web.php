@@ -52,9 +52,11 @@ Route::get('/locale/{locale}', function (string $locale) {
 
     session(['locale' => $locale]);
 
-    // Both panels, whichever the switcher was clicked in. `Auth::user()` alone would miss the
-    // portal, whose guard is not the default one — and the portal is where this matters most.
-    foreach (['web', 'portal'] as $guard) {
+    // Every panel, whichever the switcher was clicked in. `Auth::user()` alone would miss the two
+    // that do not use the default guard — and those are the two where this matters most. The list is
+    // `SetLocale::GUARDS` and not a second copy: it was written out here AND in the middleware, and
+    // both copies missed the vendor panel for the whole of its life.
+    foreach (SetLocale::GUARDS as $guard) {
         $user = Auth::guard($guard)->user();
 
         if ($user instanceof Model && $user->getAttribute('locale') !== $locale) {

@@ -302,6 +302,14 @@ final class ConcurrencyPolicy
 
         // ── Facility ─────────────────────────────────────────────────────────────────────────
         'app/Services/ApplySlaPenaltyService.php' => 3,
+        // The locking twin of `SlaPenalty::bill()`. Both paths that RELEASE a penalty — `detach()`
+        // and `waive()`, in two DIFFERENT services — call `VendorBill::recompute()`, which rewrites
+        // the bill's derived money from every applied penalty on it. They locked the penalty only
+        // and reached the bill through the plain relation, so a release racing an apply erased the
+        // other penalty's deduction and overstated the payable. One method rather than a lock in
+        // each service, because two copies of one rule is how the second is forgotten — which is
+        // what this was.
+        'app/Models/SlaPenalty.php' => 1,
         'app/Services/AssessSlaPenaltyService.php' => 2,
         'app/Services/AttributeWorkOrderFaultService.php' => 1,
         'app/Services/RaiseCorrectiveWorkOrderService.php' => 3,

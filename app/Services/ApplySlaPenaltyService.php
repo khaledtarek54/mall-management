@@ -64,7 +64,16 @@ class ApplySlaPenaltyService
                 throw new DomainException(__('admin.facility.errors.penalty_not_applied'));
             }
 
-            $bill = $locked->bill;
+            // THE BILL, LOCKED, BEFORE ANYTHING PLAIN-READS IT. `recompute()` below rewrites the
+            // whole bill's `penalty_applied_amount`/`balance`/`status` from every applied penalty on
+            // it, so a release is a whole-bill write and must serialise on the bill row exactly as
+            // `toBill()` above already does. Until now this was `$locked->bill` — both unserialised
+            // AND the plain read that fixes the transaction's snapshot, so a detach racing an apply
+            // wrote a balance with the other penalty's deduction erased and overstated the payable by
+            // that penalty. See `SlaPenalty::billForUpdate()`.
+            //
+            // Captured before the update, because clearing `vendor_bill_id` loses the link.
+            $bill = $locked->billForUpdate();
 
             $locked->update([
                 'status' => SlaPenalty::STATUS_FINAL,
@@ -72,7 +81,8 @@ class ApplySlaPenaltyService
                 'applied_at' => null,
             ]);
 
-            $bill?->refresh()->recompute();
+            // No `refresh()`: `billForUpdate()` IS the fresh read, taken after the wait.
+            $bill?->recompute();
 
             return $locked->refresh();
         });
