@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Contracts\BillableAgreement;
+use App\Http\Resources\Api\V1\InvoiceResource;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
@@ -237,6 +238,31 @@ class Invoice extends Model
     public function unitCode(): ?string
     {
         return $this->lease?->unit?->code ?? $this->unitOwnership?->unit?->code;
+    }
+
+    /**
+     * {@see unitCode()} under an ATTRIBUTE name — a second road to the rule, never a second answer.
+     *
+     * It exists because the 2026-08-18 fix (61bb1dc6) reached the two invoice TABLES, which could
+     * take a `->state()` closure, and its own commit message said "two surfaces ask it". Five did
+     * not, and each of them names a column rather than running a closure — an infolist entry, a
+     * global-search detail, a report column, a `data_get()` cell and an export column — so all five
+     * went on walking `lease.unit.code` and rendered a BLANK unit for every owner assessment: the
+     * portal View page the owner himself opens to read his own bill, the top-bar search result, the
+     * AR-ageing worklist, that worklist's CSV and the invoice register export.
+     *
+     * Measured on `mall_management_qa` 2026-09-04: `select count(*) from invoices where lease_id is
+     * null` → **42** of 290, so one invoice in seven on those books printed a dash where its shop
+     * belongs. A blank cell reads as "no data", not as a bug, which is why it survived a year.
+     *
+     * **NOT in `$appends`, deliberately.** `docs/api/openapi.json` is generated from `toArray()`,
+     * and {@see InvoiceResource} already publishes `unit_code`
+     * explicitly — appending it here would rewrite the generated mobile contract as a side effect
+     * of a panel fix.
+     */
+    public function getUnitCodeAttribute(): ?string
+    {
+        return $this->unitCode();
     }
 
     /**

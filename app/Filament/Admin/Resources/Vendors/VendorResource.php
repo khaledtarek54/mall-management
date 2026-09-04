@@ -125,23 +125,22 @@ class VendorResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        // Vendor contracts expiring in the next 30 days — landlord needs to
-        // renew or terminate. Vendors themselves are global (not tenant-
-        // scoped), but vendor contracts carry an asset_id, so when an
-        // operator is scoped to a specific property they see only that
-        // property's expiring contracts. ALL pseudo-asset bypasses the
-        // filter and returns the portfolio-wide count.
-        $query = VendorContract::query()
+        // Vendor contracts expiring in the next 30 days — landlord needs to renew or terminate.
+        // Vendors themselves are global (not tenant-scoped), but a contract carries its own
+        // asset_id, so an operator standing in one mall sees that mall's expiring contracts PLUS
+        // the portfolio-wide ones (null asset_id), which cover every mall including this one.
+        //
+        // `visibleAssetIds()`, not `currentAssetId()`: with a real mall selected it IS `[currentId]`
+        // (see TenantScope::visibleAssetIds), so the narrowing is unchanged — and off the panel it
+        // degrades to the operator's assigned set instead of to no narrowing at all. The bare
+        // `where('asset_id', $id)` it replaces excluded every portfolio-wide contract (SW-084).
+        $count = VendorContract::query()
             ->where('status', 'active')
             ->whereNotNull('end_date')
             ->whereDate('end_date', '<=', now()->addDays(30))
-            ->whereDate('end_date', '>=', now());
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        }
-
-        $count = $query->count();
+            ->whereDate('end_date', '>=', now())
+            ->inProperties(TenantScope::visibleAssetIds())
+            ->count();
 
         return $count > 0 ? (string) $count : null;
     }

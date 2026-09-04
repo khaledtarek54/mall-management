@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Support\IncomeStatementLayout;
 use App\Support\JournalNarrative;
 use App\Support\StatementGroups;
+use App\Support\StatementIntegrity;
 use Illuminate\Support\Collection;
 
 /**
@@ -38,6 +39,12 @@ class ReportCsvExporter
         }
         // A totals line, so the exported file self-checks (debit total must equal credit total).
         $rows[] = ['', __('admin.reports.csv.total'), '', round((float) $report['total_debit'], 2), round((float) $report['total_credit'], 2)];
+        // …and the answer stated in words, because a totals line only self-checks for a reader who
+        // thinks to compare two columns. The screen leads its subheading with it
+        // (`TrialBalance::getSubheading()`) and the PDF prints it; measured 2026-09-04, no export
+        // carried it at all (SW-182). Its own row, with the figure columns left empty so nothing a
+        // spreadsheet totals picks it up.
+        $rows[] = ['', StatementIntegrity::balance((bool) $report['balanced']), '', '', ''];
 
         return [
             'headers' => [
@@ -73,11 +80,26 @@ class ReportCsvExporter
     /** @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>} */
     public function balanceSheet(array $report): array
     {
-        return $this->sectioned([
+        $csv = $this->sectioned([
             [__('admin.reports.csv.assets'), $report['assets'], (float) $report['total_assets']],
             [__('admin.reports.csv.liabilities'), $report['liabilities'], (float) $report['total_liabilities']],
             [__('admin.reports.csv.equity'), $report['equity'], (float) $report['total_equity']],
         ], netLabel: __('admin.reports.csv.net_income'), netAmount: (float) $report['net_income']);
+
+        // **The figure the sheet balances ON, and whether it does** (SW-182).
+        //
+        // `sectioned()` ends on net income, which is a COMPONENT of the answer and not the answer:
+        // measured 2026-09-04, the exported balance sheet's last row was `,,Net income,…` and the
+        // file held nothing to foot against `Total assets`. The screen prints
+        // `total_equity_and_liabilities` as its second section total and the PDF prints it as the
+        // grand total, both followed by the ✓/✗ — so the export was the one copy of the three from
+        // which a sheet that does not balance is indistinguishable from one that does, and it is
+        // the copy that goes to an owner, an accountant or an auditor, i.e. the reader who cannot
+        // open the ledger to settle it.
+        $csv['rows'][] = ['', '', __('admin.reports.total_equity_and_liabilities'), round((float) $report['total_equity_and_liabilities'], 2)];
+        $csv['rows'][] = ['', '', StatementIntegrity::balance((bool) $report['balanced']), ''];
+
+        return $csv;
     }
 
     /** @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>} */
@@ -90,12 +112,24 @@ class ReportCsvExporter
             'amount' => (float) $report['net_income'],
         ]])->concat(collect($report['adjustments']));
 
-        return $this->sectioned([
+        $csv = $this->sectioned([
             [__('admin.reports.csv.operating'), $operating, (float) $report['operating_total']],
             [__('admin.reports.csv.investing'), $report['investing'], (float) $report['investing_total']],
             [__('admin.reports.csv.financing'), $report['financing'], (float) $report['financing_total']],
             // Activities, not chart branches — see `CashFlow::groupStatements()`.
         ], netLabel: __('admin.reports.csv.net_change'), netAmount: (float) $report['net_change'], grouped: false);
+
+        // The statement's own assertion, which its screen leads with (`CashFlow::getSubheading()`)
+        // and no export carried. Passed through rather than marked: the catalogue strings here
+        // carry their own ✓/⚠ — see StatementIntegrity for why that is two methods and not one.
+        //
+        // NOT fixed here, and said rather than left to be re-found: the export still omits
+        // `cash_opening`/`cash_closing`, which the screen prints as its fourth section and the PDF
+        // as its closing table. Adding them means `sectioned()` growing a footer block — a layout
+        // change, where this is a one-line omission.
+        $csv['rows'][] = ['', '', StatementIntegrity::cashFlow((bool) $report['reconciled']), ''];
+
+        return $csv;
     }
 
     /**
@@ -211,7 +245,11 @@ class ReportCsvExporter
                 // data_get null-walks the chained relations without tripping larastan's
                 // belongsTo-non-null assumption (a soft-deleted tenant/unit reads as '—').
                 data_get($invoice, 'tenant.name', '—'),
-                data_get($invoice, 'lease.unit.code', '—'),
+                // `unit_code` is `Invoice::unitCode()` — the unit through whichever agreement raised
+                // the document, so an owner assessment names its shop instead of a dash. `data_get`
+                // still returns the '—' when there genuinely is no single unit (a multi-unit lease),
+                // because an accessor answering null is not `isset()`.
+                data_get($invoice, 'unit_code', '—'),
                 $invoice->due_date->toDateString(),
                 $daysOverdue,
                 round((float) $invoice->balance, 2),

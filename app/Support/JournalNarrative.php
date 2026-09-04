@@ -63,6 +63,13 @@ final class JournalNarrative
         'owner_statement.posted' => ['reference'],
         'payment.posted' => ['reference'],
         'payroll.posted' => ['number'],
+        // The reversal family. `<source>.<what happened>` everywhere else; here the "source" is the
+        // posting engine itself, which is the one writer of an entry nothing journalizes.
+        'reversal.no_effect' => ['number'],
+        'reversal.posted' => ['number'],
+        'reversal.reason' => ['number', 'reason'],
+        'reversal.superseded' => ['number'],
+        'reversal.year_reopened' => ['number', 'year'],
         'sla_penalty.applied' => ['reference', 'bill'],
         'stock_movement.posted' => ['type', 'item'],
         'straight_line_rent.posted' => ['period'],

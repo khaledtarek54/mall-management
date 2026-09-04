@@ -249,11 +249,13 @@ class ScanWorkOrderSlaBreachesCommand extends Command
                 ->unique('id')
                 ->values();
 
-            if ($recipients->isNotEmpty()) {
-                Notification::send($recipients, new WorkOrderResponseSlaBreachedNotification($order));
-            }
-
             $order->forceFill(['response_breach_notified_at' => now()])->save();
+
+            // After the commit, for the reason written out in full on `alertBreach()` below: this
+            // notification is not `ShouldQueue` either, and the lock is on the same table.
+            if ($recipients->isNotEmpty()) {
+                DB::afterCommit(fn () => Notification::send($recipients, new WorkOrderResponseSlaBreachedNotification($order)));
+            }
 
             return true;
         });
@@ -341,13 +343,31 @@ class ScanWorkOrderSlaBreachesCommand extends Command
                 ->unique('id')
                 ->values();
 
-            if ($recipients->isNotEmpty()) {
-                Notification::send($recipients, new WorkOrderSlaBreachedNotification($order));
-            }
-
             // Stamped even when nobody is assigned to the property — otherwise a mall with
             // no staff would re-alert on every run forever.
             $order->forceFill(['sla_breach_notified_at' => now()])->save();
+
+            // ── DELIVERY HAPPENS AFTER THE COMMIT, NEVER UNDER THE LOCK (SW-213) ──────────────
+            //
+            // The row above is held by `lockForUpdate()`, and `WorkOrderSlaBreachedNotification`
+            // is not `ShouldQueue` — measured on the shipped classes, 3 of the 38 notifications in
+            // `app/Notifications` are, and neither of this command's two is one of them — while its
+            // `via()` is `['mail', 'database']`. Sent inside the transaction, the X lock on
+            // `facility_work_orders` is therefore held across one synchronous MailerSend round-trip
+            // PER RECIPIENT, every hour, and every operator saving that job waits behind it.
+            //
+            // It also ends a duplicate the transaction was CAUSING rather than preventing: mail is
+            // not transactional, so a throw on the third recipient rolled back the first two
+            // recipients' bell rows and the stamp while their e-mails had already left — and the
+            // next hourly run mailed them again, and again, for as long as the third address kept
+            // failing. Claiming the row first turns that into one logged failure.
+            //
+            // `DB::afterCommit()` runs the closure inside `Connection::commit()`, so a delivery
+            // failure still reaches the per-row containment in `handle()` — the alert is logged as
+            // failed, and the stamp stands, which is the trade this ordering makes deliberately.
+            if ($recipients->isNotEmpty()) {
+                DB::afterCommit(fn () => Notification::send($recipients, new WorkOrderSlaBreachedNotification($order)));
+            }
 
             return true;
         });

@@ -216,7 +216,10 @@ class TaxCodeSeeder extends Seeder
                     'treatment' => TaxCode::STANDARD, 'role' => 'withholding_tax_payable',
                     'label' => 'WH -'.self::pct($rate),
                     'ref' => self::WHT_LAW.' — '.$way,
-                    'sort' => $base + 300 + $i, 'rate' => -1 * (float) $rate,
+                    // The sign is the CATALOGUE's, and it has one home — the form that lets an
+                    // accountant add the next rung reads the same rule back as its bounds.
+                    'sort' => $base + 300 + $i,
+                    'rate' => TaxCode::signedRate((float) $rate, TaxCode::FAMILY_WITHHOLDING),
                 ];
             }
         }

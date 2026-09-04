@@ -133,8 +133,6 @@ class CamReconciliationService
             ? $this->occupiedDenominator($leases, $periodStart, $periodEnd, $pool) / $referenceSqm * 100
             : 0.0;
 
-        $basis = $pool->apportionmentBasis($occupancyPct);
-
         // ── STATED SHARES MAY NOT PROMISE AWAY MORE THAN THE POOL (2026-08-19, pre-staging QA F-08) ──
         //
         // A lease whose contract names its percentage takes that percentage (RC-03), and the other
@@ -200,6 +198,25 @@ class CamReconciliationService
                 'total' => number_format($projectedShare * 100, 2),
             ]));
         }
+
+        // ── Σ SHARES ≤ 100% IS NOT THE SAME QUESTION AS Σ MONEY ≤ COST (SW-167) ───────────────
+        //
+        // The refusal above is in SHARE space and `$basis` is the GROSSED-UP expense, so a pool can
+        // pass it at exactly 100.00% and still recover more than the landlord spent — the same
+        // over-recovery F-08 exists to prevent, arriving through a door it cannot see. The worked
+        // measurement is on `CamExpensePool::apportionmentBasis()`, which is where the bound lives:
+        // 1,350,000 recovered against 1,000,000 of common cost, guard green.
+        //
+        // The share it is bounded by is the one this run will APPLY — the projected set on a first
+        // run, the FROZEN shares on a re-run, where a revised expense reaches the same arithmetic
+        // and the refusal above deliberately does not run at all.
+        $appliedShare = $isRerun
+            ? round((float) $frozenShares->sum() / 100, 6)
+            : $projectedShare;
+
+        // Resolved here rather than beside the occupancy above, because it now depends on the
+        // shares — and the shares depend on the stated/carve-out resolution that happens between.
+        $basis = $pool->apportionmentBasis($occupancyPct, $appliedShare);
 
         return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis, $statedShares, $existing, $carvedOutShare) {
             $count = 0;
@@ -1034,10 +1051,12 @@ class CamReconciliationService
     public function explainAllocation(CamAllocation $allocation): array
     {
         $pool = $allocation->pool instanceof CamExpensePool ? $allocation->pool : null;
-        $recoveryVatRate = $pool ? (float) $pool->recovery_vat_rate : 0.0;
+        // Through the allocation, so this modal, both billing documents and the tenant's own
+        // statement answer "what VAT does the true-up carry" from ONE place.
+        $recoveryVatRate = $allocation->recoveryVatRate();
         $trueUp = (float) $allocation->true_up_amount;
         $recovery = max(0.0, $trueUp);
-        $recoveryVat = round($recovery * $recoveryVatRate / 100.0, 2);
+        $recoveryVat = $allocation->recoveryVatOn($recovery);
         $fee = (float) $allocation->admin_fee_amount;
         $feeVat = (float) $allocation->admin_fee_vat_amount;
 
@@ -1062,8 +1081,11 @@ class CamReconciliationService
             // What the tenant is actually invoiced (recover / fee-only) — true-up + its VAT + the fee +
             // fee VAT. For a credit (over-payment), the credit note carries |true-up| + its recovery VAT
             // and the admin fee bills separately.
+            // The credit branch read `abs × (1 + rate/100)` while `billCredit()` computes
+            // `net + round(net × rate/100, 2)` — the same number for most figures and not for all,
+            // so it is derived the way the document is.
             'net_invoiced' => $direction === 'credit'
-                ? round(abs($trueUp) * (1 + $recoveryVatRate / 100.0), 2)
+                ? round(abs($trueUp) + $allocation->recoveryVatOn(abs($trueUp)), 2)
                 : round($recovery + $recoveryVat + $fee + $feeVat, 2),
         ];
     }
@@ -1298,8 +1320,8 @@ class CamReconciliationService
         // CAM estimate (billed at 14%), so it carries the pool's configured recovery VAT (default 14%;
         // 0% for a genuinely non-taxable pass-through). VAT rides ON TOP of the cost recovery — the
         // net `$amount` (= allocated/true-up) is unchanged, so the books-check's Σ allocated tie-out holds.
-        $vatRate = (float) ($allocation->pool->recovery_vat_rate ?? 0);
-        $vat = round($amount * $vatRate / 100, 2);
+        $vatRate = $allocation->recoveryVatRate();
+        $vat = $allocation->recoveryVatOn($amount);
         $lineTotal = round($amount + $vat, 2);
 
         // The Charge is a traceability record + the books-check anchor only — it is
@@ -1461,8 +1483,8 @@ class CamReconciliationService
     {
         $agreement = $allocation->agreement();
 
-        $vatRate = (float) ($allocation->pool->recovery_vat_rate ?? 0);
-        $vat = round($credit * $vatRate / 100, 2);
+        $vatRate = $allocation->recoveryVatRate();
+        $vat = $allocation->recoveryVatOn($credit);
         $total = round($credit + $vat, 2);
 
         $note = CreditNote::create([

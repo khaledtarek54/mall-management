@@ -2,7 +2,7 @@
 
 namespace App\Filament\Portal\Resources\CreditNotes\Tables;
 
-use App\Support\TenantVisibility;
+use App\Support\StatusOptions;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -81,14 +81,12 @@ class CreditNotesTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    // Derived from the statuses a TENANT may be shown — `ValueSets` minus the
-                    // hidden ones — never a hand-written list. Offering `draft` here would put a
-                    // filter on the list that can only ever return nothing, and imply the tenant
-                    // has drafts to go and look at. A new status becomes filterable by existing,
-                    // which is the same rule the scope itself follows.
-                    ->options(fn () => collect(TenantVisibility::visibleFor('credit_notes') ?? [])
-                        ->mapWithKeys(fn (string $s) => [$s => __("admin.statuses.credit_note.{$s}")])
-                        ->all()),
+                    // Derived from the statuses a TENANT may be shown, never a hand-written list.
+                    // This was the ONLY portal filter that had it; its two neighbours each carried
+                    // an `->only()` list that could not name four of the statuses their own columns
+                    // render. The reasoning moved into StatusOptions so they could stop disagreeing
+                    // with it — the three options here are unchanged.
+                    ->options(fn () => StatusOptions::forTenant('credit_notes')),
             ])
             ->recordActions([
                 ViewAction::make(),

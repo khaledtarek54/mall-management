@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\Resources\PayrollRates\Schemas;
 
+use Closure;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Validation\Rule;
@@ -47,7 +49,38 @@ class PayrollRateForm
                         ->prefix(config('app.currency', 'EGP'))
                         // Refused rather than clamped: a ceiling below the floor would make every
                         // insurable wage the ceiling, silently, on every payslip.
-                        ->rules(['gte:insurable_wage_floor'])
+                        //
+                        // **This was `->rules(['gte:insurable_wage_floor'])`, and it refused every
+                        // ceiling there has ever been.** A rule string reaches the validator
+                        // verbatim (measured: `TextInput::make('insurable_wage_ceiling')->numeric()
+                        // ->minValue(0)->rules([...])->getValidationRules()` returns
+                        // `['nullable','numeric','min:0','gte:insurable_wage_floor']`), while the
+                        // attribute it is keyed under is `data.insurable_wage_ceiling` — so
+                        // `Validator::getValue('insurable_wage_floor')` looked at the ROOT of the
+                        // Livewire payload and found nothing. `validateGte()` then falls to
+                        // `isSameType('16700', null)`, which is false. Measured against that exact
+                        // rules array: the shipped 2,700 / 16,700 band FAILS, so Egypt's own
+                        // insurable-wage band could not be entered through its own screen.
+                        //
+                        // Filament's `->gte('insurable_wage_floor')` would resolve the path, and
+                        // still refuse the second case: **a null bound is NO bound**
+                        // (`PayrollRates::insurableWage()` skips a null floor entirely — a
+                        // ceiling-only rung is a legal, meaningful rung), while `validateGte()`
+                        // answers false against a null comparison value. So the rule is stated
+                        // here, where both halves are visible at once.
+                        ->rules([
+                            fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get): void {
+                                $floor = $get('insurable_wage_floor');
+
+                                if (blank($value) || blank($floor)) {
+                                    return;
+                                }
+
+                                if ((float) $value < (float) $floor) {
+                                    $fail(__('admin.validation.insurable_ceiling_below_floor'));
+                                }
+                            },
+                        ])
                         ->helperText(__('admin.payroll_rates_screen.help.ceiling')),
                 ]),
 

@@ -9,6 +9,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -71,6 +72,18 @@ class RecurringExpense extends Model
     /** @var array<int, string> */
     public const FREQUENCIES = [self::MONTHLY, self::QUARTERLY, self::SEMIANNUALLY, self::ANNUALLY];
 
+    /**
+     * The four columns that state WHEN this schedule books — its window.
+     *
+     * Named once because two readers need the same set: the `saving` guard asks whether the window
+     * MOVED, and the refusal it may raise is worded in terms of all four. `is_active` is
+     * deliberately absent — including it would refuse the operator's own escape, which is to switch
+     * a dud schedule off rather than repair its dates.
+     *
+     * @var array<int, string>
+     */
+    public const WINDOW_COLUMNS = ['starts_on', 'ends_on', 'day_of_month', 'frequency'];
+
     /** How many months one period spans. */
     public const MONTHS_PER_PERIOD = [
         self::MONTHLY => 1,
@@ -126,6 +139,61 @@ class RecurringExpense extends Model
         'day_of_month' => 1,
         'is_active' => true,
     ];
+
+    protected static function booted(): void
+    {
+        // **A SCHEDULE THAT CAN NEVER BOOK IS A COST NOBODY IS EVER ASKED TO PAY.** Four columns
+        // state the window — `starts_on`, `ends_on`, `day_of_month`, `frequency` — and three of
+        // them interact, so it is easy to state one that contains no scheduled day at all. The row
+        // then saves, sits in the register showing an amount and a frequency, and
+        // `expenses:generate-recurring` skips it every night with nothing on any screen to say so.
+        // On a real-estate tax instalment or a civil-defence licence renewal that silence IS the
+        // risk: the cost this screen exists to remember is the one it quietly forgets.
+        //
+        // Measured at HEAD (e3154f27) by calling `nextDueOn()` with a two-year horizon. All four
+        // were saveable through the form, and all four answer null for ever:
+        //   `ends_on` 2026-09-01 before `starts_on` 2026-10-01     => null
+        //   monthly,   day 1, starts 2026-09-20, ends 2026-09-30   => null
+        //   quarterly, day 1, starts 2026-09-20, ends 2026-11-30   => null
+        //   annually,  day 1, starts 2026-09-20, ends 2027-01-01   => null
+        // The last three are the shape {@see firstScheduledDay()}'s "the first period may not fall
+        // before the schedule begins" rule creates: the first cursor steps a whole PERIOD forward,
+        // past an end date that looked generous when it was typed. The first predates that rule and
+        // is plain nonsense nothing ever refused.
+        //
+        // **On the MODEL, not on the form.** One screen writes this row today; the guard is here so
+        // that the second door — an importer, a seeder, a console backfill — is covered by existing
+        // rather than by somebody remembering, which is the reasoning that put `ValueSets::guard()`
+        // on a wildcard listener rather than a trait on thirty-nine models.
+        //
+        // **Refused only when the window MOVES.** A row already in this state stays renameable,
+        // re-priceable, switch-off-able and deletable; what is refused is the ACT of stating a
+        // window with no day in it. Refusing every save of such a row would take away the
+        // operator's own escape — the lockout trap `#[NeverDeletable]` records.
+        static::saving(function (self $schedule): void {
+            // `starts_on` is NOT NULL in the schema and `required()` on the form. Answering that
+            // with a sentence about end dates would be a worse refusal than the one it already has.
+            if ($schedule->starts_on === null) {
+                return;
+            }
+
+            if ($schedule->exists && ! $schedule->isDirty(self::WINDOW_COLUMNS)) {
+                return;
+            }
+
+            if ($schedule->everBooks()) {
+                return;
+            }
+
+            // `everBooks()` is false here only because the first scheduled day falls past
+            // `ends_on` — its other branch needs a null `starts_on`, which returned above — so both
+            // dates exist and the refusal can name the exact day the end date has to clear.
+            throw new DomainException(__('admin.refusals.recurring_schedule_never_books', [
+                'first' => $schedule->firstScheduledDay()?->toDateString(),
+                'ends' => CarbonImmutable::instance($schedule->ends_on)->toDateString(),
+            ]));
+        });
+    }
 
     public function asset(): BelongsTo
     {
@@ -220,33 +288,21 @@ class RecurringExpense extends Model
         }
 
         $months = $this->periodMonths();
-        $start = CarbonImmutable::instance($this->starts_on);
-        $cursor = $this->periodDate($start);
 
-        // **THE FIRST PERIOD MAY NOT FALL BEFORE THE SCHEDULE BEGINS.** `periodDate()` puts the
-        // schedule's own day inside the MONTH of `starts_on`, so a schedule that begins on the 20th
-        // while `day_of_month` is 1 — the form's default AND the column's — produced a first
-        // booking dated the 1st, nineteen days before the operator said the cost begins, for a
-        // period that had not started. Measured at HEAD: `starts_on 2026-09-20`, `day_of_month 1`,
-        // monthly, asked on 2026-09-25 => **2026-09-01**; the same shape ANNUALLY => 2026-09-01
-        // and then 2027-09-01, so the whole series ran early for ever.
-        //
-        // The rule is the one this field's own help states — "the first period booked… earlier
-        // periods are never back-filled" — read strictly: the first scheduled day ON OR AFTER
-        // `starts_on`. It is also the conservative direction for money going OUT, and the operator
-        // has two visible escapes: move `day_of_month` to the day they want, or set `starts_on` to
-        // the start of the period they want booked.
-        //
-        // A whole PERIOD is stepped, not a month, so a quarterly or annual schedule stays anchored
-        // to the month of `starts_on`.
-        if ($cursor->lessThan($start)) {
-            $cursor = $this->periodDate($cursor->addMonthsNoOverflow($months));
+        // Where the series begins is {@see firstScheduledDay()}'s answer, not a second walk here.
+        // *"When does it book next"* and *"can it ever book"* have to agree about that day, and the
+        // guard on `saving` asks the second question — so the first cursor is derived, never
+        // re-derived.
+        $cursor = $this->firstScheduledDay();
+
+        if ($cursor === null) {
+            return null;
         }
 
         // Skip whole periods already generated. Bounded rather than `while (true)`: a corrupt stamp
         // must not spin a nightly job for ever.
         for ($i = 0; $i < 600; $i++) {
-            if ($this->ends_on !== null && $cursor->greaterThan(CarbonImmutable::instance($this->ends_on))) {
+            if ($this->endsBefore($cursor)) {
                 return null;
             }
 
@@ -268,6 +324,68 @@ class RecurringExpense extends Model
     private function periodDate(CarbonImmutable $month): CarbonImmutable
     {
         return $month->day(min(max($this->day_of_month, 1), $month->daysInMonth));
+    }
+
+    /**
+     * The earliest day this schedule's own terms name — the first scheduled day on or after
+     * `starts_on`, asked of the TERMS alone: not of `is_active`, and not of what it has booked.
+     *
+     * {@see nextDueOn()} starts its walk here and {@see everBooks()} asks whether the window still
+     * contains it, so *"when does it book next"* and *"can it book at all"* read ONE definition of
+     * where the series begins and can never answer differently.
+     *
+     * **THE FIRST PERIOD MAY NOT FALL BEFORE THE SCHEDULE BEGINS.** `periodDate()` puts the
+     * schedule's own day inside the MONTH of `starts_on`, so a schedule that begins on the 20th
+     * while `day_of_month` is 1 — the form's default AND the column's — produced a first booking
+     * dated the 1st, nineteen days before the operator said the cost begins, for a period that had
+     * not started. Measured: `starts_on 2026-09-20`, `day_of_month 1`, monthly, asked on
+     * 2026-09-25 => **2026-09-01**; the same shape ANNUALLY => 2026-09-01 and then 2027-09-01, so
+     * the whole series ran early for ever.
+     *
+     * The rule is the one the field's own help states — "the first period booked… earlier periods
+     * are never back-filled" — read strictly: the first scheduled day ON OR AFTER `starts_on`. It
+     * is also the conservative direction for money going OUT, and the operator has two visible
+     * escapes: move `day_of_month` to the day they want, or set `starts_on` to the start of the
+     * period they want booked.
+     *
+     * A whole PERIOD is stepped, not a month, so a quarterly or annual schedule stays anchored to
+     * the month of `starts_on`.
+     */
+    public function firstScheduledDay(): ?CarbonImmutable
+    {
+        // `starts_on` is NOT NULL in the schema, so this is the in-memory case alone — a model on
+        // its way to the database with nothing set on it yet. Answering null lets the `saving`
+        // guard stand aside for the `required` refusal that owns that question.
+        if ($this->starts_on === null) {
+            return null;
+        }
+
+        $start = CarbonImmutable::instance($this->starts_on);
+        $first = $this->periodDate($start);
+
+        return $first->lessThan($start)
+            ? $this->periodDate($first->addMonthsNoOverflow($this->periodMonths()))
+            : $first;
+    }
+
+    /**
+     * Does this schedule's own window contain a scheduled day at all — will it EVER book?
+     *
+     * Asked of the four terms and of nothing else, so the answer does not move when the schedule is
+     * switched off or once it has booked. That is what makes it safe to ask at `saving`: a schedule
+     * that has legitimately run its course must stay fully editable.
+     */
+    public function everBooks(): bool
+    {
+        $first = $this->firstScheduledDay();
+
+        return $first !== null && ! $this->endsBefore($first);
+    }
+
+    /** Has the schedule's own window already closed by `$day`? One definition, two readers. */
+    private function endsBefore(CarbonImmutable $day): bool
+    {
+        return $this->ends_on !== null && $day->greaterThan(CarbonImmutable::instance($this->ends_on));
     }
 
     /** @param  Builder<self>  $query */

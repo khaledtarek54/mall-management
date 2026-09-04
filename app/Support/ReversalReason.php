@@ -44,17 +44,28 @@ final class ReversalReason
      *                         flattening them would make the audit feed unable to tell a receipt
      *                         keyed in error from a cheque the bank returned.
      */
-    public static function record(Model $document, string $event, ?string $reason): void
+    public static function record(Model $document, string $event, ?string $reason, ?Model $causedBy = null): void
     {
         $log = self::logNameFor($document);
 
-        activity($log)
+        $activity = activity($log)
             ->performedOn($document)
             ->event($event)
             // array_filter drops a null reason rather than storing `{"reason":null}`, which reads on
             // screen as a reason that was given and was empty.
-            ->withProperties(array_filter(['reason' => $reason]))
-            ->log($log.'.'.$event);
+            ->withProperties(array_filter(['reason' => $reason]));
+
+        // WHO, when the caller knows better than the session does. Spatie defaults the causer to
+        // `auth()->user()`, which is right for the acts dispatched from a Filament header and wrong
+        // for a service HANDED the actor — `PercentageRentCalculationService::voidLocked($decl,
+        // $voidedBy, $reason)` is passed the operator as an argument precisely because a request is
+        // not the only thing that can call it, and an unattributed reversal is the audit question
+        // this class exists to answer. Optional, so every existing caller is untouched.
+        if ($causedBy !== null) {
+            $activity->causedBy($causedBy);
+        }
+
+        $activity->log($log.'.'.$event);
     }
 
     /**

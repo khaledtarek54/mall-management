@@ -135,15 +135,21 @@ class ActionRequired extends Widget
             ->documentsNeedAttention()
             ->when($assetIds !== null, fn ($q) => $q->whereHas(
                 'contracts',
-                fn ($c) => $c->where('status', 'active')->whereIn('asset_id', $assetIds),
+                // `inProperties()`, not `whereIn`: a portfolio-wide contract has a NULL asset_id and
+                // `whereIn` never matches NULL, so a vendor engaged ONLY under one had its lapsed
+                // certificate on nobody's card (SW-084).
+                fn ($c) => $c->where('status', 'active')->inProperties($assetIds),
             ))
             ->count();
 
         // Contracts at their NOTICE deadline — the date a decision is actually due. A contract
-        // carries its own asset_id (null = portfolio-wide), so it scopes directly.
+        // carries its own asset_id and a NULL one means EVERY mall — which this comment claimed
+        // while the clause beneath it was a bare `whereIn`, and `whereIn` never matches NULL. So a
+        // portfolio-wide contract at its deadline was missing from this count and from the chase
+        // list it deep-links into, while the nightly scan went on e-mailing about it (SW-084).
         $noticeDueCount = VendorContract::query()
             ->noticeDue()
-            ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ->inProperties($assetIds)
             ->count();
 
         // Post-dated cheques matured but not yet cleared — money the register expected by now. A PDC

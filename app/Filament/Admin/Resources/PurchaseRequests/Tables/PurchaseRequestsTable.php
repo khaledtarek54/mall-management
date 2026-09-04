@@ -52,11 +52,33 @@ class PurchaseRequestsTable
                         if ($record->status === PurchaseRequest::STATUS_REQUESTED) {
                             return __('admin.procurement.awaiting', ['tier' => self::tierLabel($record)]);
                         }
+                        // **AND ONCE IT IS DECIDED, WHY.** The same `decision_notes` the record's
+                        // own read surface now shows, here on the register where the badge is
+                        // actually scanned. Until this, a *Rejected* row said only that somebody
+                        // had said no: the reason `reject()` and `cancel()` REQUIRE was written by
+                        // three services and read by none (measured at HEAD e3154f27 —
+                        // `grep -rn decision_notes app/` gives three writes, one `ActivityLogging`
+                        // registration, zero reads).
+                        //
+                        // BOTH facts, joined, because one request can carry both: `ordered →
+                        // cancelled` is in `PurchaseRequest::TRANSITIONS`, so a purchase unwound
+                        // after the order went out has a supplier AND the reason its cancellation
+                        // demanded. Neither may displace the other.
+                        //
+                        // `filled()` rather than a bare `array_filter`, which drops the string "0"
+                        // as falsy — a supplier or a reason is operator-typed and this column is
+                        // the only place either appears.
+                        //
                         // Nullable by design — an approved request has no vendor until it is ordered.
                         /** @var Vendor|null $vendor */
                         $vendor = $record->vendor;
 
-                        return $vendor?->name;
+                        $parts = array_filter(
+                            [$vendor?->name, $record->decision_notes],
+                            static fn (?string $part): bool => filled($part),
+                        );
+
+                        return $parts === [] ? null : implode(' · ', $parts);
                     }),
                 TextColumn::make('requestedBy.name')->label(__('admin.procurement.fields.requested_by'))->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')->label(__('admin.procurement.fields.created_at'))->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),

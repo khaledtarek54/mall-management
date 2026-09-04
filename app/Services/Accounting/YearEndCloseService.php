@@ -211,7 +211,7 @@ class YearEndCloseService
             });
 
         foreach ($entries as $entry) {
-            $this->posting->void($entry, "Reopened FY{$year}");
+            $this->posting->void($entry, reasonKey: 'reversal.year_reopened', reasonData: ['year' => $year]);
         }
     }
 }

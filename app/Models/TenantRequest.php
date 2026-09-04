@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TenantRequestType;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\InheritsAreaFromUnit;
 use App\Services\NotifyAreaSupervisorsService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
@@ -25,7 +26,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PropertyOwned(via: 'unit')]
 class TenantRequest extends Model implements HasMedia
 {
-    use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, InheritsAreaFromUnit, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     // Shared with module 26 through `SlaResolver`, which both modules already use for SLA HOURS.
     //
@@ -233,7 +234,7 @@ class TenantRequest extends Model implements HasMedia
         static::creating(function (self $request) {
             // Derive the zone from the unit if it wasn't set explicitly.
             if ($request->area_id === null) {
-                $request->area_id = Unit::whereKey($request->unit_id)->value('area_id');
+                $request->area_id = self::zoneOfUnit($request->unit_id);
             }
 
             // FR-REQ-08 automatic assignment: route the request to its zone's supervisor — but ONLY

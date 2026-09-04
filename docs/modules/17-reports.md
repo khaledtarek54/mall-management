@@ -1172,3 +1172,66 @@ append at the end (house convention, after `## A schedule that says "every month
 
 `ScopesLedgerReport::hydrateLedgerScopeFromQuery()` restores this operator's standing preferences and then PINS `$assetId` to the mall they are standing in, deliberately as the last word — that ordering is the whole of `PropertyField::reportScope()`, whose own docblock says the alternative is a caption naming one mall over another mall's rows, "the more dangerous of the two failures: nobody re-checks a number they believe they asked for". `IncomeStatement::mount()` then called `ReportPreferences::restore()` a **second** time after that hydrate, to pick up `comparison` and `spread` (which it parses from the query string once the hydrate has run) — and `assetId` is a restored parameter too. Measured at HEAD 2026-09-04: `ReportParameters::parametersOf(IncomeStatement::class)` = comparison, spread, year, period, assetId, and `ReportPreferences::VOLATILE` names only year and period of those, so `assetId` is both remembered and restored. Standing in mall B with mall A remembered, the pinned disabled picker read "A" while `TenantScope::reportAssetIds()` clamped the figures back to B. **Not a leak** — with a real tenant selected `visibleAssetIds()` is `[currentId]` for everyone, so the clamp holds and the PDF header, which derives from the clamped set, was right the whole time; what was wrong is the only thing the operator reads. The fix parses this page's own two parameters BEFORE the shared hydrate, so the trait's single restore is the effective one and the pin stays last; the query string still wins, because `restore()` skips any key `request()->query` names. It was the only page with the shape — `ArAging` declares no `assetId`, `MapsOneProperty` returns before its restore whenever a tenant is selected — and a gate now requires the six pages using the bar to leave the restore to it. (`TheIncomeStatementReportsTheMallItNamesTest`, mutation-proved.)
 
+### SW-182
+
+append:
+
+### An exported statement foots, and says whether it balances (SW-182)
+
+The trial balance, the balance sheet and the cash-flow statement each rest on one assertion — debits
+equal credits, assets equal liabilities plus equity plus net income, the statement ties to the actual
+movement in cash — and each screen leads its subheading with the answer so it cannot be scrolled
+past. Both PDFs print it too. **No export carried it**, and the balance-sheet export also dropped
+`total_equity_and_liabilities`: measured 2026-09-04 against `mall_management_qa`, the exported file's
+last row was `,,Net income,…`, three section subtotals and a net line with nothing to foot against
+`Total assets`. That file is the copy that goes to an owner, an accountant or an auditor — the one
+reader who cannot open the ledger to settle it — so a sheet that does not balance was
+indistinguishable from one that does, on the only copy where it mattered most.
+
+`App\Support\StatementIntegrity` is the ONE wording, read by the three page subheadings, the two PDF
+templates and the three exports. It is a class rather than a sixth copy of the ternary: the balanced
+sentence was already written out four times, and three exports would have made seven. Same shape and
+same reason as `UnallocatedNotice`, the other sentence three renderers of one statement have to agree
+about — which drifted once and sent an income statement out of the building quoting 134,300 while the
+screen said 84,300. It exposes two methods rather than one taking a pair of keys, because
+`balanced`/`not_balanced` are LABELS their renderers mark with ✓/✗ while the cash-flow strings are
+whole sentences carrying their own mark; folding them together prints `✓ ✓ Reconciles…`.
+
+**Still open, and stated rather than left to be re-found:** the cash-flow export omits `cash_opening`
+and `cash_closing`, which the screen prints as its fourth section and the PDF as its closing table.
+Adding them means `sectioned()` growing a footer block — a layout change, where this was a one-line
+omission.
+
+Tests: `AnExportedStatementSaysWhetherItBalancesTest` — each check paired with the opposite case, so
+a wording that always answered ✓ cannot pass.
+
+
+### SW-184
+
+append:
+
+### A report range typed backwards is read in order, not answered with EGP 0.00 (SW-184)
+
+`ReportFilters::from()` and `::to()` were plain date pickers with no bound on each other, and the
+three reports that take them — WeeklySpend, Occupancy cost, Vendor scorecard — all degrade silently
+when the pair is inverted. Measured at HEAD 2026-09-04: with `from` after `to`,
+`ReportService::weeklySpend()`'s week-seeding cursor never runs and both `whereBetween` clauses match
+nothing, so `WeeklySpend::getSubheading()` renders "EGP 0.00 · EGP 0.00 · EGP 0.00" — an empty table
+under three figures that read as a finding — and the export and the scheduled email carry the same.
+Occupancy cost degrades to zero cost, zero sales and a null ratio for every tenant, which on that
+screen is indistinguishable from a mall where nobody has declared.
+
+Two layers. The pickers now **bound each other** (`maxDate` on `from`, `minDate` on `to`), so the
+panel cannot state an impossible window — the visible half. `ReportPeriod::orderedSpan()` is the
+guarantee, at the chokepoint a saved view, a `?from=` in the URL and a scheduled delivery all pass
+through; it lives beside `advanceSpan()`, which has always refused to move a span when
+`$from->greaterThan($to)`, so the class about report periods already knew an inverted one is not a
+question. It **swaps** rather than refusing: the same two dates read the way every date-range control
+reads them, which is what the operator meant, and it decides which rows are read and never what they
+are worth. **A half-stated window is left alone** — no order to fix, and each report's own default is
+a better answer than half of one. `weeklySpend()` orders BEFORE normalising to ISO week boundaries,
+or a swap would leave the start on a Sunday and the cursor stepping whole weeks off-boundary.
+
+Tests: `AnInvertedReportRangeIsReadInOrderTest` — every inverted call paired with the window as meant,
+so a fix that emptied both would not pass.
+

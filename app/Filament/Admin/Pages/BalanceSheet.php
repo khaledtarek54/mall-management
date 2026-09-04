@@ -12,6 +12,7 @@ use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
+use App\Support\StatementIntegrity;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
@@ -83,9 +84,7 @@ class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTab
      */
     public function getSubheading(): ?string
     {
-        $check = $this->report()['balanced']
-            ? '✓ '.__('admin.reports.balanced')
-            : '✗ '.__('admin.reports.not_balanced');
+        $check = StatementIntegrity::balance((bool) $this->report()['balanced']);
 
         $sync = $this->ledgerLastSyncedSubheading();
 

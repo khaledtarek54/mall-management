@@ -98,7 +98,7 @@ it('STILL refuses to move stock that has never carried a value anywhere', functi
         'type' => 'adjustment', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->freeItem->id, 'quantity' => -1,
         'moved_on' => now()->toDateString(),
-    ]))->toThrow(InvalidArgumentException::class);
+    ]))->toThrow(DomainException::class); // a refusal the operator reads — SW-197
 
     expect(StockMovement::where('type', 'adjustment')->count())->toBe(0);
 });
@@ -179,5 +179,5 @@ it('does not let a zero-cost item collapse the approval ladder to its lowest tie
         'type' => 'consumption', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->freeItem->id, 'quantity' => 1,
         'moved_on' => now()->toDateString(),
-    ]))->toThrow(InvalidArgumentException::class); // ...but it cannot move valueless.
+    ]))->toThrow(DomainException::class); // ...but it cannot move valueless.
 });

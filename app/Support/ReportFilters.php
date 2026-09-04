@@ -74,23 +74,36 @@ class ReportFilters
             ->afterStateUpdated(self::persisting($onChange));
     }
 
-    /** The start of a range. Pair with {@see to()}. */
+    /**
+     * The start of a range. Pair with {@see to()}.
+     *
+     * **The two bound each other**, so the panel cannot state a window that ends before it starts.
+     * An inverted pair is not a narrower question, it is an impossible one, and every range report
+     * answers it with a confident zero: measured at HEAD 2026-09-04, `weeklySpend()` seeds no weeks
+     * and `WeeklySpend::getSubheading()` prints "EGP 0.00 · EGP 0.00 · EGP 0.00" as a finding.
+     *
+     * This is the visible half. `ReportPeriod::orderedSpan()` is the guarantee, at the chokepoint a
+     * saved view, a `?from=` in the URL and a scheduled delivery all pass through. `$get` is
+     * injected by NAME, so the closure takes it as its parameter name and nothing else.
+     */
     public static function from(callable $onChange): DatePicker
     {
         return DatePicker::make('from')
             ->label(__('admin.reports.from'))
             ->native(false)
             ->live()
+            ->maxDate(fn ($get) => $get('to'))
             ->afterStateUpdated(self::persisting($onChange));
     }
 
-    /** The end of a range. Pair with {@see from()}. */
+    /** The end of a range. Pair with {@see from()}, which explains why the two bound each other. */
     public static function to(callable $onChange): DatePicker
     {
         return DatePicker::make('to')
             ->label(__('admin.reports.to'))
             ->native(false)
             ->live()
+            ->minDate(fn ($get) => $get('from'))
             ->afterStateUpdated(self::persisting($onChange));
     }
 

@@ -12,6 +12,7 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\PropertySettings;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -133,7 +134,18 @@ class UnitOwnershipForm
                         ->label(__('admin.fields.payment_terms_days'))
                         ->numeric()
                         ->minValue(0)
-                        ->default(7)
+                        // The property's convention falling back to the portfolio's, exactly as the
+                        // lease form has read it since EG-35 — NOT a hard-coded 7. The column is
+                        // NOT NULL with a database default, so a `?? setting` in the model could
+                        // never fire; `UnitOwnership::paymentTermsDays()`'s own docblock says the
+                        // convention belongs at ORIGINATION and that "the form pre-fills a new
+                        // ownership from it", which until now nothing did. From then on the sale
+                        // carries its own number, so changing the setting cannot move the due date
+                        // on assessments already raised. This is the only door that mints a fresh
+                        // ownership: TransferUnitOwnershipService copies the SELLER's terms, which
+                        // is right — a resale inherits the arrangement that was agreed.
+                        ->default(fn () => PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
+                        ->suffix(__('admin.fields.days'))
                         ->required(),
                 ]),
 

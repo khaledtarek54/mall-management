@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InvoiceItemType;
+use App\Http\Middleware\SetLocale;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
@@ -92,7 +93,9 @@ class ChargeCode extends Model
         app()->forgetInstance(self::ROLE_MEMO);
         app()->forgetInstance(self::VAT_MEMO);
 
-        foreach (['en', 'ar'] as $locale) {
+        // Every language, from the ONE list: a label memo left holding the old word in a language
+        // nobody happened to be reading is exactly the drift this flush exists to prevent.
+        foreach (SetLocale::SUPPORTED as $locale) {
             app()->forgetInstance(self::LABEL_MEMO.'.'.$locale);
         }
     }

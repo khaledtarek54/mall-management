@@ -172,7 +172,6 @@ return [
             'declared_at' => 'Declared',
             'locked_at' => 'Locked',
             'pending_review' => 'Pending review',
-            'report_count' => '{1} :count file|[2,*] :count files',
         ],
         'cam' => [
             'tenant' => 'Tenant',

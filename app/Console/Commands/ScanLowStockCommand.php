@@ -52,8 +52,10 @@ class ScanLowStockCommand extends Command
 
         // Only items with a threshold set. A reorder level of 0 means "we do not track a minimum
         // for this", not "alert whenever it hits zero" — otherwise every item a mall has never
-        // stocked would alert forever.
-        $items = InventoryItem::query()->where('is_active', true)->where('reorder_level', '>', 0)->get();
+        // stocked would alert forever. Read through the model's own predicate: until SW-195 the
+        // list's red on-hand figure and its low-stock filter each wrote this rule out for
+        // themselves, and both wrote it the other way round.
+        $items = InventoryItem::query()->active()->tracksAReorderLevel()->get();
 
         if ($items->isEmpty()) {
             $this->info('No items have a reorder level set.');
@@ -78,7 +80,7 @@ class ScanLowStockCommand extends Command
                         ->whereIn('warehouse_id', $warehouseIds)
                         ->sum('quantity');
 
-                    $isLow = $onHand <= (float) $item->reorder_level;
+                    $isLow = $item->isLowAt($onHand);
 
                     if ($dryRun) {
                         if ($isLow) {
@@ -134,11 +136,19 @@ class ScanLowStockCommand extends Command
                             ]);
                         }
 
-                        $staff = $recipients->for($asset->id, ['manager', 'operations']);
+                        // After the commit, never under the lock (SW-213). `LowStockNotification`
+                        // is `['database']` today, but which channels a notification uses is not a
+                        // property to build a lock's duration on — `AlsoSendsByMail` was added to
+                        // fourteen of them after they were written. `$alert` is captured by value
+                        // after it has been created or re-opened above, so the closure re-reads the
+                        // committed row.
+                        DB::afterCommit(function () use ($recipients, $asset, $alert) {
+                            $staff = $recipients->for($asset->id, ['manager', 'operations']);
 
-                        if ($staff->isNotEmpty()) {
-                            Notification::send($staff, new LowStockNotification($alert->refresh()));
-                        }
+                            if ($staff->isNotEmpty()) {
+                                Notification::send($staff, new LowStockNotification($alert->refresh()));
+                            }
+                        });
 
                         return 'opened';
                     });

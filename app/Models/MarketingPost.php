@@ -421,6 +421,38 @@ class MarketingPost extends Model implements HasMedia
         return $end !== null && $end->lt($at ?? now());
     }
 
+    /**
+     * Is this row on screen right now — answered by {@see scopeLiveFor()}, never re-derived.
+     *
+     * The register's "Live" column composed its own reading — `isPublished() && ! hasExpired()`
+     * plus a display_from check — and so dropped the STORE clause the scope carries: a post kept
+     * reading Live after its retailer's lease ended, after the retailer was unlisted and after
+     * they were set inactive, while the "Live" tab and the "Live" filter on the same screen (both
+     * `liveFor(null)`) and the shopper's feed all said otherwise. Three readings of one word on
+     * one screen, two from the scope and one not — which is what the scope's own docblock says it
+     * exists to prevent.
+     *
+     * Measured on mall_management_qa (2026-09-04): 6 posts, 3 published with a store, and all
+     * three of those stores still listed, active and trading in the post's own mall — so the two
+     * readings agreed there and the divergence only appears once a lease ends, which is the case
+     * nobody has data for until it happens.
+     *
+     * One EXISTS per row. The list calls it once per row — the badge's colour is derived from the
+     * state it already computed, not asked again. If this register ever holds thousands of rows,
+     * the answer is the batched shape `App\Support\TenantBalances` uses and NOT a second
+     * definition of "live".
+     *
+     * `$audience` defaults to null — no audience filter — which matches the admin tab and filter:
+     * an operator wants what is running, not only the public half.
+     */
+    public function isLiveNow(?string $audience = null, ?Carbon $at = null): bool
+    {
+        return $this->exists && static::query()
+            ->whereKey($this->getKey())
+            ->liveFor($audience, $at)
+            ->exists();
+    }
+
     /** The end date a shopper is shown — the promise, not the display window. */
     public function validUntil(): ?Carbon
     {

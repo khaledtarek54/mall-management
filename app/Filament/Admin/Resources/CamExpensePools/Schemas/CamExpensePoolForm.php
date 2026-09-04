@@ -32,7 +32,10 @@ class CamExpensePoolForm
      */
     public static function basisFrozen(?CamExpensePool $record): bool
     {
-        return $record !== null && $record->allocations()->where('status', '!=', 'pending')->exists();
+        // The rule itself lives on the model ({@see CamExpensePool::hasBilledAllocations()}), which
+        // is where the `updating` guard reads it too — the screen and the gate cannot disagree about
+        // what "frozen" means while there is one sentence saying it.
+        return $record !== null && $record->hasBilledAllocations();
     }
 
     /**
@@ -128,6 +131,18 @@ class CamExpensePoolForm
                             ->where('asset_id', TenantScope::clampAssetId($get('asset_id')))
                             ->where('pool_code', $get('pool_code') ?: CamExpensePool::CODE_CAM))
                         ->live(onBlur: true)
+                        // THE YEAR IS THE POOL'S ADDRESS, NOT ONE OF ITS FIGURES. Every basis field
+                        // below carries the billing freeze and this one did not, so a pool whose
+                        // shares had been invoiced for 2028 could be retyped as 2029 and saved, on
+                        // the same form that refuses a revised expense. `CamExpensePool::booted()`
+                        // is the gate — a disabled input is a statement of intent — and
+                        // `EditCamExpensePool::handleRecordUpdate()` already turns that refusal into
+                        // a toast rather than a 500.
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
+                        ->hintColor('warning')
+                        ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record)
+                            ? __('admin.helpers.cam_identity_frozen')
+                            : null)
                         ->default(fn () => now()->year),
                     // ── Which pool this is (RC-02) ────────────────────────────────────────────
                     // A property runs several: CAM, real-estate tax, insurance, a food-court pool.
@@ -183,11 +198,32 @@ class CamExpensePoolForm
                         ->visible(fn ($get): bool => $get('participant_scope') === CamExpensePool::PARTICIPANTS_AREA)
                         ->helperText(__('admin.helpers.participant_area'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.participant_area')),
+                    // A STATUS IS THE RESULT OF AN ACT, NEVER A FIELD YOU TYPE.
+                    //
+                    // This was a free Select over all four values, so anyone holding `cam.edit`
+                    // could write `reconciled` straight onto the row — skipping BOTH halves of
+                    // `CamExpensePoolActions::markReconciled`: the `cam.mark_reconciled` permission,
+                    // and `assertReadyToReconcile()`, which refuses to close a year while a tenant's
+                    // share is still unbilled. Read at HEAD: both guards live in the action, and
+                    // nothing on the form's path reaches them. It could also be typed BACK to
+                    // `draft`, which re-opens `canGenerate()` on a pool that has already invoiced
+                    // its shares — and the scheduled `cam:reconcile` sweep then regenerates it.
+                    //
+                    // Same three lines, and the same reasoning, as `TenantSalesDeclarationForm`'s
+                    // status field: SHOWN, so the operator can read the stage, and not submitted —
+                    // Filament's `disabled()` calls `saved(false)`, so the value is dropped from the
+                    // dehydrated payload whatever a crafted Livewire state says.
+                    //
+                    // `closed` consequently has no writer at all any more; it never had an act, and
+                    // nothing distinguishes it from `reconciled` (`isReconciled()` treats them
+                    // alike, `applyEstimates` offers both, `voidAllocation` re-opens both). Adding
+                    // a "close the year" act is the follow-up — typing the column was not one.
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.cam_pool'))
                         ->default('draft')
-                        ->required()
+                        ->disabled()
+                        ->dehydrated(false)
                         ->native(false),
                     // Where each total comes from (RC-01 / RC-05). BOTH default to `stated` on the
                     // COLUMN so no pool that already exists changes basis, while a NEW pool is

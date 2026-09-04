@@ -260,7 +260,11 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
                     ->label(__('admin.tables.invoice.tenant'))
                     ->weight('medium')
                     ->placeholder('—'),
-                TextColumn::make('lease.unit.code')
+                // `unit_code`, not `lease.unit.code`: an owner's assessment ages like any other
+                // receivable and holds its unit on the OWNERSHIP, so this column was a dash on the
+                // screen whose whole purpose is "who do I call, and about what".
+                // `openInvoicesAsOf()` eager-loads both agreements for it.
+                TextColumn::make('unit_code')
                     ->label(__('admin.tables.invoice.unit'))
                     ->badge()
                     ->color('gray')

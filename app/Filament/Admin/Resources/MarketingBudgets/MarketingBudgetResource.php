@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class MarketingBudgetResource extends Resource
 {
@@ -108,15 +109,24 @@ class MarketingBudgetResource extends Resource
      * the budget's live spends (soft-deleted excluded, so it ties to `spent_amount`) and closes with
      * a spend total that ties to the fund panel.
      *
+     * `$spends` is the caller's OWN query when it has one — the export button hands over the
+     * table's filtered, sorted query, so the register is the rows on screen. Adding the campaign
+     * filter (SW-187) otherwise made "Export" and "what I am looking at" two different sets, under
+     * a total that would not match the list above it; that reads as an arithmetic fault rather than
+     * as a filter. Passing nothing is byte-for-byte the old behaviour: the whole fund, newest first.
+     *
      * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
      */
-    public static function spendRegisterCsv(MarketingBudget $budget): array
+    public static function spendRegisterCsv(MarketingBudget $budget, ?Builder $spends = null): array
     {
         $rows = [];
         $total = 0.0;
 
+        // `with('post')` — the campaign column below is otherwise one query per line.
+        $query = ($spends ?? $budget->spends()->orderByDesc('spent_on'))->with('post');
+
         /** @var MarketingSpend $spend */
-        foreach ($budget->spends()->orderByDesc('spent_on')->get() as $spend) {
+        foreach ($query->get() as $spend) {
             $amount = round((float) $spend->amount, 2);
             $total += $amount;
 
@@ -128,16 +138,22 @@ class MarketingBudgetResource extends Resource
                 $amount,
                 __('admin.enums.expense_paid_from.'.$spend->paid_from),
                 $spend->receipt_reference ?? '',
+                // The campaign this money paid for. APPENDED rather than slotted in beside the
+                // description: this file is a spreadsheet somebody already keeps a pivot over, and
+                // moving column D would silently move every figure in it. Blank is the normal
+                // state — plenty of spend is not tied to a published post.
+                $spend->post?->title ?? '',
             ];
         }
 
-        $rows[] = ['', __('admin.reports.csv.total'), '', round($total, 2), '', ''];
+        $rows[] = ['', __('admin.reports.csv.total'), '', round($total, 2), '', '', ''];
 
         return [
             'headers' => [
                 __('admin.tables.marketing_spend.spent_on'), __('admin.tables.marketing_spend.category'),
                 __('admin.tables.marketing_spend.description'), __('admin.tables.marketing_spend.amount'),
                 __('admin.fields.paid_from'), __('admin.tables.marketing_spend.receipt'),
+                __('admin.tables.marketing_spend.campaign'),
             ],
             'rows' => $rows,
         ];

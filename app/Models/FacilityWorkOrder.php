@@ -7,6 +7,7 @@ use App\Models\Concerns\FacilityWorkOrder\HasWorkOrderCost;
 use App\Models\Concerns\FacilityWorkOrder\RecordsFailuresAndRepeats;
 use App\Models\Concerns\FacilityWorkOrder\TracksPmCompliance;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\InheritsAreaFromUnit;
 use App\Notifications\WorkOrderAssignedNotification;
 use App\Notifications\WorkOrderDispatchedNotification;
 use App\Services\NotifyAreaSupervisorsService;
@@ -56,6 +57,7 @@ class FacilityWorkOrder extends Model implements HasMedia
 
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
     use HasWorkOrderCost;
+    use InheritsAreaFromUnit;
     use RecordsFailuresAndRepeats;
     use TracksPmCompliance;
 
@@ -118,6 +120,26 @@ class FacilityWorkOrder extends Model implements HasMedia
     public const BEARER_TENANT = 'tenant';
 
     public const COST_BEARERS = [self::BEARER_MALL, self::BEARER_TENANT];
+
+    /**
+     * The most estimated labour hours a single job may be given.
+     *
+     * `facility_work_orders.est_labour_hours` is `decimal(8,2)` (measured 2026-09-04 with
+     * `show columns`), so MySQL's own ceiling is 999,999.99 — and hitting it is NOT a validation
+     * message. Measured on the dev MySQL in a TEMPORARY table, no real row touched: inserting
+     * `1000000` into a `decimal(8,2)` raises `SQLSTATE[22003] … 1264 Out of range value`, i.e. a
+     * `QueryException` and the 500 page, after the operator pressed Save and lost the form.
+     * SQLite stores the same figure silently, so the Pest suite can never see the failure — the
+     * same "green here, fatal on the real database" split CLAUDE.md records for `GREATEST` and for
+     * the CHECK constraints SQLite drops.
+     *
+     * 9,999.99 rather than the column's own ceiling: four person-years on ONE job is already far
+     * past anything a mall plans (an annual shutdown is three people for four weeks — 480 hours),
+     * so nothing real is refused, while an extra keystroke on a four-figure estimate is caught by
+     * a message instead of by the driver. Both forms that collect the figure read it from here;
+     * `service_plans.est_labour_hours` is the same width and has no form field at all.
+     */
+    public const MAX_EST_LABOUR_HOURS = 9999.99;
 
     /**
      * Work-order reference and what the job is.
@@ -807,11 +829,12 @@ class FacilityWorkOrder extends Model implements HasMedia
                 $derived = null;
                 if ($order->tenant_request_id !== null) {
                     $derived = TenantRequest::whereKey($order->tenant_request_id)->value('area_id');
+                    $derived = $derived === null ? null : (int) $derived;
                 }
-                if ($derived === null && $order->unit_id !== null) {
-                    $derived = Unit::whereKey($order->unit_id)->value('area_id');
-                }
-                $order->area_id = $derived === null ? null : (int) $derived;
+                // `zoneOfUnit()` is the ONE reading of "which zone is this unit in" — shared with
+                // TenantRequest and with the re-inheritance in InheritsAreaFromUnit, so intake and
+                // correction can never disagree about it.
+                $order->area_id = $derived ?? self::zoneOfUnit($order->unit_id);
             }
 
             $order->stampSlaClocks();

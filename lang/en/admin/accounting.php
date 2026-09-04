@@ -185,6 +185,14 @@ return [
             'payroll' => [
                 'posted' => 'Payroll :number',
             ],
+            'reversal' => [
+                'posted' => 'Reversal of :number',
+                // `:reason` is what an operator typed. It is placed, never translated.
+                'reason' => 'Reversal of :number — :reason',
+                'superseded' => 'Reversal of :number — superseded by an updated document',
+                'no_effect' => 'Reversal of :number — the document no longer posts to the ledger',
+                'year_reopened' => 'Reversal of :number — financial year :year reopened',
+            ],
             'sla_penalty' => [
                 'applied' => 'SLA penalty :reference — :bill',
             ],
@@ -661,6 +669,11 @@ return [
         'estimates_stated_note' => 'Your share of the estimates collected across the property during the year.',
         'underpaid' => 'Shortfall to settle',
         'overpaid' => 'Overpayment to be credited',
+        // The tax on the settlement itself. BOTH documents charge it — the recovery invoice adds it
+        // on top of the shortfall, the credit note reverses it on the overpayment — so the statement
+        // has to state it or its bottom line is not the figure the tenant is asked for.
+        'recovery_vat_due' => 'VAT on the shortfall (:pct%)',
+        'recovery_vat_credit' => 'VAT on the overpayment (:pct%)',
         'admin_fee' => 'Management fee (:pct% of your capped cost)',
         'admin_fee_note' => 'Charged on the capped cost, so it can never carry your share back above the cap.',
         'admin_fee_vat' => 'VAT on the management fee',

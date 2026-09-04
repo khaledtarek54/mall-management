@@ -88,8 +88,10 @@ it('rejects an unknown type and a zero non-adjustment quantity', function () {
     expect(fn () => $this->svc->record(['warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'bogus', 'quantity' => 1]))
         ->toThrow(InvalidArgumentException::class);
 
+    // The quantity comes off a form, so this one is a REFUSAL — DomainException since SW-197,
+    // while the unknown type above stays a programming error.
     expect(fn () => $this->svc->record(['warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'receipt', 'quantity' => 0]))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 });
 
 it('coerces blank money/quantity to 0 without crashing (NOT-NULL guard)', function () {

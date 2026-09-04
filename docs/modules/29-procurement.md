@@ -342,3 +342,23 @@ for it and the footer renders nowhere at all.
 >
 > The shape `ServiceReachability` catches one level up and cannot see here: the CLASS is reachable
 > while one of its public methods has no caller. (`TwoActsWithNoScreenTest`.)
+
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-067
+
+### The decision was written by three services and read by none (SW-067, 2026-09-04)
+
+`PurchaseRequestService::reject()` and `::cancel()` REQUIRE a reason — both action modals make that `Textarea` `->required()` — and `::approve()` invites a note. All three write `purchase_requests.decision_notes`, and at HEAD `grep -rn decision_notes app/` returned exactly those three writes plus one `ActivityLogging` registration and **zero reads**. A refused purchase showed a red *Rejected* badge and nothing else. Not on the list: the badge column's `description()` answered the awaiting-tier line for `requested` and otherwise the supplier name, and a rejected request has no supplier (`vendor_id` is written only by `order()`, reachable only from `approved`), so the cell was blank. Not in the View modal: this resource declares no `infolist()`, so that modal renders the FORM, which carried the property, the justification and the warehouse. Not on the Edit page either. Measured on `mall_management_qa`, PR-AW-202609-0001 stores *"Approved — within the maintenance budget."* and no screen printed it. The buyer could not find out why their purchase was refused, and the operator who refused it left no answer anyone could point at — which is the whole content of an approval workflow.
+
+**Shown by the DATA, not by a status list.** `approve` writes an OPTIONAL note and `receive` writes none, so `PurchaseRequest::TERMINAL` — or any hand-written set of statuses — would be a second answer free to drift from the three services that do the writing. `filled($record->decision_notes)` cannot.
+
+**BOTH facts on the register, joined.** `ordered → cancelled` is in `TRANSITIONS`, so one request can carry a supplier AND the reason its cancellation demanded; neither displaces the other. The record's own copy adds WHO decided and WHEN, from `decided_by_user_id`/`decided_at`, which were also read by nothing.
+
+**Read-only, and stated as such.** The field is `->disabled()->dehydrated(false)`. In this Filament build `disabled()` already calls `saved(false)` and `isDehydrated()` falls back to `isSaved()`, so the field is not submitted today — but that is upstream implementation detail, and the Edit page is reachable for every status while the model's `updating` guard freezes only `asset_id`, `warehouse_id` and `justification`. Nothing else stands between a crafted Livewire payload and the reason somebody's purchase was refused.
+

@@ -238,6 +238,10 @@ it('groups the CSV export the same way the screen groups', function () {
         'equity' => collect(),
         'total_equity' => 0.0,
         'net_income' => 0.0,
+        // The two figures the export now foots on (SW-182). This fixture is assets-only, so the
+        // sheet deliberately does not balance and the check line reads ✗.
+        'total_equity_and_liabilities' => 0.0,
+        'balanced' => false,
     ]);
 
     $accounts = array_column($csv['rows'], 2);

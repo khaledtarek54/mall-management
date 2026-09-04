@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
+use App\Http\Middleware\SetLocale;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Paymob\PaymobPaymentInitiator;
@@ -52,12 +53,16 @@ class PaymentLinkController
     /** Public visitors have no session — pick the language from ?lang or the browser. */
     protected function locale(Request $request): string
     {
+        // `SetLocale::SUPPORTED` is the ONE list. This page had its own copy, twice — and it is the
+        // surface that can least afford to fall behind one: it is the only money screen with no
+        // login in front of it, reached from the link on every invoice e-mail, so a language the
+        // rest of the system had learned would simply never be offered to the person paying.
         $lang = $request->query('lang');
-        if (in_array($lang, ['en', 'ar'], true)) {
+        if (in_array($lang, SetLocale::SUPPORTED, true)) {
             return $lang;
         }
 
-        return $request->getPreferredLanguage(['en', 'ar']) ?: (string) config('app.locale', 'en');
+        return $request->getPreferredLanguage(SetLocale::SUPPORTED) ?: (string) config('app.locale', 'en');
     }
 
     /** GET /pay/{token} — invoice summary + Pay button. */

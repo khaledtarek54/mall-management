@@ -162,6 +162,7 @@ return [
             'vendor_bill_payment' => ['voided' => 'إلغاء دفعة مورّد'],
             'employee_advance_repayment' => ['reversed' => 'عكس سداد سلفة'],
             'custody_transaction' => ['reversed' => 'عكس حركة عهدة'],
+            'tenant_sales' => ['voided' => 'إلغاء إقرار مبيعات مثبَّت'],
             'settings' => ['updated' => 'تعديل إعدادات المحفظة'],
             'property_settings' => ['updated' => 'تعديل إعدادات العقار'],
 

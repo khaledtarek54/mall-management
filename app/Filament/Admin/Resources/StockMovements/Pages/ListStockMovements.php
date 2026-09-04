@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\StockMovements\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Models\Bin;
 use App\Models\InventoryItem;
@@ -15,23 +16,27 @@ use App\Support\TenantScope;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use InvalidArgumentException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ListStockMovements extends ListRecords
 {
+    // Three filters is the threshold `SavedViews` sets for a list worth bookmarking, and the
+    // ledger crossed it the day it grew a date range, a store and an item (SW-198).
+    // `SavedViewsCoverageConformanceTest` fails in BOTH directions, so this is not optional.
+    use SavesTableViews;
+
     protected static string $resource = StockMovementResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             $this->receiveAction(),
             $this->adjustAction(),
@@ -44,7 +49,10 @@ class ListStockMovements extends ListRecords
                 ->visible(fn () => StockMovementResource::canViewAny())
                 ->authorize(fn () => StockMovementResource::canViewAny())
                 ->action(function () {
-                    $csv = StockMovementResource::movementsCsv();
+                    // The ledger the operator is LOOKING AT, not the whole register (SW-198).
+                    // Exporting everything while the screen shows one store is the worst kind of
+                    // wrong: the file is perfectly valid and answers a different question.
+                    $csv = StockMovementResource::movementsCsv($this->getFilteredTableQuery());
 
                     return ReportCsv::stream('stock-movements', $csv['headers'], $csv['rows']);
                 }),
@@ -153,23 +161,36 @@ class ListStockMovements extends ListRecords
             ->visible(fn () => StockMovementResource::canCreate())
             ->authorize(fn () => StockMovementResource::canCreate())
             ->schema([
-                Select::make('from_warehouse_id')
+                // The shared record picker, like the item picker below it (SW-196). These were
+                // plain Selects fed by a private `warehouseOptions()` helper — which is exactly
+                // why `EntitySelectConformanceTest` never saw them: it reads each chain's own
+                // text for a `pluck('name', 'id')`, and the pluck was twenty lines further down
+                // the file. They searched one raw column, folded neither side, showed one line per
+                // option and re-wrote the property scope by hand; every one of those failures
+                // renders as an empty or ambiguous dropdown rather than an error, which is why
+                // nobody reports it. The scope is DERIVED from `PropertyIsolation` now, and it is
+                // the write guard as well as the filter.
+                EntitySelect::make('from_warehouse_id')
                     ->label(__('admin.inventory.transfer.from'))
-                    ->options(fn () => $this->warehouseOptions())
+                    ->entity(Warehouse::class)
+                    ->modifyOptionsQuery(fn ($query) => $query->where('is_active', true))
                     ->required()
-                    ->searchable()
-                    ->native(false)
                     ->live(),
-                Select::make('to_warehouse_id')
+                EntitySelect::make('to_warehouse_id')
                     ->label(__('admin.inventory.transfer.to'))
-                    ->options(fn (Get $get) => collect($this->warehouseOptions())
-                        // A transfer to the same store is a no-op that would still write two
-                        // ledger rows; take the option away rather than explain it afterwards.
-                        ->except([$get('from_warehouse_id')])
-                        ->all())
-                    ->required()
-                    ->searchable()
-                    ->native(false),
+                    ->entity(Warehouse::class)
+                    // A transfer to the same store is a no-op that would still write two ledger
+                    // rows; take the option away rather than explain it afterwards. Narrowing the
+                    // OPTIONS is also what REFUSES it — Filament validates a Select by asking it
+                    // to label the submitted value, so a store this picker will not offer is a
+                    // store it will not accept.
+                    ->modifyOptionsQuery(fn ($query, Get $get) => $query
+                        ->where('is_active', true)
+                        ->when(
+                            filled($get('from_warehouse_id')),
+                            fn ($scoped) => $scoped->whereKeyNot($get('from_warehouse_id')),
+                        ))
+                    ->required(),
                 EntitySelect::make('inventory_item_id')
                     ->label(__('admin.inventory.fields.item'))
                     ->entity(InventoryItem::class)
@@ -215,20 +236,6 @@ class ListStockMovements extends ListRecords
             });
     }
 
-    /** Active warehouses in the user's visible properties, id => name. */
-    private function warehouseOptions(): array
-    {
-        $query = Warehouse::query()->where('is_active', true);
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query->orderBy('name')->pluck('name', 'id')->all();
-    }
-
     /**
      * Run a ledger write and turn a refusal into a toast.
      *
@@ -254,8 +261,15 @@ class ListStockMovements extends ListRecords
                 ->send();
 
             return;
-        } catch (InvalidArgumentException|DomainException $e) {
+        } catch (DomainException $e) {
             // These carry an explanation written for the operator — show it.
+            //
+            // `DomainException` ONLY, since SW-197. The service used to raise its refusals as
+            // `InvalidArgumentException`, which put a raw English sentence in this toast AND put
+            // them outside `RefusalsAreTranslatedConformanceTest`, whose stated premise is that an
+            // `InvalidArgumentException` is a developer error nobody is meant to read. Narrowing
+            // the catch is what keeps that premise true here: a NEW one fails loudly instead of
+            // being quietly shown to a storeman in the wrong language.
             Notification::make()
                 ->title($failureTitle)
                 ->body($e->getMessage())

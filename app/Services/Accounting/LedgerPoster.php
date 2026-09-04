@@ -230,7 +230,7 @@ class LedgerPoster
             if ($payload === null) {
                 if ($existing) {
                     $restated = self::restatementOf($existing, $source);
-                    $this->posting->void($existing, 'Document no longer has a ledger effect.');
+                    $this->posting->void($existing, reasonKey: 'reversal.no_effect');
                 }
 
                 return null;
@@ -241,7 +241,7 @@ class LedgerPoster
                     return $existing;
                 }
                 $restated = self::restatementOf($existing, $source);
-                $this->posting->void($existing, 'Superseded by an updated document.');
+                $this->posting->void($existing, reasonKey: 'reversal.superseded');
             }
 
             $payload['source'] = $source;

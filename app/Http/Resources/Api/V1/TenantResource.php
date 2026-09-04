@@ -43,7 +43,7 @@ class TenantResource extends JsonResource
             // answered null for every tenant and the app's language toggle silently reached none of
             // those three channels.
             //
-            // Clamped to `SetApiLocale::SUPPORTED` on the way in (see UpdateProfileRequest): an
+            // Clamped to `SetLocale::SUPPORTED` on the way in (see UpdateProfileRequest): an
             // unsupported value does not throw, it makes `__()` fall through to the fallback
             // locale — so a typo leaves the column looking set and every document in English.
             'locale' => $this->locale,

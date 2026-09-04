@@ -300,24 +300,21 @@ class WithholdingTaxReturn extends Page implements DeliverableReport, HasSchemas
     }
 
     /**
-     * No notice here: a return filed per REGISTRATION omits nothing.
+     * Filed against the operator's TAX REGISTRATION, not against a mall.
      *
-     * The inherited warning says in bold *"They are NOT in the figures above"*, and on the five
-     * property-scoped statements that is true — `aggregate()` narrows with
-     * `whereIn('je.asset_id', …)` and `whereIn` never matches NULL. This page deliberately passes a
-     * null asset (see `report()` below), and the service applies the filter as
-     * `->when($assetId, …)`, so with null there is no asset predicate at all and those entries ARE
-     * counted here.
+     * `report()` below passes a null asset because one registration covers the portfolio. Declared
+     * here so the concern can act on it in BOTH the places that fact decides: the scope control
+     * becomes a statement instead of a mall picker — it named the selected mall while these figures
+     * were the portfolio's — and the EG-27 unallocated notice is suppressed, because with a null
+     * asset those entries ARE in the figures and the warning would be false.
      *
-     * Left inherited it told an accountant that a statutory filing position understates what they
-     * owe when it does not, and pointed them at a remedy — re-file the document against a mall —
-     * that would make the return WRONG. Opted out here rather than removed from the concern,
-     * because a sixth property-scoped statement should still inherit the warning instead of being
-     * the one that quietly omits money.
+     * The second half used to be an `unallocatedNotice()` override here, worded at length; the
+     * reasoning now lives once on {@see ScopesLedgerReport::isFiledPerRegistration()}, where a
+     * third such return will inherit both halves rather than half of them.
      */
-    protected function unallocatedNotice(): ?array
+    public function isFiledPerRegistration(): bool
     {
-        return null;
+        return true;
     }
 
     /**

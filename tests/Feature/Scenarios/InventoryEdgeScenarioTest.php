@@ -64,9 +64,10 @@ it('rejects a zero-quantity receipt/consumption but permits a zero-quantity adju
     $warehouse = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Store', 'code' => 'S1']);
     $item = InventoryItem::create(['sku' => 'NUT-1', 'name' => 'Nut', 'unit' => 'each', 'unit_cost' => 1]);
 
-    // Zero receipt — non-zero required for stock-moving types.
+    // Zero receipt — non-zero required for stock-moving types. A REFUSAL (an operator typed the
+    // quantity), so a DomainException since SW-197 — see StockMovementService's class docblock.
     expect(fn () => $this->stock->receive($warehouse, $item, 0, 1))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 
     // Zero consumption — same rule.
     expect(fn () => $this->stock->record([
@@ -74,7 +75,7 @@ it('rejects a zero-quantity receipt/consumption but permits a zero-quantity adju
         'inventory_item_id' => $item->id,
         'type' => 'consumption',
         'quantity' => 0,
-    ]))->toThrow(InvalidArgumentException::class);
+    ]))->toThrow(DomainException::class);
 
     // A zero-quantity adjustment IS allowed (a signed correction may net to zero).
     $adjust = $this->stock->adjust($warehouse, $item, 0);

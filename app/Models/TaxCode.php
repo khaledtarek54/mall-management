@@ -161,7 +161,7 @@ class TaxCode extends Model
      */
     public function assertCanBeActivated(): void
     {
-        if (! $this->exists || ! $this->is_active || $this->treatment !== self::STANDARD) {
+        if (! $this->exists || ! $this->needsARateLadder()) {
             return;
         }
 
@@ -179,6 +179,23 @@ class TaxCode extends Model
         if (blank($this->posting_role)) {
             throw new \DomainException(__('admin.validation.tax_code_needs_role', ['code' => $this->code]));
         }
+    }
+
+    /**
+     * Whether this code must be able to answer with a rate.
+     *
+     * The ONE predicate behind both halves of that rule: {@see assertCanBeActivated()}, which
+     * refuses switching a rate-less code ON, and `TaxRate`'s delete guard, which refuses emptying
+     * the ladder of one that already is. They are the same sentence — the second half simply did
+     * not exist, so an ACTIVE code could be talked out of its last rung from its own screen and
+     * {@see rateOn()} would answer null from then on.
+     *
+     * Only a STANDARD treatment needs one: `rateOn()` answers 0 for exempt and zero-rated whatever
+     * the ladder holds, so a rung on those is policy the resolver never reads.
+     */
+    public function needsARateLadder(): bool
+    {
+        return (bool) $this->is_active && $this->treatment === self::STANDARD;
     }
 
     /**
@@ -262,6 +279,58 @@ class TaxCode extends Model
     public static function familyOf(?string $code): ?string
     {
         return $code === null ? null : (self::catalogue()[$code]['family'] ?? null);
+    }
+
+    /**
+     * Withholding is the ONE family whose rungs are stored with a NEGATIVE rate.
+     *
+     * "WH -1%" is the operator's own notation, off their own sheet: the tax comes OFF what is paid
+     * to a supplier rather than being added to it, and `invoice_label` prints that notation
+     * verbatim. `WithholdingTax` works in magnitudes and drops the sign on the way in.
+     *
+     * It lives here because THREE places needed the same answer and each kept its own copy:
+     * `TaxCodeSeeder` wrote `-1 * $rate`, `WithholdingTax::rateOfCode()` `abs()`es it back, and the
+     * rung form clamped its input at zero — which refused every rung the seeder had just written.
+     * Measured on the dev database 2026-09-04: all 8 withholding rungs are stored negative (`WH_0_5`
+     * at -0.5 through `WH_5_P` at -5), and not one of them could be re-saved through its own screen
+     * (SW-204).
+     */
+    public static function rateIsNegativeFor(?string $family): bool
+    {
+        return $family === self::FAMILY_WITHHOLDING;
+    }
+
+    /** This code's own answer to {@see rateIsNegativeFor()}. */
+    public function rateIsNegative(): bool
+    {
+        return self::rateIsNegativeFor($this->family);
+    }
+
+    /**
+     * The bounds a rung of THIS code may carry, as `[floor, ceiling]` percentages.
+     *
+     * Zero is inside both, deliberately: a rung of 0 is a suspension — "nothing is charged from this
+     * date" — which is a statement an accountant may legitimately need to make, and
+     * {@see assertCanBeActivated()} asks only that a rung EXISTS, never that it is non-zero.
+     *
+     * @return array{0: float, 1: float}
+     */
+    public function rateBounds(): array
+    {
+        return $this->rateIsNegative() ? [-100.0, 0.0] : [0.0, 100.0];
+    }
+
+    /**
+     * A magnitude, expressed in a family's own sign convention. `TaxCodeSeeder` is its caller.
+     *
+     * The rung FORM deliberately asks {@see rateBounds()} instead and REFUSES a wrong sign rather
+     * than flipping one the accountant typed: the ladder on screen prints the stored figure, so
+     * silently correcting the sign would leave the form and the table it sits above disagreeing
+     * about what was entered.
+     */
+    public static function signedRate(float $magnitude, ?string $family): float
+    {
+        return self::rateIsNegativeFor($family) ? -abs($magnitude) : abs($magnitude);
     }
 
     /** The GL posting role this code's collections land in, if it collects anything. */

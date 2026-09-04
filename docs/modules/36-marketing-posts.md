@@ -346,3 +346,19 @@ reads; the click write gets its own 30/min bucket.
 ---
 
 **Document version:** 2026-08-10 | Laravel 13 + Filament 4
+
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-179
+
+**The store picker SUGGESTS, it does not filter (SW-179, 2026-09-04).** It opens on the retailers trading in the chosen mall — through the `lease_unit` pivot, so a multi-unit lease's additional property counts — and search still reaches the rest of the (portfolio-shared) tenant register. It was `->modifyOptionsQuery()`, which narrows what can be FOUND as well as what is SHOWN, and `EntitySelect` resolves a stored value's LABEL through the same modifier: Filament turns *"cannot label"* into `Rule::in([])` (`Select::getInValidationRuleValues()` returns `[]` when `getOptionLabel()` is blank). So the day the attributed retailer's lease ended, **every save of that post was refused as "invalid" on a field nobody had touched**, with the picker rendering empty beside the error and no way past it but to clear the attribution. Measured on `mall_management_qa` 2026-09-04: 6 of 39 tenants are not trading in the mall a live post is filed against. The loosening is deliberate and visible — a post attributed to a retailer who is not trading here is refused by `MarketingPost::liveFor()` and reads *No* in the register's Live column (SW-180) — which is the tradeoff `EntitySelect::suggest()`'s own docblock states for the tenant-request unit picker.
+
+### SW-180
+
+**The register's "Live" column reads `liveFor()` too, through `MarketingPost::isLiveNow()` (SW-180, 2026-09-04).** The column composed its own answer — `isPublished() && ! hasExpired()` plus a display-window check — and so dropped the STORE clause the scope carries: a post kept reading *Live* after its retailer's lease ended, after the retailer was unlisted and after they were set inactive, beside a "Live" tab and a "Live" filter on the same screen that both go through `liveFor(null)` and said otherwise. **Three readings of one word on one screen**, two from the scope and one not — the drift `scopeLiveFor()`'s own docblock exists to prevent. `isLiveNow(?string $audience = null, ?Carbon $at = null)` asks the scope of one row (`whereKey(...)->liveFor(...)->exists()`); the audience default is null, matching the admin tab and filter, because an operator wants what is running rather than only the public half. **The badge's colour is derived from the state it already computed**, so the column asks once per row and the two halves cannot disagree — they used to be computed separately, and a published post waiting for its `display_from` rendered a GREEN badge reading *No*. One EXISTS per row on a register of tens; if it ever holds thousands, the answer is the batched `App\Support\TenantBalances` shape and never a second definition of *live*.
+

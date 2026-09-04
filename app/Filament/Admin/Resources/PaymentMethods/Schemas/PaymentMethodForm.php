@@ -4,9 +4,11 @@ namespace App\Filament\Admin\Resources\PaymentMethods\Schemas;
 
 use App\Models\LedgerAccount;
 use App\Support\Filament\EntitySelect;
+use Closure;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Validation\Rule;
@@ -56,11 +58,13 @@ class PaymentMethodForm
             Toggle::make('for_inbound')
                 ->label(__('admin.fields.for_inbound'))
                 ->default(true)
+                ->rules([self::mustMoveMoneyInSomeDirection()])
                 ->helperText(__('admin.payment_methods.help.for_inbound')),
 
             Toggle::make('for_outbound')
                 ->label(__('admin.fields.for_outbound'))
                 ->default(true)
+                ->rules([self::mustMoveMoneyInSomeDirection()])
                 ->helperText(__('admin.payment_methods.help.for_outbound')),
 
             // WHETHER recording money on this rail means naming which bank account it moved
@@ -89,5 +93,28 @@ class PaymentMethodForm
 
             Textarea::make('notes')->label(__('admin.fields.notes'))->rows(2)->columnSpanFull(),
         ]);
+    }
+
+    /**
+     * Both directions off is a rail no screen will ever offer — refused on the FIELD, not only at
+     * the model.
+     *
+     * ONE rule applied to BOTH toggles (the shape `AssetForm::areasMustFitInsideTheBuilding()`
+     * already uses here), so whichever one the operator un-ticked last carries the message and the
+     * two can never state the rule differently.
+     *
+     * The MODEL is still the gate — a form rule cannot see the seeder, a console command or a future
+     * importer — and both read the SAME sentence out of `admin.refusals`, so the field error and the
+     * toast cannot drift. This exists because a `DomainException` renders as a toast with a redirect
+     * back, which on a create form loses everything typed; the rule puts the refusal where the
+     * decision was made.
+     */
+    private static function mustMoveMoneyInSomeDirection(): Closure
+    {
+        return static fn (Get $get): Closure => static function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+            if (! $get('for_inbound') && ! $get('for_outbound')) {
+                $fail(__('admin.refusals.payment_method_moves_no_money'));
+            }
+        };
     }
 }

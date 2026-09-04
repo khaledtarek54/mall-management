@@ -164,6 +164,7 @@ return [
             'vendor_bill_payment' => ['voided' => 'Vendor payment voided'],
             'employee_advance_repayment' => ['reversed' => 'Advance repayment reversed'],
             'custody_transaction' => ['reversed' => 'Custody transaction reversed'],
+            'tenant_sales' => ['voided' => 'Locked sales declaration voided'],
             'settings' => ['updated' => 'Portfolio settings updated'],
             'property_settings' => ['updated' => 'Property settings updated'],
 

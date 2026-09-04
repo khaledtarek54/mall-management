@@ -543,7 +543,7 @@ return [
         'unit_label' => 'Unit',
         'master_unit' => 'Unit (master)',
         'additional_units' => 'Additional units',
-    'additional_units_locked' => 'Locked once the lease is live — use the “Change premises” action, which records the date the space changes and re-rates the rent from it.',
+        'additional_units_locked' => 'Locked once the lease is live — use the “Change premises” action, which records the date the space changes and re-rates the rent from it.',
         'additional_units_helper' => 'Optional — extra units this lease also covers (e.g. an adjacent kiosk). All count as occupied.',
         'password' => 'Password',
         'portal_admin' => 'Portal admin',
@@ -554,6 +554,8 @@ return [
         'term_months' => 'Term',
         'months' => 'months',
         'days' => 'days',
+        // The SLA deadline boxes. A word, so it is a key: the Arabic panel says one hour, not `hrs`.
+        'hrs' => 'hrs',
         'base_rent_monthly' => 'Base Rent (Monthly)',
         'rent_pricing_basis' => 'Rent priced as',
         'base_rent_rate_per_sqm_year' => 'Rent rate',

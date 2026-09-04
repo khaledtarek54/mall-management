@@ -74,16 +74,24 @@ class MarketingPostsTable
                     }),
 
                 // "Published" is not the same as "on screen": a published post can be waiting for
-                // its display window or sitting past it until the hourly sweep files it. The
-                // operator's real question is the second one, so it gets its own column.
+                // its display window, sitting past it until the hourly sweep files it, or attached
+                // to a store that has stopped trading in this mall. The operator's real question is
+                // the last one, so it gets its own column — read through `MarketingPost::liveFor()`
+                // (SW-180), the SAME predicate as the "Live" tab, the "Live" filter beside it and
+                // the shopper's feed.
+                //
+                // The state is a STABLE key, not the translated word, so the colour is derived from
+                // the answer the badge is already showing rather than asked a second time. The two
+                // used to be computed separately and disagreed: a published post waiting for its
+                // display window rendered a GREEN badge reading "No".
                 TextColumn::make('live')
                     ->label(__('admin.marketing_posts.fields.live'))
                     ->badge()
-                    ->state(fn (MarketingPost $r) => $r->isPublished() && ! $r->hasExpired()
-                        && (($r->display_from ?? $r->starts_at) === null || ($r->display_from ?? $r->starts_at)->lte(now()))
-                            ? __('admin.marketing_posts.live_yes')
-                            : __('admin.marketing_posts.live_no'))
-                    ->color(fn (MarketingPost $r) => $r->isPublished() && ! $r->hasExpired() ? 'success' : 'gray'),
+                    ->state(fn (MarketingPost $r): string => $r->isLiveNow() ? 'yes' : 'no')
+                    ->formatStateUsing(fn (string $state): string => $state === 'yes'
+                        ? __('admin.marketing_posts.live_yes')
+                        : __('admin.marketing_posts.live_no'))
+                    ->color(fn (string $state): string => $state === 'yes' ? 'success' : 'gray'),
 
                 TextColumn::make('ends_at')
                     ->label(__('admin.marketing_posts.fields.ends_at'))

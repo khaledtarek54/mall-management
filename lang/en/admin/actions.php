@@ -237,6 +237,8 @@ return [
         'lease_ended_body' => 'No part of :period falls inside this lease, which ended on :date. Renew or extend it if the tenant is still trading.',
         'run_in_progress_title' => 'Billing run in progress',
         'run_in_progress_body' => 'A billing run for this period is already running. Please try again in a moment.',
+        'schedule_conflict_title' => 'The charge schedule overlaps',
+        'schedule_conflict_body' => 'Two live rows of the same charge type both cover :period on this lease, so nothing can be invoiced without charging the tenant twice. Open its Charge schedule and end the earlier row the day before the later one starts — every other lease still bills normally in the meantime.',
         'off_cycle_title' => 'Not a billing month',
         'off_cycle_body' => 'This lease bills :frequency, and :period is not a cycle-start month, so nothing is billed. Pick the month a billing cycle begins.',
         'generation_failed' => 'Invoice generation failed',

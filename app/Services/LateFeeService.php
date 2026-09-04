@@ -199,6 +199,36 @@ class LateFeeService
                 $fee = min($fee, $max);
             }
 
+            // ── A FEE OF NOTHING IS NOT A FEE (SW-030) ────────────────────────────────────────
+            //
+            // `0%` with a `0` minimum is how an operator says *"this lease carries no late-fee
+            // clause"* — both lease fields and both settings fields are `->minValue(0)`, and there
+            // is no other switch for it. Measured 2026-09-04: `max(0.0, round(12000 * 0 / 100, 2))`
+            // is 0.00, `Vat::rateForType('late_fee')` is 0 so the total is 0.00 too, and
+            // `IssueInvoiceService` refuses only an EMPTY line set — never a zero-amount one. So
+            // every overdue invoice minted an EGP 0.00 AR document.
+            //
+            // Three consequences, and the middle one is the money: the tenant is notified of a
+            // penalty of nothing; the zero fee is stamped onto `invoices.late_fee_invoice_id` and
+            // `mayChargeAgain()` refuses while a LIVE fee stands — recurrence ships at 0, i.e. once
+            // per invoice — so a REAL fee could never be charged on that invoice afterwards,
+            // however the clause was later corrected; and `InvoiceJournalizer` logs *"has items but
+            // no positive revenue"* for each one on every ledger sync.
+            //
+            // Rounding reaches it with a rate set, too: 2% of a 0.20 residual is 0.00.
+            //
+            // The bar is the FEE and not the rate: "no percentage, EGP 50 flat" is a real clause
+            // and goes on billing.
+            //
+            // `false`, not a `DomainException`. The only callers are the nightly sweep
+            // (`ApplyLateFees`, `billing:apply-late-fees`) and there is no per-invoice button, so a
+            // refusal would file a deliberate configuration as `failed` in the 04:00 log every
+            // night. Its sibling `BillBouncedChequeFeeService` draws the same line the other way
+            // and is right to: an operator pressed a button there and is owed an answer.
+            if ($fee <= 0) {
+                return false;
+            }
+
             // A penalty is not consideration for a supply, so it ships outside the scope of VAT —
             // but that is the catalogue's ruling to state, not this service's. Reading it here is
             // what stops a hand-typed late-fee line and this one being taxed differently.

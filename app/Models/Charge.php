@@ -113,7 +113,7 @@ class Charge extends Model
     {
         // Refuse OVERLAPPING schedule rows of the same type, from any writer.
         //
-        // `MonthlyBillingService::assertScheduleUnambiguous()` already refuses to BILL a month two
+        // `MonthlyBillingService::scheduleClash()` already refuses to BILL a month two
         // rows cover — but that is the last possible moment to find out, and it fails a whole
         // lease's invoice run. This catches it at the keystroke instead, which is what LS-01
         // actually asked for and what an import or a direct `Charge::create()` needs.

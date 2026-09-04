@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Pages\Concerns;
 
-use App\Filament\Admin\Pages\GeneralLedger;
 use App\Support\StatementGroups;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
@@ -142,16 +141,14 @@ trait RendersFinancialStatement
      */
     protected function ledgerUrlFor(array $record): ?string
     {
-        if ($record['is_total'] || ($record['is_subtotal'] ?? false) || blank($record['account_id'] ?? null)) {
+        if ($record['is_total'] || ($record['is_subtotal'] ?? false)) {
             return null;
         }
 
-        return GeneralLedger::getUrl(array_filter([
-            'accountId' => $record['account_id'],
-            'year' => $this->year ?? null,
-            'period' => $this->period ?? null,
-            'assetId' => $this->assetId ?? null,
-        ], fn ($value) => filled($value)));
+        // ONE builder, on `ScopesLedgerReport`: these three statements and the trial balance all
+        // open the same ledger with the same period and property, and a second copy of that URL is
+        // how one of them ends up landing on "this year, all properties".
+        return $this->ledgerUrlForAccount($record['account_id'] ?? null);
     }
 
     /**

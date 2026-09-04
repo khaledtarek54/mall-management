@@ -48,8 +48,10 @@ it('flattens the trial balance to rows that self-balance', function () {
 
     expect($csv['headers'])->toHaveCount(5);
 
-    // Last row is the totals line; debit total must equal credit total.
-    $totals = end($csv['rows']);
+    // The totals line — followed since SW-182 by the ✓/✗ the screen and the PDF both carry, so
+    // `end()` no longer finds it. Located by its own label rather than by position, which is what
+    // made this assertion fragile in the first place.
+    $totals = collect($csv['rows'])->first(fn (array $row): bool => $row[1] === __('admin.reports.csv.total'));
     expect((float) $totals[3])->toBe((float) $totals[4])
         ->and((float) $totals[3])->toBeGreaterThan(0.0)
         // Every data row carries an account code + numeric debit/credit.

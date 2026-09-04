@@ -38,6 +38,25 @@ class RentIndex extends Model
         'value' => 'decimal:4',
     ];
 
+    /**
+     * The code as it is STORED — trimmed and upper-cased.
+     *
+     * An index is a SERIES: every reading of one index carries the same code, and a CPI clause
+     * looks the base month and the review month up under it. Two spellings are two series of one
+     * reading each, and the rent then never steps — reported from the panel by exactly that route
+     * (CPI-EG and EGY_CPI, one reading apiece), which is why the form upper-cases on the way in.
+     *
+     * Named here rather than left inline because two things now need the same answer and they run
+     * at different moments: the dehydrator that WRITES the column, and the uniqueness rule that has
+     * to look a code up BEFORE any dehydrator has run. A filter written twice is a filter that
+     * drifts, and this one would drift silently — a rule keyed on the typed value matches nothing
+     * under SQLite's case-sensitive `=`, so it would be green here and different on MySQL.
+     */
+    public static function normaliseCode(?string $code): string
+    {
+        return strtoupper(trim((string) $code));
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return ActivityLogging::for($this, 'rent_index');

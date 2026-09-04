@@ -4,11 +4,16 @@ namespace App\Filament\Admin\Resources\StockMovements\Tables;
 
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
+use App\Models\InventoryItem;
 use App\Models\StockMovement;
+use App\Models\Warehouse;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
@@ -62,10 +67,40 @@ class StockMovementsTable
                     ->placeholder('—')
                     ->toggleable(),
             ])
+            // **An append-only register you cannot narrow is one you cannot audit** (SW-198).
+            // This carried ONE filter — movement type — which the tabs above it already offer, so
+            // "what left the Consumables store in March", the question asked at every stock count
+            // and the only way to explain a variance, meant scrolling a table that grows for ever.
+            // Every other dated register in the panel (custodies, payments, expenses) has carried
+            // a date range for months.
             ->filters([
                 SelectFilter::make('type')
                     ->label(__('admin.inventory.fields.type'))
                     ->options(fn () => collect(StockMovement::TYPES)->mapWithKeys(fn ($t) => [$t => __("admin.inventory.types.{$t}")])->all()),
+                // Record filters, so the dropdown and its chip read exactly like the pickers on
+                // the Receive / Adjust / Transfer modals. Deliberately NOT narrowed to active
+                // rows: a ledger has to be filterable by the store or the item that was retired,
+                // which is precisely when somebody comes looking.
+                EntitySelectFilter::make('warehouse_id')
+                    ->label(__('admin.inventory.fields.warehouse'))
+                    ->relationship('warehouse')
+                    ->entity(Warehouse::class),
+                EntitySelectFilter::make('inventory_item_id')
+                    ->label(__('admin.inventory.fields.item'))
+                    ->relationship('item')
+                    ->entity(InventoryItem::class),
+                Filter::make('moved_on')
+                    ->label(__('admin.inventory.fields.moved_on'))
+                    ->schema([
+                        DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
+                        DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),
+                    ])
+                    // `$query`, never `$q`: Filament resolves an untyped closure argument by NAME,
+                    // and a filter whose first parameter is named anything else registers,
+                    // renders and filters nothing while looking correct in review.
+                    ->query(fn ($query, array $data) => $query
+                        ->when($data['from'] ?? null, fn ($scoped, $date) => $scoped->whereDate('moved_on', '>=', $date))
+                        ->when($data['until'] ?? null, fn ($scoped, $date) => $scoped->whereDate('moved_on', '<=', $date))),
             ])
             // The only register in the panel with no way to open a row. Three of its columns
             // (unit cost, source reference, who moved it) are toggled off by default and `notes`

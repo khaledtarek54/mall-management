@@ -172,7 +172,6 @@ return [
             'declared_at' => 'تاريخ الإقرار',
             'locked_at' => 'تاريخ التثبيت',
             'pending_review' => 'في انتظار المراجعة',
-            'report_count' => '{1} ملف واحد|[2,*] :count ملفات',
         ],
         'cam' => [
             'tenant' => 'المستأجر',

@@ -423,3 +423,57 @@ still average to 15 (so a fix that simply took the last price would fail), a par
 receipt, both signs of adjustment, the empty-shelf fallback, the back-dated movement **with a ledger
 assertion beside it**, unit-at-a-time rounding, the consumption door, and the invariant itself
 (`cost === Inventory balance ÷ on hand`) asserted directly. Mutation-proved two ways.
+
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-191
+
+append to the '### On-hand is scoped to the properties in view (FR-INV-01)' section:
+
+**And so is the tab underneath it (SW-191, 2026-09-04).** The scope above fixed the FIGURE and left the EXPLANATION of it unscoped: `StockMovementsRelationManager` is one class with two parents, and on an `InventoryItem` — a `#[PortfolioShared]` catalogue row — `$relationship = 'movements'` is the bare hasMany, so it listed every mall's receipts, consumptions and adjustments. The two halves of one screen therefore answered different questions, on the tab an operator opens *because* they doubt the number beside it. It now composes `StockMovementResource::scopeToProperty()` — the register's own rule, read off `StockMovement`'s `#[PropertyOwned(via: 'warehouse')]`, so the tab and `/admin/stock-movements` cannot drift — applied on BOTH parents because on a `Warehouse` it is a no-op and a branch on the parent type would be a second rule to keep true. Nothing was watching: `PropertyIsolationConformanceTest` sweeps models and resources and has never swept a relation manager, and the demo books hold all 17 movements in one property, so neither the gate nor the seeded data could show it. Pinned by `AnItemsMovementsTabStaysInTheMallYouAreInTest`, whose third case asserts the arithmetic the bug broke: the tab's quantities must sum to the `on_hand` the register prints.
+
+### SW-194
+
+append to the '### Reorder quantity, and what the low-stock alert now does (2026-08-19)' section:
+
+**And nobody could enter it until SW-194 (2026-09-04).** The column shipped fillable, cast and read, and settable on no screen and no importer — measured at HEAD, `reorder_quantity` appeared in `app/` exactly twice, both halves of `DraftReorderPurchaseService`'s `$item->reorder_quantity !== null` ternary. So the stated-quantity branch was reachable only from a factory, and every drafted line on a real install carried the shortfall the migration's own docblock calls *the one answer that is definitely wrong*. It is on the item form now, labelled from `admin.fields.reorder_quantity` (the key the audit trail already resolves this column from — a second one beside it would be a second spelling of one label). **Blank stays NULL**: Filament dehydrates an empty input to null and the model deliberately does not coerce this column to 0 the way it does `reorder_level`, because 0 means *draft no line at all* (`$quantity <= 0` is skipped) and that is a different statement from silence — so the floor is 0.001, the smallest the `decimal(12,3)` column holds. `LowStockDraftsAPurchaseTest` proved the branch by WRITING the column from a fixture, which is green over dead code; `AnItemCanSayHowMuchItReordersTest` drives the real Create page and follows the typed figure through the scan to the drafted line.
+
+### SW-195
+
+`, at the end of the *Low-stock alerts (FR-INV-03)* section:
+
+**A reorder level of 0 is ONE rule with three readers (SW-195, 2026-09-04).** The bullet above — *"0 means not tracked, not alert at zero"* — was true of the scan and false of the screen, because the list wrote the rule out for itself twice and wrote it the other way round: `InventoryItemsTable`'s on-hand column coloured `0 <= 0` DANGER, and the low-stock filter's `reorder_level >= sum(quantity)` was TRUE at `0 >= 0`. So the reorder worklist opened on every catalogue item the mall had never stocked, each painted red, and none of them could ever produce an alert — the screen and the bell disagreeing about the same item. **That is the normal state, not an edge case**: `InventoryItemForm` defaults `reorder_level` to 0, so it is every item created by somebody with no threshold to type. `InventoryItem::isLowAt()` / `tracksAReorderLevel()` (and its query twin, because the filter compares against a correlated subquery and the two spellings cannot be collapsed) is the one predicate the colour, the filter and `ScanLowStockCommand` all read. `AnItemWithNoReorderLevelIsNotShortTest` pins all three against a genuinely short control, and asserts the PHP and SQL forms return the same set — a fix that simply stopped calling anything low would have satisfied the refusals alone.
+
+### SW-196
+
+`, as a new section after *Transfers were declared everywhere and creatable nowhere*:
+
+### A picker that chooses a store is a record picker (SW-196, 2026-09-04)
+
+Both ends of the transfer modal and the ticket-consumption store picker were bare `Select`s fed by a private `warehouseOptions()` helper — so they searched one raw column, folded neither side of the comparison, showed one line per option and re-wrote the property scope by hand, every failure of which renders as an empty or ambiguous dropdown rather than an error. They are `EntitySelect`s over `Warehouse` now, with the scope DERIVED from `PropertyIsolation` (and it is the write guard, not just a filter — Filament validates a Select by asking it to label the submitted value). **The destination picker still narrows away the source**: taking the option away is what refuses a same-store transfer, and it is the same mechanism the old `->except()` used.
+
+**The gate could not see any of them, and that was the real finding.** `EntitySelectConformanceTest` reads each `Select::make()` chain's own text for a `pluck('name', 'id')`, and the pluck was twenty lines further down the file. Measured: it reported ZERO offenders while there were **ELEVEN**, across seven files. It now follows ONE hop into helpers declared in the same file — the idiom `LeaseEventNarrativeIsAKeyNotProseTest` already uses — joined with a `;` so the `mapWithKeys` pattern cannot match across the boundary and invent an offender. The other eight are registered as `[file, chain, why]` triples split into *deliberately plain* (the custodian, whose own docblock measures that a scoped label lookup makes the whole custody unsavable the day they leave; one employee's advances; the lines of one invoice) and *should move and have not yet* (the payroll employee, both work-order assignees, the unit-ownership unit), and the gate now fails on a reason under 60 characters and on a stale entry.
+
+### SW-197
+
+`, in *3. Services*, under the `StockMovementService` bullet list:
+
+**Its refusals are `DomainException`s (SW-197, 2026-09-04).** Five of them were `InvalidArgumentException` carrying a hardcoded English sentence, and `ListStockMovements::runMovement()` caught that class and printed `$e->getMessage()` into the toast — so a storeman working the panel in Arabic read *"Stock can only be transferred between warehouses in the same property…"*, and `RefusalsAreTranslatedConformanceTest` could not see it: that gate sweeps `DomainException` only, on the stated premise that an `InvalidArgumentException` is a developer error rendering as a 500 that nobody reads. `runMovement()`'s own docblock falsifies the premise — it calls these *"real, reachable things"*. As `DomainException`s they are translated by derivation, `bootstrap/app.php` renders them as a toast on every OTHER door into the service (`PurchaseRequestService`, `WorkOrderPartService`) rather than the 500 page that loses the form, and `/api/v1` answers 422 with the sentence. **An unknown movement TYPE stays an `InvalidArgumentException`** — it comes from code, never a form — and `runMovement()` now catches `DomainException` ALONE, which is the structural half: a new `InvalidArgumentException` here fails loudly instead of being shown to somebody untranslated. The valueless refusal names the item the way the screen does rather than printing `item #37`. *The same shape is still open outside this module:* `LeaseActions` (8 sites) and `CamExpensePoolActions` (2) catch `\InvalidArgumentException` and toast its message.
+
+### SW-198
+
+`, as a new section after *Bin locations (2026-08-18)*:
+
+### The ledger can be narrowed, and the export follows the screen (SW-198, 2026-09-04)
+
+The stock movement register carried ONE filter — movement type, which the tabs above it already offer — so *"what left the Consumables store in March"*, the question asked at every stock count and the only way to explain a variance, meant scrolling an append-only table that grows for ever. It now carries a **date range** (the house `Filter::make('…')` + `from`/`until` DatePicker shape every other dated register uses) and **store** and **item** `EntitySelectFilter`s, so the dropdown and its chip read exactly like the pickers on the Receive/Adjust/Transfer modals. Neither record filter is narrowed to active rows: a ledger has to be filterable by the store or the item that was RETIRED, which is precisely when somebody comes looking.
+
+**The CSV had to move with them, and that is the half that could have gone wrong silently.** `movementsCsv()` read `getEloquentQuery()` under a comment promising it *"reads the same property-scoped query the table shows so the export can never disagree with the screen"* — already untrue of the type tabs, and dangerously untrue once filters exist: narrow to one store, export, and the file is the whole portfolio's with nothing on it to say so. It takes an optional query now (null for the whole scoped register, so console callers are unaffected) and the list page hands in `getFilteredTableQuery()`.
+
+Crossing three filters also crosses `SavedViews::THRESHOLD`, so `ListStockMovements` mounts `SavesTableViews` — `SavedViewsCoverageConformanceTest` fails in both directions, so this is not optional.
+

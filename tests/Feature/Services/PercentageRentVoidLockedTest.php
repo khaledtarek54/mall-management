@@ -60,13 +60,19 @@ it('voidLocked cancels the immediate overage invoice and flips status to dispute
     expect($invoice->fresh()->status)->toBe('cancelled');
 });
 
-it('voidLocked appends an audit_notes line naming the operator and reason', function () {
+it('voidLocked appends the reason to audit_notes behind the house [VOID] marker', function () {
+    // REWRITTEN 2026-09-04 (SW-173). This asserted that the operator's NAME appears in the column,
+    // which is what the frozen English sentence `"Voided on {date} by {name}: {reason}"` put there.
+    // A row stores DATA, never PROSE: the column keeps the operator's own words behind a
+    // language-neutral marker, and the WHO and the WHEN are in `activity_log` — see
+    // `ADeclarationVoidIsRecordedAsDataNotProseTest`.
     app(PercentageRentCalculationService::class)
         ->voidLocked($this->declaration, $this->operator, 'Ledger error in Tenant accounting');
 
     $notes = $this->declaration->fresh()->audit_notes;
-    expect($notes)->toContain($this->operator->name);
-    expect($notes)->toContain('Ledger error in Tenant accounting');
+    expect($notes)->toContain('[VOID] Ledger error in Tenant accounting')
+        // …and the note the LOCK wrote is still there — the append discipline is unchanged.
+        ->and($notes)->toContain('Initial lock');
 });
 
 it('voidLocked is a no-op on a non-locked declaration (idempotency guard)', function () {

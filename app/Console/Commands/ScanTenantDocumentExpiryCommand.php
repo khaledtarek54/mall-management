@@ -131,19 +131,26 @@ class ScanTenantDocumentExpiryCommand extends Command
             // carry on — the tenant screen surfaces the same set live off
             // `Tenant::documentsNeedAttention()`, independently of this stamp, so a dropped
             // notification can never make a lapsed certificate invisible.
-            try {
-                $recipients = $this->recipientsFor($document);
-
-                if ($recipients->isNotEmpty()) {
-                    Notification::send($recipients, new TenantDocumentExpiringNotification($document, $stage));
-                }
-            } catch (\Throwable $e) {
-                $this->warn("  delivery failed for document #{$document->id}: {$e->getMessage()}");
-            }
-
             // Stamped even when nobody is assigned to the occupied properties — otherwise an
             // unstaffed portfolio would re-alert on every run forever.
             $document->forceFill(['alert_stage' => $stage, 'alert_for' => $expiry])->save();
+
+            // …and delivered AFTER the commit, never under the lock (SW-213): this notification is
+            // not `ShouldQueue`, so sent inside the transaction the X lock on `tenant_documents` was
+            // held across a synchronous MailerSend round-trip per recipient. The `catch` travels
+            // with the `try`, or the containment the comment above relies on is gone.
+            DB::afterCommit(function () use ($document, $stage) {
+                try {
+                    $recipients = $this->recipientsFor($document);
+
+                    if ($recipients->isNotEmpty()) {
+                        Notification::send($recipients, new TenantDocumentExpiringNotification($document, $stage));
+                    }
+                } catch (\Throwable $e) {
+                    $this->warn("  delivery failed for document #{$document->id}: {$e->getMessage()}");
+                }
+            });
+
             $alerted++;
         });
     }

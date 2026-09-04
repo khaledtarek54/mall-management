@@ -12,6 +12,7 @@ use App\Support\DemoPayments;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Portal;
+use App\Support\StatusOptions;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -99,7 +100,12 @@ class InvoicesTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => collect(__('admin.statuses.invoice'))->only(['issued', 'partially_paid', 'paid', 'overdue'])->all()),
+                    // Every status a tenant may be SHOWN — the value set minus TenantVisibility's
+                    // hidden ones — never a hand-written list. The `->only()` this replaces offered
+                    // 4 of the 8 (measured 2026-09-04): `disputed`, `cancelled`, `credited` and
+                    // `written_off` each have an arm in the `status` column a few lines above, so
+                    // the tenant could read the word and had no way to filter by it.
+                    ->options(fn () => StatusOptions::forTenant('invoices')),
                 EntitySelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
                     ->entity(Unit::class)

@@ -477,3 +477,21 @@ The **Pay Now** action visibility depends on `config('integrations.paymob.enable
 
 **Last updated:** 2026-06-27  
 **Req reference:** Requirement #9 (multi-user tenant portal)
+
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-172
+
+add: "**A file the tenant sent us is shown back to the tenant who sent it (SW-172, 2026-09-04).** The two upload surfaces in the portal — a request's attachments and a sales declaration's report — were WRITE-ONLY. The request View screen did not mention media at all; the declaration View screen rendered a count badge (\"2 files\") with nothing behind it, which is the worst of the three states because it proves the upload arrived and still refuses to say WHICH file. Neither resource has an Edit page, so there was no other door. `/api/v1` has returned both lists with an authenticated per-file URL since it shipped, and the rule for that pair is that the portal and the API are one surface with two renderers. `App\\Support\\Filament\\PrivateAttachments::entry()` is the one renderer for both screens: it lists each file by name, linked to a SHORT-LIVED SIGNED url (`Media::getTemporaryUrl()`, at Filament's own `temporary_file_url_expiry_minutes`, because these collections are `useDisk('local')` and that disk is served only behind a signature) and falls back to naming the file with no link on a driver that cannot sign — losing the filename is worse than losing the link. It adds no vocabulary: both call sites pass an existing `admin.fields.*` label, and the now-unused `admin.tables.tenant_sales.report_count` is removed from both catalogues. It is deliberately NOT an authorization layer — both resources already scope to `Portal::tenantId()`, so another tenant's record is a 404 long before a file is listed."
+
+### SW-029
+
+`:
+
+**A portal status filter offers what the portal SHOWS, and that is derived (SW-029, 2026-09-04).** `App\Support\StatusOptions` is the one home for *what may a status filter offer*: `for()` is every value `ValueSets::allowed()` accepts, labelled from `admin.statuses.{singular table}` through `Translate::orHumanized()`; `forTenant()` is that set narrowed by `TenantVisibility`, composed from `for()` rather than derived again so the two cannot disagree about what a status is or what it is called. All three portal money filters read it. Before this, the invoice filter offered **4 of the 8** statuses a tenant may be shown and the payment filter **5 of the 9** — `disputed`, `cancelled`, `credited`, `written_off`, `initiated`, `authorized`, `bounced` and `voided` were each rendered by their own table's `status` column, in colour, and unreachable from the filter beside it. A tenant chasing a number they remember off a statement could read the word and not select it. **The correct derivation already existed on ONE of the three** — the credit-note filter, inline, under a five-line comment saying why a hand-written list is wrong — and its two neighbours never got it; that is the whole finding, and the reason the fix is a seam rather than two edited lists. A status added to `ValueSets` is now filterable **by existing**, the same safe direction `TenantVisibility` chose for the scope: what is withheld has to be withheld deliberately. An unregistered column throws `InvalidArgumentException` rather than rendering an empty dropdown, because an empty picker reads as "there are none of those" and not as a broken filter. Note the testing trap the regression test records: `SelectFilter::apply()` filters on whatever value it is handed, so driving `filterTable('status','written_off')` passes with the fix reverted — the option LIST is the defect, so membership must be asserted as well as selection. **SW-027 is the same defect through the admin door** (`Admin\Resources\Invoices\Tables\InvoicesTable:141` and `Admin\Resources\Payments\Tables\PaymentsTable:96`); each becomes one line, `StatusOptions::for('invoices')` / `::for('payments')`, and is deliberately left to that row.
+

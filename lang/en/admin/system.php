@@ -499,6 +499,7 @@ return [
         'holiday_needs_every_property' => 'A holiday with no property applies to every mall, so only someone who can see every mall may add, move or retire one. Choose a property, or ask an administrator.',
         'department_needs_every_property' => 'A department with no property serves every mall, so only someone who can see every mall may add, move or retire one. Choose a property, or ask an administrator.',
         'unit_ownership_tenure_inverted' => 'The ownership cannot end before it starts — check the start and end dates.',
+        'unit_ownership_owned_twice_over' => 'This unit would be owned :percent% on :date — :others already hold part of it that day. End the earlier tenure the day before this one starts, or lower the shares so they add up to 100%.',
         'document_prefix_invalid' => 'The prefix :prefix is not usable — use 2 to 6 letters or digits.',
         'document_prefix_duplicated' => 'Two document types cannot share the prefix :prefix; their numbers would run into one series.',
         'fiscal_year_start_locked' => 'The fiscal year start cannot change once entries have been posted — it would re-date periods that already contain them. Set it on a fresh installation, before the first entry.',
@@ -573,7 +574,9 @@ return [
     'validation' => [
         'import_lease_term_disagrees' => 'A term of :term months from this commencement ends on :derived, but the row says :expiry. One of the two is wrong — correct the spreadsheet rather than letting the lease carry both.',
         'tax_code_needs_rate' => 'Tax code :code has no rate yet, so it cannot be switched on. Add a rate to its ladder first — otherwise it would appear in the pickers and bill nothing.',
+        'tax_code_last_rate' => 'Tax code :code is switched on and this is its only rate. Removing it would leave every supply under :code billing the standard VAT rate instead. Add the replacement rate first, or switch the code off.',
         'tax_code_needs_role' => 'Tax code :code has no posting account, so it cannot be switched on. Pick the account its collections land in — otherwise it would take money into nowhere.',
+        'insurable_ceiling_below_floor' => 'The insurable-wage ceiling cannot be below the floor — every wage would be insured at a figure under the statutory minimum. Raise it, or clear the floor to leave the band open at the bottom.',
         'tenant_tax_id_format' => 'Tax ID must be 9 digits, optionally formatted as XXX-XXX-XXX (Egyptian Tax Registration Number).',
         'invoice_due_after_issue' => 'The due date must be after the issue date.',
         'bill_due_not_before_bill_date' => 'The due date cannot be earlier than the bill date. Leave it blank if the bill is due on receipt, or correct the bill date above.',
@@ -589,6 +592,7 @@ return [
         'lease_terminal_immutable' => 'This lease is terminated/expired/cancelled and can no longer be edited. Reverse or renew it instead.',
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
         'leasable_area_exceeds_gross' => 'The leasable area (:leasable m²) is larger than the gross building area (:gross m²), so this property would let more space than it has. Correct whichever of the two is wrong — or leave the gross area blank if the building has not been measured.',
+        'rent_index_period_taken' => 'This index already has a reading for this month. A revised figure is an EDIT to that reading, not a second one — open the existing row and correct its value, so a lease that already escalated on the old figure can still show which figure it used and when it changed.',
     ],
 
     'portal' => [

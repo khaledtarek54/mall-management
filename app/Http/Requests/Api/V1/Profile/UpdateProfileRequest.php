@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Profile;
 
-use App\Http\Middleware\SetApiLocale;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -36,7 +36,7 @@ class UpdateProfileRequest extends FormRequest
             // does not throw at render time — `__()` falls silently through to the fallback — so an
             // unvalidated `fr-CA` leaves the column looking set while every document arrives in
             // English, which is the failure mode that makes this a hard rule rather than a nicety.
-            'locale' => ['sometimes', 'nullable', Rule::in(SetApiLocale::SUPPORTED)],
+            'locale' => ['sometimes', 'nullable', Rule::in(SetLocale::SUPPORTED)],
         ];
     }
 

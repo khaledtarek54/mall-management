@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Vendor\Auth\EditProfile;
 use App\Http\Middleware\SetLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -48,7 +49,17 @@ class VendorPanelProvider extends PanelProvider
             ->passwordReset()
             ->authPasswordBroker('vendor_contacts')
             ->authGuard('vendor')
-            ->profile(isSimple: false)
+            // THE PANEL'S OWN PROFILE PAGE, not Filament's, and that line is load-bearing for the
+            // same kind of reason `authPasswordBroker` above is.
+            //
+            // Filament's stock page enforces email uniqueness across the whole of
+            // `vendor_contacts` (measured 2026-09-04: the rule it builds is
+            // `unique:vendor_contacts,email,"<id>",id`), and that table carries no unique index
+            // precisely because two contractors may share a switchboard address. Since the page
+            // writes name, email and password in ONE submit, the consequence was not a refused
+            // email change — it was a contractor who could never change their own password.
+            // `EditProfile`'s docblock carries the measurement.
+            ->profile(EditProfile::class, isSimple: false)
             // The bell is how a dispatch reaches them (step 6). Registered now so the column exists
             // in the panel from the start rather than being retrofitted around a live inbox.
             ->databaseNotifications()

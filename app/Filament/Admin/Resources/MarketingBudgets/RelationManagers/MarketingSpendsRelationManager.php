@@ -9,6 +9,7 @@ use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\EntitySelectFilter;
 use App\Support\ReportCsv;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -145,6 +146,26 @@ class MarketingSpendsRelationManager extends RelationManager
                 TextColumn::make('receipt_reference')
                     ->label(__('admin.tables.marketing_spend.receipt'))
                     ->placeholder('—'),
+                // The campaign this money paid for — the column the FK existed for. The form has
+                // collected `marketing_post_id` since module 36 shipped and nothing read it back:
+                // no column, no filter, and nothing in the register CSV the owner reviews, so
+                // "what did the Ramadan campaign cost" was a question the join could answer and
+                // the panel could not (SW-187). Blank is the normal state, not a gap.
+                TextColumn::make('post.title')
+                    ->label(__('admin.tables.marketing_spend.campaign'))
+                    ->placeholder(__('admin.tables.marketing_spend.campaign_none'))
+                    ->limit(30)
+                    ->toggleable(),
+            ])
+            ->filters([
+                // The other half of the picker on the form — the same scoped options, the same
+                // two-line rendering, the same chip. `EntitySelectFilter`, never a bare
+                // `SelectFilter`: a filter that searches one raw column beside a field that
+                // searches the folded blob is the divergence that class exists to end.
+                EntitySelectFilter::make('marketing_post_id')
+                    ->label(__('admin.tables.marketing_spend.campaign'))
+                    ->entity(MarketingPost::class)
+                    ->modifyOptionsQuery(fn ($query) => $query->where('asset_id', $this->budget()->asset_id)),
             ])
             ->headerActions([
                 CreateAction::make()
@@ -161,7 +182,12 @@ class MarketingSpendsRelationManager extends RelationManager
                     ->authorize(fn () => auth()->user()?->can('marketing.view') ?? false)
                     ->action(function () {
                         $budget = $this->budget();
-                        $csv = MarketingBudgetResource::spendRegisterCsv($budget);
+                        // The FILTERED, sorted query — what the operator is looking at. This is the
+                        // hazard the campaign filter beside it introduced: an export that ignores
+                        // the filter hands the owner a different set from the one on screen, under
+                        // a total that will not match the list they just read. Null (no table
+                        // query) falls back to the whole fund, exactly as before.
+                        $csv = MarketingBudgetResource::spendRegisterCsv($budget, $this->getFilteredSortedTableQuery());
 
                         return ReportCsv::stream("marketing-spend-{$budget->asset_id}-{$budget->period_year}", $csv['headers'], $csv['rows']);
                     }),

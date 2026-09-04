@@ -32,6 +32,24 @@ class FixedAsset extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
+    /**
+     * The register rows that are still ON THE BALANCE SHEET.
+     *
+     * A DISPOSED asset keeps its cost, its accumulated depreciation and its dates on the register
+     * for the audit trail — "where did that chiller go?" is a question this register has to answer
+     * — but `FixedAssetDisposalJournalizer` has already credited the cost off Furniture &
+     * Equipment and debited the accumulated depreciation back, so its carrying amount in the books
+     * is ZERO.
+     *
+     * Deliberately NOT a second spelling of {@see scopeActive()}. That answers "is this still being
+     * depreciated" — the monthly run's question — and this answers "is this still on the balance
+     * sheet". They agree today because `fixed_assets.status` holds two values; the day a third
+     * arrives they are two different questions and this is the one a balance-sheet total wants.
+     *
+     * @var list<string>
+     */
+    public const ON_BOOKS_STATUSES = ['active'];
+
     protected $fillable = [
         'asset_id',
         'name',
@@ -120,6 +138,40 @@ class FixedAsset extends Model
             + (float) $this->depreciationEntries()->sum('amount'),
             2,
         );
+    }
+
+    /**
+     * The SQL twin of {@see accumulatedDepreciation()}, correlated to `fixed_assets.id`.
+     *
+     * TWO readers, and until 2026-09-04 they were independent copies that disagreed: the register's
+     * derived `accumulated` column (`FixedAssetResource::getEloquentQuery()`), and the "Fully
+     * depreciated" write-off worklist, which summed the entries alone and compared them against the
+     * GROSS cost. Whatever this expression says, both now say — the same reason the PHP version
+     * above exists rather than a third `depreciationEntries()->sum()`.
+     *
+     * FULLY QUALIFIED, because a select ALIAS cannot be referenced from a WHERE on the same level —
+     * which is exactly why the filter could not simply read `accumulated` — and this string has to
+     * be valid in both places.
+     *
+     * `deleted_at is null` because `DepreciationEntry` soft-deletes and the PHP twin reads the
+     * relation, which applies that scope; the old raw copy did not. Measured 2026-09-04 on
+     * `mall_management` and `mall_management_qa`: 0 soft-deleted depreciation entries, so no figure
+     * on either database moves. It is what stops the two answers drifting the day the parent-asset
+     * soft-delete cascade trashes some.
+     */
+    public static function accumulatedDepreciationSql(): string
+    {
+        return 'COALESCE(fixed_assets.opening_accumulated_depreciation, 0) + COALESCE(('
+            .'SELECT SUM(amount) FROM depreciation_entries '
+            .'WHERE depreciation_entries.fixed_asset_id = fixed_assets.id '
+            .'AND depreciation_entries.deleted_at IS NULL'
+            .'), 0)';
+    }
+
+    /** Is this row still on the balance sheet? The row half of {@see ON_BOOKS_STATUSES}. */
+    public function isOnBooks(): bool
+    {
+        return in_array($this->status, self::ON_BOOKS_STATUSES, true);
     }
 
     /** The child ledger sources whose GL follows this asset's lifecycle (Phase 2/2b). */

@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
  * **The hazard this exists for.** Before phase 1 a lease's charges were an unordered bag: two
  * active `base_rent` rows meant the monthly run billed *both*, silently, and someone downstream
  * noticed the rent had doubled. Phase 1 made the schedule authoritative, so
- * `MonthlyBillingService::assertScheduleUnambiguous()` now throws on exactly that shape — which is
+ * `MonthlyBillingService::scheduleClash()` now refuses exactly that shape on the write — which is
  * the right refusal and a much better failure, but it turns a quiet over-bill into a **hard stop on
  * the whole invoice**. A lease carrying that shape bills nothing at all on the first run after
  * deploy.

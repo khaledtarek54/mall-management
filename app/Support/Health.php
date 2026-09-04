@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Http\Middleware\SetLocale;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\Vendor;
@@ -493,7 +494,9 @@ class Health
     {
         $broken = [];
 
-        foreach (['en', 'ar'] as $locale) {
+        // From the ONE list, so a language the app learns is a language this check learns to look
+        // for — a health row that silently stops covering a locale is worse than no row.
+        foreach (SetLocale::SUPPORTED as $locale) {
             $path = lang_path($locale.'/admin.php');
 
             if (! File::exists($path)) {

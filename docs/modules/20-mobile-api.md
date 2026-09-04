@@ -605,3 +605,16 @@ round trip for a number already in hand.
 - **Lease Module** (`docs/modules/04-leases.md`): Lease model, percentage-rent config, statuses. Mobile API lists leases on login and handles percentage-rent declarations.
 - **Device Tokens** (mobile push integration, TBD): Future feature. Mobile API stores tokens; push fan-out is a separate job.
 
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-188
+
+, under "## 9. Gotchas, edge cases & recently-fixed bugs":
+
+**`SetApiLocale::SUPPORTED` is gone — `SetLocale::SUPPORTED` is the ONE list (SW-188, 2026-09-04).** The API middleware carried its own copy under a docblock promising the two would "stay in lock-step", which is a promise nothing kept and nothing could check; `UpdateProfileRequest` then validated the tenant's own `locale` against it, under a comment claiming it was checked against "the ONE supported list rather than a copy". (The sweep row calling the const *unreferenced* is therefore wrong; the drift is real and is what was fixed.) A comment-stripped sweep found **five** files under `app/` stating the pair beside the one list: this const, both branches of `PaymentLinkController::locale()`, `ChargeCode::flushLookupCaches()`, `Health::checkTranslations()`, and `IsCodeCatalogue::catalogueLocales()` — that last one reading `config('app.supported_locales', …)`, a key `config/app.php` does not define, so its configurable branch had never been taken and an operator who *did* define it would have taught one method a language nothing else in the app knew. All six agreed, so nothing was wrong; what was wrong is the failure shape. A third language would have reached `ValueSets`, `DocumentLocale`, `NotificationLocale` and the web switcher and stopped at the mobile app and the public pay link — **silently**, because `__()` falls through an unknown locale into the fallback, so the tenant's column looks set and every document arrives in English. All five now read `SetLocale::SUPPORTED`, and `TheLanguagesThisSystemSpeaksAreOneListTest` fails on a sixth copy appearing anywhere under `app/`.
+

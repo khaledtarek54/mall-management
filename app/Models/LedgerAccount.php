@@ -7,6 +7,9 @@ use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
+use App\Support\MoneyAccount;
+use App\Support\PostingRoleExposure;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -211,6 +214,12 @@ class LedgerAccount extends Model
             $account->parent_id = static::resolveParentIdFromCode($account);
         });
 
+        // Retiring an account that money is still ROUTED to (SW-144). `updating`, not `saving`:
+        // a brand-new account cannot be referenced by anything yet.
+        static::updating(function (self $account) {
+            static::assertNothingStillRoutesMoneyHere($account);
+        });
+
         // …and the REVERSE direction, which `saving` cannot do (EG-28, the chart importer).
         //
         // `resolveParentIdFromCode()` looks BACKWARD for a parent that already exists, so it is
@@ -228,6 +237,103 @@ class LedgerAccount extends Model
                 static::adoptOrphanedDescendants($account);
             }
         });
+    }
+
+    /**
+     * Refuse to retire — or to un-post — a chart account that money is still ROUTED to.
+     *
+     * ## Traced at HEAD, 2026-09-04 (read, not reproduced — the sweep was not run)
+     *
+     * Three tiers name a chart account DIRECTLY, and each re-asks `is_postable && is_active` at
+     * POSTING time and falls through to the generic `bank`/`cash` floor when the answer is no:
+     * `MoneyAccount::ledgerAccountOf()` (bank accounts), `PaymentMethod::accountIdOrFloor()`
+     * (payment rails) and `ExpenseCategory::accountIdOrFloor()` (cost categories). That
+     * fall-through is right and STAYS — it keeps a document postable instead of killing the sync
+     * job and leaving the entry unposted with nothing on screen to say so.
+     *
+     * What it is not right for is HISTORY. Accounts resolve at PAYLOAD time and are never frozen
+     * onto the entry, and `LedgerPoster::matches()` compares `ledger_account_id` — so the weekly
+     * `accounting:sync-ledger --all` sweep finds every entry ever posted through this account no
+     * longer matching, voids it, and re-posts it onto the floor. Then
+     * `MatchBankStatementLineService::candidatesFor()`, which selects candidates by exactly this
+     * `ledger_account_id`, offers NOTHING against that bank's statements, and every match already
+     * made points at a voided line. An entry in a CLOSED period cannot be re-posted at all, so it
+     * keeps the old account while the configuration says otherwise and `billing:reconcile --deep`
+     * reports drift for ever — which turns `atriom:preflight` red and blocks the next deploy for a
+     * reason that has nothing to do with the deploy.
+     *
+     * This model's own `#[DeletableWhenUnused]` attribute tells the operator to deactivate the
+     * account instead of deleting it, so the escape the deletion guard names WAS the destructive
+     * act. Deletion is already blocked once anything has posted (the `lines` blocker); this closes
+     * the door the app was pointing at instead.
+     *
+     * REFUSED rather than warned, unlike re-pointing a posting role (SW-134,
+     * {@see PostingRoleExposure}): whether a mapping change should be prospective is
+     * an accounting decision nobody has taken, while retiring an account a bank still banks through
+     * is an ordering mistake with an obvious escape — re-point the bank account first.
+     *
+     * @throws DomainException
+     */
+    protected static function assertNothingStillRoutesMoneyHere(self $account): void
+    {
+        // Only when a flag the posting engine READS goes false. Renaming, re-coding or
+        // re-describing an account routes nothing differently, and refusing those edits would make
+        // a referenced account uneditable — the trap this project already has on record for
+        // `#[NeverDeletable]`, through another door.
+        $retiring = ($account->isDirty('is_active') && ! $account->is_active)
+            || ($account->isDirty('is_postable') && ! $account->is_postable);
+
+        if (! $retiring) {
+            return;
+        }
+
+        $referrers = static::moneyRoutedHere($account->getKey());
+
+        if ($referrers === []) {
+            return;
+        }
+
+        throw new DomainException(__('admin.refusals.ledger_account_still_routes_money', [
+            'code' => (string) $account->code,
+            'referrers' => implode(', ', $referrers),
+        ]));
+    }
+
+    /**
+     * Every money-routing row that names this account, described the way its own screen names it.
+     *
+     * The three tiers {@see MoneyAccount} resolves through, in its order. Bank
+     * accounts are read `withTrashed()` because `MoneyAccount` does: a soft-deleted bank account
+     * still answers for the entries it posted, so it still pins the chart account underneath it.
+     *
+     * `account_mappings` is deliberately NOT a fourth. `AccountResolver` REFUSES a non-postable
+     * account rather than falling through, so a posting role aimed at a retired account fails
+     * loudly instead of silently re-homing history — and the deletion attribute on this class
+     * already names `accountMappings` as a blocker.
+     *
+     * @return array<int, string>
+     */
+    protected static function moneyRoutedHere(int|string|null $accountId): array
+    {
+        if ($accountId === null) {
+            return [];
+        }
+
+        $named = [];
+
+        foreach (BankAccount::withTrashed()->where('ledger_account_id', $accountId)->get() as $bank) {
+            $named[] = __('admin.refusals.money_route_bank_account', ['name' => $bank->displayName()]);
+        }
+
+        foreach (PaymentMethod::query()->where('ledger_account_id', $accountId)->get() as $rail) {
+            $named[] = __('admin.refusals.money_route_payment_method', ['name' => $rail->label()]);
+        }
+
+        foreach (ExpenseCategory::query()->where('ledger_account_id', $accountId)->get() as $category) {
+            $named[] = __('admin.refusals.money_route_expense_category', ['name' => $category->label()]);
+        }
+
+        return $named;
     }
 
     /**

@@ -77,6 +77,7 @@ function billingRefusalCases(): array
         'off cycle annually' => ['code' => 'off_cycle', 'attrs' => ['billing_frequency' => 'annual']],
         'lease ended' => ['code' => 'lease_ended', 'attrs' => ['expiry_date' => '2026-06-30']],
         'run in progress' => ['code' => 'run_in_progress', 'attrs' => []],
+        'overlapping schedule' => ['code' => 'schedule_conflict', 'attrs' => []],
         'threw' => ['code' => 'exception', 'attrs' => []],
     ];
 }

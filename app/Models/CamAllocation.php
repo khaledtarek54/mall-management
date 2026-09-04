@@ -104,7 +104,7 @@ class CamAllocation extends Model
      * entirely — the same trap `Tenant::creditBalance()` and `CamExpensePool`'s participant query
      * each carry a note about.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<CamAllocation>  $query
+     * @param  Builder<CamAllocation>  $query
      */
     public function scopeOwnedBy(Builder $query, Tenant|int $tenant): void
     {
@@ -174,6 +174,35 @@ class CamAllocation extends Model
     public function isBilled(): bool
     {
         return $this->status === 'billed';
+    }
+
+    /**
+     * The rate at which this pool recovers VAT on its true-up.
+     *
+     * Null pool (both parents soft-delete) and a null column both mean 0, which is verbatim what
+     * the two billing methods did with their `?? 0`.
+     */
+    public function recoveryVatRate(): float
+    {
+        return (float) ($this->pool?->recovery_vat_rate ?? 0);
+    }
+
+    /**
+     * The VAT a true-up of `$net` carries — ON TOP of the net, never inside it.
+     *
+     * ONE definition, because there were four readers and one of them had no answer at all. The
+     * recovery invoice (`CamReconciliationService::billChargeImmediately()`), the credit note
+     * (`billCredit()`) and the operator's Breakdown modal (`explainAllocation()`) each computed it;
+     * the TENANT'S OWN statement (`CamStatementPdfService::facts()`) did not, so "Total now due"
+     * omitted the tax the invoice beside it charges. `cam_expense_pools.recovery_vat_rate` ships
+     * `default(14.00)`, so that was every pool on every install.
+     *
+     * Rounded to 2dp here, exactly as both documents round it, so no reader can disagree with them
+     * by a rounding step — the modal's credit branch used `net × (1 + rate/100)` and did.
+     */
+    public function recoveryVatOn(float $net): float
+    {
+        return round($net * $this->recoveryVatRate() / 100, 2);
     }
 
     public function isOverPaid(): bool

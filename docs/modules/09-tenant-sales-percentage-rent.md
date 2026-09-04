@@ -911,3 +911,15 @@ not final when it is — and the permission half (`tenant_sales.lock`) is unchan
 
 Tests: `ADisputedDeclarationCanBeReLockedTest` — the predicate, the whole void → correct → re-lock
 loop with the figure moving from 30,800 to 14,000, and both controls. Mutation-proved.
+
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-173
+
+**A void records WHY as data, not as a sentence (SW-173, 2026-09-04).** `voidLocked()` composed `\"Voided on {date} by {name}: {reason}\"` and stored it in `audit_notes` — raw English frozen into the row at write time, which no lang edit can ever reach and which reads as half a sentence to the Arabic-speaking accountant who has to account for the reversed overage. It is the shape `JournalNarrative` (EG-36) and `LeaseEventNarrative` were both built to end, and the seam already existed and was untouched here: `App\\Support\\ReversalReason`, which thirteen money reversals use. The column now keeps the OPERATOR'S OWN WORDS behind the house `[VOID]` marker — the same token `VoidInvoiceService` and `VoidPaymentService` write, a token and not a language — appended through the service's own `appendAuditNote()`, so one appender governs the column instead of two with different separators. The WHO and the WHEN go to `activity_log`, where the person who caused the reversal cannot edit them away and where the description is the KEY `tenant_sales.voided`, catalogued in both languages. **Nothing recorded this reversal in the trail at all before now.** `ReversalReason::record()` grew an optional causer for it: `voidLocked($declaration, $voidedBy, $reason)` is HANDED the actor because a Filament header is not its only door, and spatie would otherwise file the row against whatever session happened to be open. That key is invisible to the \"descriptions are keys\" gate — it greps `->log('literal')` and this logs a variable — so the regression test checks both catalogues itself with `fallback: false`.
+

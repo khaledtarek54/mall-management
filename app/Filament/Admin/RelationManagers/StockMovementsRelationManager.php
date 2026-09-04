@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Models\Warehouse;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -36,6 +37,26 @@ class StockMovementsRelationManager extends RelationManager
         $onWarehouse = $owner instanceof Warehouse;
 
         return $table
+            // ── Scoped to the property you are in, exactly like the on-hand figure beside it ────
+            // `InventoryItem` is `#[PortfolioShared]` (a pump seal is the same part everywhere) and
+            // `$relationship` is the bare `movements` hasMany, so on an ITEM parent this table
+            // returned EVERY mall's rows. `InventoryItemResource::getEloquentQuery()` narrows both
+            // `on_hand` and `stock_value` through `TenantScope::reportAssetIds()` — measured at
+            // HEAD, the two halves of one screen answered different questions, and this tab is
+            // precisely where an operator goes to explain an on-hand figure they doubt.
+            //
+            // Routed through the REGISTER's own scoping rather than a `whereIn('warehouse_id', …)`
+            // written here: `StockMovement` declares `#[PropertyOwned(via: 'warehouse')]`,
+            // `ScopesToProperty` reads that attribute, and this way the tab and
+            // `/admin/stock-movements` cannot drift into two answers.
+            //
+            // Applied on BOTH parents. On a `Warehouse` it is a no-op — the parent is itself
+            // property-owned, so its movements are already inside the operator's set — and a branch
+            // on the parent type would be a second rule to keep true.
+            //
+            // The seeded books cannot show this: `mall_management_qa` holds all 17 stock movements
+            // in ONE property (AW), which is why the regression test builds the two-mall case.
+            ->modifyQueryUsing(fn ($query) => StockMovementResource::scopeToProperty($query))
             ->columns([
                 TextColumn::make('moved_on')
                     ->label(__('admin.inventory.fields.moved_on'))

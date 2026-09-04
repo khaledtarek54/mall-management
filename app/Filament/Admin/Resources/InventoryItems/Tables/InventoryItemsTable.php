@@ -51,7 +51,10 @@ class InventoryItemsTable
                     ->numeric(decimalPlaces: 3)
                     ->default(0)
                     // Highlight when at/below the reorder level (low stock).
-                    ->color(fn ($state, $record) => (float) $state <= (float) $record->reorder_level ? 'danger' : 'success')
+                    // One definition of "short", shared with the low-stock filter below and with
+                    // `inventory:scan-low-stock`. Written out here, it painted every item with no
+                    // stated minimum red for ever (SW-195) — see InventoryItem::isLowAt().
+                    ->color(fn ($state, $record) => $record->isLowAt((float) $state) ? 'danger' : 'success')
                     ->weight('bold')
                     ->sortable()
                     ->suffix(fn ($record) => ' '.$record->unit),
@@ -103,7 +106,12 @@ class InventoryItemsTable
                     ->query(function ($query) {
                         $assetIds = InventoryItemResource::scopedAssetIds();
 
-                        return $query->where(
+                        // An item that states NO minimum is not "always low" — see
+                        // InventoryItem::tracksAReorderLevel(). Without this clause the reorder
+                        // worklist opened on every catalogue item this mall has never stocked
+                        // (`reorder_level` 0 against 0 on hand → `0 >= 0`), none of which
+                        // `inventory:scan-low-stock` will ever alert about (SW-195).
+                        return $query->tracksAReorderLevel()->where(
                             'inventory_items.reorder_level',
                             '>=',
                             StockMovement::query()

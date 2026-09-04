@@ -19,8 +19,13 @@ class InvoiceInfolist
                         ->label(__('admin.fields.invoice_number'))
                         ->copyable()
                         ->fontFamily('mono'),
-                    TextEntry::make('lease.unit.code')
+                    // Through whichever agreement raised it. An owner's صيانة assessment carries no
+                    // lease at all, so `lease.unit.code` printed NOTHING here — on the one screen the
+                    // owner opens to read his own bill. The table beside this one was routed through
+                    // `Invoice::unitCode()` in 61bb1dc6 and the infolist was not.
+                    TextEntry::make('unit_code')
                         ->label(__('admin.fields.unit_label'))
+                        ->placeholder('—')
                         ->badge()
                         ->color('gray'),
                     TextEntry::make('status')

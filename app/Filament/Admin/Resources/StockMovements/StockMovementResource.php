@@ -91,17 +91,25 @@ class StockMovementResource extends Resource
 
     /**
      * The stock movement ledger as CSV rows — the append-only audit trail of every receipt,
-     * consumption and adjustment, in the accountant's working format. Reads the same
-     * property-scoped query the table shows so the export can never disagree with the screen.
+     * consumption and adjustment, in the accountant's working format.
      *
+     * **Takes the caller's query so the file is the ledger on screen (SW-198).** This read
+     * `getEloquentQuery()` under a comment promising it "reads the same property-scoped query the
+     * table shows so the export can never disagree with the screen" — true while the table had no
+     * filters, and silently false the moment it grew three: narrow to one store, export, and the
+     * file is the whole portfolio's with nothing to say so. `ListStockMovements` hands in
+     * `getFilteredTableQuery()`. Optional rather than required because a console or scheduled
+     * caller has no table to ask.
+     *
+     * @param  Builder|null  $query  the filtered table query, or null for the whole scoped register
      * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
      */
-    public static function movementsCsv(): array
+    public static function movementsCsv(?Builder $query = null): array
     {
         $rows = [];
 
         /** @var StockMovement $movement */
-        foreach (static::getEloquentQuery()->latest('moved_on')->latest('id')->get() as $movement) {
+        foreach (($query ?? static::getEloquentQuery())->latest('moved_on')->latest('id')->get() as $movement) {
             $rows[] = [
                 // moved_on is a NOT-NULL date column — always a Carbon, no nullsafe needed.
                 $movement->moved_on->format('Y-m-d'),

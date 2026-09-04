@@ -25,6 +25,20 @@ class CamExpensePool extends Model
 
     public const STATUSES = ['draft', 'reconciling', 'reconciled', 'closed'];
 
+    /**
+     * WHAT A POOL *IS*: which mall, which year, which pool code.
+     *
+     * The allocations hang off the id, but every figure under them was computed for this address.
+     * `CamReconciliationService::generateAllocations()` builds its period from `period_year`
+     * (1 Jan → 31 Dec) and weights every tenure over it; the billed estimate subtracts that year's
+     * invoices; the recovery invoice the tenant is holding names it. Moving one after a share has
+     * been billed re-keys a year of history under a heading the documents no longer match — so
+     * {@see booted()} refuses it on the same bar that freezes the recovery basis.
+     *
+     * @var list<string>
+     */
+    public const IDENTITY_COLUMNS = ['asset_id', 'period_year', 'pool_code'];
+
     /** The pool's totals are typed by a human — the legacy behaviour, and the default. */
     public const BASIS_STATED = 'stated';
 
@@ -268,6 +282,24 @@ class CamExpensePool extends Model
             );
     }
 
+    /**
+     * Has anything under this pool left `pending` — i.e. has the reconciliation been POSTED?
+     *
+     * ONE definition, because it was being asked in three spellings: `CamExpensePoolForm::basisFrozen()`,
+     * the `updating` guard below, and `CamReconciliationService::generateAllocations()`'s `$isRerun`
+     * (which asks it of an already-loaded collection rather than of the database, so it keeps its
+     * own form and is the deliberate exception).
+     *
+     * **What freezes a reconciliation is BILLING it, not calculating it** — the 2026-08-31 decision
+     * recorded in `generateAllocations()`. An "any allocation exists" bar froze a run nobody had
+     * billed and left a wrong first pass unrecoverable from the panel, because `void` refuses a
+     * pending allocation and the pool cannot be deleted while it has any.
+     */
+    public function hasBilledAllocations(): bool
+    {
+        return $this->allocations()->where('status', '!=', 'pending')->exists();
+    }
+
     protected static function booted(): void
     {
         // Freeze the recovery basis once billing has started. If the actual-expense
@@ -287,8 +319,24 @@ class CamExpensePool extends Model
                 || $pool->isDirty('admin_fee_on_net')
                 || $pool->isDirty('recovery_vat_rate'); // changing the recovery VAT after billing would leave billed rows on the old rate
 
-            if ($basisChanged && $pool->allocations()->where('status', '!=', 'pending')->exists()) {
-                throw new \DomainException(__('admin.refusals.cam_basis_locked_after_billing'));
+            // THE IDENTITY IS FROZEN BY THE SAME THING THAT FREEZES THE BASIS — and it was the one
+            // set of fields the freeze did not cover. Read at HEAD (this guard, and
+            // `CamExpensePoolForm::configure()`): the form disables all five basis fields and
+            // `pool_code`, and leaves `period_year` fully editable with nothing behind it — so a
+            // 2028 pool whose shares had already been invoiced could be retyped as 2029 and saved.
+            // The tenants' recovery invoices still name 2028, `generateAllocations()` then weights
+            // every tenure over the wrong twelve months, and `applyEstimates` proposes next year's
+            // monthly estimate from the wrong year. `asset_id` rides with it: a pool re-homed after
+            // billing carries one mall's recovery history onto another mall's statements.
+            //
+            // `isDirty()` takes an array and answers for ANY of them, so the registry is READ here
+            // rather than re-listed.
+            $identityChanged = $pool->isDirty(self::IDENTITY_COLUMNS);
+
+            if (($basisChanged || $identityChanged) && $pool->hasBilledAllocations()) {
+                throw new \DomainException(__($identityChanged
+                    ? 'admin.refusals.cam_pool_identity_locked_after_billing'
+                    : 'admin.refusals.cam_basis_locked_after_billing'));
             }
         });
     }
@@ -338,8 +386,13 @@ class CamExpensePool extends Model
      *
      * Never scales DOWN: an occupancy already above the assumption means the mall is fuller than
      * the clause contemplated, and the tenants' own shares already reflect that.
+     *
+     * **And `occupied` was only a PROXY for "the shares already sum to 100%" (SW-167).** A lease
+     * whose contract STATES its percentage fills a `gla` denominator back up without touching the
+     * basis, so `$appliedShare` is the real question and the caller has to answer it: it is the sum
+     * of the shares this run will apply.
      */
-    public function apportionmentBasis(float $actualOccupancyPct): float
+    public function apportionmentBasis(float $actualOccupancyPct, float $appliedShare): float
     {
         $total = (float) $this->total_actual_expense;
         $assumption = $this->gross_up_pct !== null ? (float) $this->gross_up_pct : 0.0;
@@ -360,7 +413,26 @@ class CamExpensePool extends Model
         $variable = $total * $variableShare;
         $fixed = $total - $variable;
 
-        return round($fixed + $variable * ($assumption / $actualOccupancyPct), 2);
+        $grossed = $fixed + $variable * ($assumption / $actualOccupancyPct);
+
+        // Σ(basis × share) may not exceed what the landlord actually spent. Measured (arithmetic
+        // replayed 2026-09-04): a 1,000 m² mall with 600 m² trading, a 1,000,000 pool at 60%
+        // variable grossed to a 95% assumption against 60% actual occupancy → 1,350,000. Three
+        // 200 m² shops take 20% each and one of them STATES 60%, so Σ shares is exactly 1.000000,
+        // `CamReconciliationService`'s F-08 refusal passes, and Σ allocated is 1,350,000 against
+        // 1,000,000 of common cost — 350,000 billed to tenants for cost nobody incurred, with
+        // `landlord_unrecovered_amount` recorded as −350,000 and nothing refusing it.
+        //
+        // Bounded rather than refused because what is bounded is not somebody's agreed percentage;
+        // it is the landlord's OWN occupancy assumption, which this method already declines to
+        // apply unilaterally three lines above. The clamped figure is stored as `grossed_up_expense`
+        // and printed on the tenant's statement, so nothing about it is quiet.
+        //
+        // A share of zero bounds NOTHING rather than bounding everything to the bare total: it means
+        // the caller could not compute one, and a pool that allocates nothing recovers nothing.
+        $ceiling = $appliedShare > 0 ? $total / $appliedShare : $grossed;
+
+        return round(min($grossed, $ceiling), 2);
     }
 
     /**

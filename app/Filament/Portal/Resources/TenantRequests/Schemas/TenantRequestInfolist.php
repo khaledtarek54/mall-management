@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\TenantRequests\Schemas;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequestSubcategory;
+use App\Support\Filament\PrivateAttachments;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -68,6 +69,11 @@ class TenantRequestInfolist
                     TextEntry::make('description')
                         ->label(__('admin.fields.description'))
                         ->columnSpanFull(),
+                    // What the tenant attached. The portal FORM collects up to five images or PDFs
+                    // and no portal screen showed one back — there is no Edit page here either — so
+                    // a retailer could not check what they had sent us, while `/api/v1` has
+                    // returned the list with a per-file URL since it shipped.
+                    PrivateAttachments::entry('attachments', __('admin.fields.attachments')),
                 ]),
             Section::make(__('admin.sections.resolution'))
                 ->visible(fn ($record) => filled($record->resolution_notes))

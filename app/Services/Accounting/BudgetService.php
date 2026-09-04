@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Models\BudgetLine;
 use App\Models\LedgerAccount;
+use App\Support\CsvAmount;
 use App\Support\StatementSection;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -252,10 +253,15 @@ class BudgetService
         return $out;
     }
 
+    /**
+     * ONE reading of a spreadsheet money cell for all three importers — {@see CsvAmount}.
+     *
+     * This was a byte-identical copy of `ImportOpeningBalancesService::amount()`, which is how a
+     * rule drifts. It stripped every comma: right for '1,234.50', wrong for the European sheet
+     * {@see parse()} accepts, where '1 234,56' became 123456 (measured 2026-09-04).
+     */
     private function amount(string $cell): float
     {
-        $clean = preg_replace('/[^0-9.\-]/', '', str_replace(',', '', $cell));
-
-        return $clean === '' || $clean === '-' ? 0.0 : round((float) $clean, 2);
+        return round(CsvAmount::parse($cell), 2);
     }
 }

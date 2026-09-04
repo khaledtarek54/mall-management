@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\Payments\Tables;
 
 use App\Models\PaymentMethod;
+use App\Support\StatusOptions;
 use Carbon\Carbon;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -65,7 +66,13 @@ class PaymentsTable
                     ->options(fn () => PaymentMethod::filterOptionsFor('payments.method')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => collect(__('admin.statuses.payment'))->only(['captured', 'reconciled', 'settled', 'failed', 'refunded'])->all()),
+                    // Derived, exactly like the rail filter above it. The `->only()` this replaces
+                    // offered 5 of the 9 the column accepts (measured 2026-09-04): `initiated`,
+                    // `authorized`, `bounced` and `voided` were unfilterable — and `voided` is the
+                    // 2026-08-28 status that says money was NOT returned, which is the one thing a
+                    // tenant reading this list most needs to be able to pick out. `payments` is in
+                    // no TenantVisibility::HIDDEN entry, so this is the full accepted set.
+                    ->options(fn () => StatusOptions::forTenant('payments')),
                 Filter::make('payment_date_range')
                     ->label(__('admin.tables.payment.date'))
                     ->schema([

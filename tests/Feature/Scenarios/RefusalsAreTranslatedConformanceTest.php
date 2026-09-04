@@ -34,6 +34,12 @@ final class RefusalTranslationExemptions
             .'and would put a second sentence around sentences that already read correctly.',
         'app/Services/Accounting/ImportOpeningBalancesService.php' => 'Same shape: it joins admin.opening_balances.errors.at_line messages that are already '
             .'translated per row.',
+        'app/Services/MonthlyBillingService.php' => 'Re-throws `$plan[\'reason_detail\']` on the WRITE path, and that string was built by '
+            .'`scheduleClash()` as `__(\'admin.refusals.overlapping_charge_schedule\', …)` — SW-052 '
+            .'moved the refusal here precisely so a PLAN could answer where a WRITE refuses, and the '
+            .'sentence is deliberately the same one on both. Wrapping it in a second `__()` would '
+            .'translate nothing; re-deriving the tokens here would be a second wording free to drift '
+            .'from the four read-only screens that render the plan.',
     ];
 }
 

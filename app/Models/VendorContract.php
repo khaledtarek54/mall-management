@@ -179,4 +179,55 @@ class VendorContract extends Model
             ->whereNotNull('notice_deadline')
             ->whereDate('notice_deadline', '<=', ($on ?? Carbon::today())->startOfDay()->toDateString());
     }
+
+    /**
+     * The contracts an operator standing in `$ids` may see — and there is ONE definition of that.
+     *
+     * **`whereIn` never matches NULL, and a null `asset_id` here means EVERY mall.** The form says
+     * so in as many words (`ContractsRelationManager::form()`: *"a null here is a PORTFOLIO-WIDE
+     * contract covering every mall"*), and the migration that introduced `holidays` cites
+     * `vendor_contracts` as the shape it copied. Five readers answered the question and only one —
+     * the relation-manager table, i.e. the only screen where somebody would have noticed — agreed
+     * with that:
+     *
+     *   - `VendorsTable`'s *contract notice due* chase filter: `whereIn('asset_id', $ids)`
+     *   - `ActionRequired`'s notice-due card: the same, under a comment claiming the opposite
+     *     (*"null = portfolio-wide, so it scopes directly"*)
+     *   - `ActionRequired`'s COI card, through `whereHas('contracts', …)` — so a vendor engaged
+     *     ONLY under a portfolio-wide contract had no lapsed certificate on anyone's card
+     *   - `VendorResource::getNavigationBadge()`: `where('asset_id', $currentId)`, stricter still
+     *
+     * So a portfolio-wide contract at its notice deadline was absent from the chase list, from the
+     * count beside it and from the badge — while `vendors:scan-contract-renewals`, which scopes not
+     * at all, went on e-mailing about it nightly. Measured on `mall_management_qa` (2026-09-04):
+     * `select count(*), sum(asset_id is null) from vendor_contracts` → 7 rows, 0 portfolio-wide, so
+     * the demo data cannot show this and no screen was visibly wrong — which is why it survived.
+     *
+     * `$ids === null` is an unrestricted operator: no narrowing. An EMPTY array narrows to the
+     * portfolio-wide rows alone, where `->when([], …)` used to skip the clause entirely and show
+     * everything.
+     *
+     * NOT `#[PropertyOwned(portfolioRowsWhenNull: true)]`, deliberately: that flag also feeds
+     * `atriom:audit-property-dimension`, which reports a null `asset_id` as a DEFECT unless the
+     * model's own RESOURCE is in `PropertyField::PORTFOLIO_LEVEL` — and a contract is edited from a
+     * relation manager, so it has no resource. Flipping it would make the first legitimate
+     * portfolio-wide contract fail `atriom:preflight` and block a deploy. The consequence is that
+     * `OptionDisplay::scope()` still hides such a contract from the vendor-bill and recurring-cost
+     * pickers; that half needs the registry flip AND the audit taught, and is recorded rather than
+     * half-done.
+     *
+     * @param  array<int, int>|null  $ids
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeInProperties(Builder $query, ?array $ids): Builder
+    {
+        if ($ids === null) {
+            return $query;
+        }
+
+        return $query->where(fn (Builder $where) => $where
+            ->whereIn($query->qualifyColumn('asset_id'), $ids)
+            ->orWhereNull($query->qualifyColumn('asset_id')));
+    }
 }

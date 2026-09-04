@@ -74,6 +74,45 @@ class InventoryItem extends Model
         return $query->where('is_active', true);
     }
 
+    /**
+     * Does this item state a minimum at all?
+     *
+     * **A `reorder_level` of 0 means "we do not track a minimum for this", never "alert whenever
+     * it hits zero"** — otherwise every catalogue item a mall has never stocked is permanently
+     * short. `ScanLowStockCommand` has said exactly that in writing since it shipped
+     * (`->where('reorder_level', '>', 0)`), and the LIST answered the opposite question about the
+     * same items, twice: the on-hand column coloured `0 <= 0` DANGER and the low-stock filter's
+     * `reorder_level >= sum(quantity)` was TRUE. So the reorder worklist opened on every item the
+     * mall had never stocked, each painted red, and none of them would ever produce an alert.
+     *
+     * Measured 2026-09-04. `InventoryItemForm` defaults `reorder_level` to 0, so that is not an
+     * exotic row — it is every item created through the panel by somebody with no threshold to
+     * type. Against `mall_management_qa`, `0 >= coalesce(sum(quantity), 0)` holds for every item
+     * whose scoped on-hand is 0, i.e. every catalogue item a given mall has never stocked; all
+     * twelve demo items carry a positive level, which is why the demo data never showed it.
+     *
+     * One predicate, three readers — the column's colour, the filter and the scan — so the
+     * worklist, the red figure and the bell can no longer disagree about which items are short.
+     * The PHP and SQL forms cannot be collapsed (the filter compares against a correlated
+     * subquery); `AnItemWithNoReorderLevelIsNotShortTest` asserts they answer alike.
+     */
+    public function tracksAReorderLevel(): bool
+    {
+        return (float) $this->reorder_level > 0;
+    }
+
+    /** Is this item short at that on-hand figure? An item with no stated minimum never is. */
+    public function isLowAt(float $onHand): bool
+    {
+        return $this->tracksAReorderLevel() && $onHand <= (float) $this->reorder_level;
+    }
+
+    /** The query twin of {@see tracksAReorderLevel()} — items that state a minimum at all. */
+    public function scopeTracksAReorderLevel(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('reorder_level'), '>', 0);
+    }
+
     protected static function booted(): void
     {
         // NOT-NULL guard: blank/cleared money inputs must never persist as null into

@@ -460,17 +460,20 @@ class Settings extends Page implements HasSchemas
                 ->description(__('admin.settings.sections.sla_description'))
                 ->columns(2)
                 ->components([
-                    TextInput::make('sla.sla_urgent_hours')->label(__('admin.settings.fields.sla_urgent_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
-                    TextInput::make('sla.sla_high_hours')->label(__('admin.settings.fields.sla_high_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
-                    TextInput::make('sla.sla_medium_hours')->label(__('admin.settings.fields.sla_medium_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
-                    TextInput::make('sla.sla_low_hours')->label(__('admin.settings.fields.sla_low_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
+                    // `hrs` was a hardcoded English abbreviation on all eight of these boxes — an
+                    // English word inside the Arabic form, invisible to the Arabic-chrome gate,
+                    // which sweeps labels and never affixes.
+                    TextInput::make('sla.sla_urgent_hours')->label(__('admin.settings.fields.sla_urgent_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
+                    TextInput::make('sla.sla_high_hours')->label(__('admin.settings.fields.sla_high_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
+                    TextInput::make('sla.sla_medium_hours')->label(__('admin.settings.fields.sla_medium_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
+                    TextInput::make('sla.sla_low_hours')->label(__('admin.settings.fields.sla_low_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
                     // The second clock. Resolution runs from ACCEPTANCE (FR-CM-07) so an engineer
                     // is not charged for queue time; response runs from creation, so queue time is
                     // charged to somebody. Without it, never accepting a job meant no deadline.
-                    TextInput::make('sla.sla_urgent_respond_hours')->label(__('admin.settings.fields.sla_urgent_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
-                    TextInput::make('sla.sla_high_respond_hours')->label(__('admin.settings.fields.sla_high_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
-                    TextInput::make('sla.sla_medium_respond_hours')->label(__('admin.settings.fields.sla_medium_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
-                    TextInput::make('sla.sla_low_respond_hours')->label(__('admin.settings.fields.sla_low_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
+                    TextInput::make('sla.sla_urgent_respond_hours')->label(__('admin.settings.fields.sla_urgent_respond_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
+                    TextInput::make('sla.sla_high_respond_hours')->label(__('admin.settings.fields.sla_high_respond_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
+                    TextInput::make('sla.sla_medium_respond_hours')->label(__('admin.settings.fields.sla_medium_respond_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
+                    TextInput::make('sla.sla_low_respond_hours')->label(__('admin.settings.fields.sla_low_respond_hours'))->numeric()->minValue(1)->suffix(__('admin.fields.hrs'))->required(),
                     // Ships OFF. Switching it on refuses the next completion every engineer
                     // attempts, on jobs they have already finished — so the helper text says what
                     // it does before the toggle does it.

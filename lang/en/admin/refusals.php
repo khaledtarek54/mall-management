@@ -21,6 +21,11 @@
 
 return [
     'refusals' => [
+        'stock_movement_quantity_zero' => 'A receipt or a consumption has to move something, so its quantity cannot be zero. Type the number of units that actually moved — a correction that nets to nothing is recorded as an Adjustment, which is the one movement allowed to be zero.',
+        'stock_movement_has_no_value' => ':item carries no unit cost, and none has ever been received at one either — so moving it would change the stock on hand and post nothing to the general ledger. Set a unit cost on the item, or record a receipt that carries one, and try again.',
+        'stock_transfer_quantity_zero' => 'A transfer has to move something — type how many units are going to the other store.',
+        'stock_transfer_same_store' => ':store is both the source and the destination, so nothing would move. Pick a different destination — to correct a quantity inside one store, use Adjust instead.',
+        'stock_transfer_across_properties' => 'Stock can only be transferred between stores in the same property: a transfer posts no journal entry, so across properties one mall\'s books would keep stock it no longer holds while the other\'s would not show what it now has. Adjust it out of :from and receive it at :to instead, so each property\'s books record the value leaving and arriving.',
         'holdover_rate_below_floor' => 'A holdover is priced as a percentage of the last rent, so it cannot be less than :min% — below that, staying on costs the tenant less than renewing. Type at least :min% here, or raise the portfolio default under Settings → Billing. A genuinely reduced wind-down rent is a rent change or a relief, not a holdover.',
         'work_permit_issued_is_fixed' => 'This permit has been issued, so what it authorises is fixed — people may already be working under it. Cancel it and issue a corrected one.',
         'invoice_void_has_write_off' => 'This invoice carries a write-off. Reverse the write-off first — voiding on top of it would leave the bad-debt loss standing against a document that no longer exists, and drive receivables negative.',
@@ -69,6 +74,7 @@ return [
         'payroll_deductions_exceed_gross' => 'Payroll deductions exceed gross salaries; fix the amounts before approving.',
         'bill_cancel_has_payments' => 'Cannot cancel a bill that has payments. Void them first (Payments → Void payment), then cancel the bill.',
         'payment_void_state' => 'Only a received receipt can be voided.',
+        'payment_method_moves_no_money' => 'A payment rail has to move money in at least one direction. With both "Accepts money in" and "Pays money out" switched off, no picker will ever offer it and no document can name it. Switch one back on — or leave both on and untick "Active", which is how a rail is retired without changing the documents that already name it.',
         'invoice_void_eta_filed' => 'This invoice was filed with the Tax Authority and cannot be voided internally — issue a credit note instead.',
         'invoice_void_has_cash' => 'Cannot void an invoice with captured payments — void the receipt first, then void the invoice.',
         'write_off_positive' => 'A write-off amount must be greater than zero.',
@@ -104,6 +110,7 @@ return [
         // ── Added 2026-08-30 — nine refusals that were still raw English ────────────────────
         // These render as a toast to whoever pressed the button, so they are the app talking to a
         // person, not a developer error. Two of them also interpolated a raw status/column value.
+        'cam_pool_identity_locked_after_billing' => 'A pool\'s property, year and code cannot change once an allocation has been billed — the tenants\' recovery invoices name them. Void the billed allocations first, or create a separate pool for the other year.',
         'cam_basis_locked_after_billing' => 'The CAM recovery basis cannot change once an allocation has been billed — void the billed allocations first.',
         'vendor_not_dispatchable' => 'Vendor :vendor cannot be dispatched: it is blacklisted or inactive, or its insurance certificate has lapsed.',
         'overlapping_charge_schedule' => 'Lease :reference has overlapping charge-schedule rows for :period (:detail). Exactly one row per charge type may cover a period — close the earlier row before the later one starts.',
@@ -116,7 +123,17 @@ return [
         'owner_statement_has_active_disbursements' => 'This run cannot be revised while it has active disbursements — cancel the scheduled or approved payouts first. If the owner has already been paid, correct the difference in the next period rather than revising the paid statement.',
         'lease_option_not_open' => 'This option is :status — only an open option can be exercised.',
         'cam_cap_term_incomplete' => 'A :type CAM cap needs :fields. Without them the cap resolves to nothing and the tenant is billed in full, while the lease still shows a cap term.',
+        // ── SW-144 — retiring a chart account that money is still routed to ─────────────────
+        // The deletion guard on LedgerAccount tells the operator to deactivate an account instead
+        // of deleting it; doing that under a bank account, a payment rail or an expense category
+        // silently re-homes every entry ever posted through it onto the generic floor account.
+        'ledger_account_still_routes_money' => 'Account :code cannot be retired while money is still routed through it — :referrers. Retiring it would re-post every entry already made through it onto the generic fallback account on the next ledger sync, and the bank reconciliation would stop finding them. Point :referrers at another account first — or clear the account it names — and then retire this one.',
+        'money_route_bank_account' => 'bank account “:name”',
+        'money_route_payment_method' => 'payment method “:name”',
+        'money_route_expense_category' => 'expense category “:name”',
         // ── Added 2026-09-04 (SW-119) ───────────────────────────────────────────────────
         'document_template_duplicate_block' => 'There is already a wording block for :block on this scope. One row per block per property — the house default holds one, and each mall may override it with one — because two rows for one slot is a tie the document would break by whichever happened to be saved first, and that is nobody\'s decision. Open the row that exists and edit it, or switch it off before writing another.',
+        // ── Added 2026-09-04 (SW-068) ───────────────────────────────────────────────────
+        'recurring_schedule_never_books' => 'This schedule would never book a single cost: its first booking falls on :first, which is after the end date :ends — so the nightly run would skip it for ever and nothing on any screen would say so. Move the end date past :first, bring the start date forward, change the day of the month, or clear the end date so it runs until you switch it off.',
     ],
 ];

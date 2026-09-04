@@ -113,12 +113,7 @@ class FixedAssetResource extends Resource
                 // accepts it, so the whole suite passed over this while the real database refused
                 // the fixed-asset list, the register CSV, and — because global search fans out to
                 // every resource — EVERY query typed into the search bar.
-                ->addSelect([DB::raw(
-                    'COALESCE(opening_accumulated_depreciation, 0) + COALESCE(('
-                    .'SELECT SUM(amount) FROM depreciation_entries '
-                    .'WHERE depreciation_entries.fixed_asset_id = fixed_assets.id'
-                    .'), 0) AS accumulated'
-                )])
+                ->addSelect([DB::raw(FixedAsset::accumulatedDepreciationSql().' AS accumulated')])
         );
     }
 
@@ -158,9 +153,16 @@ class FixedAssetResource extends Resource
             $cost = round((float) $asset->acquisition_cost, 2);
             $accumulated = round((float) ($asset->accumulated ?? 0), 2);
             $nbv = round($cost - $accumulated, 2);
-            $totalCost += $cost;
-            $totalAccumulated += $accumulated;
-            $totalNbv += $nbv;
+            // The ROW keeps a disposed asset's historic figures — that is the audit trail. The
+            // TOTALS are the balance sheet's, so they count only what is still on the books: the
+            // write-off entry has already credited the cost off Furniture & Equipment and debited
+            // the accumulated depreciation back. Same registry as the three column summarizers, so
+            // the export and the screen cannot disagree.
+            if ($asset->isOnBooks()) {
+                $totalCost += $cost;
+                $totalAccumulated += $accumulated;
+                $totalNbv += $nbv;
+            }
 
             $rows[] = [
                 $asset->tag, $asset->name, $asset->category ?? '',
@@ -172,7 +174,7 @@ class FixedAssetResource extends Resource
             ];
         }
 
-        $rows[] = ['', __('admin.reports.csv.total'), '', '', '',
+        $rows[] = ['', __('admin.fixed_assets.fields.total_on_books'), '', '', '',
             round($totalCost, 2), '', round($totalAccumulated, 2), round($totalNbv, 2), ''];
 
         return [

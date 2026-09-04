@@ -42,12 +42,31 @@ class MarketingPostForm
                             ->label(__('admin.marketing_posts.fields.store'))
                             ->helperText(__('admin.marketing_posts.fields.store_hint'))
                             ->entity(Tenant::class)
-                            // Only retailers who actually trade in the chosen mall — through the
-                            // lease_unit pivot, so a multi-unit lease's additional property counts.
-                            // A null property offers nothing rather than the whole portfolio.
-                            ->modifyOptionsQuery(fn ($query, callable $get) => $get('asset_id')
+                            // ── SUGGESTED, never filtered (SW-179) ──────────────────────────
+                            // The picker opens on the retailers actually trading in the chosen
+                            // mall — through the lease_unit pivot, so a multi-unit lease's
+                            // additional property counts — and search still reaches the rest of
+                            // the (portfolio-shared) tenant register.
+                            //
+                            // It was `->modifyOptionsQuery()`, which narrows what can be FOUND as
+                            // well as what is SHOWN, and `EntitySelect` resolves a stored value's
+                            // LABEL through the same modifier (`OptionDisplay::labels()`).
+                            // Filament turns "cannot label" into a refusal:
+                            // `Select::getInValidationRuleValues()` returns `[]` when
+                            // `getOptionLabel()` is blank, i.e. `Rule::in([])`. So the day the
+                            // attributed retailer's lease ended, every save of that post was
+                            // refused as *invalid* on a field nobody had touched, with the picker
+                            // rendering empty because the label would not resolve either — and no
+                            // way past it but to clear the attribution. Measured on
+                            // mall_management_qa (2026-09-04): 6 of 39 tenants are not trading in
+                            // the mall a live post is filed against.
+                            //
+                            // Attributing a post to a retailer who is not trading here is now
+                            // possible and visibly harmless: `MarketingPost::liveFor()` refuses to
+                            // show it to shoppers and the register's Live column says so.
+                            ->suggest(fn ($query, callable $get) => $get('asset_id')
                                 ? $query->whereHas('activeLeases.units', fn ($q) => $q->where('units.asset_id', $get('asset_id')))
-                                : $query->whereRaw('1 = 0'))
+                                : null)
                             // Nullable: a mall-wide post ("late-night shopping in Ramadan") has no store.
                             ->placeholder(__('admin.marketing_posts.mall_wide')),
 

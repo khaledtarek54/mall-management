@@ -16,6 +16,7 @@ use App\Services\ChargeScheduleService;
 use App\Support\AgingBuckets;
 use App\Support\CostNature;
 use App\Support\InvoiceItemSettlement;
+use App\Support\ReportPeriod;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -169,6 +170,11 @@ class ReportService
      */
     public function weeklySpend(?CarbonImmutable $from = null, ?CarbonImmutable $to = null): array
     {
+        // Ordered BEFORE the week boundaries are normalised, not after: swapping two already-
+        // normalised dates would leave `$from` on a Sunday and `$to` on a Monday, and the seeding
+        // loop steps by whole weeks from `$from`. See ReportPeriod::orderedSpan() for what an
+        // inverted pair costs here — no weeks at all, under a subheading reading EGP 0.00.
+        [$from, $to] = ReportPeriod::orderedSpan($from, $to);
         $to = ($to ?? CarbonImmutable::now())->endOfWeek(CarbonInterface::SUNDAY);
         // 12 ISO weeks by default. Force Monday-start so weeks are the business standard (and
         // stable across the ar locale, whose default first-day would otherwise shift them).
@@ -651,6 +657,10 @@ class ReportService
      */
     public function occupancyCost(?CarbonImmutable $from = null, ?CarbonImmutable $to = null, ?int $assetId = null): Collection
     {
+        // Ordered before anything is derived from either end — see ReportPeriod::orderedSpan().
+        // Inverted, this report answers with zero cost, zero sales and a null ratio for every
+        // tenant, which reads as "nobody has declared" rather than as an impossible window.
+        [$from, $to] = ReportPeriod::orderedSpan($from, $to);
         $to = ($to ?? CarbonImmutable::now())->endOfMonth()->startOfDay();
         $from = ($from ?? $to->subMonths(11))->startOfMonth();
 
@@ -865,7 +875,11 @@ class ReportService
             // The same inclusion cutoff for every view, so a drill-down can never surface an
             // invoice its own summary bucket did not count.
             ->whereDate('issue_date', '<=', $asOf)
-            ->with(['tenant', 'lease.unit', 'asset'])
+            // BOTH agreements. This one collection feeds the drill-down table, its CSV and the
+            // collections worklist, and an owner assessment holds its unit on the OWNERSHIP — so
+            // loading only `lease.unit` left `unit_code` to lazy-load a query per owner row, on the
+            // one dataset that never shrinks.
+            ->with(['tenant', 'lease.unit', 'unitOwnership.unit', 'asset'])
             ->get();
     }
 

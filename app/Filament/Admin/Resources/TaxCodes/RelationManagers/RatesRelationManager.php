@@ -43,8 +43,25 @@ class RatesRelationManager extends RelationManager
                 ->suffix('%')
                 ->numeric()
                 ->required()
-                ->minValue(0)
-                ->maxValue(100)
+                // **A WITHHOLDING RUNG IS STORED NEGATIVE, AND A FLAT FLOOR OF ZERO REFUSED EVERY
+                // ONE OF THEM.** "WH -1%" is the operator's own notation, because the tax comes OFF
+                // what is paid to a supplier rather than being added to it — the seeder writes the
+                // rungs that way and `TaxCatalogueConformanceTest` asserts they stay that way.
+                // Measured on the dev database 2026-09-04: 8 withholding rungs, every one negative,
+                // and not one of them savable through this form. It failed as *invalid* on a field
+                // the operator had not touched (they were editing the note), and next year's rate
+                // could not be entered at all — for the one family whose rates Egypt revises by
+                // decree, on a ladder that exists to be dated in advance.
+                //
+                // The bounds are the tax code's own, so the sign convention has ONE home and this
+                // screen cannot disagree with the seeder that wrote the rows underneath it.
+                ->minValue(fn (): float => $this->getOwnerRecord()->rateBounds()[0])
+                ->maxValue(fn (): float => $this->getOwnerRecord()->rateBounds()[1])
+                // Only where the sign is surprising. On VAT, stamp and schedule the "%" suffix has
+                // already said everything there is to say.
+                ->helperText(fn (): ?string => $this->getOwnerRecord()->rateIsNegative()
+                    ? __('admin.helpers.tax_rate_withheld')
+                    : null)
                 // Three decimals, because Egyptian withholding runs to half a percent and a field
                 // that cannot express the statutory figure is worse than no configuration at all.
                 ->step('0.001'),

@@ -167,6 +167,7 @@ return [
         'fiscal_year' => 'السنة المالية',
         'full_year' => 'السنة كاملة',
         'property_scope' => 'العقار',
+        'property_scope_registration' => 'كل العقارات — يُقدَّم على مستوى التسجيل الضريبي',
         'balance_check' => 'التحقق من التوازن',
         'balanced' => 'متوازن',
         'not_balanced' => 'غير متوازن',

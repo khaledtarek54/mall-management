@@ -173,11 +173,25 @@ class DepositHoldings
     {
         $ids = [];
 
-        foreach ($assetIds ?? [null] as $assetId) {
-            try {
-                $ids[] = app(AccountResolver::class)->id('deposits_held', $assetId);
-            } catch (\Throwable) {
-                // Unmapped for this property — not a discrepancy, just nothing to compare against.
+        if ($assetIds === null) {
+            // Portfolio-wide: EVERY account the role points at — the global default AND each
+            // per-mall override. Reading only the global one is what made the deposits tie-out
+            // permanently red the moment a mall got its own `deposits_held` mapping (SW-143): the
+            // register counts every property's deposits, so the ledger side has to as well.
+            //
+            // One deliberate change of behaviour rides with it. A role mapped to a SUMMARY or
+            // RETIRED account no longer reads as "not comparable": `accountsFor()` does not
+            // re-check postability, so the account is counted, reads zero, and the gap is reported
+            // — the honest answer, because the deposits are still being taken while nothing can
+            // post the liability. An UNMAPPED role still yields nothing and still returns null.
+            $ids = array_keys(app(AccountResolver::class)->accountsFor('deposits_held'));
+        } else {
+            foreach ($assetIds as $assetId) {
+                try {
+                    $ids[] = app(AccountResolver::class)->id('deposits_held', $assetId);
+                } catch (\Throwable) {
+                    // Unmapped for this property — not a discrepancy, nothing to compare against.
+                }
             }
         }
 

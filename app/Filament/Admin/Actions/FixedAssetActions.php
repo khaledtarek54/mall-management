@@ -12,7 +12,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Utilities\Get;
 
 /**
  * **Everything you can DO to a fixed asset, defined once.**
@@ -57,13 +56,31 @@ class FixedAssetActions
                         ->minValue(0)
                         ->default(0)
                         ->prefix('EGP'),
+                    // **Always shown, and that is the fix.** It was conditioned on
+                    // `(float) $get('proceeds') > 0` beside a `proceeds` field carrying no
+                    // `->live()`, so nothing re-rendered the schema once the amount was typed and
+                    // the picker could not appear at all — and a hidden Filament field is not
+                    // dehydrated (`HasState::isHiddenAndNotDehydratedWhenHidden()` forgets the
+                    // state path), so the answer never reached `$data`,
+                    // `DisposeFixedAssetService` fell to its `?? 'cash'`, and
+                    // `FixedAssetDisposalJournalizer` resolved the proceeds line through
+                    // `MoneyAccount::for(null, 'cash', …)`. An asset sold and BANKED debited cash
+                    // on hand. Measured 2026-09-04 (SW-190).
+                    //
+                    // Making the amount live would have re-rendered it, and that is the wrong
+                    // repair for a money RAIL: the answer would then ride on a blur that races the
+                    // submit, and a rail that is sometimes not asked is worse than one that is
+                    // always asked. Same reasoning as `BankAccountField`, which is deliberately not
+                    // hidden on a cash rail. The journalizer raises no cash line at all when
+                    // proceeds are 0, so on a scrapping this costs one row on the modal and
+                    // nothing else.
                     Select::make('proceeds_account')
                         ->label(__('admin.fixed_assets.fields.proceeds_account'))
+                        ->helperText(__('admin.fixed_assets.proceeds_account_hint'))
                         ->options(fn () => __('admin.enums.cash_or_bank'))
                         ->default('cash')
-                        ->native(false)
-                        // Only matters when money actually came in.
-                        ->visible(fn (Get $get) => (float) $get('proceeds') > 0),
+                        ->required()
+                        ->native(false),
                     Textarea::make('notes')
                         ->label(__('admin.fixed_assets.fields.notes'))
                         ->rows(2)

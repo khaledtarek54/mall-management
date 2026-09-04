@@ -12,6 +12,7 @@ use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\ReportPreferences;
+use App\Support\StatementIntegrity;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Toggle;
@@ -63,9 +64,7 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
      */
     public function getSubheading(): ?string
     {
-        $check = $this->report()['balanced']
-            ? '✓ '.__('admin.reports.balanced')
-            : '✗ '.__('admin.reports.not_balanced');
+        $check = StatementIntegrity::balance((bool) $this->report()['balanced']);
 
         $sync = $this->ledgerLastSyncedSubheading();
 
@@ -197,7 +196,15 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
                 TextColumn::make('account')
                     ->label(__('admin.tables.ledger_account.account'))
                     ->weight('medium')
-                    ->description(fn (array $record): string => __("admin.enums.ledger_account_type.{$record['type']}")),
+                    ->description(fn (array $record): string => __("admin.enums.ledger_account_type.{$record['type']}"))
+                    // Into the general ledger for THIS account, over the period and property the
+                    // trial balance was run for — the same link the income statement and the
+                    // balance sheet have carried since the drill-down shipped, through the same
+                    // builder. The row already held the account id (`'id' => $row['account_id']`,
+                    // above) and nothing opened it, so the one screen an accountant uses to ask
+                    // "what is IN 11101?" was the one screen that could not answer.
+                    ->url(fn (array $record): ?string => $this->ledgerUrlForAccount($record['id'] ?? null))
+                    ->color(fn (array $record): ?string => $this->ledgerUrlForAccount($record['id'] ?? null) ? 'primary' : null),
                 TextColumn::make('debit_balance')
                     ->label(__('admin.fields.debit'))
                     ->money('EGP')

@@ -11,6 +11,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoiceWriteOff;
 use App\Models\JournalEntry;
+use App\Models\LedgerAccount;
 use App\Models\MarketingBudget;
 use App\Models\Payment;
 use App\Models\TenantCreditApplication;
@@ -394,17 +395,23 @@ class BooksReconciliationService
             return ['configured' => false];
         }
 
-        try {
-            $arAccount = $this->accounts->account('accounts_receivable');
-            $apAccount = $this->accounts->account('accounts_payable');
-        } catch (\DomainException) {
+        // EVERY account each control role points at, not just the global default. A per-mall
+        // posting-map override sends that mall's postings to a different account — the journalizers
+        // pass the document's `asset_id` into the resolver — so a tie-out reading the global account
+        // alone compares ONE mall's ledger against EVERY mall's invoices. The delta is that mall's
+        // whole receivable and it never clears (SW-143). See AccountResolver::accountsFor().
+        $arAccounts = $this->accounts->accountsFor('accounts_receivable');
+        $apAccounts = $this->accounts->accountsFor('accounts_payable');
+
+        // Unmapped role — skip rather than raise a false failure, exactly as before.
+        if ($arAccounts === [] || $apAccounts === []) {
             return ['configured' => false];
         }
 
         // Net AR = open invoice balances − standing (unapplied) credit notes; credited
         // invoices are excluded because their credit note reverses them on the GL side.
         // Round each sum before subtracting (matches the sync-command's original math).
-        $glAr = round($this->reports->accountLedger($arAccount)['closing'], 2);
+        $glAr = $this->controlBalance($arAccounts);
         // Exclude DRAFT invoices — the InvoiceJournalizer recognises revenue only at issue,
         // so a draft's balance is not on the GL; counting it here would raise a false AR delta.
         // 'written_off' joins the exclusions for the same reason as 'credited': the GL side has
@@ -432,7 +439,7 @@ class BooksReconciliationService
         $expectedAr = round($invoiceBalances - $partiallyWrittenOff - $outstandingCredits, 2);
 
         // AP = outstanding vendor-bill balances (excludes draft + cancelled).
-        $glAp = round($this->reports->accountLedger($apAccount)['closing'], 2);
+        $glAp = $this->controlBalance($apAccounts);
         $expectedAp = round((float) VendorBill::whereNotIn('status', ['cancelled', 'draft'])->sum('balance'), 2);
 
         return [
@@ -440,6 +447,26 @@ class BooksReconciliationService
             'ar' => ['gl' => $glAr, 'expected' => $expectedAr, 'delta' => round($glAr - $expectedAr, 2)],
             'ap' => ['gl' => $glAp, 'expected' => $expectedAp, 'delta' => round($glAp - $expectedAp, 2)],
         ];
+    }
+
+    /**
+     * The combined closing balance of every chart account a control role points at.
+     *
+     * Per account rather than one summed query, because `accountLedger()` applies the account's own
+     * `normal_balance` sign. Adding raw debits and credits here would be a second reading of a
+     * balance the ledger report already owns, and the two would then be free to disagree.
+     *
+     * @param  array<int, LedgerAccount>  $accounts
+     */
+    private function controlBalance(array $accounts): float
+    {
+        $total = 0.0;
+
+        foreach ($accounts as $account) {
+            $total += (float) $this->reports->accountLedger($account)['closing'];
+        }
+
+        return round($total, 2);
     }
 
     /**

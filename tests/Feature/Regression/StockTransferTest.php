@@ -103,8 +103,9 @@ it('refuses a transfer to another property', function () {
     $otherAsset = makeAsset(['code' => 'OTHER', 'name' => 'Other Mall']);
     $foreign = Warehouse::create(['asset_id' => $otherAsset->id, 'name' => 'Other store', 'code' => 'OTH', 'category' => 'spare_parts', 'is_active' => true]);
 
+    // A REFUSAL the operator reads, in their own language — DomainException since SW-197.
     expect(fn () => $this->svc->transfer($this->main, $foreign, $this->item, 1))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 
     expect($this->svc->onHand($this->item, $this->main))->toBe(10.0)
         ->and($this->svc->onHand($this->item, $foreign))->toBe(0.0);
@@ -112,12 +113,12 @@ it('refuses a transfer to another property', function () {
 
 it('refuses a transfer to the same warehouse', function () {
     expect(fn () => $this->svc->transfer($this->main, $this->main, $this->item, 1))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 });
 
 it('refuses a zero quantity', function () {
     expect(fn () => $this->svc->transfer($this->main, $this->sub, $this->item, 0))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 });
 
 it('posts NOTHING to the general ledger — driven through the real sweep', function () {

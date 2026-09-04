@@ -681,6 +681,27 @@ cannot be filtered or reported as internal-vs-external the way a corrective one 
 reporting is ever wanted, the change is to classify the plan and stamp the order — not to tighten
 the CM guard, which is already right for what it covers.
 
+### Which side a corrective job is on is a CONTROL, not just a column
+
+`execution_type` had no screen outside the three RAISE modals, while `FacilityWorkOrderForm`
+offered BOTH assignee pickers on every order — so an in-house job that turned out to need a
+contractor was a dead end in both directions. Measured 2026-09-04: setting `vendor_id` on an
+`internal` CM throws `InvalidArgumentException`, which is **not** a `DomainException`, so the
+operator got the 500 page and lost the form; sending the new classification alongside it hit the
+mirror refusal, because the technician was still on the row. The classification is now a live
+`Select` shown on a corrective order only, and each picker is `->visible()` on the answer,
+`->dehydratedWhenHidden()` and nulled at dehydration. **Hiding is not clearing** — a hidden Filament
+field is not dehydrated at all, so `visible()` alone would drop the key and leave the old assignee
+standing. `afterStateUpdated` clears the excluded side in state as well, because a hidden field that
+IS dehydrated is still VALIDATED and a stale assignee fails an `in:` rule on a field the operator
+can no longer see. A preventive order is untouched: it carries no classification, keeps both
+pickers, and is never offered the field. One consequence travelled with it — taking a job back
+in-house nulls `facility_work_orders.vendor_id`, so the SLA-penalty deduction modal now keys its
+bill list on the PENALTY's own `vendor_id`, which is the question
+`ApplySlaPenaltyService::assertBillEligible()` has always asked.
+
+Tests: `tests/Feature/Regression/ACorrectiveJobCanBeHandedToAContractorTest.php`.
+
 ### A plan that cannot generate says so
 
 Two correct decisions used to combine into a silent failure. `generateFor()` wraps a cycle in one
@@ -1869,4 +1890,17 @@ whatever the key pointed at when first touched, so a row loaded with that relati
 re-homed recomputed the OLD job and left the NEW one understated — the same fault through the other
 door. `ATimesheetLineRecomputesTheJobItLeftTest` derives the channel list from `recomputeCosts()`'s
 own source, so the gate cannot go stale behind the method it guards.
+
+### SW-065
+
+a new subsection "### Which side a corrective job is on is a CONTROL, not just a column", inserted immediately after the existing "Assignment is an XOR on a CORRECTIVE order" section (the paragraph ending "…the CM guard, which is already right for what it covers."). It records: the classification had no screen outside the three RAISE modals while the edit form offered both assignee pickers; the measured InvalidArgumentException/500 and its mirror; the three mechanisms and why each is needed (visible / dehydratedWhenHidden + dehydrateStateUsing / afterStateUpdated), with HIDING IS NOT CLEARING stated explicitly; that a PPM order is untouched; and the one consequence that travelled with it, the SLA-penalty bill picker now keying on the penalty's own vendor. The exact text is in the last `edits` entry.
+
+
+### SW-077
+
+add beside the estimates/cost-object material:
+
+### An estimate has a ceiling, and it is on the model (2026-09-04)
+
+`facility_work_orders.est_labour_hours` is `decimal(8,2)`, and both forms that collect it — the resource form and `CorrectiveWorkOrderForm`, which is reached only through an action modal — carried `->minValue(0)` and no ceiling. Measured on MySQL in strict mode (a TEMPORARY table, no real row touched): `999999.99` is accepted and `1000000` raises `SQLSTATE[22003] … 1264 Out of range value`, so a mistyped figure was a `QueryException` and a 500 page after Save, with the form lost. **The suite is structurally blind to it** — SQLite has no decimal precision to overflow, so the same create succeeds there; what a test CAN assert is the refusal, which is why the regression drives the real create page. `FacilityWorkOrder::MAX_EST_LABOUR_HOURS` (9,999.99) is the one definition and both forms read it: far enough above real work that nothing is refused (an annual shutdown is three people for four weeks — 480 hours), and far enough below the column's own 999,999.99 that the driver never sees an overflow. The help text states the limit in both languages, which is what `BoundedFieldsExplainTheirLimitConformanceTest` asks of any bounded field. Note `service_plans.est_labour_hours` is the same width and has no form field, and the timesheet's own `facility_work_order_labour.hours` (`decimal(6,2)`) has been capped at 24 since it shipped — so those two doors were never exposed.
 

@@ -55,14 +55,20 @@ class RecipientsRelationManager extends RelationManager
                     ->weight('bold')
                     ->sortable(),
 
-                IconColumn::make('read_at')
+                // `is_read`, NOT `read_at`: Filament keys its column set by NAME
+                // (`Table::pushColumns()` does `$this->columns[$component->getName()] = $component`),
+                // so the `read_at` TextColumn three lines below silently REPLACED this tick and it
+                // never rendered — on the screen whose whole purpose is that "we told you" is a
+                // record rather than an assertion. No error, and both declarations read correctly.
+                // The name is virtual; the state is supplied below.
+                IconColumn::make('is_read')
                     ->label(__('admin.announcements.fields.read'))
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-clock')
                     ->trueColor('success')
                     ->falseColor('gray')
-                    ->getStateUsing(fn ($record) => $record->read_at !== null),
+                    ->getStateUsing(fn ($record) => $record->isRead()),
 
                 TextColumn::make('read_at')
                     ->label(__('admin.announcements.fields.read_at'))

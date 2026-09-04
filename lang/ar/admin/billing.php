@@ -51,6 +51,7 @@ return [
             'already_billed' => 'تمت فوترته مسبقًا',
             'lease_not_billable' => 'غير قابل للفوترة هذه الفترة',
             'run_in_progress' => 'توجد عملية فوترة جارية',
+            'schedule_conflict' => 'تداخل في جدول الرسوم',
             'exception' => 'فشل إنشاء الفاتورة',
             'unknown' => 'لن تتم الفوترة',
         ],

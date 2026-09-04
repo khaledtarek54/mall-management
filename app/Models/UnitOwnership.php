@@ -179,7 +179,120 @@ class UnitOwnership extends Model implements BillableAgreement
                 && Carbon::parse($ownership->started_at)->gt(Carbon::parse($ownership->ended_at))) {
                 throw new \DomainException(__('admin.errors.unit_ownership_tenure_inverted'));
             }
+
+            $ownership->assertUnitIsNotOwnedTwiceOver();
         });
+    }
+
+    /**
+     * A unit may not be owned MORE THAN ONCE OVER: the shares in force on any one day must add up
+     * to 100% or less (SW-229).
+     *
+     * **Not "no two tenures may overlap".** Overlapping is the ordinary state of a CO-OWNED unit —
+     * that is what `ownership_share_pct` is for, and `DemoSeeder` seeds a 60/40 pair. What must not
+     * happen is the same 100% being held twice on one day, and until now nothing refused it: the
+     * `saving` guard above checks a row's own two dates and never its siblings', and there is no
+     * unique index that could. `TransferUnitOwnershipService` ends the seller on `$on->subDay()`
+     * so the service never produces one; the register's own Create/Edit form has no such rule and
+     * is the door. There is no unit-ownership importer.
+     *
+     * Measured against SW-220's own fixture (two equal units, a 100,000 pool, 2026): a seller
+     * ending 1 July beside a buyer starting 1 July gives the resold unit **366 owner-days of a
+     * 365-day year**, so it carries **50.068%** of the pool against an identical full-year unit's
+     * 49.932% — `areaSqmForPeriod()` weights m²·days and counts the shared day twice. The same day
+     * is billed twice by `BillUnitOwnershipsService`, which prorates each tenure over the days it
+     * held, so the over-recovery is OUTBOUND on both the monthly assessment and the annual true-up.
+     *
+     * Only the states that took POSSESSION count, derived from
+     * {@see UnitOwnershipStatus::everHadPossession()} rather than re-listed: a `contracted` sale
+     * running alongside the current owner's live tenure is the ordinary shape of a pending resale
+     * and must stay recordable, and neither `reserved` nor `contracted` bills anything or reaches a
+     * pool.
+     *
+     * **Refused only on a DIRTY write**, for the reason `RecordsBankAccount` states: a pre-existing
+     * overlap must not make either row uneditable, and the corrections that clear it — shortening a
+     * date, lowering a share — are themselves the write this guard evaluates, so the escape the
+     * message names really is open.
+     *
+     * A PLAIN read, deliberately. This is a data-entry guard, not a concurrency gate: the hook
+     * frequently runs with no transaction around it, and a row lock taken there is released on the
+     * next statement, which is worse than none because it reads as protection. The concurrent
+     * double-transfer is already held by `TransferUnitOwnershipService`'s `lockForUpdate()` on the
+     * seller. Same reasoning as the deposit cap on `DepositTransaction::saving`.
+     */
+    public function assertUnitIsNotOwnedTwiceOver(): void
+    {
+        if ($this->unit_id === null
+            || ! in_array($this->status?->value, UnitOwnershipStatus::everHadPossession(), true)) {
+            return;
+        }
+
+        if ($this->exists
+            && ! $this->isDirty(['unit_id', 'started_at', 'ended_at', 'ownership_share_pct', 'status'])) {
+            return;
+        }
+
+        // Null bounds mean UNBOUNDED, and clamping them to sentinels rather than special-casing
+        // them is what leaves the sweep below with no branches: the maximum of a set of overlapping
+        // intervals is always attained at one of their START days.
+        $floor = CarbonImmutable::parse('1900-01-01');
+        $ceiling = CarbonImmutable::parse('2999-12-31');
+
+        $from = $this->started_at ? CarbonImmutable::parse($this->started_at) : $floor;
+        $to = $this->ended_at ? CarbonImmutable::parse($this->ended_at) : $ceiling;
+
+        $siblings = static::query()
+            ->where('unit_id', $this->unit_id)
+            ->whereIn('status', UnitOwnershipStatus::everHadPossession())
+            ->when($this->exists, fn (Builder $q) => $q->whereKeyNot($this->getKey()))
+            ->overlapping($from, $to)
+            ->get();
+
+        if ($siblings->isEmpty()) {
+            return;
+        }
+
+        $tenures = $siblings->map(fn (self $other) => [
+            'row' => $other,
+            'from' => $other->started_at ? CarbonImmutable::parse($other->started_at) : $floor,
+            'to' => $other->ended_at ? CarbonImmutable::parse($other->ended_at) : $ceiling,
+            'share' => (float) ($other->ownership_share_pct ?? 100),
+        ])->all();
+
+        $mine = (float) ($this->ownership_share_pct ?? 100);
+
+        // Every candidate day is CLIPPED into this row's own window: a pair of siblings that
+        // already overlap each other is not this row's doing, and refusing here over it would make
+        // a legacy row unsavable without offering any way to fix it from this form.
+        foreach ([$from, ...array_column($tenures, 'from')] as $start) {
+            $day = $start->max($from);
+
+            if ($day->greaterThan($to)) {
+                continue;
+            }
+
+            $held = $mine;
+            $others = [];
+
+            foreach ($tenures as $tenure) {
+                if ($day->betweenIncluded($tenure['from'], $tenure['to'])) {
+                    $held += $tenure['share'];
+                    $others[] = $tenure['row'];
+                }
+            }
+
+            // 0.005 rather than 0: `ownership_share_pct` is `decimal:2`, so three co-owners at
+            // 33.34/33.33/33.33 must not be refused for a hundredth of a percent.
+            if ($held > 100.005) {
+                throw new \DomainException(__('admin.errors.unit_ownership_owned_twice_over', [
+                    'date' => $day->format('d/m/Y'),
+                    'percent' => number_format($held, 2),
+                    'others' => collect($others)
+                        ->map(fn (self $other) => $other->reference ?: '#'.$other->getKey())
+                        ->join(', '),
+                ]));
+            }
+        }
     }
 
     public function getActivitylogOptions(): LogOptions

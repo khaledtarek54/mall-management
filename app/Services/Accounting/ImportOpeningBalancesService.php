@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Support\CsvAmount;
 use Carbon\CarbonImmutable;
 use DomainException;
 
@@ -245,11 +246,17 @@ class ImportOpeningBalancesService
         return array_map(fn ($c) => trim((string) $c), str_getcsv($line, ',', '"', '\\'));
     }
 
-    /** "1,234.50 EGP" → 1234.50; anything unreadable → 0.0. */
+    /**
+     * "1,234.50 EGP" → 1234.50; anything unreadable → 0.0.
+     *
+     * ONE reading of a spreadsheet money cell for all three importers — {@see CsvAmount}. This one
+     * stripped every comma, which is right for '1,234.50' and wrong for the European sheet
+     * {@see cells()} deliberately accepts two methods above: a ';'-delimited paste writes 1.234,56.
+     * Measured on HEAD (2026-09-04), '1.234,56' parsed as 1.23456 and '1 234,56' as 123456 — a
+     * hundred times the figure, into the opening trial balance every later statement is built on.
+     */
     private function amount(string $cell): float
     {
-        $clean = preg_replace('/[^0-9.\-]/', '', str_replace(',', '', $cell));
-
-        return $clean === '' || $clean === '-' ? 0.0 : round((float) $clean, 2);
+        return round(CsvAmount::parse($cell), 2);
     }
 }

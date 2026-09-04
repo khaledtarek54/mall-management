@@ -73,8 +73,15 @@ class ScanOverdueInvoicesCommand extends Command
                         return false;
                     }
 
-                    Notification::send($owners, new InvoiceOverdueOwnerNotification($locked));
                     $locked->forceFill(['owner_overdue_notified_at' => now()])->save();
+
+                    // After the commit, never under the lock (SW-213). `invoices` is the most
+                    // contended table in the system — every capture, credit-note application,
+                    // deposit netting and write-off locks a row of it — and this alert's `via()` is
+                    // `['database']` TODAY only: `AlsoSendsByMail` was added to fourteen
+                    // notifications after they were written, so which channels a notification uses
+                    // is not a property to build a lock's duration on.
+                    DB::afterCommit(fn () => Notification::send($owners, new InvoiceOverdueOwnerNotification($locked)));
 
                     return true;
                 });

@@ -33,6 +33,36 @@ use ReflectionProperty;
  * the twenty-third picker is covered before anyone remembers it. A `->getOptionLabelUsing()` per call
  * site would have been twenty-two chances to forget, in six files another session is holding.
  *
+ * ## What the binding does NOT cover — measured 2026-09-04 (SW-205)
+ *
+ * The binding names `Select`, so a plain `Select` reaches it and nothing else does. Two gaps, and
+ * only one of them is worth any code:
+ *
+ * **A field class the binding never sees.** `Radio`, `ToggleButtons` and `CheckboxList` derive their
+ * `Rule::in` from their own resolved options in exactly the same way, and a SUBCLASS of `Select`
+ * (`EntitySelect` is one) resolves to itself rather than to this class. Converting a catalogue
+ * picker to one of them reads as a styling change and would reinstate the 2026-08-18 defect in full.
+ * Measured across `app/Filament`: 55 plain `Select` calls on a governed column and ZERO of anything
+ * else, gated by `ACatalogueCodeIsOnlyOfferedByABoundFieldConformanceTest` so the first one is red.
+ *
+ * **The record a `Select` resolves is not always the row it writes.** A schema takes its record from
+ * whatever mounted it, so an action modal on a PARENT page resolves the parent's table: the lease's
+ * *Record deposit*, the vendor bill's *Record payment*, the owner run's *Record disbursement*, and
+ * the custody and employee-advance relation managers between them miss
+ * `deposit_transactions.method`, `vendor_bill_payments.method`, `disbursements.method`,
+ * `employee_advance_repayments.method` and `custody_transactions.category`. Measured: all five are
+ * CREATE-only, and on a create form the carve-out must not fire anyway — offering a switched-off
+ * code is the opposite of what retiring one means. `deposit_transactions.method` is the only one of
+ * the five with an Edit screen at all, and that screen is the register's own form, which resolves
+ * its own table correctly. So there is nothing here to repair, only something to notice the day one
+ * of those columns grows an edit path.
+ *
+ * **And a column-NAME key is not the general answer**, tempting as it looks after `BY_COLUMN_NAME`
+ * below: `type` names `vendor_documents.type`, which IS governed, and `tenant_documents.type`, which
+ * is a different vocabulary — so a name key would label a tenant's document out of the vendor
+ * catalogue. It is unambiguous only where a name is governed by exactly one catalogue, and
+ * `category` (three of them) is not.
+ *
  * ## It is DERIVED, never a list
  *
  * `ValueSets::catalogueWidenedColumns()` already maps `table.column → catalogue model`, because the
@@ -55,7 +85,7 @@ class CatalogueAwareSelect extends Select
      *
      * `getOptions()` runs about three times per Select per render plus once for validation, and this
      * binding is GLOBAL, so the first thing it must do is get out of the way of every ordinary
-     * Select in the app. Comparing the field NAME against five distinct strings does that before
+     * Select in the app. Comparing the field NAME against the seven such strings does that before
      * anything touches the container, the state or the record — each of which is real work
      * (`getState()` resolves a state cast out of the container on every call). Measured before this
      * bail-out: +9.4% on `EditTenantRequest` mount+refresh.
@@ -101,15 +131,7 @@ class CatalogueAwareSelect extends Select
     {
         $options = parent::getOptions();
 
-        self::$governedColumns ??= array_fill_keys(array_merge(
-            array_map(
-                fn (string $key): string => substr($key, strpos($key, '.') + 1),
-                array_keys(ValueSets::catalogueWidenedColumns()),
-            ),
-            array_keys(self::BY_COLUMN_NAME),
-        ), true);
-
-        if (! isset(self::$governedColumns[$this->getName()])) {
+        if (! isset(self::governedColumnNames()[$this->getName()])) {
             return $options;
         }
 
@@ -161,6 +183,27 @@ class CatalogueAwareSelect extends Select
         // Appended, never prepended: the retired code is history, not a suggestion, and the active
         // codes stay in the order the catalogue's own `sort_order` put them.
         return $options + [$stored => $model::labelFor($stored)];
+    }
+
+    /**
+     * Every column name a retire-able catalogue governs, as a set.
+     *
+     * The cheap bail-out above reads it, and so does the conformance gate that sweeps the panel for
+     * a governed column rendered by a field class this binding cannot reach. Exposed rather than
+     * left inline for that second reader: a gate that re-listed these could not see what this class
+     * omits, which is the shape CLAUDE.md records as this codebase's signature defect.
+     *
+     * @return array<string, true>
+     */
+    public static function governedColumnNames(): array
+    {
+        return self::$governedColumns ??= array_fill_keys(array_merge(
+            array_map(
+                fn (string $key): string => substr($key, strpos($key, '.') + 1),
+                array_keys(ValueSets::catalogueWidenedColumns()),
+            ),
+            array_keys(self::BY_COLUMN_NAME),
+        ), true);
     }
 
     /**

@@ -67,4 +67,7 @@ return [
         'empty_heading' => 'No jobs yet',
         'empty_description' => 'Jobs appear here as soon as they are dispatched to you.',
     ],
+    'profile' => [
+        'email_taken' => 'Another contractor login already uses this email address. Use a different address, or ask the mall to withdraw portal access from the other contact.',
+    ],
 ];

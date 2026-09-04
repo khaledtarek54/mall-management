@@ -56,6 +56,7 @@ return [
             // the three; this is the shared wording for the surfaces that do not.
             'lease_not_billable' => 'Not billable this period',
             'run_in_progress' => 'A billing run is in progress',
+            'schedule_conflict' => 'Overlapping charge schedule',
             'exception' => 'Generation failed',
             'unknown' => 'Not billing',
         ],

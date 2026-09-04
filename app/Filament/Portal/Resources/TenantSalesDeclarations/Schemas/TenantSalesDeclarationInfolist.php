@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas;
 
 use App\Models\TenantSalesDeclaration;
+use App\Support\Filament\PrivateAttachments;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -27,14 +28,14 @@ class TenantSalesDeclarationInfolist
                         ->label(__('admin.tables.tenant_sales.declared_sales'))
                         ->money('EGP')
                         ->placeholder(__('admin.tables.tenant_sales.pending_review')),
-                    TextEntry::make('report_status')
-                        ->label(__('admin.fields.sales_report'))
-                        ->state(fn ($record) => $record->hasReport()
-                            ? trans_choice('admin.tables.tenant_sales.report_count', $record->getMedia(TenantSalesDeclaration::REPORT_COLLECTION)->count())
-                            : null)
-                        ->placeholder('—')
-                        ->badge()
-                        ->color('success'),
+                    // THE FILES, not a count of them. This was a badge reading "2 files" with
+                    // nothing behind it — which proves the upload arrived and still refuses to say
+                    // WHICH file, on the one screen a tenant disputing a turnover figure would look
+                    // at. The mobile API has returned the list with a per-file URL since it shipped.
+                    PrivateAttachments::entry(
+                        TenantSalesDeclaration::REPORT_COLLECTION,
+                        __('admin.fields.sales_report'),
+                    ),
                     TextEntry::make('calculated_percentage_rent')
                         ->label(__('admin.tables.tenant_sales.percentage_rent'))
                         ->money('EGP')

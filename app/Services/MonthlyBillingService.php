@@ -250,6 +250,17 @@ class MonthlyBillingService
     {
         $plan = $this->planInvoiceForLease($lease, $periodStart, $periodEnd, $prorate);
 
+        // ── A READ ANSWERS; A WRITE REFUSES (SW-052, 2026-09-04) ────────────────────────────
+        //
+        // `scheduleClash()` no longer throws out of the plan, because the plan is what four
+        // read-only screens render. The refusal belongs HERE, on the one path that would otherwise
+        // bill the same rent twice on one invoice — the same sentence, built in one place, so
+        // `billForPeriod()` still counts this lease as `failed` with the exception in the ops log
+        // rather than burying it in the ordinary `skipped` bucket.
+        if (($plan['reason'] ?? null) === 'schedule_conflict') {
+            throw new \DomainException((string) $plan['reason_detail']);
+        }
+
         if (! $plan['billable']) {
             return null;
         }
@@ -289,7 +300,7 @@ class MonthlyBillingService
      * `off_cycle`, `no_applicable_charges`) so the UI can say *why* nothing bills rather than
      * showing an unexplained blank.
      *
-     * @return array{billable:bool, reason:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
+     * @return array{billable:bool, reason:?string, reason_detail:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
      */
     /**
      * The abatement share for a window, or null when the rent-free period does not touch it.
@@ -475,6 +486,10 @@ class MonthlyBillingService
         $nothing = fn (string $reason): array => [
             'billable' => false,
             'reason' => $reason,
+            // Carries the clash sentence for `schedule_conflict`, and nothing else ever sets it.
+            // It exists so the WRITE path can re-throw the refusal this method used to throw from
+            // in here, with ONE wording rather than two — see `generateInvoiceForLease()`.
+            'reason_detail' => null,
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
             'issue_date' => null,
@@ -586,7 +601,11 @@ class MonthlyBillingService
             }
         }
 
-        $this->assertScheduleUnambiguous($lease, $applicableCharges, $periodStart);
+        // A plan is a READ, so an overlapping schedule is answered as a refusal reason rather than
+        // thrown — see `scheduleClash()`. `generateInvoiceForLease()` re-throws it on the write.
+        if (($clash = $this->scheduleClash($lease, $applicableCharges, $periodStart)) !== null) {
+            return ['reason_detail' => $clash] + $nothing('schedule_conflict');
+        }
 
         // The billable window inside this period: the lease's own dates clipped to it.
         $commencement = $lease->commencement_date
@@ -872,6 +891,7 @@ class MonthlyBillingService
         return [
             'billable' => true,
             'reason' => null,
+            'reason_detail' => null,
             'period_start' => $effectivePeriodStart,
             // The window actually billed, which is not the calendar period when the lease ends
             // inside it (MF-02). A final invoice that claims to cover a whole month it prorated
@@ -993,7 +1013,7 @@ class MonthlyBillingService
     }
 
     /**
-     * Exactly ONE recurring row per charge type may cover a billing period.
+     * Exactly ONE recurring row per charge type may cover a billing period — the clash, or null.
      *
      * A charge type is a date-ranged schedule now (ChargeScheduleService closes one row the day
      * before the next begins), so two rows covering the same month means the schedule has an
@@ -1001,15 +1021,30 @@ class MonthlyBillingService
      * old single-row world could not express that; this one can, and if it goes unnoticed the
      * tenant is billed the same rent twice on one invoice.
      *
-     * Refuse loudly instead. `runForPeriod()` catches per lease, so one broken schedule is one
-     * failed lease in the run summary — not a silent double charge, and not an aborted run.
+     * **It ANSWERS rather than throws (SW-052, 2026-09-04), and that is the whole of the fix.**
+     * It used to throw straight out of `planInvoiceForLease()`, which is a READ — and the docblock
+     * here claimed the blast radius was one lease because "`runForPeriod()` catches per lease".
+     * That was true of the two WRITE paths and of nothing else. Measured by enumerating the
+     * callers of that method at HEAD: `previewForPeriod()` loops it with no catch (so the Billing
+     * run preview AND, through `MonthEndReadinessService::…`, Month-end close readiness both die),
+     * and `LeaseBillingForecastService` loops it per month with no catch (so the lease's own
+     * Billing forecast tab dies, and `PortfolioRevenueForecastService` sums that, so the portfolio
+     * Revenue forecast dies with it). Every one of those is a screen an operator opens BECAUSE
+     * something is wrong, and the forecast tab is the one they would open to diagnose this very
+     * lease. Because this is a `DomainException` it renders as a toast and a redirect rather than
+     * an error page, so it reads as "the preview is broken" rather than "lease X has two rent rows".
+     *
+     * **The write still refuses loudly**: `generateInvoiceForLease()` re-throws this sentence
+     * verbatim, so a broken schedule is still one `failed` lease in the run summary with the
+     * exception in the ops log — not a silent double charge, not a silent skip, and not an aborted
+     * run. One wording, built in one place.
      *
      * One-off charges are exempt: several genuinely can land in one month (a CAM true-up, a
      * percentage-rent overage, a utility recharge), and they are not a schedule.
      *
      * @param  Collection<int, Charge>  $applicable
      */
-    private function assertScheduleUnambiguous(Lease $lease, $applicable, CarbonImmutable $periodStart): void
+    private function scheduleClash(Lease $lease, $applicable, CarbonImmutable $periodStart): ?string
     {
         $clashes = $applicable
             ->filter(fn (Charge $c) => $c->frequency !== 'one_time')
@@ -1017,17 +1052,17 @@ class MonthlyBillingService
             ->filter(fn ($rows) => $rows->count() > 1);
 
         if ($clashes->isEmpty()) {
-            return;
+            return null;
         }
 
         $detail = $clashes->map(fn ($rows, $type) => $type.' ('.$rows->pluck('id')->implode(', ').')')->implode('; ');
 
-        throw new \DomainException(__('admin.refusals.overlapping_charge_schedule', [
+        return (string) __('admin.refusals.overlapping_charge_schedule', [
             'reference' => $lease->reference,
             // Localised: `format('F Y')` is not, so an Arabic sentence carried an English month.
             'period' => $periodStart->locale(app()->getLocale())->isoFormat('MMMM YYYY'),
             'detail' => $detail,
-        ]));
+        ]);
     }
 
     /**

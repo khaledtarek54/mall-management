@@ -105,17 +105,24 @@ class ScanContractRenewalsCommand extends Command
             // Delivery failures warn but still stamp — the Action Required card reads
             // VendorContract::noticeDue() live, independently of this stamp, so a dropped
             // notification cannot make a due decision invisible.
-            try {
-                $recipients = app(AssetStaffRecipients::class)->for($contract->asset_id, ['manager', 'operations']);
-
-                if ($recipients->isNotEmpty()) {
-                    Notification::send($recipients, new VendorContractRenewalDueNotification($contract));
-                }
-            } catch (\Throwable $e) {
-                $this->warn("  delivery failed for contract #{$contract->id}: {$e->getMessage()}");
-            }
-
             $contract->forceFill(['renewal_alert_for' => $endDate])->save();
+
+            // After the commit, never under the lock (SW-213). `VendorContractRenewalDueNotification`
+            // is not `ShouldQueue` and mails as well as belling, so sent inside the transaction the
+            // X lock on `vendor_contracts` was held across a synchronous MailerSend round-trip per
+            // recipient. The `catch` travels with the `try`, or a deferred failure escapes it.
+            DB::afterCommit(function () use ($contract) {
+                try {
+                    $recipients = app(AssetStaffRecipients::class)->for($contract->asset_id, ['manager', 'operations']);
+
+                    if ($recipients->isNotEmpty()) {
+                        Notification::send($recipients, new VendorContractRenewalDueNotification($contract));
+                    }
+                } catch (\Throwable $e) {
+                    $this->warn("  delivery failed for contract #{$contract->id}: {$e->getMessage()}");
+                }
+            });
+
             $alerted++;
         });
     }

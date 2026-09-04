@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Models\FacilityWorkOrder;
 use App\Models\SlaPenalty;
 use App\Models\Vendor;
+use App\Support\ReportPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -35,6 +36,10 @@ class VendorScorecardService
      */
     public function for(CarbonImmutable $start, CarbonImmutable $end, ?int $assetId = null): Collection
     {
+        // The third report taking `ReportFilters::from()`/`to()`, and the same rule — an inverted
+        // window makes every `whereBetween` below match nothing, so every vendor scores zero jobs
+        // and zero breaches, which reads as a clean record. See ReportPeriod::orderedSpan().
+        [$start, $end] = ReportPeriod::orderedSpan($start, $end);
         $orders = FacilityWorkOrder::query()
             ->whereNotNull('vendor_id')
             ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))

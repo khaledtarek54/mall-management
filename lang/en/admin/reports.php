@@ -125,6 +125,7 @@ return [
         'fiscal_year' => 'Fiscal year',
         'full_year' => 'Full year',
         'property_scope' => 'Property',
+        'property_scope_registration' => 'All properties — filed per tax registration',
         'balance_check' => 'Balance check',
         'balanced' => 'Balanced',
         'not_balanced' => 'Not balanced',

@@ -7,6 +7,7 @@ use App\Support\DataTransferNotice;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
+use Illuminate\Database\Eloquent\Builder;
 
 class InvoiceExporter extends Exporter
 {
@@ -17,7 +18,7 @@ class InvoiceExporter extends Exporter
         return [
             ExportColumn::make('number')->label(__('admin.tables.invoice.number')),
             ExportColumn::make('tenant.name')->label(__('admin.tables.invoice.tenant')),
-            ExportColumn::make('lease.unit.code')->label(__('admin.tables.invoice.unit')),
+            ExportColumn::make('unit_code')->label(__('admin.tables.invoice.unit')),
             ExportColumn::make('period_start')->label(__('admin.filters.period_from')),
             ExportColumn::make('issue_date')->label(__('admin.filters.issued_from')),
             ExportColumn::make('due_date')->label(__('admin.tables.invoice.due_date')),
@@ -28,6 +29,22 @@ class InvoiceExporter extends Exporter
             ExportColumn::make('balance')->label(__('admin.tables.invoice.balance')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
         ];
+    }
+
+    /**
+     * Both agreements, eager-loaded, because `unit_code` resolves through whichever raised the row.
+     *
+     * The column used to be `lease.unit.code`, which Filament eager-loads for you and which wrote an
+     * EMPTY cell for every owner assessment. `unit_code` is `Invoice::unitCode()` and carries no
+     * relation path for Filament to infer, so the export has to say this itself — otherwise a
+     * 20,000-row register costs two extra queries a row.
+     *
+     * @param  Builder<Invoice>  $query
+     * @return Builder<Invoice>
+     */
+    public static function modifyQuery(Builder $query): Builder
+    {
+        return $query->with(['lease.unit', 'unitOwnership.unit']);
     }
 
     public static function getCompletedNotificationBody(Export $export): string

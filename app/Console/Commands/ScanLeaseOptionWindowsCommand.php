@@ -155,18 +155,23 @@ class ScanLeaseOptionWindowsCommand extends Command
             // Delivery failures warn but still stamp. The ActionRequired card reads the window
             // live and independently of these stamps, so a dropped email cannot make a deadline
             // invisible — the same rule the vendor-contract renewal scan follows.
-            try {
-                $recipients = app(AssetStaffRecipients::class)
-                    ->for($fresh->lease?->unit?->asset_id, ['manager', 'leasing']);
+            // After the commit, never under the lock (SW-213). The whole block moves, not just the
+            // send: resolving recipients is itself two queries, and the `catch` has to travel with
+            // the `try` or a deferred failure escapes the containment this scan depends on.
+            DB::afterCommit(function () use ($fresh, $event) {
+                try {
+                    $recipients = app(AssetStaffRecipients::class)
+                        ->for($fresh->lease?->unit?->asset_id, ['manager', 'leasing']);
 
-                if ($recipients->isNotEmpty()) {
-                    Notification::send($recipients, new LeaseOptionWindowNotification($fresh, $event));
+                    if ($recipients->isNotEmpty()) {
+                        Notification::send($recipients, new LeaseOptionWindowNotification($fresh, $event));
+                    }
+                } catch (Throwable $e) {
+                    OpsLog::warning('lease_option_scan.delivery_failed', [
+                        'option_id' => $fresh->id, 'error' => $e->getMessage(),
+                    ]);
                 }
-            } catch (Throwable $e) {
-                OpsLog::warning('lease_option_scan.delivery_failed', [
-                    'option_id' => $fresh->id, 'error' => $e->getMessage(),
-                ]);
-            }
+            });
 
             return true;
         });

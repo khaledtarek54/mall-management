@@ -82,6 +82,9 @@ class LeaseClausesRelationManager extends RelationManager
             TextInput::make('radius_km')
                 ->label(__('admin.fields.clause_radius_km'))
                 ->numeric()
+                // `km` stays verbatim: it is the SI symbol, not an English word, and this app
+                // already prints the SI symbol for square metre verbatim in eight places. The line
+                // is ISO code / SI symbol / punctuation verbatim, natural language translated.
                 ->suffix('km')
                 ->minValue(0)
                 ->visible(fn (Get $get) => LeaseClause::carriesNumber('radius_km', $get('type')))
@@ -90,7 +93,11 @@ class LeaseClausesRelationManager extends RelationManager
             TextInput::make('notice_days')
                 ->label(__('admin.fields.clause_notice_days'))
                 ->numeric()
-                ->suffix('days')
+                // A word, so it is translated — the lease form six fields away has used this exact
+                // key since EG-35. The Arabic-chrome gate sweeps getLabel() on columns, filters,
+                // actions, tabs and empty states, and an AFFIX is none of those, so the English
+                // word sat inside the Arabic form with nothing able to see it.
+                ->suffix(__('admin.fields.days'))
                 ->minValue(0)
                 // Any clause conferring a RIGHT tends to carry a notice period; the ones that
                 // describe a standing obligation (insurance, repairs, signage) do not.

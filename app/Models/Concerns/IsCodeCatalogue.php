@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use App\Http\Middleware\SetLocale;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use App\Models\RetailCategory;
@@ -83,7 +84,12 @@ trait IsCodeCatalogue
      */
     protected static function catalogueLocales(): array
     {
-        return (array) config('app.supported_locales', ['en', 'ar']);
+        // `SetLocale::SUPPORTED` — the ONE list. This read `config('app.supported_locales', …)`,
+        // and `config/app.php` defines no such key: measured 2026-09-04, the fallback was the only
+        // branch that had ever been taken, so the configuration point was inert while reading as
+        // real. Worse than inert, in fact — an operator who DID add the key would have taught this
+        // one method a language nothing else in the app knew.
+        return SetLocale::SUPPORTED;
     }
 
     /** Wire the flush. A model with its own `booted()` keeps it — this boots independently. */

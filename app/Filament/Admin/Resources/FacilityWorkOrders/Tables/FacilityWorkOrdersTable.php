@@ -584,7 +584,15 @@ class FacilityWorkOrdersTable
                             // charged there (ApplySlaPenaltyService re-checks server-side —
                             // this list is UX, that is the gate).
                             ->modifyOptionsQuery(fn ($query) => $query
-                                ->where('vendor_id', $record->vendor_id)
+                                // The PENALTY's vendor, not the ORDER's. `ApplySlaPenaltyService
+                                // ::assertBillEligible()` compares `$bill->vendor_id` against
+                                // `$penalty->vendor_id`, so keying the list on the order asked a
+                                // DIFFERENT question from its own gate — harmless only while the
+                                // two could never differ. Letting the edit form re-classify a job
+                                // is exactly what makes them differ: taking it back in-house nulls
+                                // `facility_work_orders.vendor_id` and left this required picker
+                                // empty with the penalty still chargeable.
+                                ->where('vendor_id', $record->penalty?->vendor_id)
                                 ->where('asset_id', $record->asset_id)
                                 ->whereNotIn('status', ['draft', 'cancelled'])
                                 ->where('balance', '>=', $record->penalty?->amount ?? 0))

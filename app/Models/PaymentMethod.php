@@ -9,6 +9,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\ValueSets;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -124,7 +125,47 @@ class PaymentMethod extends Model
      */
     protected static function booted(): void
     {
-        static::saving(fn (self $rail) => $rail->settlement_days ??= 0);
+        static::saving(function (self $rail): void {
+            $rail->settlement_days ??= 0;
+            self::assertMovesMoneyInSomeDirection($rail);
+        });
+    }
+
+    /**
+     * A rail has to move money in SOME direction, or it is a row nothing can ever offer.
+     *
+     * Both flags default true on the form and in `$attributes`, so this state is only reachable by
+     * deliberately un-ticking both — and the result is silent in the worst way. {@see inboundCodes()}
+     * and {@see outboundCodes()} each filter on their own flag, {@see optionsFor()} picks one of them
+     * per column, and `ValueSets` widens a column from the same two readers: so the rail is offered
+     * on NONE of the seven money columns, the saving listener would refuse the code even if a
+     * crafted payload sent it, and the register beside it goes on rendering **Active** — the one
+     * word that says the opposite.
+     *
+     * **Retiring a rail is `is_active`, and the two are not interchangeable.** An inactive rail is
+     * still LABELLED on every document that names it ({@see IsCodeCatalogue::labelFor()} reads
+     * inactive rows on purpose) and is still offered by `filterOptionsFor()` so those documents stay
+     * findable. Both directions off is not a retirement; it is a row that means nothing.
+     *
+     * **Only on a DIRTY write**, for the reason {@see BankAccount} gives for its own
+     * chart-account guard: refusing on every save would make an already-inert row uneditable, which
+     * is the `#[NeverDeletable]` trap — guarding a row a workflow legitimately touches breaks the
+     * workflow instead of protecting it. The way OUT of the state (ticking a direction) passes this
+     * guard, and renaming such a row still saves. Measured on `mall_management_qa` 2026-09-04: 0 of
+     * 11 rails have both directions off, and `PaymentMethodSeeder` writes none, so nothing an
+     * install already holds is affected.
+     */
+    private static function assertMovesMoneyInSomeDirection(self $rail): void
+    {
+        if ($rail->for_inbound || $rail->for_outbound) {
+            return;
+        }
+
+        if ($rail->exists && ! $rail->isDirty(['for_inbound', 'for_outbound'])) {
+            return;
+        }
+
+        throw new DomainException(__('admin.refusals.payment_method_moves_no_money'));
     }
 
     protected static function catalogueMemoKey(): string

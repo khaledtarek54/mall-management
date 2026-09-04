@@ -6,6 +6,7 @@ use App\Models\AccountingPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
+use App\Support\JournalNarrative;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -187,9 +188,27 @@ class JournalPostingService
      * swaps debit/credit, then marking the original 'void'. Both stay on the
      * books and net to zero. Idempotent — voiding a void is a no-op; a non-posted
      * (draft) entry cannot be voided.
+     *
+     * **What the reversal SAYS is a KEY, not prose (EG-36, SW-150).** This method built its
+     * narrative by concatenation, and every machine `$reason` reaching it is an English sentence —
+     * so the Arabic ledger read 'قيد عكسي للقيد JE-0519 — Superseded by an updated document.', one
+     * line in two languages on the register an auditor reads, with no wording fix able to reach a
+     * row already posted. It is the normal case, not an edge one: `LedgerPoster::sync()` voids and
+     * re-posts on EVERY re-derive.
+     *
+     * @param  string|null  $reason  Words a PERSON typed. Never translated — an operator's own
+     *                               explanation is evidence, the same rule LeaseEventNarrative
+     *                               states. What is translated is the sentence AROUND them.
+     * @param  string|null  $reasonKey  A JournalNarrative key, for a reason a PROGRAMMER wrote.
+     *                                  Anything hardcoded belongs here rather than in $reason.
+     * @param  array<string, string|int|float|null>  $reasonData  Placeholders for $reasonKey.
      */
-    public function void(JournalEntry $entry, ?string $reason = null): JournalEntry
-    {
+    public function void(
+        JournalEntry $entry,
+        ?string $reason = null,
+        ?string $reasonKey = null,
+        array $reasonData = [],
+    ): JournalEntry {
         if ($entry->status === 'void') {
             return $entry;
         }
@@ -199,17 +218,28 @@ class JournalPostingService
 
         $entry->loadMissing('lines');
 
-        return DB::transaction(function () use ($entry, $reason) {
+        [$narrativeKey, $narrativeData] = $this->reversalNarrative($entry, $reason, $reasonKey, $reasonData);
+
+        return DB::transaction(function () use ($entry, $reason, $narrativeKey, $narrativeData) {
             // Reverse into the original entry's period when it is still open (keeps
             // each period self-consistent); else into today's open period; else
             // refuse rather than silently shifting the books to another period.
             [$reversalDate, $period] = $this->reversalPeriod($entry);
 
+            // The prose columns stay as the floor (EG-36) — but written by RESOLVING the key in
+            // each language, so the Arabic snapshot is actually Arabic. These literals are the
+            // last-resort floor for a key that somehow does not resolve, and are exactly what this
+            // method wrote before SW-150.
+            $proseEn = 'Reversal of '.$entry->number.($reason ? ' — '.$reason : '');
+            $proseAr = 'قيد عكسي للقيد '.$entry->number.($reason ? ' — '.$reason : '');
+
             $reversal = JournalEntry::create([
                 'entry_date' => $reversalDate->toDateString(),
                 'accounting_period_id' => $period->id,
-                'description_en' => 'Reversal of '.$entry->number.($reason ? ' — '.$reason : ''),
-                'description_ar' => 'قيد عكسي للقيد '.$entry->number.($reason ? ' — '.$reason : ''),
+                'description_en' => JournalNarrative::resolve($narrativeKey, $narrativeData, $proseEn, $proseAr, 'en'),
+                'description_ar' => JournalNarrative::resolve($narrativeKey, $narrativeData, $proseEn, $proseAr, 'ar'),
+                'description_key' => $narrativeKey,
+                'description_data' => $narrativeData,
                 // A reversal inherits the original's closing flag — reversing a
                 // year-end closing entry must also stay out of the income statement.
                 'is_closing' => $entry->is_closing,
@@ -240,6 +270,34 @@ class JournalPostingService
 
             return $reversal->load('lines');
         });
+    }
+
+    /**
+     * What a reversal SAYS — the narrative KEY and its placeholders.
+     *
+     * Three shapes, and the order matters. A caller that states a KEY has written the reason in
+     * code, so it is translated. A caller that passes only a `$reason` is relaying words a PERSON
+     * typed, which are never translated — only the sentence around them is, which is why
+     * `reversal.reason` carries the typed string as a placeholder rather than trying to resolve it.
+     * Passing neither is legitimate too: an entry reversed with no explanation still needs a
+     * narrative, because a ledger line with no description reads as an entry nobody described.
+     *
+     * @param  array<string, string|int|float|null>  $reasonData
+     * @return array{0: string, 1: array<string, string|int|float|null>}
+     */
+    private function reversalNarrative(JournalEntry $entry, ?string $reason, ?string $reasonKey, array $reasonData): array
+    {
+        $data = ['number' => (string) $entry->number] + $reasonData;
+
+        if ($reasonKey !== null) {
+            return [$reasonKey, $data];
+        }
+
+        if (filled($reason)) {
+            return ['reversal.reason', $data + ['reason' => $reason]];
+        }
+
+        return ['reversal.posted', $data];
     }
 
     /**

@@ -132,19 +132,26 @@ class ScanVendorDocumentExpiryCommand extends Command
             // mail channel sends in-process. Warn and carry on — the dashboard card surfaces the
             // same set live off Vendor::documentsNeedAttention(), independently of this stamp, so
             // a dropped notification can't make a lapsing document invisible.
-            try {
-                $recipients = $this->recipientsFor($document);
-
-                if ($recipients->isNotEmpty()) {
-                    Notification::send($recipients, new VendorDocumentExpiringNotification($document, $stage));
-                }
-            } catch (\Throwable $e) {
-                $this->warn("  delivery failed for document #{$document->id}: {$e->getMessage()}");
-            }
-
             // Stamped even when nobody is assigned to the engaged properties — otherwise an
             // unstaffed portfolio would re-alert on every run forever.
             $document->forceFill(['alert_stage' => $stage, 'alert_for' => $expiry])->save();
+
+            // …and delivered AFTER the commit, never under the lock (SW-213). The comment above
+            // already said the mail channel "sends in-process"; what it did not say is that it was
+            // doing so while holding an X lock on `vendor_documents`. The `catch` travels with the
+            // `try`, or a deferred failure escapes the containment.
+            DB::afterCommit(function () use ($document, $stage) {
+                try {
+                    $recipients = $this->recipientsFor($document);
+
+                    if ($recipients->isNotEmpty()) {
+                        Notification::send($recipients, new VendorDocumentExpiringNotification($document, $stage));
+                    }
+                } catch (\Throwable $e) {
+                    $this->warn("  delivery failed for document #{$document->id}: {$e->getMessage()}");
+                }
+            });
+
             $alerted++;
         });
     }

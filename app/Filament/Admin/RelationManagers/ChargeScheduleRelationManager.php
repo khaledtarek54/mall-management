@@ -293,6 +293,16 @@ class ChargeScheduleRelationManager extends RelationManager
                                 ->all())
                             ->default('monthly')
                             ->required()
+                            // Live because the "does not prorate" toggle below is conditioned on
+                            // this value, and a condition reading a field that never syncs is
+                            // frozen at whatever the field held when the modal opened. It defaults
+                            // to `monthly`, so the toggle was visible on open and then never went
+                            // away: an operator switching to quarterly could still tick it, and
+                            // the write below stores `prorate => false` on a row the rule was
+                            // never meant to reach — against the comment beside that write saying
+                            // "the toggle is only offered for a monthly row". Measured 2026-09-04
+                            // (the sibling half of SW-190).
+                            ->live()
                             ->native(false),
                         Select::make('billing_timing')
                             ->label(__('admin.fields.billing_timing'))

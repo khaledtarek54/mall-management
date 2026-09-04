@@ -11,6 +11,7 @@ use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
+use App\Support\StatementIntegrity;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
@@ -83,9 +84,7 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
      */
     public function getSubheading(): ?string
     {
-        return $this->report()['reconciled']
-            ? __('admin.reports.cash_flow_reconciled')
-            : __('admin.reports.cash_flow_unreconciled');
+        return StatementIntegrity::cashFlow((bool) $this->report()['reconciled']);
     }
 
     public static function getNavigationLabel(): string

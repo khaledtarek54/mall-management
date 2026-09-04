@@ -133,10 +133,11 @@ class VendorsTable
                     ->label(__('admin.filters.contract_notice_due'))
                     ->query(fn (Builder $query): Builder => $query->whereHas(
                         'contracts',
-                        fn ($q) => $q->noticeDue()->when(
-                            TenantScope::visibleAssetIds(),
-                            fn ($c, $ids) => $c->whereIn('asset_id', $ids),
-                        ),
+                        // `inProperties()`, never a bare `whereIn`: a null `asset_id` is a
+                        // PORTFOLIO-WIDE contract covering every mall and `whereIn` never matches
+                        // NULL, so the chase list silently omitted exactly the contracts that affect
+                        // all of them. One definition, shared with the card and the badge (SW-084).
+                        fn ($q) => $q->noticeDue()->inProperties(TenantScope::visibleAssetIds()),
                     ))
                     ->toggle(),
                 TrashedFilter::make(),

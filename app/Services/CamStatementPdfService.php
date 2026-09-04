@@ -39,6 +39,19 @@ class CamStatementPdfService
      */
     public function build(CamAllocation $allocation, ?string $locale = null): string
     {
+        return $this->document($allocation, $locale)->render();
+    }
+
+    /**
+     * The configured document, before mpdf touches it.
+     *
+     * Split from {@see build()} for the reason `InvoicePdfService::document()` was: a test that has
+     * to inflate a PDF's compressed streams to find out whether the settlement block prints its VAT
+     * will not be written, and the one written instead rebuilds the view data in the test and proves
+     * only that the test agrees with itself.
+     */
+    public function document(CamAllocation $allocation, ?string $locale = null): PdfDocument
+    {
         $allocation->loadMissing(['pool.asset', 'lease.tenant', 'lease.unit.asset', 'lease.units']);
 
         // Both parents SOFT-DELETE, so either relation genuinely returns null at runtime for a
@@ -81,8 +94,7 @@ class CamStatementPdfService
                 ...IssuingEntity::forView($asset),
             ])
             ->reference($lease?->reference ?? $ownership?->reference)
-            ->bleed()
-            ->render();
+            ->bleed();
     }
 
     /**
@@ -118,6 +130,28 @@ class CamStatementPdfService
 
         $trueUp = (float) $allocation->true_up_amount;
 
+        // ── THE VAT THE DOCUMENTS ACTUALLY CARRY ────────────────────────────────────────────
+        //
+        // A positive true-up is recovered on an invoice (`CamReconciliationService::
+        // billChargeImmediately()`) and a negative one is credited on a credit note
+        // (`billCredit()`); BOTH put the pool's `recovery_vat_rate` on top of the net figure, and
+        // that column ships `default(14.00)`. This method summed the true-up, the management fee
+        // and the fee's VAT and stopped, so the last line of the document a tenant audits was not
+        // the amount they were asked for. Read at HEAD: a 50,000 shortfall with a 10% management
+        // fee printed a 61,400.00 "Total now due" against a recovery invoice of 68,400.00, and the
+        // mirror case printed a 38,600.00 net credit where the credit note less the fee invoice is
+        // 45,600.00. `explainAllocation()` — the OPERATOR'S breakdown modal — had it right the
+        // whole time, which is why nobody held the two against each other.
+        //
+        // Exactly one of these two is non-zero, and both go through the one definition on the
+        // allocation so a fifth reader cannot arrive at a fifth answer.
+        $recovery = max($trueUp, 0.0);
+        $credit = max(-$trueUp, 0.0);
+        $recoveryVat = $allocation->recoveryVatOn($recovery);
+        $creditVat = $allocation->recoveryVatOn($credit);
+        $fee = (float) $allocation->admin_fee_amount;
+        $feeVat = (float) $allocation->admin_fee_vat_amount;
+
         return [
             'year' => (int) ($pool?->period_year ?? 0),
             'pool_total' => (float) ($pool?->total_actual_expense ?? 0),
@@ -141,22 +175,36 @@ class CamStatementPdfService
             'denominator_basis' => $pool?->denominator_basis ?? CamExpensePool::DENOMINATOR_OCCUPIED,
             // A share the contract NAMED rather than one derived from area — the tenant should see
             // which of the two they are reading.
-            'share_is_stated' => $lease?->statedCamSharePct((int) ($pool?->period_year ?? 0)) !== null,
+            // WITH THE POOL CODE (SW-169). `03133a13` made a cap and a stated share belong to a
+            // recovery POOL rather than to a year and routed the reconciliation, the relation
+            // manager and the model through it — and missed the two calls in this file, so the
+            // DOCUMENT resolved `camTermFor($year, null)`: the portfolio-wide fallback term, not
+            // the one the calculation beside it used. A share the contract NAMED then printed as
+            // one derived from floor area, which is a different argument in a dispute.
+            'share_is_stated' => $lease?->statedCamSharePct((int) ($pool?->period_year ?? 0), $pool?->pool_code) !== null,
             'share_pct' => $share,
             'allocated' => (float) $allocation->allocated_amount,
             'cap_amount' => $allocation->cap_amount !== null ? (float) $allocation->cap_amount : null,
             'capped_cost' => $capped,
             'cap_absorbed' => (float) $allocation->cap_absorbed_amount,
-            'cap_scope' => $lease?->camCapScope((int) ($pool?->period_year ?? 0)) ?? 'total',
+            // Same omission, and this one silently drops the note explaining that only CONTROLLABLE
+            // cost was capped — the clause that decided the number the tenant is reading.
+            'cap_scope' => $lease?->camCapScope((int) ($pool?->period_year ?? 0), $pool?->pool_code) ?? 'total',
             'cap_headroom_used' => (float) $allocation->cap_headroom_used,
             'cap_headroom_banked' => (float) $allocation->cap_headroom_banked,
             'estimated_paid' => (float) $allocation->estimated_paid,
             'true_up' => $trueUp,
             'true_up_is_credit' => $trueUp < 0,
             'admin_fee_pct' => (float) ($pool?->admin_fee_pct ?? 0) * 100,
-            'admin_fee' => (float) $allocation->admin_fee_amount,
-            'admin_fee_vat' => (float) $allocation->admin_fee_vat_amount,
-            'total_due' => round(max($trueUp, 0) + (float) $allocation->admin_fee_amount + (float) $allocation->admin_fee_vat_amount, 2),
+            'admin_fee' => $fee,
+            'admin_fee_vat' => $feeVat,
+            'recovery_vat_rate' => $allocation->recoveryVatRate(),
+            'recovery_vat' => $recoveryVat + $creditVat,
+            'total_due' => round($recovery + $recoveryVat + $fee + $feeVat, 2),
+            // The credit side's arithmetic lived in the TEMPLATE, which is how it came to be the
+            // half still wrong after the recovery side had been looked at. This method's own
+            // contract is "derived once so the view stays a layout" — so it is derived here.
+            'net_credit' => round($credit + $creditVat - $fee - $feeVat, 2),
             'exclusions' => is_array($allocation->exclusions) ? $allocation->exclusions : [],
             'proposed_estimate' => $allocation->proposed_monthly_estimate !== null
                 ? (float) $allocation->proposed_monthly_estimate

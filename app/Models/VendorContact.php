@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Filament\Vendor\Auth\EditProfile;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
+use Illuminate\Contracts\Database\Query\Builder as QueryContract;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -67,10 +69,33 @@ class VendorContact extends Authenticatable implements CanResetPasswordContract,
         return $this->belongsTo(Vendor::class);
     }
 
+    /**
+     * **The rows a login email must be unique AMONG** — `is_portal_user = true`, and nothing else.
+     *
+     * ONE expression, because the same question is asked in two different shapes: as an Eloquent
+     * scope by this model's own `saving` guard below, and as a raw query-builder clause by the
+     * contractor profile form's `unique` rule ({@see EditProfile}).
+     * Written out twice they drifted immediately — Filament's stock profile page enforced
+     * uniqueness across the WHOLE table (measured 2026-09-04: `Rule::unique(VendorContact::class,
+     * 'email')->ignore(7, 'id')` renders `unique:vendor_contacts,email,"7",id`), refusing an address
+     * this system deliberately allows, and refusing the password change beside it.
+     *
+     * Typed to the query-builder CONTRACT so both shapes fit:
+     * `Illuminate\Contracts\Database\Eloquent\Builder` extends
+     * `Illuminate\Contracts\Database\Query\Builder`, so an Eloquent builder and the raw builder
+     * Laravel's presence verifier hands a `Unique` closure both satisfy it.
+     */
+    public static function constrainToLogins(QueryContract $query): QueryContract
+    {
+        return $query->where('is_portal_user', true);
+    }
+
     /** Contacts who can actually sign in. */
     public function scopePortalUsers(Builder $query): Builder
     {
-        return $query->where('is_portal_user', true);
+        self::constrainToLogins($query);
+
+        return $query;
     }
 
     /**
@@ -126,11 +151,13 @@ class VendorContact extends Authenticatable implements CanResetPasswordContract,
                 return;
             }
 
-            $clash = static::query()
+            $contenders = static::query()
                 ->where('email', $contact->email)
-                ->where('is_portal_user', true)
-                ->whereKeyNot($contact->getKey() ?? 0)
-                ->exists();
+                ->whereKeyNot($contact->getKey() ?? 0);
+
+            static::constrainToLogins($contenders);
+
+            $clash = $contenders->exists();
 
             if ($clash) {
                 throw ValidationException::withMessages([

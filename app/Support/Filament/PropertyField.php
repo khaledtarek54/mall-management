@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Support\TenantScope;
 use Closure;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -267,6 +268,38 @@ class PropertyField
                 : null);
 
         return $afterStateUpdated !== null ? $field->afterStateUpdated($afterStateUpdated) : $field;
+    }
+
+    /**
+     * The scope control for a return filed per TAX REGISTRATION — a statement, not a picker.
+     *
+     * {@see reportScope()} pins to the mall in the switcher because a property-scoped statement
+     * really is answered for one mall. The two statutory returns are not: `VatReturn::report()` and
+     * `WithholdingTaxReturn::report()` each hand their service a NULL asset, deliberately and with
+     * the reason written beside it — one registration covers the portfolio, and there is no
+     * per-mall VAT return to file.
+     *
+     * So the pin named the wrong thing, which is the SAME failure `reportScope()` was built to end,
+     * arriving through the other door. Measured 2026-09-04 with two malls seeded and the first one
+     * in the switcher: the VAT return's filter strip read *"Property: <that mall>"* while
+     * `report()['input_vat']` carried the OTHER mall's 1,400. Right figures, wrong caption — and
+     * nobody re-checks a total they believe they asked for.
+     *
+     * **A statement rather than nothing.** Every screen in this panel is property-scoped, so a
+     * return showing no scope control at all would be read as inheriting the mall in the switcher:
+     * the same wrong answer, told by silence instead of by a caption.
+     *
+     * Keyed `assetId` like its sibling so the one gate over these strips looks both up in the same
+     * place, and disabled because there is nothing here for anyone to change.
+     */
+    public static function registrationScope(string $name = 'assetId'): Select
+    {
+        return Select::make($name)
+            ->label(__('admin.reports.property_scope'))
+            ->placeholder(__('admin.reports.property_scope_registration'))
+            ->disabled()
+            ->native(false)
+            ->helperText(__('admin.helpers.property_registration_scope'));
     }
 
     /** True when the panel is standing in one real mall — i.e. whenever the pin applies. */

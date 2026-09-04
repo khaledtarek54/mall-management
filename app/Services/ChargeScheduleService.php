@@ -299,7 +299,7 @@ class ChargeScheduleService
         $from = self::billingBoundary($from);
         // The window ends at a MONTH boundary too: the engine bills one amount per type per month,
         // so a window ending on the 10th would leave that month covered by both the relief row and
-        // the resumed one — the ambiguity `assertScheduleUnambiguous()` refuses.
+        // the resumed one — the ambiguity `MonthlyBillingService::scheduleClash()` refuses.
         $to = $to->endOfMonth();
 
         if ($to->lessThan($from)) {
@@ -654,7 +654,7 @@ class ChargeScheduleService
      *
      * The billing engine bills **one amount per charge type per month**, so a row that starts on
      * the 15th would leave that month covered by two rows — genuinely ambiguous, and exactly what
-     * `MonthlyBillingService::assertScheduleUnambiguous()` refuses. Snapping means a schedule
+     * `MonthlyBillingService::scheduleClash()` refuses. Snapping means a schedule
      * change never splits a month.
      *
      * It also **reproduces the old behaviour exactly**, which is the point: overwriting an amount

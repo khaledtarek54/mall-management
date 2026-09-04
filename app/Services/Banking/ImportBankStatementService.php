@@ -4,6 +4,7 @@ namespace App\Services\Banking;
 
 use App\Models\BankStatement;
 use App\Models\BankStatementLine;
+use App\Support\CsvAmount;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -99,8 +100,9 @@ class ImportBankStatementService
     /**
      * Parse a CSV into the row shape {@see import()} wants.
      *
-     * Deliberately forgiving about HEADINGS and strict about VALUES: Egyptian bank exports disagree
-     * about what a column is called and agree about what a date and an amount look like. A
+     * Deliberately forgiving about HEADINGS: Egyptian bank exports disagree about what a column is
+     * called. They disagree about what an AMOUNT looks like too, and that is {@see CsvAmount}'s
+     * question rather than this one's — answering it here is how '1,234,567' imported as 1.234. A
      * debit/credit pair is folded into one signed amount here, so nothing downstream ever sees two
      * columns that can contradict each other.
      *
@@ -151,11 +153,11 @@ class ImportBankStatementService
             $get = fn (?int $i) => $i === null ? null : trim((string) ($cells[$i] ?? ''));
 
             if ($amountAt !== null && $get($amountAt) !== '') {
-                $amount = self::toFloat($get($amountAt));
+                $amount = CsvAmount::parse($get($amountAt));
             } else {
                 // Debit/credit pair → one signed number. Money out is negative, so the statement's
                 // own arithmetic (opening + Σ = closing) holds with no further sign handling.
-                $amount = self::toFloat($get($creditAt)) - self::toFloat($get($debitAt));
+                $amount = CsvAmount::parse($get($creditAt)) - CsvAmount::parse($get($debitAt));
             }
 
             $rows[] = [
@@ -163,35 +165,10 @@ class ImportBankStatementService
                 'amount' => $amount,
                 'reference' => $get($refAt) ?: null,
                 'description' => $get($descAt) ?: null,
-                'running_balance' => $balAt !== null && $get($balAt) !== '' ? self::toFloat($get($balAt)) : null,
+                'running_balance' => $balAt !== null && $get($balAt) !== '' ? CsvAmount::parse($get($balAt)) : null,
             ];
         }
 
         return $rows;
-    }
-
-    /** "1,234.56", "(1,234.56)" and "1 234,56" all mean a number to a bank export. */
-    private static function toFloat(?string $value): float
-    {
-        $value = trim((string) $value);
-        if ($value === '') {
-            return 0.0;
-        }
-
-        $negative = str_starts_with($value, '(') && str_ends_with($value, ')');
-        $value = trim($value, '()');
-        $value = preg_replace('/[^\d,.\-]/u', '', $value) ?? '';
-
-        // A comma is a thousands separator when a dot is present too, and a decimal point when it is
-        // the only separator — the difference between 1,234.56 and 1234,56.
-        if (str_contains($value, '.') && str_contains($value, ',')) {
-            $value = str_replace(',', '', $value);
-        } elseif (str_contains($value, ',') && ! str_contains($value, '.')) {
-            $value = str_replace(',', '.', $value);
-        }
-
-        $number = (float) $value;
-
-        return $negative ? -abs($number) : $number;
     }
 }

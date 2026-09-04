@@ -1,11 +1,6 @@
 <?php
 
-use App\Filament\Admin\Pages\BalanceSheet;
-use App\Filament\Admin\Pages\CashFlow;
-use App\Filament\Admin\Pages\GeneralLedger;
-use App\Filament\Admin\Pages\IncomeStatement;
-use App\Filament\Admin\Pages\TrialBalance;
-use App\Filament\Admin\Pages\VatReturn;
+use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Support\Filament\PropertyField;
 use App\Support\PropertyIsolation;
@@ -201,11 +196,29 @@ it('pins the property scope on every financial statement', function () {
 
     $offenders = [];
 
+    // DERIVED from disk, never re-listed. The list here named six of the seven pages on the concern,
+    // and the one it missed — WithholdingTaxReturn — was the second of the two whose control was
+    // wrong. A gate that re-lists what it guards cannot see what the list omits.
+    $pages = collect(glob(app_path('Filament/Admin/Pages/*.php')) ?: [])
+        ->map(fn (string $file): string => 'App\\Filament\\Admin\\Pages\\'.basename($file, '.php'))
+        ->filter(fn (string $page): bool => in_array(ScopesLedgerReport::class, class_uses_recursive($page), true))
+        ->values();
+
+    $perRegistration = 0;
+
     try {
-        foreach ([TrialBalance::class, BalanceSheet::class, IncomeStatement::class, CashFlow::class, VatReturn::class, GeneralLedger::class] as $page) {
+        foreach ($pages as $page) {
             $component = Livewire::test($page);
-            $field = $component->instance()->filtersForm(app(Schema::class)->livewire($component->instance()))
+            $instance = $component->instance();
+            $field = $instance->filtersForm(app(Schema::class)->livewire($instance))
                 ->getComponent('assetId');
+
+            // A return filed per REGISTRATION reports the whole portfolio, so its control must name
+            // NO mall and the page must not be carrying one either — a pinned id there is what a
+            // saved view and a shared link would hand on as the property the figures came from.
+            $filedPerRegistration = $instance->isFiledPerRegistration();
+            $perRegistration += $filedPerRegistration ? 1 : 0;
+            $expected = $filedPerRegistration ? null : $mall->id;
 
             $faults = [];
             if ($field === null) {
@@ -214,8 +227,8 @@ it('pins the property scope on every financial statement', function () {
                 if (! $field->isDisabled()) {
                     $faults[] = 'editable';
                 }
-                if ((int) $component->instance()->assetId !== $mall->id) {
-                    $faults[] = 'assetId is '.var_export($component->instance()->assetId, true).', not the selected mall';
+                if ($instance->assetId !== $expected) {
+                    $faults[] = 'assetId is '.var_export($instance->assetId, true).', not '.var_export($expected, true);
                 }
             }
 
@@ -227,9 +240,15 @@ it('pins the property scope on every financial statement', function () {
         Filament::setTenant(null, isQuiet: true);
     }
 
+    // The premise, asserted rather than assumed: a sweep that found no pages, or none of either
+    // kind, would report a clean panel having examined nothing.
+    expect($pages->count())->toBeGreaterThan(5, 'The sweep found no ledger reports, so it proves nothing.')
+        ->and($perRegistration)->toBeGreaterThan(0, 'No per-registration return was swept, so that arm proves nothing.');
+
     expect($offenders)->toBe(
         [],
-        'These statements still ask which property to report on. reportAssetIds() clamps every '
+        'These statements still ask which property to report on — or, on a return filed per tax '
+            .'registration, name a mall its figures never used. reportAssetIds() clamps every '
             .'answer back to the selected mall, so the control changes the caption and not the '
             .'figures: '.implode(', ', $offenders),
     );

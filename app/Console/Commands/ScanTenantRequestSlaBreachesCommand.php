@@ -81,8 +81,13 @@ class ScanTenantRequestSlaBreachesCommand extends Command
                         return false;
                     }
 
-                    Notification::send($recipients, new TenantRequestSlaBreachedNotification($locked));
                     $locked->forceFill(['sla_breach_notified_at' => now()])->save();
+
+                    // After the commit, never under the lock (SW-213). This notification is not
+                    // `ShouldQueue` and its `via()` is `['mail', 'database']`, so sent inside the
+                    // transaction the X lock on `tenant_requests` is held across one synchronous
+                    // MailerSend round-trip per recipient — on the board a technician is working.
+                    DB::afterCommit(fn () => Notification::send($recipients, new TenantRequestSlaBreachedNotification($locked)));
 
                     return true;
                 });

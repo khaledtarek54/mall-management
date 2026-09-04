@@ -108,6 +108,15 @@ final class BillingRefusal
                 'body' => __('admin.actions.run_in_progress_body'),
                 'danger' => false,
             ],
+            // Two live rows of one charge type cover this period, so the invoice cannot be raised
+            // without billing the tenant twice (SW-052). A refusal, not a fault — the schedule is
+            // wrong and the operator can put it right — so it is not painted red, on the same
+            // reading that keeps `exception` the only DANGER in this table.
+            'schedule_conflict' => [
+                'title' => __('admin.actions.schedule_conflict_title'),
+                'body' => __('admin.actions.schedule_conflict_body', ['period' => $month]),
+                'danger' => false,
+            ],
             // `exception`, and anything a future branch of the service returns before it is worded
             // here. The fallback is the failure wording rather than a guess, because an unknown
             // code is exactly the case where telling the operator what to do next would be made up.

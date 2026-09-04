@@ -105,6 +105,11 @@ class FacilityWorkOrderForm
                 ->label(__('admin.facility.fields.est_labour_hours'))
                 ->numeric()
                 ->minValue(0)
+                // A ceiling, because without one a mistyped figure is a 500 rather than a message:
+                // the column is `decimal(8,2)` and MySQL answers an overflow with
+                // `SQLSTATE[22003] … 1264 Out of range value`. The number lives on the model that
+                // owns the column — see `FacilityWorkOrder::MAX_EST_LABOUR_HOURS`.
+                ->maxValue(FacilityWorkOrder::MAX_EST_LABOUR_HOURS)
                 ->helperText(__('admin.facility.help.est_labour_hours'))
                 ->disabled($locked),
 
@@ -150,6 +155,58 @@ class FacilityWorkOrderForm
                 ->searchable()
                 ->native(false)
                 ->disabled($locked),
+            // **WHICH SIDE THE JOB IS ON — the classification this form never asked for, while
+            // offering both of its answers.**
+            //
+            // `execution_type` is the corrective classification (FR-CM-02) and `FacilityWorkOrder`
+            // enforces it as a real XOR: an internal job may not also name a vendor, an external
+            // one may not also name a technician. This form had no control for it AT ALL and
+            // rendered both assignee pickers unconditionally, so the ordinary act — an in-house
+            // job that turns out to need a contractor — was a dead end in both directions.
+            //
+            // MEASURED 2026-09-04 (throwaway probe on a fresh sqlite schema, since deleted):
+            // create a `cm` with `execution_type = internal` carrying a technician, then
+            // `update(['vendor_id' => …])` exactly as this form does, and the model throws
+            //   InvalidArgumentException: An internal corrective work order is handled in-house;
+            //   it cannot also name a vendor.
+            // That is not a `DomainException`, so `bootstrap/app.php` renders the 500 PAGE and the
+            // operator loses the form they filled in. Sending the new classification alongside it
+            // does not help either — the technician is still on the row, so the mirror refusal
+            // fires. Both halves reproduced.
+            //
+            // Only a CORRECTIVE order is classified, and that is load-bearing:
+            // `FacilityWorkOrder::saving()` returns before the XOR for a preventive order, which
+            // legitimately carries a department AND a vendor at once, so a PPM job keeps both
+            // pickers exactly as it had them.
+            Select::make('execution_type')
+                ->label(__('admin.facility.fields.execution_type'))
+                ->options(fn () => __('admin.facility.execution_types'))
+                ->helperText(__('admin.facility.help.execution_type'))
+                ->required()
+                ->native(false)
+                // Live, so the two pickers below follow the answer while it is being typed — the
+                // shape `CorrectiveWorkOrderForm` already uses at origination, for the reason it
+                // states there: "a form that offered both would just produce an error the user
+                // can't act on".
+                ->live()
+                // Clearing the excluded side is not cosmetic. Both pickers below are
+                // `dehydratedWhenHidden()`, and Filament VALIDATES a hidden field that is still
+                // dehydrated (`Schemas\Components\Concerns\HasState::isNeitherDehydratedNor
+                // Validated()` returns false once `isDehydratedWhenHidden()` is true) — so a
+                // technician left in state would be checked against `technicianOptions()`, which
+                // excludes staff since re-assigned to another mall: a validation error on a field
+                // the operator can no longer see.
+                ->afterStateUpdated(function (?string $state, Set $set): void {
+                    if ($state === FacilityWorkOrder::EXECUTION_EXTERNAL) {
+                        $set('assigned_to_user_id', null);
+                    }
+
+                    if ($state === FacilityWorkOrder::EXECUTION_INTERNAL) {
+                        $set('vendor_id', null);
+                    }
+                })
+                ->visible(fn ($record) => $record instanceof FacilityWorkOrder && $record->isCorrective())
+                ->disabled($locked),
             // **WHO IS DOING IT — and this form had no way to say so after creation.**
             // `assigned_to_user_id` existed on the model, drove `notifyAssignee()` and was rendered
             // on the CORRECTIVE form only, i.e. at creation from a tenant request. So a job could
@@ -168,6 +225,19 @@ class FacilityWorkOrderForm
                 ))
                 ->searchable()
                 ->native(false)
+                ->visible(fn ($record, Get $get) => self::executionType($record, $get) !== FacilityWorkOrder::EXECUTION_EXTERNAL)
+                // **HIDING IS NOT CLEARING.** A hidden component is not dehydrated at all
+                // (`HasState::isDehydrated()` is false unless `dehydratedWhenHidden()`), so
+                // re-classifying the job would DROP this key from the payload, leave the technician
+                // standing on the row and hit the mirror refusal — the trap the bank-account rail
+                // field records. So it is dehydrated when hidden, and nulled SERVER-SIDE here:
+                // `afterStateUpdated` above is a browser round-trip and never a gate, because the
+                // Livewire payload still carries whatever the client put in it. Same rule
+                // `RaiseCorrectiveWorkOrderService::create()` applies at origination.
+                ->dehydratedWhenHidden()
+                ->dehydrateStateUsing(fn ($state, $record, Get $get) => self::executionType($record, $get) === FacilityWorkOrder::EXECUTION_EXTERNAL
+                    ? null
+                    : $state)
                 ->disabled($locked),
             Select::make('vendor_id')
                 ->label(__('admin.facility.fields.vendor'))
@@ -180,6 +250,12 @@ class FacilityWorkOrderForm
                 ))
                 ->searchable()
                 ->native(false)
+                ->visible(fn ($record, Get $get) => self::executionType($record, $get) !== FacilityWorkOrder::EXECUTION_INTERNAL)
+                // The mirror of the technician picker above, for the same two reasons.
+                ->dehydratedWhenHidden()
+                ->dehydrateStateUsing(fn ($state, $record, Get $get) => self::executionType($record, $get) === FacilityWorkOrder::EXECUTION_INTERNAL
+                    ? null
+                    : $state)
                 ->disabled($locked),
             Textarea::make('notes')
                 ->label(__('admin.facility.fields.notes'))
@@ -205,6 +281,31 @@ class FacilityWorkOrderForm
                 ->maxFiles(10)
                 ->columnSpanFull(),
         ]);
+    }
+
+    /**
+     * The classification this save will be judged against — the live form state where the operator
+     * has stated one, the stored column otherwise.
+     *
+     * Null for anything that is NOT corrective, which is the load-bearing half:
+     * {@see FacilityWorkOrder::saving()} returns before the XOR for a preventive order, and a PPM
+     * job legitimately carries a department AND a vendor at once, so both pickers must stay.
+     *
+     * `mixed $record` deliberately — a schema resolves `$record` by NAME and it is null on a
+     * create page, so a typed parameter buys nothing and pushes resolution down the by-TYPE path.
+     */
+    private static function executionType(mixed $record, Get $get): ?string
+    {
+        if (! $record instanceof FacilityWorkOrder || ! $record->isCorrective()) {
+            return null;
+        }
+
+        $state = $get('execution_type');
+
+        // A cleared Select sends '', which is not an answer. Falling back to the row rather than
+        // reading a blank as "neither" matters: "neither" would show BOTH pickers again and
+        // re-open exactly the combination this closes.
+        return is_string($state) && $state !== '' ? $state : $record->execution_type;
     }
 
     /**

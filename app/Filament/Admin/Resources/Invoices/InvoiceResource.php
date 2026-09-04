@@ -136,7 +136,9 @@ class InvoiceResource extends Resource
     {
         return [
             __('admin.tables.invoice.tenant') => $record->tenant?->name,
-            __('admin.tables.invoice.unit') => $record->lease?->unit?->code,
+            // Through whichever agreement raised it — an owner assessment holds its unit on the
+            // OWNERSHIP, so this line was blank for all 42 of them on the QA books (2026-09-04).
+            __('admin.tables.invoice.unit') => $record->unit_code,
             __('admin.tables.invoice.balance') => 'EGP '.number_format((float) $record->balance, 2),
             __('admin.tables.common.status') => __("admin.statuses.invoice.{$record->status}"),
         ];
@@ -144,6 +146,6 @@ class InvoiceResource extends Resource
 
     public static function getGlobalSearchEloquentQuery(): Builder
     {
-        return parent::getGlobalSearchEloquentQuery()->with(['tenant', 'lease.unit']);
+        return parent::getGlobalSearchEloquentQuery()->with(['tenant', 'lease.unit', 'unitOwnership.unit']);
     }
 }

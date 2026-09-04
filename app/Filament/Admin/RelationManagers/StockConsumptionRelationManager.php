@@ -13,7 +13,6 @@ use App\Support\Modules;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -84,12 +83,24 @@ class StockConsumptionRelationManager extends RelationManager
                         && TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->authorize(fn () => auth()->user()?->can('inventory.create') ?? false)
                     ->schema([
-                        Select::make('warehouse_id')
+                        // The shared record picker, like the item picker directly below it
+                        // (SW-196): the folded blob search, a two-line option, and the property
+                        // scope DERIVED from `PropertyIsolation` instead of written out again.
+                        // Narrowed further to the TICKET's own mall — a storeman on a job in one
+                        // building must not be offered another building's store.
+                        EntitySelect::make('warehouse_id')
                             ->label(__('admin.inventory.fields.warehouse'))
-                            ->options(fn (RelationManager $livewire) => $this->warehouseOptions($livewire->getOwnerRecord()))
-                            ->required()
-                            ->searchable()
-                            ->native(false),
+                            ->entity(Warehouse::class)
+                            // `$livewire` untyped and by that exact name: Filament's evaluate()
+                            // matches an untyped closure parameter by NAME, and a typed one goes
+                            // down a different resolution path.
+                            ->modifyOptionsQuery(fn ($query, $livewire) => $query
+                                ->where('is_active', true)
+                                ->when(
+                                    $livewire->getOwnerRecord()->unit?->asset_id,
+                                    fn ($scoped, $assetId) => $scoped->where('asset_id', $assetId),
+                                ))
+                            ->required(),
                         EntitySelect::make('inventory_item_id')
                             ->label(__('admin.inventory.fields.item'))
                             ->entity(InventoryItem::class)
@@ -146,20 +157,6 @@ class StockConsumptionRelationManager extends RelationManager
                     }),
             ])
             ->defaultSort('moved_on', 'desc');
-    }
-
-    /** Warehouses for the ticket's property (or the user's visible set if it has no unit). */
-    private function warehouseOptions(TenantRequest $request): array
-    {
-        $query = Warehouse::query()->where('is_active', true);
-
-        if ($assetId = $request->unit?->asset_id) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query->orderBy('name')->pluck('name', 'id')->all();
     }
 
     /** Re-validate the submitted warehouse server-side (form-tamper guard). */

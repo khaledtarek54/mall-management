@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Support\PostingDate;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -18,6 +19,23 @@ use InvalidArgumentException;
  *
  * Phase 1 covers receipts + adjustments; consumption (from maintenance tickets)
  * and the GL costing plug in on top in later phases without changing this API.
+ *
+ * **Its refusals are `DomainException`s, and that is load-bearing (SW-197, 2026-09-04).** Five of
+ * them were `InvalidArgumentException` carrying a raw English sentence, and
+ * `ListStockMovements::runMovement()` caught that class and printed `$e->getMessage()` straight
+ * into the toast body — so a storeman working the panel in Arabic read *"Stock can only be
+ * transferred between warehouses in the same property…"*, and
+ * `RefusalsAreTranslatedConformanceTest` could not see any of it: it sweeps `DomainException`
+ * only, on the stated premise that an `InvalidArgumentException` is a developer error nobody is
+ * meant to read in any language. On this page that premise was simply false — `runMovement()`'s
+ * own docblock calls these *"real, reachable things"*.
+ *
+ * Raised as `DomainException`s they are kept translated by that gate through derivation rather
+ * than by anyone remembering; `bootstrap/app.php` renders them as a toast on every OTHER door
+ * into this service (`PurchaseRequestService`, `WorkOrderPartService`) instead of the 500 page
+ * that loses the operator's form; and `/api/v1` answers 422 with the sentence rather than
+ * "Internal Server Error". An unknown movement TYPE stays an `InvalidArgumentException` — it
+ * comes from code, never from a form, and must keep failing loudly.
  */
 class StockMovementService
 {
@@ -39,7 +57,7 @@ class StockMovementService
 
         $quantity = round((float) ($data['quantity'] ?? 0), 3);
         if ($quantity == 0.0 && $type !== 'adjustment') {
-            throw new InvalidArgumentException('A stock movement quantity must be non-zero.');
+            throw new DomainException(__('admin.refusals.stock_movement_quantity_zero'));
         }
 
         // Force the sign by type; adjustments keep the caller's signed value.
@@ -105,11 +123,12 @@ class StockMovementService
         // the model constants, the journalizer and the ledger's Transfers tab all support
         // could not be created at all.
         if ($quantity != 0.0 && $unitCost <= 0 && ! in_array($type, self::TRANSFER_TYPES, true)) {
-            throw new InvalidArgumentException(
-                'Stock cannot move without a value: item #'.($data['inventory_item_id'] ?? '?')
-                .' has no unit cost, so this movement would post nothing to the general ledger. '
-                .'Set a unit cost on the item, or supply one with the movement.'
-            );
+            throw new DomainException(__('admin.refusals.stock_movement_has_no_value', [
+                // The item by NAME, the way every screen names it — one read, on a path that is
+                // already refusing. `item #37` told the operator nothing they could act on.
+                'item' => InventoryItem::query()->whereKey($data['inventory_item_id'] ?? null)->value('name')
+                    ?? ('#'.($data['inventory_item_id'] ?? '?')),
+            ]));
         }
 
         // `moved_on` becomes the movement's GL entry_date (InventoryMovementJournalizer), so an
@@ -220,11 +239,13 @@ class StockMovementService
         $quantity = round(abs($quantity), 3);
 
         if ($quantity == 0.0) {
-            throw new InvalidArgumentException('A transfer quantity must be greater than zero.');
+            throw new DomainException(__('admin.refusals.stock_transfer_quantity_zero'));
         }
 
         if ($from->id === $to->id) {
-            throw new InvalidArgumentException('Source and destination warehouse must be different.');
+            throw new DomainException(__('admin.refusals.stock_transfer_same_store', [
+                'store' => $from->name,
+            ]));
         }
 
         // Same property only. A transfer posts NO journal entry by design — the company's
@@ -240,11 +261,10 @@ class StockMovementService
         // record it as a shrinkage adjustment out of A and a receipt into B, which posts the
         // value movement each property's books need.
         if ((int) $from->asset_id !== (int) $to->asset_id) {
-            throw new InvalidArgumentException(
-                'Stock can only be transferred between warehouses in the same property. '
-                .'To move stock to another property, adjust it out of the source and receive it at the destination, '
-                .'so each property\'s books record the value leaving and arriving.'
-            );
+            throw new DomainException(__('admin.refusals.stock_transfer_across_properties', [
+                'from' => $from->name,
+                'to' => $to->name,
+            ]));
         }
 
         $common = array_merge($extra, [

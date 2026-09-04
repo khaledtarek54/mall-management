@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages\Concerns;
 
+use App\Filament\Admin\Pages\GeneralLedger;
 use App\Models\Asset;
 use App\Models\FiscalYear;
 use App\Services\Accounting\LedgerReportService;
@@ -142,7 +143,13 @@ trait ScopesLedgerReport
         // clamp to the SELECTED property anyway. Left unpinned, the disabled picker would name one
         // mall while the rows underneath it came from another, which is the single failure mode a
         // financial statement must not have.
-        $this->assetId = TenantScope::currentAssetId() ?? $this->assetId;
+        //
+        // A return filed per REGISTRATION is the exception, and pinning it was that same failure
+        // through the other door: it reports the portfolio, so there is no mall to name — and a
+        // saved view or a shared link would otherwise carry a property its figures never used.
+        $this->assetId = $this->isFiledPerRegistration()
+            ? null
+            : (TenantScope::currentAssetId() ?? $this->assetId);
     }
 
     /**
@@ -226,9 +233,15 @@ trait ScopesLedgerReport
             // the mall you were already standing in — so the figures were right and the caption
             // above them was wrong. Remembering stays wired here (this picker is exempt from
             // ReportFilters) for the console/All-Properties paths where nothing is pinned.
-            PropertyField::reportScope(
-                afterStateUpdated: fn ($livewire) => ReportPreferences::remember($livewire),
-            ),
+            //
+            // …except on a return filed per REGISTRATION, where the pin told the SAME lie through
+            // the other door: those two pages pass a null asset on purpose, so the figures are the
+            // whole portfolio's while the caption named one mall. See isFiledPerRegistration().
+            $this->isFiledPerRegistration()
+                ? PropertyField::registrationScope()
+                : PropertyField::reportScope(
+                    afterStateUpdated: fn ($livewire) => ReportPreferences::remember($livewire),
+                ),
         ];
     }
 
@@ -338,6 +351,31 @@ trait ScopesLedgerReport
     }
 
     /**
+     * Whether this report is filed against the operator's TAX REGISTRATION rather than a property.
+     *
+     * Two pages answer yes — the VAT return and Form 41 — and both already said so inside their own
+     * `report()`, each passing a NULL asset to its service because one registration covers the
+     * portfolio and there is no per-mall return to file. That single fact decides two things which
+     * used to be declared separately, and only one of which was ever declared at all:
+     *
+     *   1. the scope control is a STATEMENT, not a mall picker
+     *      ({@see PropertyField::registrationScope()}). Measured 2026-09-04, two malls seeded and
+     *      the first selected: the VAT return's strip read *"Property: <that mall>"* while its own
+     *      `input_vat` carried the other mall's 1,400;
+     *   2. the EG-27 unallocated notice does not apply. With a null asset the service adds no asset
+     *      predicate at all, so the null-asset entries ARE in these figures, and the warning —
+     *      *"They are NOT in the figures above"* — would be a false statement on a filing position,
+     *      beside a remedy that would make the return wrong.
+     *
+     * Public because the gate over these filter strips reads it: a page answering yes must name no
+     * mall at all, and one answering no must name the selected one.
+     */
+    public function isFiledPerRegistration(): bool
+    {
+        return false;
+    }
+
+    /**
      * The report's asset-id filter, clamped to the user's visible properties.
      *
      * The value type is not decoration: a bare `?array` is `array<mixed, mixed>`, so `$ids[0]`
@@ -361,7 +399,10 @@ trait ScopesLedgerReport
      */
     protected function unallocatedNotice(): ?array
     {
-        if (! $this->unallocatedNoticeApplies()) {
+        // A return filed per REGISTRATION omits nothing — see isFiledPerRegistration(). Both pages
+        // used to declare that as an override of their own; it is ONE declaration now, so a third
+        // such return cannot inherit half of the rule.
+        if ($this->isFiledPerRegistration() || ! $this->unallocatedNoticeApplies()) {
             return null;
         }
 
@@ -496,6 +537,36 @@ trait ScopesLedgerReport
     protected function scopedAssetIds(): ?array
     {
         return TenantScope::reportAssetIds($this->assetId ?: null);
+    }
+
+    /**
+     * The general-ledger link for ONE account, carrying THIS report's own period and property.
+     *
+     * It lives here because the scope it reads — `$year`, `$period`, `$assetId` — is declared here,
+     * and because the trial balance is a ledger report that is not a financial statement. It was
+     * written on `RendersFinancialStatement` instead, so the three statements linked their leaves
+     * into the ledger and the trial balance linked none: measured 2026-09-04, `IncomeStatement`
+     * and `BalanceSheet` render `->url($this->ledgerUrlFor(...))` on the account column while
+     * `TrialBalance::table()` renders none, though its row set has carried `'id' => account_id`
+     * since the page was written. `FinancialStatementDrilldownTest`'s own header names the trial
+     * balance among the terminal screens it set out to fix.
+     *
+     * Null means "nothing to open" — a total, or a row the report assembled rather than a ledger
+     * account. Null renders as plain text, which reads as information; a dead link reads as a
+     * broken screen.
+     */
+    protected function ledgerUrlForAccount(int|string|null $accountId): ?string
+    {
+        if (blank($accountId)) {
+            return null;
+        }
+
+        return GeneralLedger::getUrl(array_filter([
+            'accountId' => $accountId,
+            'year' => $this->year ?? null,
+            'period' => $this->period ?? null,
+            'assetId' => $this->assetId ?? null,
+        ], fn ($value) => filled($value)));
     }
 
     /**

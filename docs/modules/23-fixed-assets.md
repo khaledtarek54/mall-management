@@ -299,3 +299,37 @@ button reappears on a money record.
 | `FixedAsset` | Deletable (super_admin) | operational: soft-delete IS the retirement path — the sweep voids the asset's entire GL footprint, which a scenario test pins |
 | `DepreciationEntry` | **Never deletable** | reverse the depreciation run |
 | `FixedAssetDisposal` | **Never deletable** | reverse the disposal |
+
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-190
+
+, under "## 2. Business rules":
+
+**A disposal says where its proceeds landed, and the picker is never conditional (SW-190, 2026-09-04).** `fixed_asset_disposals.proceeds_account` decides the proceeds line's chart account — `FixedAssetDisposalJournalizer` resolves it through `MoneyAccount::for(null, $disposal->proceeds_account, …)` — and the dispose modal offered the picker only when `proceeds > 0`, reading a `proceeds` field that carried no `->live()`. Nothing ever re-rendered the schema after the amount was typed, so **the picker could not appear at all**; and a hidden Filament field is not dehydrated (`HasState::isHiddenAndNotDehydratedWhenHidden()` forgets the state path), so `proceeds_account` never reached `$data` and `DisposeFixedAssetService` took its `?? 'cash'` on every disposal there has ever been. An asset sold and **banked** debited cash on hand. It is now shown unconditionally, required, defaulted to cash — the same reasoning as `BankAccountField`, which is deliberately not hidden on a cash rail: making the amount live would have re-rendered it, but a money rail whose answer rides on a blur that races the submit is a rail that is sometimes not asked, and the journalizer raises no cash line at all when proceeds are zero, so on a scrapping this costs one row on the modal and nothing else. **The class is now gated.** `ADisposalSaysWhereItsProceedsLandedTest` sweeps every `visible()`/`hidden()` condition under `app/Filament` by paren depth and fails on any that reads a sibling field which is not `->live()`; that sweep found exactly one other, the charge-schedule *does not prorate* toggle, which failed the opposite way — it never HID, so it could be ticked on a quarterly charge and `prorate => false` stored on a row the rule was never meant to reach. Neither is provable behaviourally: the Livewire harness always evaluates `visible()` against the state the test just set, so the static sweep is the only thing that can see them.
+
+### SW-192
+
+new subsection under '### Register CSV export (UX, 2026-07-23)':
+
+### The register's totals are the BALANCE SHEET's (SW-192, 2026-09-04)
+
+A disposed asset keeps its cost, its accumulated depreciation and its dates on the register — that is the audit trail, and it is why the status filter is deliberately not defaulted to Active. Its CARRYING AMOUNT, though, is zero: `FixedAssetDisposalJournalizer` credits the gross cost off Furniture & Equipment and debits the accumulated depreciation back on the day of disposal. The footer summed every row anyway, under a label calling the net figure the one that agrees with the balance sheet. Measured on `mall_management_qa`: the GL carried **1,911,833.36** of net fixed assets (2,250,000.00 less 338,166.64) while the screen and the register CSV both read **1,962,666.79** — the one disposed floor scrubber's 50,833.43 of residual book value, counted a second time.
+
+**All THREE money totals narrow, not only the net one.** Cost and accumulated were wrong by 75,000.00 and 24,166.57 for the same reason, and fixing only NBV would break the footer's own arithmetic (cost − accumulated = NBV) — which reads as a fault in the subtraction rather than as the tie-out it is. The three summarizers and `FixedAssetResource::registerCsv()` all read `FixedAsset::ON_BOOKS_STATUSES`, and the label is now *Total on the books* / «الإجمالي القائم بالدفاتر» so the footer says what it counts. `ON_BOOKS_STATUSES` is deliberately **not** a second spelling of `scopeActive()`: that answers *is this still being depreciated* (the monthly run's question) and this answers *is this still on the balance sheet*; they agree only because the column holds two values today. Pinned by `ADisposedAssetIsOffTheBooksInTheRegisterTotalsTest`, whose load-bearing control asserts the disposed asset is STILL LISTED — hiding the rows would satisfy the totals and destroy the register.
+
+### SW-193
+
+new subsection under '## 2. Business rules':
+
+### The write-off worklist could not return a single asset (SW-193, 2026-09-04)
+
+*Fully depreciated* asked `acquisition_cost <= Σ depreciation_entries.amount`, which is neither half of the rule. Accumulated tops out at the DEPRECIABLE BASE — `cost − salvage`, the clamp `DepreciationService::run()` applies to the last charge — so for **any** asset carrying a salvage value the predicate is unsatisfiable, and it also ignored `opening_accumulated_depreciation`, i.e. every legacy asset imported at cut-over with no entries at all. Measured on `mall_management_qa`: all six register rows carry a salvage value, so the worklist was empty **by construction, for ever**, on the one screen whose job is to find retirable assets — and an empty worklist reads as *nothing to write off*, which is why nobody reported it.
+
+The filter now compares the depreciable base against `FixedAsset::accumulatedDepreciationSql()` — **the same expression the register's derived `accumulated` column is built from**, so the two can no longer drift; a select alias is not referenceable from a WHERE, which is why the filter could not simply read `accumulated` and why a second hand-written sum grew there in the first place. The seam also adds `deleted_at is null` (the PHP twin reads the relation and gets the soft-delete scope; the old raw copy did not — measured, 0 trashed entries on either database, so nothing moves today). **No `GREATEST` clamp**: SQLite has no such function, and an asset salvaged above its cost has nothing left to depreciate, so a negative base answering *fully depreciated* is the right answer anyway. `TheWriteOffWorklistFindsWhatItExistsForTest` pins both missing terms plus the SQL↔PHP agreement.
+

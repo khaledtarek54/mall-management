@@ -322,3 +322,19 @@ the recorded count rather than throwing.
 Tests: `ANoticeIsNotBroadcastIntoAClosedWindowTest` — the refusal with nothing recorded as sent, an
 open window, no end date at all, a scheduled notice whose window shut while it waited, and the
 already-sent case.
+
+---
+
+## Sweep fixes — 2026-09-05
+
+*Designed by the patch fleet, adversarially reviewed, then applied and tested one at a time.
+Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-2026-09-01.md).*
+
+### SW-157
+
+**THE READ TICK WAS DECLARED AND NEVER RENDERED (SW-157, 2026-09-04).** The recipient list declared `IconColumn::make('read_at')` — the at-a-glance read/unread marker — and `TextColumn::make('read_at')` nine lines below it. **Filament keys its column set by NAME** (`Table::pushColumns()` is `$this->columns[$component->getName()] = $component`) and renders from that map, so the second declaration silently replaced the first: no error, no warning, and both declarations read correctly in the source. The tick was missing from the one screen whose whole purpose, per its own docblock, is that *"we told you"* is a record rather than an assertion. The icon column is named `is_read` now — a virtual name whose state comes from `AnnouncementRecipient::isRead()`, the model's own predicate rather than an inline re-implementation of it. **The class is gated**, not just the instance: `ATableNeverDeclaresTheSameColumnTwiceTest` tokenises every `->columns([...])` list under `app/Filament` (629 files, 168 lists, 1,074 columns when it was written — exactly one duplicate, this one) and pins Filament's own keying behaviour as a CONTRACT, so a release that changed it turns the build red rather than quietly making the gate pointless. Its blind spot is stated: a column list assembled from a helper's return value is invisible to a source sweep.
+
+### SW-158
+
+**A DELETED NOTICE CAN BE BROUGHT BACK, AND THE ACT LIVES ON THE VIEW PAGE (2026-09-04, SW-158).** `AnnouncementsTable` has shipped a `TrashedFilter` since the register was written, so a deleted announcement could be FOUND and never restored — measured: 33 files under `app/Filament` carry a `TrashedFilter` and 15 carry a `RestoreAction`, all of them Edit pages, and this resource was in the first list only. The gap is not cosmetic: an announcement is TENANT-FACING (the portal list and `GET /api/v1/me/announcements` read the model under its ordinary soft-delete scope), so deleting one silently retracts a broadcast from every retailer's feed, and only a super_admin can do it, which means nobody else can even report it as recoverable. **It goes on the VIEW page rather than beside the fifteen peers**, and the reason is the thing to keep: those pages restore from Edit because their records stay editable, while `canEdit()` here is `! isSent()` — so a SENT notice, the one actually worth recovering, has no Edit page at all. The View page is reachable for every notice, and the trashed row resolves because `ScopesToProperty` composes `BypassesFilamentTenantAutoScope`, which drops `SoftDeletingScope` from the route-binding query. `RestoreAction` hides itself on a live record, so it costs nothing on the ordinary page, and `AnnouncingRestoreAction` gates it on `canRestore()` = `announcements.edit`. **No `ForceDeleteAction`, deliberately** — `announcement_recipients.announcement_id` is `cascadeOnDelete`, so purging a sent notice destroys the record of who received it, which is the evidence the read-receipt screen on that same page exists to show; refusing rather than offering it is the house rule for a record carrying history, and it is pinned by its own test so it is not later 'tidied up' into symmetry with the peers.
+

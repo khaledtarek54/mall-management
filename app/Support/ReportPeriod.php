@@ -77,6 +77,39 @@ final class ReportPeriod
     }
 
     /**
+     * **The same two dates, in order.**
+     *
+     * An inverted `from`/`to` is a typo, not a question — and every range report answers a typo with
+     * a confident zero rather than an error. Measured at HEAD 2026-09-04: with `from` after `to`,
+     * `ReportService::weeklySpend()` seeds no weeks at all (its cursor loop never runs) and both
+     * `whereBetween` clauses match nothing, so `WeeklySpend::getSubheading()` renders
+     * "EGP 0.00 · EGP 0.00 · EGP 0.00" — an empty table under three figures that read as a finding,
+     * on the screen and in the emailed CSV alike.
+     *
+     * Swapping is what the operator meant: the same two dates, read the way every date-range control
+     * reads them, and the reports return the ordered pair in their own payload so nothing prints a
+     * window it did not use. It is not a money decision — it decides which rows are read, never what
+     * they are worth.
+     *
+     * A HALF-stated window is left alone, the same rule {@see self::advanceSpan()} already applies to
+     * it: there is no order to fix, and each report's own default is a better answer than half of one.
+     *
+     * `ReportFilters::from()`/`to()` bound each other so the panel cannot state one in the first
+     * place. This is the guarantee underneath, at the chokepoint a saved view, a `?from=` in the URL
+     * and a scheduled delivery all pass through.
+     *
+     * @return array{0: ?CarbonImmutable, 1: ?CarbonImmutable}
+     */
+    public static function orderedSpan(?CarbonImmutable $from, ?CarbonImmutable $to): array
+    {
+        if ($from === null || $to === null) {
+            return [$from, $to];
+        }
+
+        return $from->greaterThan($to) ? [$to, $from] : [$from, $to];
+    }
+
+    /**
      * Keep the window's LENGTH and move its end to today.
      *
      * @param  array<string, mixed>  $parameters

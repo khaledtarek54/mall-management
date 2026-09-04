@@ -190,3 +190,11 @@ Deactivating is the documented way to retire a tax code — `#[DeletableWhenUnus
 
 Also note for whoever closes the sweep row: the VIOLATION half of SW-122 was already fixed by `bae3a170` and is covered by `ARetiredCodeDoesNotFreezeItsRecordsTest`; only the tax-code half was live.
 
+### SW-204
+
+add as a new subsection immediately after "### The one deliberate departure: a rate has a date":
+
+### The sign is part of the catalogue, and the form takes it (SW-204, 2026-09-04)
+
+`tax_rates.rate` is SIGNED. Withholding is stored negative — "WH -1%" — because the tax comes off what is paid to a supplier rather than being added to it; `invoice_label` prints that notation and `TaxCatalogueConformanceTest` asserts withholding is the only family carrying it. The rung form did not know: it clamped its input at zero, so all eight seeded withholding rungs (measured on the dev database 2026-09-04: `WH_0_5` at -0.5 through `WH_5_P` at -5) were unsavable through the very screen the dated ladder exists for. An accountant editing the NOTE on one was refused as *invalid* on the rate field they had never touched, and next year's decreed rate could not be entered at all. The bounds now come from `TaxCode::rateBounds()` — withholding `-100..0`, every other family `0..100` — which is the one home of the convention `TaxCodeSeeder` writes with (`TaxCode::signedRate()`), so the screen and the seeder cannot disagree. It REFUSES a wrong sign rather than flipping one: the ladder on screen prints the stored figure, so silently correcting it would leave the form and the table above it disagreeing about what was entered. Zero stays legal on both sides — a rung of 0 is a suspension, and `assertCanBeActivated()` asks only that a rung exists.
+

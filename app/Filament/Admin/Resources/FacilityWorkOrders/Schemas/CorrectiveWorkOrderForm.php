@@ -92,6 +92,10 @@ class CorrectiveWorkOrderForm
                 ->label(__('admin.facility.fields.est_labour_hours'))
                 ->numeric()
                 ->minValue(0)
+                // The same ceiling as the edit form, from the model that owns the column. This
+                // form is reached only through an action modal, so a bound written on one door and
+                // not the other would 500 on whichever one nobody happened to try.
+                ->maxValue(FacilityWorkOrder::MAX_EST_LABOUR_HOURS)
                 ->helperText(__('admin.facility.help.est_labour_hours')),
 
             TextInput::make('est_service_cost')

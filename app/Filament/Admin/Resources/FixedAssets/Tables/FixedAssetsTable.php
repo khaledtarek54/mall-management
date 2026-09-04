@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources\FixedAssets\Tables;
 
 use App\Filament\Actions\ReverseDocumentAction;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
-use App\Models\DepreciationEntry;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Support\CategorySuggestions;
@@ -55,7 +54,25 @@ class FixedAssetsTable
                     ->label(__('admin.fixed_assets.fields.acquisition_cost'))
                     ->money('EGP')
                     ->sortable()
-                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
+                    // ── ON THE BOOKS, not "every row on screen" ────────────────────────────────
+                    // Measured on `mall_management_qa` (2026-09-04): the GL carries Furniture &
+                    // Equipment net 2,250,000.00 and Accumulated Depreciation 338,166.64, i.e.
+                    // 1,911,833.36 of net fixed assets — the disposal has already taken the sold
+                    // floor scrubber off both. This footer read cost 2,325,000.00, accumulated
+                    // 362,333.21 and TOTAL NET BOOK VALUE 1,962,666.79, overstating the balance
+                    // sheet by the scrubber's 50,833.43 of residual book value.
+                    //
+                    // All THREE totals narrow, never only the net one: leaving cost and accumulated
+                    // wide would break the footer's own arithmetic (cost − accumulated = NBV) and
+                    // read as a fault in the subtraction rather than as the tie-out it is. The rows
+                    // are untouched — the disposed asset stays listed, which is the audit trail and
+                    // the reason the status filter is deliberately not defaulted below.
+                    ->summarize(
+                        Sum::make('total')
+                            ->label(__('admin.fixed_assets.fields.total_on_books'))
+                            ->money('EGP')
+                            ->query(fn (Builder $query) => $query->whereIn('status', FixedAsset::ON_BOOKS_STATUSES))
+                    ),
                 TextColumn::make('monthly')
                     ->label(__('admin.fixed_assets.fields.monthly'))
                     // Pure calc (cost − salvage) ÷ life — no query.
@@ -70,10 +87,13 @@ class FixedAssetsTable
                     ->color('warning')
                     // withSum alias, not a real column — sum it off the derived table
                     // Filament hands `using` (same pattern as CustodiesTable).
+                    // On the books only — see the cost column above; a disposed asset's
+                    // accumulated depreciation was debited back out by its own write-off entry.
                     ->summarize(
                         Summarizer::make('total')
-                            ->label(__('admin.reports.totals'))
+                            ->label(__('admin.fixed_assets.fields.total_on_books'))
                             ->money('EGP')
+                            ->query(fn (Builder $query) => $query->whereIn('status', FixedAsset::ON_BOOKS_STATUSES))
                             ->using(fn (Builder $query): float => (float) $query->sum('accumulated'))
                     ),
                 TextColumn::make('net_book_value')
@@ -83,11 +103,14 @@ class FixedAssetsTable
                     ->weight('bold')
                     ->color('success')
                     // Total NBV = the figure that has to agree with the balance sheet's
-                    // fixed-asset line, so it belongs under the column, not only in the CSV.
+                    // fixed-asset line, so it belongs under the column, not only in the CSV — and
+                    // it can only agree if it counts what is still ON the balance sheet. See the
+                    // cost column above for the measurement.
                     ->summarize(
                         Summarizer::make('total')
-                            ->label(__('admin.fixed_assets.fields.total_net_book_value'))
+                            ->label(__('admin.fixed_assets.fields.total_on_books'))
                             ->money('EGP')
+                            ->query(fn (Builder $query) => $query->whereIn('status', FixedAsset::ON_BOOKS_STATUSES))
                             ->using(fn (Builder $query): float => round((float) $query->sum(
                                 DB::raw('acquisition_cost - coalesce(accumulated, 0)')
                             ), 2))
@@ -124,16 +147,31 @@ class FixedAssetsTable
                         ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('acquisition_date', '>=', $d))
                         ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('acquisition_date', '<=', $d))),
                 // Fully-depreciated assets still on the books — the write-off worklist.
-                // Correlated subquery, not HAVING on the `accumulated` alias: without a
-                // GROUP BY, HAVING collapses the result to one group and filters nothing.
+                //
+                // An asset is fully depreciated when accumulated has reached the DEPRECIABLE BASE
+                // — cost less salvage — and `accumulated` includes what was already written off
+                // before Atriom existed. This compared the GROSS cost against the entries alone, so
+                // it missed both: `DepreciationService::run()` clamps the last charge at
+                // `cost − salvage`, which means for ANY asset carrying a salvage value the old
+                // predicate could never be true. Measured 2026-09-04 — all 6 rows on
+                // `mall_management_qa` carry a salvage value, so this worklist was empty by
+                // construction, for ever, on the one screen whose job is to find retirable assets.
+                //
+                // `whereRaw` against `FixedAsset::accumulatedDepreciationSql()`, the same
+                // expression the register's own `accumulated` column is built from — a second
+                // hand-written sum here is how the two drifted in the first place, and a select
+                // ALIAS is not referenceable from a WHERE, which is why this cannot just read
+                // `accumulated`. Still the WHERE and never HAVING on that alias: with no GROUP BY,
+                // HAVING collapses the result to one group and filters nothing.
+                //
+                // No `GREATEST` clamp on the base: SQLite has no such function, and an asset
+                // salvaged above its cost has nothing left to depreciate, so a negative base
+                // answering "fully depreciated" is the right answer anyway.
                 Filter::make('fully_depreciated')
                     ->label(__('admin.fixed_assets.filters.fully_depreciated'))
-                    ->query(fn ($query) => $query->where(
-                        'fixed_assets.acquisition_cost',
-                        '<=',
-                        DepreciationEntry::query()
-                            ->selectRaw('coalesce(sum(amount), 0)')
-                            ->whereColumn('fixed_asset_id', 'fixed_assets.id')
+                    ->query(fn ($query) => $query->whereRaw(
+                        '(fixed_assets.acquisition_cost - COALESCE(fixed_assets.salvage_value, 0)) <= ('
+                        .FixedAsset::accumulatedDepreciationSql().')'
                     )),
                 TrashedFilter::make(),
             ])

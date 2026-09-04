@@ -10,6 +10,7 @@ use App\Models\LeasePercentageRentTier;
 use App\Models\TenantSalesDeclaration;
 use App\Models\User;
 use App\Notifications\SalesDeclarationLockedNotification;
+use App\Support\ReversalReason;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
@@ -650,14 +651,33 @@ class PercentageRentCalculationService
             // been PAID, VoidInvoiceService throws — the void is refused until it's refunded.
             $this->reverseOverage($declaration);
 
-            $existing = $declaration->audit_notes ? rtrim($declaration->audit_notes)."\n\n" : '';
-            $stamp = now()->format('Y-m-d');
-            $note = "Voided on {$stamp} by {$voidedBy->name}: {$reason}";
-
+            // **THE COLUMN KEEPS THE OPERATOR'S WORDS; THE TRAIL KEEPS WHO AND WHEN.**
+            //
+            // This composed `"Voided on {date} by {name}: {reason}"` and stored the result —
+            // English frozen into the row at write time, which no lang edit can ever reach and
+            // which reads as half a sentence to the Arabic-speaking accountant who has to account
+            // for the reversed overage. Same shape `JournalNarrative` (EG-36) and
+            // `LeaseEventNarrative` were built to end: a row stores DATA, never PROSE.
+            //
+            // `[VOID]` is the house marker `VoidInvoiceService` and `VoidPaymentService` already
+            // stamp — a token, not a language — and it goes through the same `appendAuditNote()`
+            // the lock path uses, so one appender governs the column instead of two with different
+            // separators.
             $declaration->update([
                 'status' => 'disputed',
-                'audit_notes' => $existing.$note,
+                'audit_notes' => self::appendAuditNote(
+                    $declaration->audit_notes,
+                    ReversalReason::stamp(null, $reason),
+                ),
             ]);
+
+            // WHO and WHEN belong in `activity_log`, where the person who caused the reversal
+            // cannot edit them away and where the description is a KEY that renders in the reader's
+            // language. Nothing recorded this reversal in the trail at all before now. The actor is
+            // the one the CALLER named: this method takes `$voidedBy` precisely because the panel is
+            // not its only door, and spatie would otherwise default the causer to whatever session
+            // happens to be open.
+            ReversalReason::record($declaration, 'voided', $reason, $voidedBy);
 
             // Annual: this month's sales just left the cumulative, so the OTHER locked months — sized
             // against a running total that included it — must be re-trued, or the year stays over-billed
