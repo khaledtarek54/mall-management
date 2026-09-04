@@ -192,7 +192,32 @@ class TenantSalesDeclarationForm
                         ->minValue(0)
                         ->step('0.01')
                         ->live(onBlur: true)
-                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set, locked: $get('status') === 'locked'))
+                        // THE VAT DEDUCTION FOLLOWS THE GROSS IT IS TAKEN FROM (SW-163).
+                        //
+                        // It is computed once, when the toggle is flipped, from whatever the gross
+                        // was at that instant — so CORRECTING the gross afterwards left a deduction
+                        // computed from the old figure, and it flowed straight into the charge.
+                        // Measured: a gross keyed as 1,368,000 and corrected to 1,860,000 kept a
+                        // VAT row of 168,000 where 228,378.95 was within the new figure, so the
+                        // basis was overstated by 60,378.95 and the tenant was over-billed
+                        // percentage rent on it — and because the breakpoint is subtracted first, a
+                        // small error in sales becomes a large one in the overage.
+                        //
+                        // Only when a `vat` row already exists: this re-derives what the operator
+                        // asked for, it never adds a deduction they did not.
+                        ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                            $exclusions = (array) ($get('sales_exclusions') ?? []);
+
+                            if (array_key_exists('vat', $exclusions)) {
+                                $exclusions['vat'] = SalesExclusions::vatWithin(
+                                    (float) $state,
+                                    Vat::standardRate($get('period_end') ?: $get('period_start') ?: null),
+                                );
+                                $set('sales_exclusions', $exclusions);
+                            }
+
+                            self::refreshDerived($get, $set, locked: $get('status') === 'locked');
+                        })
                         ->helperText(__('admin.helpers.gross_sales'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.gross_sales')),
                     // The one deduction that is not a concession — a shop collects VAT for the

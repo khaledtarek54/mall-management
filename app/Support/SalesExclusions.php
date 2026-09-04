@@ -98,6 +98,67 @@ class SalesExclusions
     }
 
     /**
+     * Read one exclusion amount the way a person typed it (SW-164).
+     *
+     * `(float) '1,200.00'` is **1.0** in PHP — it stops at the comma. The exclusions field is a free
+     * `KeyValue`, so an operator typing a thousands separator (the ordinary way to write money, and
+     * what a POS report prints) silently deducted **one pound** instead of 1,200 and the tenant was
+     * billed percentage rent on turnover that was never theirs. Nothing said so: the figure is
+     * summed into a derived total and the screen shows the total, not the parse.
+     *
+     * Arabic-Indic digits are folded too, because the panel is bilingual and a number typed on an
+     * Arabic keyboard is a number.
+     */
+    public static function amount(mixed $raw): float
+    {
+        if (is_numeric($raw)) {
+            return max(0.0, (float) $raw);
+        }
+
+        $text = trim((string) $raw);
+
+        if ($text === '') {
+            return 0.0;
+        }
+
+        $text = strtr($text, [
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            '٫' => '.', '٬' => '',
+        ]);
+
+        // Strip grouping and anything that is not part of a decimal number. A minus is dropped with
+        // it: an exclusion is an amount deducted, and the sign is the operation, not the figure —
+        // `max(0, …)` said the same thing already and this keeps `-1,200` from reading as -1.
+        $text = preg_replace('/[^0-9.]/', '', $text) ?? '';
+
+        return $text === '' ? 0.0 : max(0.0, (float) $text);
+    }
+
+    /**
+     * The exclusion keys this list uses that the catalogue does not know (SW-164).
+     *
+     * `total()` skips them, so a mistyped or invented key — `VAT`, `refunds`, `sales returns` —
+     * is silently worth nothing and the tenant is over-billed by exactly that deduction. Returning
+     * them lets the write REFUSE and name them, which is the safe direction: `other` exists
+     * precisely so an operator recording a real clause never has to invent a key.
+     *
+     * @param  array<string, mixed>|null  $exclusions
+     * @return array<int, string>
+     */
+    public static function unknownKeys(?array $exclusions): array
+    {
+        if (! is_array($exclusions)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('strval', array_keys($exclusions)),
+            fn (string $type) => $type !== '' && ! self::isKnown($type),
+        ));
+    }
+
+    /**
      * Total the itemised exclusions, ignoring anything not in the catalogue.
      *
      * @param  array<string, mixed>|null  $exclusions
@@ -112,7 +173,8 @@ class SalesExclusions
 
         foreach ($exclusions as $type => $amount) {
             if (self::isKnown((string) $type)) {
-                $total += max(0.0, (float) $amount);
+                // `amount()`, never a bare cast — see its docblock: `(float) '1,200.00'` is 1.0.
+                $total += self::amount($amount);
             }
         }
 

@@ -97,6 +97,25 @@ class TenantSalesDeclaration extends Model implements HasMedia
                 return;
             }
 
+            // AN EXCLUSION THE CATALOGUE DOES NOT KNOW IS REFUSED, NEVER DROPPED (SW-164).
+            //
+            // `SalesExclusions::total()` skips an unrecognised key, and the field is a free
+            // `KeyValue` — so `VAT`, `refunds` or `sales returns` typed by hand deducted NOTHING,
+            // and the tenant was billed percentage rent on turnover the operator had agreed to
+            // exclude. Silent in both directions: the screen shows the derived total, not the parse.
+            //
+            // Refusing is the safe direction and costs the operator nothing — `other` exists
+            // precisely so a real negotiated clause never has to be invented as a new key. On the
+            // MODEL rather than the form, because the portal, the importer and the API reach the
+            // same column, and this is the one seam all of them cross.
+            $unknown = SalesExclusions::unknownKeys($declaration->sales_exclusions);
+
+            if ($unknown !== []) {
+                throw new DomainException(__('admin.validation.sales_exclusions_unknown_type', [
+                    'types' => implode(', ', $unknown),
+                ]));
+            }
+
             $gross = (float) $declaration->gross_sales;
             $excluded = SalesExclusions::total($declaration->sales_exclusions);
 

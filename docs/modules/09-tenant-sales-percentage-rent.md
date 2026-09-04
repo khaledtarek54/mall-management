@@ -923,3 +923,39 @@ Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-
 
 **A void records WHY as data, not as a sentence (SW-173, 2026-09-04).** `voidLocked()` composed `\"Voided on {date} by {name}: {reason}\"` and stored it in `audit_notes` — raw English frozen into the row at write time, which no lang edit can ever reach and which reads as half a sentence to the Arabic-speaking accountant who has to account for the reversed overage. It is the shape `JournalNarrative` (EG-36) and `LeaseEventNarrative` were both built to end, and the seam already existed and was untouched here: `App\\Support\\ReversalReason`, which thirteen money reversals use. The column now keeps the OPERATOR'S OWN WORDS behind the house `[VOID]` marker — the same token `VoidInvoiceService` and `VoidPaymentService` write, a token and not a language — appended through the service's own `appendAuditNote()`, so one appender governs the column instead of two with different separators. The WHO and the WHEN go to `activity_log`, where the person who caused the reversal cannot edit them away and where the description is the KEY `tenant_sales.voided`, catalogued in both languages. **Nothing recorded this reversal in the trail at all before now.** `ReversalReason::record()` grew an optional causer for it: `voidLocked($declaration, $voidedBy, $reason)` is HANDED the actor because a Filament header is not its only door, and spatie would otherwise file the row against whatever session happened to be open. That key is invisible to the \"descriptions are keys\" gate — it greps `->log('literal')` and this logs a variable — so the regression test checks both catalogues itself with `fallback: false`.
 
+### SW-163 · SW-164
+
+**A SALES DEDUCTION IS WORTH WHAT THE OPERATOR TYPED (fixed 2026-09-05).** Percentage rent is charged
+on turnover NET of agreed deductions, so each of these is money on a tenant's invoice — and all three
+failed silently, in the over-billing direction.
+
+**An unknown key was worth nothing (SW-164).** `sales_exclusions` is a free `KeyValue` and
+`SalesExclusions::total()` skips any key not in `TYPES`, so `VAT`, `refunds` or `sales returns` typed
+by hand deducted **0.00** and the tenant paid percentage rent on turnover the operator had agreed to
+exclude. Nothing said so: the screen shows the derived total, never the parse. It is REFUSED now, and
+refusing costs nothing because `other` exists precisely so a real negotiated clause never has to be
+invented as a new key. The refusal NAMES the offending keys — an anonymous refusal on a free-text
+field leaves the operator guessing. On the **MODEL**, not the form: the portal, the importer and the
+API reach the same column and `saving` is the one seam all of them cross.
+
+**`(float) '1,200.00'` is 1.0 in PHP (SW-164).** It stops at the comma. A thousands separator is the
+ordinary way to write money and is what a POS report prints, so a 120,000 returns deduction was worth
+one pound — measured, `declared_sales` came out at 999,999.00 instead of 880,000.00.
+`SalesExclusions::amount()` reads the figure the way a person wrote it, **Arabic-Indic digits and
+separators included**, because the panel is bilingual and a number typed on an Arabic keyboard is a
+number. A leading minus is dropped rather than honoured: an exclusion is an amount deducted, so the
+sign is the operation and not the figure.
+
+**The VAT deduction did not follow its gross (SW-163).** It is computed once, when the toggle is
+flipped, from the gross at that instant — so CORRECTING the gross afterwards left a deduction taken
+from a figure that no longer existed, and it flowed straight into the charge basis. Measured: a gross
+keyed as 1,368,000 and corrected to 1,860,000 kept a VAT row of 168,000 where 228,378.95 was within
+the new figure. Because the breakpoint is subtracted FIRST, a small error in sales becomes a large one
+in the overage. Re-derived only when a `vat` row already exists — it re-runs what the operator asked
+for and never adds a deduction they did not.
+
+**A Filament testing trap worth keeping:** a `KeyValue` holds `['vat' => 140000]` after `fillForm()`
+and `[['key' => 'vat', 'value' => 280000]]` after any Livewire UPDATE — it switches to the pair-array
+shape it actually edits in. A test reading only the first shape sees `0.0` after the very interaction
+it is testing and reports a working fix as broken.
+`ASalesDeductionIsWorthWhatTheOperatorTypedTest`, 10 cases, 4 mutations.
