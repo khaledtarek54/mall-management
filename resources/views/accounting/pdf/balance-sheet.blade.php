@@ -25,6 +25,6 @@
     </table>
 
     <p style="margin-top:10px; font-weight:bold;" class="{{ $report['balanced'] ? 'ok' : 'bad' }}">
-        {{ $report['balanced'] ? '✓ ' . __('admin.reports.balanced') : '✗ ' . __('admin.reports.not_balanced') }}
+        {{ \App\Support\StatementIntegrity::balance((bool) $report['balanced']) }}
     </p>
 @endsection

@@ -204,6 +204,19 @@
         </td>
         <td class="v {{ $facts['true_up_is_credit'] ? 'credit' : '' }}">{{ $money(abs($facts['true_up'])) }}</td>
     </tr>
+    @if ($facts['recovery_vat'] > 0)
+        {{-- The tax on the settlement itself. It was missing from this table AND from the total
+             below it, while the recovery invoice and the credit note both charge it. --}}
+        @php $vatPct = rtrim(rtrim(number_format($facts['recovery_vat_rate'], 2), '0'), '.'); @endphp
+        <tr>
+            <td class="k">
+                {{ $facts['true_up_is_credit']
+                    ? __('admin.cam_statement.recovery_vat_credit', ['pct' => $vatPct])
+                    : __('admin.cam_statement.recovery_vat_due', ['pct' => $vatPct]) }}
+            </td>
+            <td class="v {{ $facts['true_up_is_credit'] ? 'credit' : '' }}">{{ $money($facts['recovery_vat']) }}</td>
+        </tr>
+    @endif
     @if ($facts['admin_fee'] > 0)
         <tr>
             <td class="k">
@@ -225,7 +238,7 @@
         </td>
         <td class="v">
             {{ $facts['true_up_is_credit']
-                ? $money(abs($facts['true_up']) - $facts['admin_fee'] - $facts['admin_fee_vat'])
+                ? $money($facts['net_credit'])
                 : $money($facts['total_due']) }}
         </td>
     </tr>
