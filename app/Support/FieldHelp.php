@@ -121,6 +121,13 @@ class FieldHelp
         // that repeats zero times are not values anyone means to enter.
         'FixedAssets.useful_life_months' => 'A duration must be at least one month; zero is not a value anyone means to enter.',
         'ServicePlans.frequency_value' => 'A repeat count must be at least one; zero is not a value anyone means to enter.',
+
+        // A money ceiling set at the DATABASE COLUMN's width. It is a typo guard against an
+        // out-of-range 500, not a rule about supplier invoices — no bill a mall receives comes
+        // within four orders of magnitude of it — so a sentence under the field would be telling
+        // the operator about a limit they can never meet.
+        'VendorBills.subtotal' => 'The ceiling is the decimal(14,2) column, not a rule about bills; no real invoice approaches it.',
+        'VendorBills.vat_amount' => 'The ceiling is the decimal(14,2) column, not a rule about tax; no real invoice approaches it.',
     ];
 
     /** Does this field's bound explain itself without a sentence? */

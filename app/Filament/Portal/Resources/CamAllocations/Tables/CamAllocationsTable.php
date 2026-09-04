@@ -84,7 +84,10 @@ class CamAllocationsTable
                     ->label(__('admin.cam_statement.download'))
                     ->icon(Heroicon::OutlinedDocumentArrowDown)
                     ->service(CamStatementPdfService::class)
-                    ->recipient(fn (CamAllocation $record) => $record->lease?->tenant ?? $record->unitOwnership?->tenant),
+                    // `unitOwnership->tenant` is not a relation — the ownership calls it `owner` —
+                    // so this answered null for every unit owner and the download modal lost his
+                    // language tier. One seam: `CamAllocation::counterparty()`.
+                    ->recipient(fn (CamAllocation $record) => $record->counterparty()),
             ])
             // The most recent service-charge year first. `cam_expense_pool_id` sorted by the
             // order the pools were created in, which is close to year order until the operator

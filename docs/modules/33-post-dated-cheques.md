@@ -245,3 +245,29 @@ button reappears on a money record.
 | Model | Rule | Instead / why |
 |---|---|---|
 | `PostDatedCheque` | **Never deletable** | cancel or bounce the cheque |
+
+## Sweep fixes — 2026-09-05
+
+### SW-028
+
+**A LODGE-SERIES PREVIEW NAMES ITS MONTHS IN THE READER'S LANGUAGE (SW-028, fixed 2026-09-05).**
+The bulk-lodge modal's preview line — the sentence an operator reads before committing a year of a
+tenant's cheques — built its first and last maturity with `Carbon::format('M Y')`, which emits
+English month names whatever the locale is. Both lang keys were already bilingual, so the Arabic
+panel rendered an Arabic sentence with `Oct 2026` and `Sep 2027` inside it, on the one screen that
+commits twelve dated instruments at once.
+
+The house idiom already existed on **28 call sites** and its reasoning is written out in
+`BillingForecastRelationManager::periodLabel()`: `->locale(app()->getLocale())->isoFormat('MMM YYYY')`.
+This screen was one of four operator-facing sites that never got it. Measured for 2026-10-01:
+`format('M Y')` is `Oct 2026` in every locale; `->locale('ar')->isoFormat('MMM YYYY')` is the Arabic
+month with the year in **Latin digits**, which is what `LatinNumeralsTest` pins app-wide. For
+English `isoFormat('MMM YYYY')` is byte-identical to what the line printed before, so the English
+panel cannot move.
+
+**No gate could see it.** `ArabicPanelHasNoEnglishChromeConformanceTest` sweeps labels, filters,
+actions and modal chrome — not a value composed inside a `Placeholder` closure — and
+`TranslationKeyConformanceTest` sees a key that resolves cleanly in both languages. The remaining
+three sites (`ListOwnerStatementRuns:42`, `RentIndex::displayName()`, `OptionDisplay`'s picker
+subtitles) are the same defect and are left to their own rows rather than dragged into this one.
+`ALodgeSeriesPreviewNamesItsMonthsInTheReadersLanguageTest`, mutation-proved.

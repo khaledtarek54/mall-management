@@ -129,6 +129,65 @@ class CamAllocation extends Model
     }
 
     /**
+     * WHO this share is billed to — a lease's tenant, or the OWNER of a sold unit.
+     *
+     * **`UnitOwnership`'s relation is `owner`, not `tenant`**, named for what the operator calls
+     * them over the same `tenants` table. Reading `->tenant` on it returns NULL rather than
+     * throwing — an undefined relation is just a missing attribute — so every reader written as
+     * `lease?->tenant ?? unitOwnership?->tenant` LOOKS like it handles both agreements and answers
+     * null for every owner. Measured 2026-09-05 on `mall_management_qa`, `unit_ownerships#1`:
+     * `owner->name` = "Ashraf El-Gindy", `->tenant` = NULL, `method_exists($o, 'tenant')` = false.
+     *
+     * Three readers had that exact shape, and the worst is the document the owner audits:
+     * `CamStatementPdfService::document()` carries a comment saying it was written to stop an
+     * ownership statement rendering "a blank party" and then reads the relation that does not
+     * exist — so that fix was inert from the day it shipped, and the party block on a unit owner's
+     * own service-charge statement has been empty ever since. The other two are the `->recipient()`
+     * closures on the two statement download buttons, where a null party costs the document its
+     * LANGUAGE: `DocumentLocale::resolve()` reads the recipient's stored `locale`, so an owner who
+     * reads Arabic was sent whatever the operator's panel happened to be in.
+     *
+     * Answered once, here, so a fourth reader cannot repeat it. Nullable because both parents
+     * soft-delete.
+     */
+    public function counterparty(): ?Tenant
+    {
+        return $this->lease?->tenant ?? $this->unitOwnership?->owner;
+    }
+
+    /**
+     * The unit this share is against, whichever agreement holds it.
+     *
+     * The twin of {@see Invoice::unitCode()}, for the same reason: an allocation belongs to a
+     * lease OR an ownership — `assertBelongsToExactlyOneAgreement()` enforces exactly one — and
+     * each of them holds the unit differently.
+     *
+     * Null stays possible and stays correct: a multi-unit lease has no single unit.
+     */
+    public function unitCode(): ?string
+    {
+        return $this->lease?->unit?->code ?? $this->unitOwnership?->unit?->code;
+    }
+
+    /**
+     * {@see unitCode()} under an ATTRIBUTE name — a second road to the rule, never a second answer.
+     *
+     * It exists because a `TextEntry` and a `TextColumn` name a STATE PATH, and a path cannot
+     * branch on which agreement holds the row. The portal's View page named `lease.unit.code` and
+     * so rendered an empty cell for every unit owner — on the one screen he opens to read the
+     * basis of a true-up he did not expect, four lines below a `getEloquentQuery()` whose own
+     * comment says his allocation has no lease. `Invoice` grew the identical accessor for the
+     * identical five readers.
+     *
+     * **NOT in `$appends`, deliberately.** `docs/api/openapi.json` is generated from `toArray()`,
+     * so appending it would rewrite the generated mobile contract as a side effect of a panel fix.
+     */
+    public function getUnitCodeAttribute(): ?string
+    {
+        return $this->unitCode();
+    }
+
+    /**
      * The FK that ties a document raised for this allocation back to its agreement.
      *
      * Used for the anchor `Charge`, and to find the agreement's open invoices when an over-recovery

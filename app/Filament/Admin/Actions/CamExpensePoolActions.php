@@ -43,6 +43,21 @@ class CamExpensePoolActions
                 ->requiresConfirmation()
                 ->visible(fn (CamExpensePool $record) => self::canGenerate($record) && $record->isDerived())
                 ->authorize(fn (CamExpensePool $record) => self::canGenerate($record))
+                // AUTHZ says who may re-source; READINESS says whether it is still allowed to move.
+                // The same split `markReconciled` below already uses, for the same reason: a role
+                // that may not sync should not see the button, and one that may should be TOLD why
+                // it is not pressable rather than press it and meet a model-level refusal worded
+                // for the edit form.
+                //
+                // Measured at HEAD 2026-09-05: `canGenerate()` keeps this live on a `reconciling`
+                // pool, and `CamExpensePool::booted()` freezes both totals the moment one
+                // allocation leaves `pending`. `SyncCamPoolFromLedgerService::sync()` is the gate —
+                // `disabled()` is a rendering decision — and both read the same predicate, so the
+                // sign and the refusal cannot drift.
+                ->disabled(fn (CamExpensePool $record) => $record->hasBilledAllocations())
+                ->tooltip(fn (CamExpensePool $record) => $record->hasBilledAllocations()
+                    ? __('admin.refusals.cam_sync_locked_after_billing')
+                    : null)
                 ->action(function (CamExpensePool $record): void {
                     abort_unless(self::canGenerate($record), 403);
 

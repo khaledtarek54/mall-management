@@ -1775,3 +1775,42 @@ Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-
 
 > **⚠️ AND THE STATEMENT WAS NOT ROUTED WITH IT (2026-09-04, SW-169).** That change gave `camCapScope()`, `statedCamSharePct()` and their four siblings a `?string $poolCode` and routed the reconciliation, the relation manager, the model and the migration through it — and did not touch `CamStatementPdfService`, whose two calls still passed the year alone (`git show 03133a13 --name-only` names no PDF service). So the DOCUMENT resolved `camTermFor($year, null)`: the **portfolio-wide fallback term**, not the one the calculation beside it used. Both figures are the tenant's own audit evidence and both read the opposite of the truth — a `controllable`-scoped cap loses the note explaining that only controllable cost was capped, which is the clause that decided the number, and a share the contract NAMED prints as one derived from floor area, a different argument in a dispute. It survived because the cap AMOUNT is FROZEN on `cam_allocations.cap_amount` at reconcile time and was always right; only these two are re-derived at render. **When an accessor grows a scoping argument, grep every caller rather than the diff** — this is the same enumeration failure the document-series ordering fix recorded, one file later. Pinned by `ACamStatementReadsItsOwnPoolsCapTermTest`, with a control proving a pool-code'd read still falls back to a term written to govern every pool.
 
+### SW-165
+
+**A CAM SHARE NAMES ITS OWNER AND HIS UNIT (SW-165, fixed 2026-09-05).** A unit owner's CAM share
+read its party and its unit through a relation `UnitOwnership` **does not have**. The model declares
+`unit()` and `owner()` and no `tenant()` — its own docblock says so in writing (*"Named `owner`, not
+`tenant`, because that is what the operator calls them"*) — and an undefined relation is a missing
+attribute, so it resolves **null instead of throwing**. Probed on the QA baseline: `unit_ownerships#1`
+has `owner->name` = "Ashraf El-Gindy", `->tenant` = NULL, `method_exists($o, 'tenant')` = false.
+
+**Four readers, and the worst was not the one the row named.** `CamStatementPdfService:76` fell back
+to `$ownership?->tenant`, sitting *under a seven-line comment written to stop an ownership statement
+rendering a blank party* — the unit, reference and area halves were genuinely fixed and the party
+half has been inert since it shipped, so `resources/views/cam/statement.blade.php` printed an empty
+party block on the one document RC-06 exists for. It also cost the document its **language**:
+`DocumentLocale::preferenceOf(null)` returns null, so the recipient tier was skipped and an owner's
+service-charge statement rendered in the operator's language rather than his own. The other two were
+the admin and portal `PdfDownloadAction` recipients — the admin one 250 lines below that file's own
+docblock warning about this exact trap. The row's own subject, the portal View page's
+`TextEntry::make('lease.unit.code')`, is a state path and cannot branch.
+`ACamShareNamesItsOwnerAndHisUnitTest`, mutation-proved.
+
+### SW-221
+
+**A POOL SAYS WHY IT CANNOT BE RE-SOURCED, BEFORE YOU PRESS THE BUTTON (SW-221, fixed 2026-09-05).**
+`SyncCamPoolFromLedgerService::sync()` refused only `reconciled|closed`, while the Sync button was
+live on any `draft|reconciling` derived pool — so one billed allocation on a `reconciling` pool met a
+refusal raised by the **model**, worded for the edit FORM (*"The CAM recovery basis cannot change…"*),
+from a button that gave no sign it would not work.
+
+**And only sometimes.** `sync()` does `forceFill([...])->save()` and `total_actual_expense` is cast
+`decimal:2`, so a re-sync producing the same figure leaves the model clean and nothing throws — only
+`expense_synced_at` moves. SW-135 (owners counted into `estimateFromInvoices`) and SW-216
+(`creditedBack()` netted off it) both move that number, so **the first sync after either shipped is
+the one that refuses** — an intermittent refusal on a button that worked yesterday.
+
+Reachable through the ordinary panel flow rather than latent: generateAllocations → `reconciling`,
+billAllPending → allocations `billed`, and `markReconciled` is a separate act the operator need not
+have pressed. `sync()` has exactly one door, so the guard and the button now read one predicate.
+`ACamPoolSaysWhyItCannotBeResourcedTest`, mutation-proved.

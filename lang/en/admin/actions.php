@@ -39,7 +39,7 @@ return [
         'open' => 'Open',
         'write_off_invoice' => 'Write off as bad debt',
         'write_off_invoice_confirm' => 'This accepts the debt will not be paid. The revenue stays in the period it was earned; the loss is booked to Bad Debt Expense on the date you choose. Use this instead of voiding — voiding would reverse the revenue in the current period.',
-        'cancel_blocked_captured_cash' => 'This invoice has a captured payment allocated to it, so it cannot be cancelled — the money would stop being receivable without ever being returned. Void or refund the payment first, then void the invoice.',
+        'cancel_blocked_captured_cash' => 'Invoice :number has a captured payment allocated to it, so it cannot be cancelled — the money would stop being receivable without ever being returned. Void or refund the payment first, then void the invoice.',
         'add_line' => 'Add line',
         'post_journal_entry' => 'Post',
         'post_journal_entry_confirm' => 'Posting validates the entry balances and locks it. Continue?',

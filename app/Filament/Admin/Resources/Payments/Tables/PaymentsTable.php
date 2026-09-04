@@ -15,6 +15,7 @@ use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\TableGroup;
+use App\Support\StatusOptions;
 use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -93,7 +94,16 @@ class PaymentsTable
                     ->options(fn () => PaymentMethod::filterOptionsFor('payments.method')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => collect(__('admin.statuses.payment'))->only(['captured', 'reconciled', 'failed', 'refunded'])->all()),
+                    // Derived, exactly like the rail filter above it. The `->only()` this replaces
+                    // offered 4 of the 9 the column accepts (measured 2026-09-05 against
+                    // `ValueSets::allowed('payments','status')`): `initiated`, `authorized`,
+                    // `settled`, `bounced` and `voided` were unfilterable. `voided` shipped on
+                    // 2026-08-28 to say money was NOT returned, and it is in no worklist tab
+                    // either — so it could be read on the register and named by nothing.
+                    //
+                    // A TAB set is a curated worklist and legitimately not exhaustive; the FILTER
+                    // is the exhaustive tool, which is why the fix belongs here.
+                    ->options(fn () => StatusOptions::for('payments')),
                 EntitySelectFilter::make('tenant_id')
                     ->label(__('admin.filters.tenant'))
                     ->relationship('tenant')

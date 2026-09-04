@@ -66,7 +66,10 @@ class CamAllocationResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['pool.asset', 'lease.unit.asset', 'unitOwnership.unit'])
+            // `lease.tenant` / `unitOwnership.owner` are here for the statement button's
+            // `->recipient()`, which resolves the party the PDF is addressed to and takes its
+            // download language from that party's stored `locale`.
+            ->with(['pool.asset', 'lease.tenant', 'lease.unit.asset', 'unitOwnership.owner', 'unitOwnership.unit'])
             // The signed-in party's own share, whichever kind of agreement carries it. Scoped
             // through `lease` alone this returned NOTHING for a unit owner — his allocation has no
             // lease (he is a participant in his own right since phase 3) — so he was billed a CAM

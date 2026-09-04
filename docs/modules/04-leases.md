@@ -2241,3 +2241,15 @@ left. (`ADepositAlreadyCollectedIsNotStillOutstandingTest`, 2 mutations.)
 
 under the rent-index / CPI escalation section: "**A revised index figure is an EDIT to the reading, not a second one (SW-043, 2026-09-04).** `rent_indices` is keyed `(code, period)` and the form asked nothing about it, so retyping a month that already has a reading — which is exactly what a revision looks like from the operator's chair — met the database index as an untranslated 500. It is refused as a field error now, worded to name the escape the migration's own docblock states: open the existing row and correct its value, so a lease that escalated on the old figure can still show which figure it used and when it changed. Both sides of the check are normalised the way storage normalises them — `RentIndex::normaliseCode()` is the one home for the upper-casing the dehydrator does, because a rule keyed on the typed value compares `egy_cpi` against a stored `EGY_CPI` and matches nothing under SQLite's case-sensitive `=`, i.e. green in the suite and different on MySQL; and the month is snapped to the 1st, because the period state is legitimately a mid-month date. The self-exclusion on edit is load-bearing: without it the revision the refusal points at is itself refused. The form is the only door (`DemoSeeder` uses `updateOrCreate`), so there is deliberately no model guard beside it and the index stays the backstop."
 
+### SW-027
+
+**The lease register's status filter dropped `cancelled`** via `->except('cancelled')`, which arrived
+in `bcca5b17` (May 2026) with no comment on the line and no reason in the commit message — incidental
+rather than a decision. `LeaseForm:295` rejects only `renewed`/`terminated`, and only for a record not
+already in them, so a lease **can** be saved `cancelled`. Unlike its invoice and payment siblings it
+was never UNFINDABLE — `ListLeases::getTabs()` carries `cancelled` in the **Ended** tab — but the
+filter beside the column that renders the word could not select it, and a status only one of the two
+can reach is the drift.
+Now `StatusOptions::for('leases')`. Full reasoning in
+[modules/05 → SW-027](05-billing-invoices.md); regression test
+`ARegisterFilterFindsEveryStatusItHoldsTest`.

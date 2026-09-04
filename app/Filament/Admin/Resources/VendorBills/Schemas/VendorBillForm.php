@@ -279,6 +279,12 @@ class VendorBillForm
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)
+                        // A ceiling, because without one a mistyped figure is a 500 rather than a
+                        // message: the column is `decimal(14,2)` and MySQL answers an overflow with
+                        // `SQLSTATE[22003] … 1264 Out of range value`. The number, and why it is a
+                        // tenth of the column's own, live on the model that owns the column — see
+                        // `VendorBill::MAX_DOCUMENT_AMOUNT`.
+                        ->maxValue(VendorBill::MAX_DOCUMENT_AMOUNT)
                         ->required()
                         ->default(0)
                         ->live(onBlur: true)
@@ -315,6 +321,10 @@ class VendorBillForm
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)
+                        // Same column, same width, same ceiling — and the pair is why the ceiling
+                        // is a tenth of it: `total` is re-derived as `subtotal + vat_amount` into a
+                        // `decimal(14,2)` of its own on every write path.
+                        ->maxValue(VendorBill::MAX_DOCUMENT_AMOUNT)
                         ->required()
                         ->default(0)
                         ->live(onBlur: true)

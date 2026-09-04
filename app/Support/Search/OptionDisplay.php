@@ -31,6 +31,7 @@ use App\Models\Warehouse;
 use App\Support\PropertyIsolation;
 use App\Support\TenantScope;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Closure;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -372,7 +373,7 @@ class OptionDisplay
                 code: null,
                 subtitle: RecordOption::join([
                     $record->tenant?->name,
-                    $record->due_date?->format('d M Y'),
+                    self::dayDate($record->due_date),
                     self::money($record->total),
                     (float) $record->balance > 0.005
                         ? __('admin.search.option.outstanding', ['amount' => self::money($record->balance)])
@@ -424,7 +425,7 @@ class OptionDisplay
                 code: null,
                 subtitle: RecordOption::join([
                     $record->vendor?->name,
-                    $record->bill_date?->format('d M Y'),
+                    self::dayDate($record->bill_date),
                     self::money($record->total),
                 ]),
                 badge: self::statusLabel('admin.statuses.vendor_bill', $record->status),
@@ -1156,10 +1157,37 @@ class OptionDisplay
         return $amount === null ? null : 'EGP '.number_format((float) $amount, 0);
     }
 
+    /**
+     * A full date for an option's second line — **in the reader's language** (SW-028).
+     *
+     * `format('d M Y')` names the month in English whatever the locale is, and both callers are
+     * picker subtitles an operator reads while choosing: an invoice's due date on the
+     * payment-allocation and cheque-linking pickers, and a vendor bill's date. `DD MMM YYYY` keeps
+     * the English output byte-identical to the zero-padded `d M Y` it replaces; the digits stay
+     * Latin, which `LatinNumeralsTest` pins app-wide.
+     */
+    protected static function dayDate(mixed $date): ?string
+    {
+        return $date instanceof \DateTimeInterface
+            ? CarbonImmutable::instance($date)->locale(app()->getLocale())->isoFormat('DD MMM YYYY')
+            : null;
+    }
+
+    /**
+     * A month-and-year range for an option's second line — **in the reader's language** (SW-028).
+     *
+     * `format('M Y')` emits English month names whatever the locale is, and this is the ONE seam
+     * behind `dateRange()`'s three callers — a lease's commencement→expiry, a vendor contract's
+     * start→end and an announcement's window — i.e. the subtitle of every lease, vendor-contract
+     * and announcement `EntitySelect` in BOTH panels. So the Arabic picker read `Jan 2026 –
+     * Dec 2028`. `isoFormat()` on a localised instance is the panel's idiom; the year stays in
+     * Latin digits, which `LatinNumeralsTest` pins app-wide, and the English output is
+     * byte-identical to what this printed before.
+     */
     protected static function dateRange(mixed $from, mixed $to): ?string
     {
         $format = static fn (mixed $date): ?string => $date instanceof \DateTimeInterface
-            ? $date->format('M Y')
+            ? CarbonImmutable::instance($date)->locale(app()->getLocale())->isoFormat('MMM YYYY')
             : null;
 
         return RecordOption::join([$format($from), $format($to)]) === null

@@ -917,3 +917,24 @@ add to "### Withholding tax on vendor payments — خصم وإضافة (module 1
 
 **A contract with no property covers EVERY mall, and there is now ONE definition of that (SW-084, 2026-09-04).** `vendor_contracts.asset_id` is nullable and a NULL is portfolio-wide — the contract form says so, the contracts tab read it that way, and the `holidays` migration cites this table as the shape it copied. FIVE readers answered *"which contracts does this operator see"* and only that tab agreed: the *contract notice due* filter on the vendor list, the **contract notice** card on the dashboard, the **COI** card beside it (through `whereHas('contracts', …)`) and `VendorResource::getNavigationBadge()` each narrowed with a bare `whereIn('asset_id', $ids)` — **and `whereIn` never matches NULL**. So an operator-wide security or cleaning contract at its notice deadline was on no chase list, in no count and on no badge; a vendor engaged only under one had no lapsed certificate on anyone's card; and `vendors:scan-contract-renewals`, which scopes not at all, went on e-mailing about it nightly — the *nag with nothing behind it* that trains people to ignore the card. `VendorContract::scopeInProperties($ids)` is the one definition all five read; `$ids === null` is an unrestricted operator, and an EMPTY array now narrows to the portfolio-wide rows alone where `->when([], …)` used to skip the clause and show everything. The badge also moved from `currentAssetId()` to `visibleAssetIds()` — identical with a mall selected, and it degrades to the assigned set rather than to nothing off the panel. **Deliberately NOT `#[PropertyOwned(portfolioRowsWhenNull: true)]`**: that flag feeds `atriom:audit-property-dimension`, which reports a null `asset_id` as a defect unless the model's own resource is in `PropertyField::PORTFOLIO_LEVEL`, and a contract has no resource — so flipping it would make the first legitimate portfolio-wide contract fail `atriom:preflight` and block a deploy. **The half that is left, recorded rather than half-done:** `OptionDisplay::scope()` reads that same flag, so a portfolio-wide contract is still not offered by the vendor-bill and recurring-cost pickers. Closing it needs the registry flip AND the audit taught which models have no resource. Measured on `mall_management_qa` 2026-09-04: 7 contracts, 0 portfolio-wide, so the demo data cannot show any of this and every screen looked right.
 
+### SW-082
+
+**A MONEY FIELD REFUSES WHAT ITS COLUMN CANNOT HOLD (SW-082, fixed 2026-09-05).** A vendor bill's
+two writable money fields — `subtotal` and `vat_amount` — validated a floor and no ceiling against
+`decimal(14,2)` columns, so a fat-fingered figure was an out-of-range `QueryException` and therefore
+**the 500 page with the form lost**, rather than a message on the field.
+
+Reproduced on MySQL 8.0.33 in a session-local `TEMPORARY` table (no persistent row touched):
+`999999999999.99` inserts, `1000000000000.00` gives `SQLSTATE[22003] … Out of range value`. **The
+sqlite suite structurally cannot see it** — `Schema::getColumns()` reports a `decimal(14,2)` as
+`numeric` with no precision at all, so sqlite stores the overflowing figure silently. Same
+"green here, fatal on the real database" split already recorded for `GREATEST` and for the dropped
+CHECK constraints.
+
+**The ceiling is a TENTH of the column's, and that is the interesting part.** `VendorBill::saving`
+re-derives `total = subtotal + vat_amount` into a `decimal(14,2)` of its own on every write path, so
+capping each half at the column's own ceiling would still let a legitimate pair overflow the total —
+on a field the operator cannot type into. Two halves at 99,999,999,999.99 sum to
+199,999,999,999.98, which the column holds. That same server-side recompute is also why capping the
+two inputs closes the document completely: a crafted `total` in the Livewire payload is overwritten
+before the insert. `AMoneyFieldRefusesWhatItsColumnCannotHoldTest`, mutation-proved.

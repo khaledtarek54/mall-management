@@ -98,7 +98,9 @@ it('refuses to void an invoice that carries a write-off', function () {
     // ETA-filed invoice, captured cash, and this — and a bare class assertion cannot tell them
     // apart, so it would pass on a refusal for the wrong reason.
     expect(fn () => app(VoidInvoiceService::class)->void($this->invoice->fresh(), 'keyed in error'))
-        ->toThrow(DomainException::class, __('admin.refusals.invoice_void_has_write_off'));
+        ->toThrow(DomainException::class, __('admin.refusals.invoice_void_has_write_off', [
+            'number' => $this->invoice->number,
+        ]));
 
     // The document is untouched — a refusal must not half-apply. (`overdue`, because the fixture's
     // due date is derived from the lease's terms and has already passed; what matters is that it is
@@ -212,7 +214,9 @@ it('refuses a direct cancel on ANY path, which is the backstop', function () {
     app(WriteOffInvoiceService::class)->write($this->invoice, ['amount' => 4000, 'reason' => 'uneconomic_to_pursue']);
 
     expect(fn () => $this->invoice->fresh()->update(['status' => 'cancelled', 'balance' => 0]))
-        ->toThrow(DomainException::class, __('admin.refusals.invoice_void_has_write_off'));
+        ->toThrow(DomainException::class, __('admin.refusals.invoice_void_has_write_off', [
+            'number' => $this->invoice->number,
+        ]));
 
     // …and the control: an ordinary invoice still cancels through the same door.
     $clean = makeInvoice($this->lease, ['status' => 'issued']);

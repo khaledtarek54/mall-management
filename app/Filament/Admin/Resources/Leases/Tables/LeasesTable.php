@@ -14,6 +14,7 @@ use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
+use App\Support\StatusOptions;
 use App\Support\TenantScope;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
@@ -220,7 +221,18 @@ class LeasesTable
                     ->query(fn ($query) => $query->whereDoesntHave('options')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => collect(__('admin.statuses.lease'))->except('cancelled')->all()),
+                    // The `->except('cancelled')` this replaces dropped 1 of the 7 the column
+                    // accepts. It arrived in `bcca5b17` (May 2026) with no comment on the line and
+                    // no reason in the commit message — incidental, not a decision — and
+                    // `cancelled` is savable through the lease form itself (`LeaseForm:295` rejects
+                    // only `renewed`/`terminated`, and only for a record not already in them).
+                    //
+                    // Unlike its invoice and payment siblings this one was never UNFINDABLE:
+                    // `ListLeases::getTabs()` carries `cancelled` in the **Ended** tab, so the
+                    // register could reach it — just not through the filter beside the column that
+                    // renders it. A tab is a curated worklist and the filter is the exhaustive
+                    // tool, and a status that only one of the two can reach is the drift.
+                    ->options(fn () => StatusOptions::for('leases')),
                 EntitySelectFilter::make('tenant_id')
                     ->label(__('admin.filters.tenant'))
                     ->relationship('tenant')

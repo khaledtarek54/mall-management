@@ -881,7 +881,9 @@ class Invoice extends Model
             if ($invoice->status === 'cancelled'
                 && $invoice->getOriginal('status') !== 'cancelled'
                 && $invoice->capturedCashPaid() > 0) {
-                throw new \DomainException(__('admin.actions.cancel_blocked_captured_cash'));
+                throw new \DomainException(__('admin.actions.cancel_blocked_captured_cash', [
+                    'number' => $invoice->number,
+                ]));
             }
 
             // **A standing WRITE-OFF blocks a cancel on every path too, and this is where it has to
@@ -899,7 +901,9 @@ class Invoice extends Model
             if ($invoice->status === 'cancelled'
                 && $invoice->getOriginal('status') !== 'cancelled'
                 && $invoice->writeOffs()->exists()) {
-                throw new \DomainException(__('admin.refusals.invoice_void_has_write_off'));
+                throw new \DomainException(__('admin.refusals.invoice_void_has_write_off', [
+                    'number' => $invoice->number,
+                ]));
             }
 
             // A write-off is an ACCOUNTING ACT, not a status. `WriteOffInvoiceService` posts

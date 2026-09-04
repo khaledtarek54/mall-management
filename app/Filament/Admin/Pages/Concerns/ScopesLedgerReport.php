@@ -51,6 +51,16 @@ trait ScopesLedgerReport
      * discarded every Form 41 link (SW-131/SW-209).
      *
      * Null is the default, so every existing report opens exactly as it did.
+     *
+     * **A stated year beats a period that contradicts it, and that IS a narrowing (SW-223).**
+     * Measured on an April fiscal year: `?year=2028&period=2028-01` names FY2028 (Apr 2028 – Mar
+     * 2029), which does not contain January 2028 — so the period is dropped and the report opens on
+     * the whole fiscal year. The `/^\d{4}-\d{2}$/` guard this replaced accepted it and rendered
+     * January 2028 under a year picker reading 2028 beside a period picker unable to label it,
+     * which is the pickers-disagree state `updatedYear()` exists to prevent. The YEAR is the senior
+     * control — moving it clears the month — so a link that states both and contradicts itself
+     * keeps the year. A link naming ONLY a period still has its year searched for, one neighbouring
+     * year each way. Unreachable on a calendar-year install.
      */
     public ?string $period = null;
 

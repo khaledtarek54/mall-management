@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages;
 
 use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
@@ -31,6 +32,7 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
     use ExportsReport;
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use PostsToLedger;
     use RendersFinancialStatement;
     use SavesReportViews;
     use ScopesLedgerReport;
@@ -51,6 +53,7 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
         return [
             GuideAction::for(static::class),
             $this->saveViewAction(),
+            $this->postToLedgerAction(),
             Action::make('download_pdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->icon('heroicon-o-document-arrow-down')
@@ -81,10 +84,30 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
      * The integrity check leads the subheading: a cash-flow statement that does
      * not tie to the actual movement in the cash accounts is wrong, and that
      * has to be impossible to scroll past.
+     *
+     * THE LEDGER-FRESHNESS LINE RIDES WITH IT, exactly as it does on the other four screens whose
+     * figures come out of `LedgerReportService`. `a95f7e69` put it on the trial balance and the
+     * journal-entry list, and `0a2d214f` extended it to the income statement, the balance sheet
+     * and the general ledger under the sentence *"so no report can silently show stale numbers"*
+     * — enumerated from that diff rather than from the code, and this page (which had shipped
+     * eight days earlier, `0f7be827`) was the one it missed. Measured at HEAD 2026-09-05: of the
+     * five pages naming `LedgerReportService`, this was the only one with neither the freshness
+     * line nor the button.
+     *
+     * It is the worst of the five to omit it from. This statement's own integrity check answers
+     * *"do the three activity sections explain the movement in the cash accounts?"* — and an
+     * unposted receipt moves the bank and none of the sections, so **"it does not reconcile" and
+     * "nobody has posted to the GL since Tuesday" are the same sentence here**. The reader was
+     * shown the first half and not the second, on the one page where the second half is the
+     * likeliest explanation of the first.
      */
     public function getSubheading(): ?string
     {
-        return StatementIntegrity::cashFlow((bool) $this->report()['reconciled']);
+        $check = StatementIntegrity::cashFlow((bool) $this->report()['reconciled']);
+
+        $sync = $this->ledgerLastSyncedSubheading();
+
+        return $sync ? $check.' · '.$sync : $check;
     }
 
     public static function getNavigationLabel(): string

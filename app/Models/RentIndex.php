@@ -79,9 +79,14 @@ class RentIndex extends Model
         return $value === null ? null : (float) $value;
     }
 
-    /** What an operator reads on a screen — the index and the month it describes. */
+    /**
+     * What an operator reads on a screen — the index and the month it describes, **in their own
+     * language** (SW-028). Read by the rent-index picker on the lease form, so `format('M Y')`
+     * put an English month in an Arabic dropdown. The em dash is the house placeholder for a
+     * missing value, exactly as `JournalNarrative` renders one.
+     */
     public function label(): string
     {
-        return $this->code.' · '.($this->period?->format('M Y') ?? '—');
+        return $this->code.' · '.($this->period?->locale(app()->getLocale())->isoFormat('MMM YYYY') ?? '—');
     }
 }

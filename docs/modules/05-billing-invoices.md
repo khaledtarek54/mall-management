@@ -2294,9 +2294,49 @@ under the billing planner: "**A PLAN IS A READ: one broken schedule fails one le
 
 ### SW-030
 
-`, inside the existing `## Sweep fixes — 2026-09-04` section (after the SW-027 + SW-029 entry):
-
-### SW-030
-
 **A LATE FEE OF NOTHING IS NOT A FEE (SW-030, fixed 2026-09-04).** `0%` with a `0` minimum is how an operator says *"this lease carries no late-fee clause"* — both lease fields and both settings fields are `->minValue(0)` and there is no other switch for it — and `LateFeeService::applyTo()` charged it anyway. Measured: `max(0.0, round(12000 * 0 / 100, 2))` is **0.00**, `Vat::rateForType('late_fee')` is 0 so the total is 0.00 too, and `IssueInvoiceService` refuses only an EMPTY line set, never a zero-amount one — under a comment that already says *"a zero-total AR document would age, dun and post to the GL as if it were real"*. So every overdue invoice minted an EGP 0.00 AR document. **Three consequences and the middle one is the money**: the tenant is notified of a penalty of nothing; the zero fee is stamped onto `invoices.late_fee_invoice_id`, and `mayChargeAgain()` refuses while a LIVE fee stands — `late_fee_recurrence_days` ships at 0, i.e. *once per invoice* — so the day the operator corrects the clause the invoice is **penalty-proof for ever** with no path to re-charge it; and `InvoiceJournalizer` hits its *"has items but no positive revenue"* branch for each one on every ledger sync. **Rounding reaches the same state with a real rate set**: 2% of a 0.20 residual with a 0 minimum is 0.00. **The bar is the FEE, not the rate** — *"no percentage, EGP 50 flat"* is a real clause and goes on billing, which is why the guard is `$fee <= 0` after the cap and not a test on `$percent`. **`false`, not a `DomainException`**: the only callers are the nightly sweep (`ApplyLateFees`, `billing:apply-late-fees`) and there is no per-invoice button, so a refusal would file a deliberate configuration as `failed` in the 04:00 log every night — while its sibling `BillBouncedChequeFeeService` has refused a zero fee with `nsf_fee_failed_not_configured` since it was written, correctly, because an operator pressed a button there and is owed an answer. Shipped defaults (2% / EGP 50) are unaffected and no figure moves on deploy. **Deliberately no backfill**: money records are never deletable, and a zero-fee invoice already minted still blocks its source invoice — see the risk note in the sweep row. (`ALateFeeOfNothingIsNotChargedTest`, three teeth mutation-proved.)
 
+### SW-027
+
+**AN ADMIN REGISTER'S STATUS FILTER FINDS EVERY STATUS THE REGISTER HOLDS (SW-027, fixed 2026-09-05).**
+The admin half of SW-029, and the wider one: a portal filter offers what the portal SHOWS, while an
+admin list shows **every** row the column can carry, so its filter has to reach all of them. Three
+registers were hand-kept lists — invoices offered **5 of 9**, payments **4 of 9**, leases **6 of 7** —
+and every missing value has its own coloured arm in the `status` column a few lines above the filter,
+so an operator could read the word and not select it. The unreachable ones were precisely what
+somebody goes to a register looking for: `disputed`, `cancelled`, `credited`, `written_off`,
+`initiated`, `authorized`, `settled`, `bounced` and `voided`.
+
+`voided` is the sharpest case — it shipped 2026-08-28 to say money was **not** returned, and it is in
+no worklist tab either, so nothing on the screen could name it. The lease register's
+`->except('cancelled')` arrived in `bcca5b17` with no comment on the line and no reason in the commit
+message (incidental, not a decision), while `LeaseForm:295` lets a lease be saved `cancelled`. **The lease case is the
+weaker of the three and is stated as such**: `ListLeases::getTabs()` carries `cancelled` in the
+**Ended** tab, so it was reachable — through the tab, not the filter. The invoice and payment ones
+are not: `cancelled`/`credited`/`written_off` are in no invoice tab and `voided` is in no payment
+tab, so those really could be read on the register and named by nothing. **A TAB set is a curated worklist and legitimately not
+exhaustive; the FILTER is the exhaustive tool**, which is why the fix belongs on the filter and the
+tabs are untouched. All three are now one line through `App\Support\StatusOptions::for()`, the seam
+built for this with SW-029 and read by nobody on the admin panel until now — so a status added to
+`ValueSets` becomes filterable **by existing**. Lang parity verified for all three sets in both
+languages. `ARegisterFilterFindsEveryStatusItHoldsTest`, mutation-proved.
+
+### SW-231
+
+**A VOID REFUSAL NAMES THE INVOICE IT REFUSED (SW-231, fixed 2026-09-05).** `invoice_void_has_write_off`
+carried no `:number` while every sibling write-off refusal in the same file does — and it is raised
+anonymously from two places. **The row under-stated it**: the captured-cash pair beside it is the same
+defect and is the *more likely* refusal on exactly the screens the row named, raised anonymously from
+three more.
+
+That matters because **the screens that raise it most are not the invoice's own**. A void cascades
+from `SalesDeclarationActions::voidLocked` and from the CAM allocations relation manager, and both
+callers' own docblocks name captured cash as the expected outcome — so an operator voiding a sales
+declaration was told *"this invoice carries a write-off"* about a document they never picked and
+cannot identify. The CAM one voids **up to two** invoice ids in one loop, so the toast could not even
+say which of the two refused. Nothing in the suite had ever read what that toast says:
+`PercentageRentImmediateBillingTest` already drove the cascade end-to-end and asserted
+`toThrow(DomainException::class)` with no message argument. `$invoice->number` always exists
+(`AllocatesDocumentNumber` assigns it in `creating`; 290/290 on the QA baseline).
+`admin.refusals.invoice_void_eta_filed` is deliberately untouched — module 16 is `Modules::FROZEN`.
+`AVoidRefusalNamesTheInvoiceItRefusedTest`, mutation-proved.

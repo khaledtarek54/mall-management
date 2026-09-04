@@ -217,7 +217,10 @@ it('renders the cash-flow statement and reports whether it reconciles', function
         // The integrity check must be stated on the page, not buried: a
         // cash-flow statement that doesn't tie to the cash accounts is wrong.
         $report = app(LedgerReportService::class)->cashFlow(null, now()->startOfYear(), now()->endOfYear());
-        expect($component->instance()->getSubheading())->toBe(
+        // `toContain`, not `toBe`: the ledger-freshness line is appended after the check now that
+        // this page composes `PostsToLedger` like its four siblings — which is exactly how the
+        // trial-balance assertion higher up this file has always been written.
+        expect($component->instance()->getSubheading())->toContain(
             $report['reconciled']
                 ? __('admin.reports.cash_flow_reconciled')
                 : __('admin.reports.cash_flow_unreconciled')

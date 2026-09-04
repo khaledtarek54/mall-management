@@ -12,6 +12,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,39 @@ class SyncCamPoolFromLedgerService
             throw new InvalidArgumentException(
                 "Pool #{$pool->id} is '{$pool->status}'; its totals are frozen. Re-open the year to re-source them."
             );
+        }
+
+        // A `reconciling` pool can already have BILLED allocations, and that — not the status — is
+        // what freezes both totals ({@see CamExpensePool::hasBilledAllocations()}, the one sentence
+        // the model's `updating` guard and `CamExpensePoolForm::basisFrozen()` also read).
+        //
+        // Measured at HEAD 2026-09-05: this method refused only `reconciled|closed` (above) while
+        // `CamExpensePoolActions::canGenerate()` keeps the Sync button live on `draft|reconciling`,
+        // so the write below reached `CamExpensePool::booted()` and came back as
+        // `admin.refusals.cam_basis_locked_after_billing` — a sentence written for the EDIT FORM
+        // ("the CAM recovery basis cannot change…"), raised by a button that had given no sign it
+        // would not work. And it was intermittent: a re-sync producing the SAME two figures leaves
+        // neither column dirty, so the freeze never fired and the button appeared to work. SW-135
+        // (unit owners counted into the billed estimate) and SW-216 (credit notes netted off it)
+        // both MOVE that number, so the first sync after either shipped is the one that refuses.
+        //
+        // Refusing rather than loosening the freeze is this class's own stated rule, at the top of
+        // the file: a bill arriving in March for December must not silently restate allocations
+        // that have already been billed to tenants. What changes is that the refusal names the ACT
+        // and the way out, and the button says so before it is pressed.
+        //
+        // **It does cost one legitimate use, and that is deliberate.** Before this, a sync on a
+        // billed pool whose derived figures had NOT moved succeeded and re-stamped
+        // `expense_synced_at` — "I looked at the ledger and nothing changed" — because the model
+        // freeze only fires on a dirty basis column. That re-check is now refused for the life of
+        // the pool. It is the intermittence itself, so keeping it would mean keeping a button whose
+        // success depends on whether the answer happens to have changed; and it costs nothing that
+        // matters, since `needsSourcing()` tests only for a NULL stamp, so a stale date raises no
+        // false flag anywhere. The escape stated in the refusal is real: voiding an allocation
+        // resets it to `pending` (`CamReconciliationService::voidAllocation()`), which makes
+        // `hasBilledAllocations()` false and unlocks Sync.
+        if ($pool->hasBilledAllocations()) {
+            throw new DomainException(__('admin.refusals.cam_sync_locked_after_billing'));
         }
 
         $expense = $pool->expense_basis === CamExpensePool::BASIS_LEDGER
@@ -373,7 +407,7 @@ class SyncCamPoolFromLedgerService
         $codes = $pool->estimateChargeCodes();
 
         if ($codes === []) {
-            throw new \DomainException(__('admin.cam.errors.estimate_codes_required', [
+            throw new DomainException(__('admin.cam.errors.estimate_codes_required', [
                 'pool' => $pool->label(),
             ]));
         }

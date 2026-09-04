@@ -21,8 +21,14 @@ class CamAllocationInfolist
                         ->badge(),
                     TextEntry::make('pool.asset.name')
                         ->label(__('admin.fields.asset')),
-                    TextEntry::make('lease.unit.code')
+                    // Through WHICHEVER agreement holds the share. A `TextEntry` names a state
+                    // path and a path cannot branch, so `lease.unit.code` printed nothing at all
+                    // for a unit owner — whose allocation has no lease, as the resource's own
+                    // `getEloquentQuery()` says in writing four lines below the OR that puts his
+                    // row on this page. `CamAllocation::unitCode()` is the seam.
+                    TextEntry::make('unit_code')
                         ->label(__('admin.tables.tenant.units'))
+                        ->placeholder('—')
                         ->badge(),
                 ]),
             Section::make(__('admin.sections.cam_breakdown'))

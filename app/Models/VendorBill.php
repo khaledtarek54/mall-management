@@ -41,6 +41,43 @@ class VendorBill extends Model
 
     public const CATEGORIES = ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'];
 
+    /**
+     * The most either of a bill's own money fields may be given.
+     *
+     * `vendor_bills.subtotal`, `vat_amount` and `total` are all `decimal(14,2)` — measured
+     * 2026-09-05 with `show columns from vendor_bills` on the dev MySQL — so the driver's own
+     * ceiling is 999,999,999,999.99, and reaching it is NOT a validation message. Measured the same
+     * day on MySQL 8.0.33 in a session-local TEMPORARY table, no real row touched (session
+     * `sql_mode` includes `STRICT_TRANS_TABLES`): `insert 999999999999.99` succeeds and
+     * `insert 1000000000000.00` raises `SQLSTATE[22003]: Numeric value out of range: 1264 Out of
+     * range value` — a `QueryException`, so the 500 page, after the operator pressed Save and lost
+     * the form. Both writable fields carried `->minValue(0)` and no ceiling at all.
+     *
+     * **SQLite renders the same column as a bare `numeric` with no precision** — `Schema::getColumns()`
+     * answers `type => numeric` there, measured — so it stores the overflowing figure silently and
+     * the Pest suite structurally cannot see the driver half. Same "green here, fatal on the real
+     * database" split CLAUDE.md records for `GREATEST` and for the CHECK constraints SQLite drops.
+     *
+     * **A TENTH of the column's ceiling, and that is the whole reason it is not the column's own.**
+     * {@see booted()} re-derives `total = subtotal + vat_amount` on EVERY write path into a column
+     * of the same width, so capping each half at 999,999,999,999.99 would still let a legitimate
+     * pair overflow the total — and on a field the operator cannot type into. Two of these sum to
+     * 199,999,999,999.98, which the column holds. Nothing real is refused: 99.9 billion EGP on one
+     * supplier invoice is orders of magnitude past a mall's entire annual spend, while an extra
+     * keystroke on a six-figure bill is now caught by a message instead of by the driver.
+     *
+     * Sibling of `FacilityWorkOrder::MAX_EST_LABOUR_HOURS`. **This closes ONE document.** Measured
+     * across `app/Filament` the same day: 123 money inputs (`->prefix('EGP')`), 100 with a floor,
+     * 8 with a ceiling, and 97 writable ones still unbounded. They are not one edit, because the
+     * widths differ — `decimal(14,2)` on 111 columns, `decimal(12,2)` on 57 including
+     * `invoices.total`, `payments.amount`, `charges.amount` and `leases.base_rent_monthly`, and
+     * `decimal(15,2)` on 3 — so one shared constant would claim a ceiling those columns do not
+     * have, and a ceiling derived from the live schema cannot be proved in a suite whose driver
+     * reports no precision. The next one goes the same way: a constant on the model that owns the
+     * column, measured.
+     */
+    public const MAX_DOCUMENT_AMOUNT = 99999999999.99;
+
     protected $fillable = [
         'purchase_request_id',
         // Which JOB this invoice paid for — the service bucket of the work-order cost object.

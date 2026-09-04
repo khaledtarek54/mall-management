@@ -16,6 +16,26 @@ use Illuminate\Support\Facades\DB;
  * voided by the real-time sync / sweep (the invoice journalizer returns no effect for a cancelled
  * invoice). Only captured CASH blocks the void — applied non-cash credit is reversed automatically,
  * so refund a captured payment first (VoidPaymentService), then void.
+ *
+ * **The refusals below name the invoice, because this service is mostly called from somewhere
+ * else.** `void()` is dispatched from the invoice's own Edit page — where the operator can see
+ * which document they are looking at — but also from
+ * `PercentageRentCalculationService::reverseOverage()` (driven from the sales-declaration screen)
+ * and from `CamReconciliationService::voidAllocation()`, which voids up to TWO invoices plus a
+ * credit note in one loop from the CAM allocation tab. Both of those callers' own docblocks name a
+ * refusal from here as the expected outcome, so it is the common case there, not an edge.
+ *
+ * A `DomainException` renders as a toast (`bootstrap/app.php`), and the toast said *"This invoice
+ * carries a write-off"* with nothing to say WHICH invoice — and on the CAM path no way to tell
+ * which of the two. Measured on the cascade: `voidLocked()` over a locked declaration whose 2,500
+ * overage invoice carried a 100 write-off refused with a sentence naming no document, and the
+ * document it meant appears nowhere on the screen the operator is standing on. The escape the
+ * message names — *reverse the write-off first* — is only actionable once they can find it.
+ * The sibling write-off refusals one file away (`write_off_not_live`, `write_off_already_full`, …)
+ * have named `Invoice :number` since they were written (SW-231).
+ *
+ * The `eta_status` branch is left as it stands: module 16 is `Modules::FROZEN`, so nothing on a
+ * current install sets that column to `valid`.
  */
 class VoidInvoiceService
 {
@@ -59,7 +79,9 @@ class VoidInvoiceService
         // the credit halves reverse on cancel, but captured CASH must be refunded first (else it
         // strands on a void invoice). capturedCashPaid() nets out both credit kinds.
         if ($invoice->capturedCashPaid() > 0) {
-            throw new \DomainException(__('admin.refusals.invoice_void_has_cash'));
+            throw new \DomainException(__('admin.refusals.invoice_void_has_cash', [
+                'number' => $invoice->number,
+            ]));
         }
 
         // **A standing WRITE-OFF blocks the void, for the same reason captured cash does.** A
@@ -86,7 +108,9 @@ class VoidInvoiceService
         // A FULLY written-off invoice never reaches here: `written_off` is in the terminal list
         // above, so this bites only on the partial case, which is the one that moves money.
         if ($invoice->writeOffs()->exists()) {
-            throw new \DomainException(__('admin.refusals.invoice_void_has_write_off'));
+            throw new \DomainException(__('admin.refusals.invoice_void_has_write_off', [
+                'number' => $invoice->number,
+            ]));
         }
 
         return DB::transaction(function () use ($invoice, $reason) {
@@ -104,8 +128,14 @@ class VoidInvoiceService
             if ($invoice->eta_status === 'valid') {
                 throw new \DomainException(__('admin.refusals.invoice_void_eta_filed'));
             }
+            // Named for the same reason as the pre-lock twin above. This branch fires only when the
+            // state moves between that check and the lock, so a single-threaded test cannot reach it
+            // and it is NOT mutation-proved — it is here so a racing void does not produce the one
+            // anonymous toast left in the method.
             if ($invoice->capturedCashPaid() > 0) {
-                throw new \DomainException(__('admin.refusals.invoice_void_has_cash'));
+                throw new \DomainException(__('admin.refusals.invoice_void_has_cash', [
+                    'number' => $invoice->number,
+                ]));
             }
 
             if ($reason) {

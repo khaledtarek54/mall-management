@@ -39,7 +39,7 @@ class CamAllocationsRelationManager extends RelationManager
      */
     public static function participantName(CamAllocation $record): string
     {
-        $tenant = $record->lease?->tenant ?? $record->unitOwnership?->owner;
+        $tenant = $record->counterparty();
 
         return $tenant instanceof Tenant ? $tenant->name : '—';
     }
@@ -47,7 +47,7 @@ class CamAllocationsRelationManager extends RelationManager
     /** The unit the allocation is against, from whichever agreement holds it. */
     public static function participantUnit(CamAllocation $record): ?string
     {
-        return $record->lease?->unit?->code ?? $record->unitOwnership?->unit?->code;
+        return $record->unitCode();
     }
 
     /** Named once so the bill action's visible() (UI) and action() (real gate) can't drift. */
@@ -288,7 +288,11 @@ class CamAllocationsRelationManager extends RelationManager
                     // A CAM allocation belongs to a lease OR a unit ownership, so the party is
                     // resolved the same way the statement's own header resolves it — an owner is a
                     // `tenants` row too, and reads in their own language just as a retailer does.
-                    ->recipient(fn (CamAllocation $record) => $record->lease?->tenant ?? $record->unitOwnership?->tenant),
+                    // The same non-relation this file's own `participantName()` docblock warns
+                    // about, 250 lines further down: `unitOwnership->tenant` is null for every
+                    // owner, so the modal pre-selected the OPERATOR's language for a document
+                    // addressed to somebody else.
+                    ->recipient(fn (CamAllocation $record) => $record->counterparty()),
                 Action::make('bill')
                     ->label(__('admin.actions.bill_allocation'))
                     ->icon('heroicon-o-banknotes')

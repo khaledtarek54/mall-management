@@ -1113,8 +1113,11 @@ invisible:**
 `mount()`-time read — including on scheduled delivery, where the filter form never renders.
 
 **Still open:** the membership test runs in `mount()` only, so a later Livewire update can still set
-a malformed period (SW-224); and on a non-calendar year an explicit `?year=2026&period=2026-01` is
-now discarded where it used to render (SW-223).
+a malformed period (SW-224). The other half — that on a non-calendar year an explicit
+`?year=2026&period=2026-01` is now discarded where it used to render — was reviewed and **closed as
+deliberate** (SW-223, 2026-09-05): a link that states a year and a period contradicting it keeps the
+YEAR, because the year is the senior control and rendering the month anyway leaves the two pickers
+disagreeing. See the SW-223 entry under *Sweep fixes* below.
 
 **Consolidated statements remain unreachable** — that is the other half of EG-27 and it reopens the
 "All-Properties mode removed" decision, so it stays open rather than being drifted into.
@@ -1858,3 +1861,33 @@ The gate is `PropertyFieldPinnedConformanceTest`, and it now DERIVES the ledger 
 
 **On the model, and only when the window MOVES.** The guard is a `saving` listener rather than a form rule, so an importer or a console backfill is covered by existing — the reasoning behind `ValueSets::guard()`. It reads neither `is_active` nor `last_generated_on`, and it stands aside when none of the four window columns is dirty: a schedule that has run its course stays fully editable, a row written before the guard shipped can still be switched off and renamed, and `GenerateRecurringExpensesService`'s `forceFill(['last_generated_on' => …])->save()` never touches it. Refusing every save of such a row would take away the operator's own escape — the lockout trap `#[NeverDeletable]` records. The refusal quotes the first booking and the end date in its way and names four ways out, in both languages (`admin.refusals.recurring_schedule_never_books`).
 
+### SW-185
+
+**EVERY LEDGER-FED REPORT SAYS HOW FRESH THE BOOKS ARE (SW-185, fixed 2026-09-05).** Five admin pages
+read `LedgerReportService`; four carried `PostsToLedger` — the *"Ledger last synced"* subheading and
+the *"Post to GL now"* button — and **Cash Flow carried neither**, on the one page where *"it does
+not reconcile"* and *"nobody has synced since Tuesday"* are the same sentence. Posting is a daily
+SWEEP, so an unposted receipt moves the bank account and none of the three activity sections: the
+unreconciled flag the page already printed is most often caused by exactly the fact it did not print.
+
+**An omission, not a decision.** `CashFlow` was added 2026-07-02 and the extension commit is
+2026-07-10, whose own message reads *"…now appear on the Income Statement, Balance Sheet, and General
+Ledger pages too (not just Trial Balance / Journal Entries), so no report can silently show stale
+numbers"* — enumerated from that diff rather than from the code, and it missed the page that had
+shipped eight days earlier. **This codebase's most repeated defect**, and the same one recorded for
+the fifteen document-series allocators. Nothing in `CashFlow.php` stated a reason to differ and its
+own `getSubheading()` docblock argues the opposite. The lang keys were already bilingual.
+`EveryLedgerFedReportSaysHowFreshTheBooksAreTest`, mutation-proved.
+
+### SW-223
+
+**A STATED YEAR BEATS A PERIOD THAT CONTRADICTS IT (SW-223, closed as deliberate 2026-09-05).** The
+row reported that deriving the period from `periodOptions()` narrows one pre-existing case on a
+non-calendar fiscal year. It does, and the narrowing is **correct**: on an April fiscal year
+`?year=2028&period=2028-01` names FY2028 (Apr 2028 – Mar 2029), which does not contain January 2028,
+so the period is dropped and the report opens on the whole year. The `/^\d{4}-\d{2}$/` guard this
+replaced accepted it and rendered January 2028 under a year picker reading 2028 beside a period
+picker unable to label it — the pickers-disagree state `updatedYear()` exists to prevent. The YEAR is
+the senior control (moving it clears the month), so a self-contradicting link keeps the year; a link
+naming only a period still has its year searched for, one neighbouring year each way. Unreachable on
+a calendar-year install. Recorded in `ScopesLedgerReport`'s docblock; no behaviour change.

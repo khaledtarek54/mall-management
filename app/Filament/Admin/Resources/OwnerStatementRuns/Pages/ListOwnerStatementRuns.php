@@ -39,7 +39,16 @@ class ListOwnerStatementRuns extends ListRecords
                         ->options(fn () => AccountingPeriod::query()
                             ->orderByDesc('starts_on')
                             ->get()
-                            ->mapWithKeys(fn (AccountingPeriod $p) => [$p->id => Carbon::parse($p->starts_on)->format('M Y')])
+                            // The reader's language (SW-028). These are the option LABELS of the
+                            // period picker on the modal that generates an owner statement — the
+                            // same shape as the PDC lodge-series preview: an act being committed,
+                            // with English months on the Arabic panel. `format()` is never
+                            // localised; `isoFormat()` on a localised instance is the idiom.
+                            ->mapWithKeys(fn (AccountingPeriod $p) => [
+                                $p->id => Carbon::parse($p->starts_on)
+                                    ->locale(app()->getLocale())
+                                    ->isoFormat('MMM YYYY'),
+                            ])
                             ->all())
                         ->required()
                         ->native(false),

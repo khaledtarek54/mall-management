@@ -20,6 +20,7 @@ use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\TableGroup;
 use App\Support\Modules;
 use App\Support\Pdf\DocumentLocale;
+use App\Support\StatusOptions;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -138,7 +139,13 @@ class InvoicesTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => collect(__('admin.statuses.invoice'))->only(['draft', 'issued', 'partially_paid', 'paid', 'overdue'])->all()),
+                    // Every status the column accepts, never a hand-written list. The `->only()`
+                    // this replaces offered 5 of the 9 (measured 2026-09-05): `disputed`,
+                    // `cancelled`, `credited` and `written_off` were unfilterable — and every one
+                    // of them has a coloured arm in the `status` column a few lines above, so an
+                    // operator could read the word and not select it. Those four are precisely the
+                    // ones somebody goes to the register looking for.
+                    ->options(fn () => StatusOptions::for('invoices')),
                 EntitySelectFilter::make('tenant_id')
                     ->label(__('admin.filters.tenant'))
                     ->relationship('tenant')

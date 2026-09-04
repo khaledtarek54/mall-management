@@ -52,7 +52,12 @@ class CamStatementPdfService
      */
     public function document(CamAllocation $allocation, ?string $locale = null): PdfDocument
     {
-        $allocation->loadMissing(['pool.asset', 'lease.tenant', 'lease.unit.asset', 'lease.units']);
+        // The ownership side had never been eager-loaded at all, so the owner, his unit and his
+        // property were three lazy loads on a document that reads all three.
+        $allocation->loadMissing([
+            'pool.asset', 'lease.tenant', 'lease.unit.asset', 'lease.units',
+            'unitOwnership.owner', 'unitOwnership.unit', 'unitOwnership.asset',
+        ]);
 
         // Both parents SOFT-DELETE, so either relation genuinely returns null at runtime for a
         // trashed pool or lease, and the `?->` below is load-bearing rather than defensive noise.
@@ -73,7 +78,17 @@ class CamStatementPdfService
         // a blank unit, a blank reference and 0.00 m² over correct money. The portal lists these
         // deliberately — `CamAllocationResource::getEloquentQuery()` ORs in `unitOwnership` with a comment
         // naming this exact reader.
-        $tenant = $lease?->tenant ?? $ownership?->tenant;
+        //
+        // **The unit, the reference and the area were fixed then; the PARTY was not.** This line read
+        // `$ownership?->tenant`, and the ownership's relation is `owner` — an undefined relation
+        // resolves to NULL rather than throwing, so the fix looked complete and the party block on
+        // every owner's statement stayed empty. Measured 2026-09-05 on `mall_management_qa`,
+        // `unit_ownerships#1`: `owner->name` = "Ashraf El-Gindy", `->tenant` = NULL,
+        // `method_exists($o, 'tenant')` = false. It also cost the document its LANGUAGE, because
+        // `DocumentLocale::resolve()` reads the recipient's stored `locale` and a null recipient
+        // skips that tier. `CamAllocation::counterparty()` is now the one answer, shared with the
+        // two download buttons that had the identical line.
+        $tenant = $allocation->counterparty();
         $asset = $pool?->asset ?? $lease?->unit?->asset ?? $ownership?->asset;
         $unitCodes = $lease !== null
             ? ($lease->units->pluck('code')->implode(', ') ?: $lease->unit?->code)

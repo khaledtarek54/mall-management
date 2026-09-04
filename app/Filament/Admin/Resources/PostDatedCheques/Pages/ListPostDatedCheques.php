@@ -100,12 +100,32 @@ class ListPostDatedCheques extends ListRecords
                             $first = Carbon::parse($get('first_cheque_date'));
                             $last = $first->copy()->addMonthsNoOverflow(($count - 1) * $interval);
 
+                            // ── THE MONTHS ARE WRITTEN IN THE READER'S LANGUAGE ────────────────
+                            //
+                            // `format('M Y')` is NOT localised — it emits `Oct 2026` whatever the
+                            // panel's language is — so this sentence rendered in Arabic with two
+                            // English months inside it, on the modal that commits a whole year of a
+                            // tenant's cheques. Measured 2026-09-05: for 2026-10-01,
+                            // `format('M Y')` gives `Oct 2026` under `ar`, while
+                            // `->locale('ar')->isoFormat('MMM YYYY')` gives the Arabic month with
+                            // the year in LATIN digits (the app-wide rule LatinNumeralsTest pins).
+                            // For English the two are byte-identical, so nothing an English reader
+                            // sees changes.
+                            //
+                            // `isoFormat()` on a localised instance is the panel's own idiom for a
+                            // month-and-year — 28 call sites, and the reasoning is written out on
+                            // `BillingForecastRelationManager::periodLabel()`.
+                            //
+                            // `$last` is computed from `$first->copy()` ABOVE, so mutating
+                            // `$first`'s locale here cannot reach it.
+                            $locale = app()->getLocale();
+
                             return __('admin.post_dated_cheques.series_preview_text', [
                                 'count' => $count,
                                 'each' => number_format($amount, 2),
                                 'total' => number_format($amount * $count, 2),
-                                'from' => $first->format('M Y'),
-                                'to' => $last->format('M Y'),
+                                'from' => $first->locale($locale)->isoFormat('MMM YYYY'),
+                                'to' => $last->locale($locale)->isoFormat('MMM YYYY'),
                             ]);
                         })
                         ->columnSpanFull(),
