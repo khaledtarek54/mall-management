@@ -6,6 +6,7 @@ use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Models\ExpenseCategory;
 use App\Models\Vendor;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -79,6 +80,10 @@ class VendorBillsTable
                     }),
             ])
             ->filters([
+                // "Which bills did we take in March" is the payables clerk's first question, and
+                // the only way to answer it was to sort by date and scroll — while every AR money
+                // list has offered a range all along (SW-083).
+                DateRangeFilter::make('bill_date', __('admin.fields.bill_date')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.vendor_bill')),

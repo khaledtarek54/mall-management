@@ -938,3 +938,15 @@ on a field the operator cannot type into. Two halves at 99,999,999,999.99 sum to
 199,999,999,999.98, which the column holds. That same server-side recompute is also why capping the
 two inputs closes the document completely: a crafted `total` in the Livewire payload is overwritten
 before the insert. `AMoneyFieldRefusesWhatItsColumnCannotHoldTest`, mutation-proved.
+
+### SW-083
+
+**THE AP REGISTER HAS A DATE RANGE, LIKE EVERY AR LIST (SW-083, fixed 2026-09-05).** *"Which bills did
+we take in March"* is the payables clerk's first question and the only way to answer it was to sort by
+date and scroll. The expense register was the same. `App\Support\Filament\DateRangeFilter` is the one
+definition — the nine-line idiom had been written out by hand on five registers and these two, the
+money lists that most need it, had none. Extracted rather than copied a seventh time, which is cheap
+only while the copies have not drifted. **`whereDate`, deliberately**: these columns are `date` on
+some tables and `datetime` on others, and a plain `>=` against a datetime silently excludes everything
+recorded after midnight on the closing day — the operator picks a range including today and today's
+rows are missing.

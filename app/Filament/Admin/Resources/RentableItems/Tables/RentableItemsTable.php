@@ -19,6 +19,10 @@ class RentableItemsTable
     {
         return $table
             ->defaultSort('code')
+            // What `currentHolderLabel()` resolves against. Its own docblock states the contract:
+            // it answers in PHP from the LOADED relations, so without this each row costs two
+            // queries and the register becomes the N+1 the map was careful to avoid.
+            ->modifyQueryUsing(fn ($query) => $query->with(['leases.tenant', 'ownerships.tenant']))
             ->columns([
                 TextColumn::make('code')
                     ->label(__('admin.fields.item_code'))
@@ -51,10 +55,19 @@ class RentableItemsTable
                     }),
                 // Who holds it TODAY. A register that cannot answer "who has bay 42" is a list, not
                 // a register — and it is the question an operator arrives with.
-                TextColumn::make('leases.tenant.name')
+                // `currentHolderLabel()`, never the raw relation (SW-044). `leases` is the whole
+                // morph history, unfiltered by status or by whether the holding is still open, so
+                // this column listed the tenant who gave the bay back last year — and, because it
+                // reads the LEASE relation only, it showed nothing at all for a bay held by a UNIT
+                // OWNER, whose holding is an `ownerships` row.
+                //
+                // The model already answered this correctly and the register was not asking: the
+                // method is documented as the reading half of `isSpokenFor()`, deliberately so that
+                // the map cannot show a holder for a bay the register calls available. Two doors
+                // onto one fact, allowed to disagree — the same shape as SW-076 and SW-165.
+                TextColumn::make('current_holder')
                     ->label(__('admin.tables.invoice.tenant'))
-                    ->listWithLineBreaks()
-                    ->limitList(1)
+                    ->state(fn (RentableItem $record): ?string => $record->currentHolderLabel())
                     ->placeholder('—'),
                 TextColumn::make('monthly_rate')
                     ->label(__('admin.fields.item_monthly_rate'))

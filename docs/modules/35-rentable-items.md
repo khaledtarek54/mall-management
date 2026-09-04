@@ -280,3 +280,17 @@ and that no call site passes an exemption (asserting its own premise first, so a
 matching cannot pass vacuously); `APickerNeverOffersWhatTheGuardRefusesTest` continues to pin the
 surviving definition's behaviour.
 
+### SW-044
+
+**THE REGISTER NAMES THE HOLDER WHO HAS THE BAY NOW (SW-044, fixed 2026-09-05).** The holder column
+read `leases.tenant.name` — the whole morph history, unfiltered by lease status and by whether the
+holding is still open — so it listed a tenant who gave the bay back last year, and, reading the LEASE
+relation only, showed **nothing at all** for a bay held by a UNIT OWNER.
+
+`RentableItem::currentHolderLabel()` already answered this correctly and its docblock says why it
+exists: *"the reading half of `isSpokenFor()` … so the map cannot show a holder for a bay the register
+calls available or the other way round"*. The register was simply not asking — two doors onto one
+fact allowed to disagree, the same shape as SW-076's dropped column and SW-165's missing relation.
+The table now eager-loads `leases.tenant` and `ownerships.tenant`, which is the contract that method
+states for itself: it resolves in PHP against loaded relations, so without the eager load every row
+costs two queries.

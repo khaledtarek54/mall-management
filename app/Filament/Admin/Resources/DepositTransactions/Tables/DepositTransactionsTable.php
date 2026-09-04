@@ -4,8 +4,12 @@ namespace App\Filament\Admin\Resources\DepositTransactions\Tables;
 
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\PaymentMethod;
+use App\Models\Tenant;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
+use App\Support\Filament\DateRangeFilter;
+use App\Support\Filament\EntitySelectFilter;
+use App\Support\Search\SearchText;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -41,6 +45,16 @@ class DepositTransactionsTable
                     }),
                 TextColumn::make('lease.tenant.name')
                     ->label(__('admin.filters.tenant'))
+                    // SEARCHABLE, and through the tenant's own folded blob rather than the raw
+                    // `name` column (SW-024). The deposit register is read by tenant — "what is
+                    // held for Cilantro" — and the only searchable column was the deposit NUMBER,
+                    // which nobody remembers. A path pointed at `tenant.name` would compare a
+                    // FOLDED query against an UNFOLDED value: right for plain ASCII, and silently
+                    // wrong for exactly the Arabic spellings the fold exists to reconcile.
+                    ->searchable(query: fn ($query, string $search) => $query->whereHas(
+                        'lease.tenant',
+                        fn ($q) => $q->whereLike('search_text', '%'.SearchText::normalize($search).'%'),
+                    ))
                     ->placeholder('—'),
                 TextColumn::make('asset.name')
                     ->label(__('admin.fields.property'))
@@ -73,6 +87,11 @@ class DepositTransactionsTable
                 BankAccountColumn::make(),
             ])
             ->filters([
+                EntitySelectFilter::make('tenant_id')
+                    ->label(__('admin.filters.tenant'))
+                    ->relationship('lease.tenant')
+                    ->entity(Tenant::class),
+                DateRangeFilter::make('transaction_date', __('admin.fields.transaction_date')),
                 SelectFilter::make('type')
                     ->label(__('admin.filters.type'))
                     ->options(fn () => __('admin.enums.deposit_type')),

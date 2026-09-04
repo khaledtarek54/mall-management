@@ -223,3 +223,12 @@ beside the ledger panel it changes; the move is safe because it gates on `Custod
 which is what reaching that page already requires. Full reasoning in
 [CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
 regression test `AnActOnAPostedDocumentIsWhereItCanBeSeenTest`.
+
+### SW-024
+
+**THE DEPOSIT REGISTER CAN BE ASKED WHOSE DEPOSIT IT IS (SW-024, fixed 2026-09-05).** The only
+searchable column was the deposit NUMBER — which nobody remembers — so *"what is held for Cilantro"*
+meant scrolling. It searches the tenant's own **folded blob** now, never a raw `tenant.name` path:
+folding one side matches nothing, and a raw path silently misses exactly the Arabic spellings the
+fold exists to reconcile while still working for plain ASCII, which is what anyone spot-checking it
+would try. A tenant filter and a `transaction_date` range came with it.

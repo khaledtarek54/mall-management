@@ -9,6 +9,7 @@ use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\TableGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -88,6 +89,8 @@ class ExpensesTable
                 BankAccountColumn::make(),
             ])
             ->filters([
+                // The AP register's twin (SW-083) — same question, same missing control.
+                DateRangeFilter::make('expense_date', __('admin.fields.expense_date')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.expense')),
