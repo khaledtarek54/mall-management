@@ -48,6 +48,28 @@ class PropertyOverrides extends Page implements HasSchemas
     {
         return [
             GuideAction::for(static::class),
+            // The Save lives in the action strip, not in the Blade — which is the whole of this fix.
+            //
+            // Measured at 83624504: `resources/views/filament/pages/property-overrides.blade.php`
+            // rendered `<x-filament::button type="submit">` unconditionally, and the gated
+            // `getFormActions()` that used to sit lower in this file was called by NOTHING —
+            // `Filament\Pages\Page` does not use `InteractsWithFormActions`, and
+            // `grep -rn getCachedFormActions app resources` finds no caller. So the gate was
+            // written, reviewed and dead. `canAccess()` is `settings.view` while the write is
+            // `settings.manage`, and three roles hold the first without the second (measured on the
+            // dev database 2026-09-04: manager, viewer, mall_admin) — every one of them was shown a
+            // Save button whose only possible outcome is the raw 403 from `save()`.
+            //
+            // `->authorize()` is both layers at once: it folds into `isHidden()`, so the button is
+            // not offered, and `App\Support\Filament\AuthorizedAction::call()` aborts on it at
+            // dispatch. `save()` keeps its own `abort_unless` regardless — the same double gate
+            // `Settings`, this screen's deliberate twin, has always used.
+            Action::make('save')
+                ->label(__('admin.actions.save'))
+                ->icon('heroicon-o-check')
+                ->color('primary')
+                ->authorize(fn (): bool => static::canSave())
+                ->action('save'),
         ];
     }
 
@@ -78,6 +100,18 @@ class PropertyOverrides extends Page implements HasSchemas
     public static function canAccess(): bool
     {
         return Auth::user()?->can('settings.view') ?? false;
+    }
+
+    /**
+     * May the signed-in operator WRITE an override?
+     *
+     * Named once because it is asked twice — by the action that offers the button and by `save()`
+     * itself. `canAccess()` above is the READ right and this is the WRITE right; they are
+     * deliberately different permissions, which is precisely why the two must not drift.
+     */
+    public static function canSave(): bool
+    {
+        return Auth::user()?->can('settings.manage') ?? false;
     }
 
     public function mount(): void
@@ -193,21 +227,9 @@ class PropertyOverrides extends Page implements HasSchemas
             ->all();
     }
 
-    protected function getFormActions(): array
-    {
-        return [
-            Action::make('save')
-                ->label(__('admin.actions.save'))
-                ->submit('save')
-                // `visible()` is not a gate — the real refusal is in save(). Both, so the intent is
-                // stated where it is read and enforced where it is dispatched.
-                ->authorize(fn () => Auth::user()?->can('settings.manage') ?? false),
-        ];
-    }
-
     public function save(): void
     {
-        abort_unless(Auth::user()?->can('settings.manage'), 403);
+        abort_unless(static::canSave(), 403);
 
         // Clamped, not taken from the URL. Every other write in this codebase that derives an
         // asset_id goes through the scope; an override screen is no different, and the panel is the
