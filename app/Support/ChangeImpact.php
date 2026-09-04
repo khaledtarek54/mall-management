@@ -226,6 +226,7 @@ class ChangeImpact
                 'tenant_id' => 'the counterparty',
                 'asset_id' => 'the books dimension',
                 'amount' => 'Dr bad-debt expense / Cr AR',
+                'deposit_amount' => 'how much of it debits deposits_held instead of bad debt',
                 'entry_date' => 'the period the bad debt is recognised in',
             ],
             self::NEUTRAL => ['reason', 'notes', 'created_by'],

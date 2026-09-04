@@ -39,11 +39,14 @@ class InvoiceWriteOff extends Model
     public const REASONS = ['tenant_insolvent', 'tenant_absconded', 'legally_unrecoverable', 'uneconomic_to_pursue', 'settled_short', 'other'];
 
     protected $fillable = [
-        'invoice_id', 'tenant_id', 'asset_id', 'amount', 'entry_date', 'reason', 'notes', 'created_by',
+        'invoice_id', 'tenant_id', 'asset_id', 'amount', 'deposit_amount', 'entry_date', 'reason', 'notes', 'created_by',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        // How much of `amount` reached a security-deposit line, frozen when the write-off was
+        // taken (SW-210). Never re-derived: see `DepositBilling::writeOffSplit()`.
+        'deposit_amount' => 'decimal:2',
         'entry_date' => 'date',
     ];
 

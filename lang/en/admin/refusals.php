@@ -118,6 +118,8 @@ return [
         'write_off_not_live' => 'Invoice :number is :status — only a live receivable can be written off.',
         'write_off_nothing_outstanding' => 'Invoice :number has nothing outstanding — there is no debt to write off.',
         'write_off_already_full' => 'Invoice :number is already fully written off (:written of :outstanding).',
+        'write_off_already_reversed' => 'This write-off has already been reversed.',
+        'write_off_reverse_no_open_period' => 'Cannot reverse this write-off: neither its own accounting period nor the current one is open, so the ledger entry could not be voided. Reopen a period first.',
         'write_off_exceeds_remaining' => 'Cannot write off :amount against invoice :number: only :remaining is left to write off.',
         'write_off_exceeds_remaining_partial' => 'Cannot write off :amount against invoice :number: only :remaining is left to write off (:written of :outstanding already written off).',
         'owner_statement_finalised_exists' => 'A finalised statement already exists for this property and period — revise it instead of regenerating.',

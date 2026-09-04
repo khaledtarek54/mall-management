@@ -1891,3 +1891,63 @@ picker unable to label it — the pickers-disagree state `updatedYear()` exists 
 the senior control (moving it clears the month), so a self-contradicting link keeps the year; a link
 naming only a period still has its year searched for, one neighbouring year each way. Unreachable on
 a calendar-year install. Recorded in `ScopesLedgerReport`'s docblock; no behaviour change.
+
+### SW-210 · SW-230
+
+**A WRITE-OFF REVERSES WHATEVER THE LINE ORIGINALLY CREDITED (SW-210, fixed 2026-09-05).** For a
+revenue line that is bad-debt expense — you recognised the income and now accept you will not collect
+it, which is what a write-off *means*. A `security_deposit` line credited `deposits_held`, a
+**LIABILITY** (`InvoiceJournalizer::REVENUE_ROLE`), so no revenue was ever recognised against it, and
+`InvoiceWriteOffJournalizer` debited bad debt for the whole amount whatever the line was. Two
+consequences, in opposite directions: the P&L took an expense for income it never took, and
+`deposits_held` stayed credited — the balance sheet went on saying the operator owed the tenant a
+refund for money the tenant never paid.
+
+The row was filed as *"ask the accountant"*. It is not a matter of taste: no standard permits an
+expense against unrecognised revenue, and Yardi reverses a written-off deposit charge against the
+deposit liability. Decided on that basis.
+
+**The split is FROZEN on the row (`invoice_write_offs.deposit_amount`), and that is the load-bearing
+half.** The first version derived it in the journalizer from the invoice's *live* settlement, and an
+adversarial review measured what that costs: a partial write-off leaves the invoice LIVE
+(`settled_short` is a shipped reason — *forgive part, the tenant pays the rest* is the canonical
+case), so a payment arriving a month later moves the split, and `LedgerPoster::matches()` then voids
+and re-posts an entry **at its original date**. If that month has closed the re-post throws inside a
+sync that only logs, and `gl_in_sync` reports drift for ever with no operator action available —
+**SW-236 reached through another door**. Reversing one write-off would likewise restate a *sibling's*
+entry. A write-off's entry could not drift before this and must not start.
+
+**The change is PROSPECTIVE**, which is Yardi's rule for a classification change and this system's
+rule wherever origination and history disagree: existing rows carry `0.00` and post exactly what they
+posted before, so nothing re-posts and no currently-green `gl_in_sync` turns red. Backfilling the
+true split was the alternative and would have blocked `deploy.sh` behind closed periods on precisely
+the installs SW-210 is about.
+
+**The role is resolved, not hardcoded** — `ChargeCode::roleFor('security_deposit')` with
+`REVENUE_ROLE` as the floor, exactly as the issue resolves it, because `posting_role` is
+operator-editable and a hardcoded `deposits_held` would debit a liability that was never credited.
+`CreditNoteJournalizer` states the same rule for the tax it reverses. **The attribution is reused,
+not rewritten**: a write-off reaches the deposit line only once every other outstanding line is
+exhausted (`DepositBilling`), ordered by `[entry_date, id]` so the operator's own dates decide which
+month's P&L moves. Capped at the NET amount the issue actually credited, because
+`InvoiceItemSettlement` works in gross figures and a taxable deposit line would otherwise drive the
+liability negative by its VAT. `AWrittenOffDepositRelievesTheObligationNotThePnlTest`, 7 cases,
+4 mutations.
+
+**REVERSING A WRITE-OFF ASKS BEFORE IT DELETES (SW-230, fixed 2026-09-05).**
+`WriteOffInvoiceService::reverse()` could refuse nothing — no status check, no period check — and the
+ledger void it depends on is dispatched as an `afterCommit` job whose handler catches `\Throwable`
+and only LOGS, so the failure is silent by construction. With both the entry's own period and today's
+closed, `reversalPeriod()` threw inside the job, the row was soft-deleted anyway, and the write-off's
+`Cr accounts_receivable` stood with no document behind it: **the unbacked-credit state SW-023 refuses
+through the void door, re-created through the sanctioned route** — worse, because the operator was
+told it worked.
+
+`JournalPostingService::openPeriodForReversalOf()` is `reversalPeriod()`'s own loop with the throw
+lifted out, read by `LedgerPoster::canVoidEntryFor()`; the guard and the act cannot drift because
+there is one rule. It falls through to TODAY's period exactly as the act does — requiring the entry's
+own period would refuse the ordinary recovery of an old debt — and a source that never posted is
+freely reversible, so a closed month cannot strand a row the ledger never knew about. A second
+reversal is refused too. Both refusals are in English and Arabic.
+`AWriteOffReversalCannotStrandItsLedgerEntryTest`, 7 cases, 3 mutations including one that makes the
+guard stricter than the act.

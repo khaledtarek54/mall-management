@@ -466,6 +466,35 @@ class LedgerPoster
     }
 
     /**
+     * Can the entry this document already posted be VOIDED right now? (SW-230)
+     *
+     * True when there is nothing posted to void, or when `JournalPostingService` can find an open
+     * period for the reversal — its rule, asked rather than copied, so the guard and the act cannot
+     * disagree about which periods are open.
+     *
+     * The question exists because the ledger void is an `afterCommit` job whose handler catches
+     * `\Throwable` and only logs. A caller that soft-deletes its source first and lets the job sort
+     * out the ledger has, in the window where both the entry's own period and today's are closed,
+     * removed the document and left its entry standing — an unbacked `Cr accounts_receivable`,
+     * which is precisely the state SW-023 exists to prevent, re-created through the sanctioned
+     * route. Ask this BEFORE the delete and refuse.
+     *
+     * Read-only: no lock, no write, same as {@see wouldChange()}.
+     */
+    public function canVoidEntryFor(Model $source): bool
+    {
+        $existing = JournalEntry::query()
+            ->where('source_type', $source->getMorphClass())
+            ->where('source_id', $source->getKey())
+            ->where('status', 'posted')
+            ->latest('id')
+            ->first();
+
+        return $existing === null
+            || $this->posting->openPeriodForReversalOf($existing) !== null;
+    }
+
+    /**
      * Would this document, AS IT STANDS, put anything in the ledger at all?
      *
      * The question `SealedPeriod` needs to tell a document BECOMING postable from one that already

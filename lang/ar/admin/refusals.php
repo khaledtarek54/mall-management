@@ -116,6 +116,8 @@ return [
         'write_off_not_live' => 'الفاتورة :number حالتها :status — لا يُشطب إلا دين قائم.',
         'write_off_nothing_outstanding' => 'الفاتورة :number ليس عليها رصيد مستحق — لا يوجد دين لشطبه.',
         'write_off_already_full' => 'الفاتورة :number مشطوبة بالكامل بالفعل (:written من :outstanding).',
+        'write_off_already_reversed' => 'تم التراجع عن هذا الشطب بالفعل.',
+        'write_off_reverse_no_open_period' => 'لا يمكن التراجع عن هذا الشطب: لا الفترة المحاسبية الخاصة به ولا الفترة الحالية مفتوحة، لذا تعذّر إلغاء قيد الأستاذ. افتح فترة محاسبية أولاً.',
         'write_off_exceeds_remaining' => 'لا يمكن شطب :amount من الفاتورة :number: المتبقي القابل للشطب هو :remaining فقط.',
         'write_off_exceeds_remaining_partial' => 'لا يمكن شطب :amount من الفاتورة :number: المتبقي القابل للشطب هو :remaining فقط (:written من :outstanding مشطوبة بالفعل).',
         'owner_statement_finalised_exists' => 'يوجد بالفعل كشف معتمد لهذه الجهة العقارية وهذه الفترة — عدّله بإصدار نسخة مُنقّحة بدلاً من إعادة توليده.',

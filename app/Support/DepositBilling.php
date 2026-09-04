@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Invoice;
+use App\Models\InvoiceWriteOff;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -134,5 +135,98 @@ class DepositBilling
         $reaching = max($writtenOff - $other, 0);
 
         return round(max($deposit - $reaching, 0), 2);
+    }
+
+    /**
+     * How ONE write-off splits between relieving the deposit obligation and taking a bad debt
+     * (SW-210) — `['deposit' => x, 'bad_debt' => y]`, summing to the write-off's own amount.
+     *
+     * **A write-off must reverse whatever the line originally CREDITED.** A revenue line credited
+     * revenue, so accepting it as uncollectible is a bad-debt expense — that is what a write-off
+     * means. A `security_deposit` line credited `deposits_held`, a LIABILITY (see
+     * `InvoiceJournalizer::REVENUE_ROLE`), so no revenue was ever recognised against it: booking
+     * bad-debt expense there charges the P&L for income it never took, AND leaves the obligation to
+     * refund standing at its full billed figure for money the tenant never paid.
+     *
+     * **This READS the frozen figure; it does not derive one.** `deposit_amount` is computed once,
+     * by {@see depositShareAtWriteOff()}, at the moment the write-off is taken. The entry a
+     * write-off posts could not drift before SW-210 and must not start: a partial write-off leaves
+     * the invoice LIVE, so a payment arriving later would move a re-derived split, and
+     * `LedgerPoster::matches()` would then void and re-post an entry whose period may since have
+     * closed — permanent, unclearable drift on `gl_in_sync` (SW-236, through another door).
+     *
+     * Legacy rows carry 0.00 and therefore post exactly what they posted before, which is the
+     * prospective treatment the migration explains.
+     *
+     * @return array{deposit: float, bad_debt: float}
+     */
+    public static function writeOffSplit(InvoiceWriteOff $writeOff): array
+    {
+        $amount = round((float) $writeOff->amount, 2);
+
+        if ($amount <= 0) {
+            return ['deposit' => 0.0, 'bad_debt' => max($amount, 0.0)];
+        }
+
+        // Clamped to the write-off's own amount so a hand-edited column can never unbalance the
+        // entry — the two debits must sum to the credit whatever is in the row.
+        $deposit = min(max(round((float) $writeOff->deposit_amount, 2), 0.0), $amount);
+
+        return ['deposit' => $deposit, 'bad_debt' => round($amount - $deposit, 2)];
+    }
+
+    /**
+     * How much of a write-off ABOUT TO BE TAKEN reaches the deposit lines — the origination-time
+     * computation whose answer {@see writeOffSplit()} then reads for ever.
+     *
+     * **The attribution is the one this class already states**, not a second rule: a write-off
+     * reaches the deposit line only once every other outstanding line is exhausted, because
+     * understating the claim re-opens the double ask `BillSecurityDepositService` exists to prevent.
+     * Applied per ROW — write-offs land in sequence, so this one's share is what the running total
+     * reaches THROUGH it, and anything earlier has already frozen its own.
+     *
+     * Ordered by `[entry_date, id]`: which of two write-offs takes the deposit relief decides which
+     * month's P&L moves, so the operator's own dates lead and the id only breaks a tie. Reversed
+     * write-offs drop out on their own — the relation soft-deletes, exactly as `settleableAmount()`
+     * relies on.
+     *
+     * **Capped at what was actually CREDITED.** `InvoiceItemSettlement` works in gross figures
+     * (`invoice_items.total`, VAT included) while `InvoiceJournalizer` credits `deposits_held` with
+     * the NET `amount`. Should the accountant ever point the `security_deposit` charge code at a
+     * taxable tax code, an uncapped gross debit would drive the liability negative by the line's VAT.
+     */
+    public static function depositShareAtWriteOff(Invoice $invoice, float $amount, ?int $excludeWriteOffId = null): float
+    {
+        $amount = round($amount, 2);
+
+        if ($amount <= 0) {
+            return 0.0;
+        }
+
+        $lines = InvoiceItemSettlement::for($invoice);
+
+        $deposit = round((float) $lines->where('type', 'security_deposit')->sum('outstanding'), 2);
+
+        if ($deposit <= 0) {
+            return 0.0;
+        }
+
+        $other = round((float) $lines->where('type', '!=', 'security_deposit')->sum('outstanding'), 2);
+
+        $earlier = round((float) $invoice->writeOffs()
+            ->when($excludeWriteOffId !== null, fn ($q) => $q->whereKeyNot($excludeWriteOffId))
+            ->sum('amount'), 2);
+
+        $reachedBefore = min(max($earlier - $other, 0), $deposit);
+        $reachedAfter = min(max($earlier + $amount - $other, 0), $deposit);
+
+        $share = round(max($reachedAfter - $reachedBefore, 0), 2);
+
+        // What the issue actually credited to `deposits_held` — net of tax. See above.
+        $creditedNet = round((float) $invoice->items
+            ->where('type', 'security_deposit')
+            ->sum('amount'), 2);
+
+        return round(min($share, $creditedNet, $amount), 2);
     }
 }

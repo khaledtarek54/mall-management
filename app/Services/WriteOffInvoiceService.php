@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
+use App\Services\Accounting\LedgerPoster;
+use App\Support\DepositBilling;
 use App\Support\PostingDate;
 use App\Support\ReversalReason;
 use App\Support\Translate;
@@ -26,6 +28,8 @@ use Illuminate\Support\Facades\DB;
  */
 class WriteOffInvoiceService
 {
+    public function __construct(private LedgerPoster $ledger) {}
+
     /**
      * @param  array{amount?:float|null, entry_date?:string|\DateTimeInterface|null, reason:string, notes?:string|null}  $data
      */
@@ -112,6 +116,18 @@ class WriteOffInvoiceService
             // would be refused inside the best-effort sync job that only logs.
             PostingDate::assertOpen($entryDate);
 
+            // FROZEN AT ORIGINATION (SW-210). How much of this write-off reaches a
+            // security-deposit line decides whether it debits `deposits_held` (a liability the
+            // issue credited) or `bad_debt_expense` (revenue actually recognised) — so it is a fact
+            // about THIS moment, computed once. Re-deriving it in the journalizer would make the
+            // posted entry a function of the invoice's LIVE settlement, and a later payment on a
+            // partly written-off invoice would then void and re-post an entry whose period may have
+            // closed: unclearable `gl_in_sync` drift, which is SW-236 through another door.
+            //
+            // Same idiom as every other origination freeze here — an issued invoice keeps the VAT
+            // rate it was billed at, a payroll line keeps the figure the run computed.
+            $depositShare = DepositBilling::depositShareAtWriteOff($locked, $amount);
+
             $writeOff = InvoiceWriteOff::create([
                 'invoice_id' => $locked->id,
                 'tenant_id' => $locked->tenant_id,
@@ -120,6 +136,7 @@ class WriteOffInvoiceService
                 // InvoiceWriteOffJournalizer resolve bad_debt_expense against no property.
                 'asset_id' => $locked->asset_id,
                 'amount' => $amount,
+                'deposit_amount' => $depositShare,
                 'entry_date' => $entryDate->toDateString(),
                 'reason' => $data['reason'],
                 'notes' => $data['notes'] ?? null,
@@ -157,6 +174,26 @@ class WriteOffInvoiceService
         DB::transaction(function () use ($writeOff, $reason) {
             /** @var Invoice|null $invoice */
             $invoice = $writeOff->invoice;
+
+            // Already reversed. Soft-delete is how a reversal is recorded, so a second press must
+            // not write a second `ReversalReason` row against a document that is already undone —
+            // an auditor reading two reversals of one write-off cannot tell what happened.
+            if ($writeOff->trashed()) {
+                throw new DomainException(__('admin.refusals.write_off_already_reversed'));
+            }
+
+            // ASK BEFORE DELETING (SW-230). The ledger void runs in an `afterCommit` job whose
+            // handler catches `\Throwable` and only logs, so in the window where both the entry's
+            // own period and today's are closed, `reversalPeriod()` throws inside the job, the row
+            // is soft-deleted anyway, and the write-off's `Cr accounts_receivable` stands with no
+            // document behind it. That is exactly the unbacked-credit state SW-023 refuses through
+            // the other door — reached here through the SANCTIONED route, silently.
+            //
+            // Refusing is the safe direction and it names the way out: reopen a period. Doing it
+            // inside the transaction means the row is still there to refuse about.
+            if (! $this->ledger->canVoidEntryFor($writeOff)) {
+                throw new DomainException(__('admin.refusals.write_off_reverse_no_open_period'));
+            }
 
             $writeOff->delete();
 

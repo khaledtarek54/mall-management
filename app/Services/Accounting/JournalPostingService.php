@@ -412,6 +412,28 @@ class JournalPostingService
      */
     protected function reversalPeriod(JournalEntry $entry): array
     {
+        $found = $this->openPeriodForReversalOf($entry);
+
+        if ($found === null) {
+            throw new \DomainException(__('admin.refusals.je_void_no_open_period'));
+        }
+
+        return $found;
+    }
+
+    /**
+     * The same choice, ASKED rather than enforced — null where `reversalPeriod()` would refuse.
+     *
+     * A caller that must know BEFORE it commits needs this (SW-230): the ledger void runs in an
+     * `afterCommit` job whose handler catches `\Throwable` and only logs, so a reversal that cannot
+     * find an open period leaves the source row gone and its entry standing. The rule lives here
+     * once and is read twice — a second copy at the call site is how the guard and the act come to
+     * disagree about which periods are open.
+     *
+     * @return array{0: Carbon, 1: AccountingPeriod}|null
+     */
+    public function openPeriodForReversalOf(JournalEntry $entry): ?array
+    {
         foreach ([Carbon::parse($entry->entry_date), now()] as $date) {
             $period = AccountingPeriod::forDate($date);
             if ($period && $period->isOpen()) {
@@ -419,7 +441,7 @@ class JournalPostingService
             }
         }
 
-        throw new \DomainException(__('admin.refusals.je_void_no_open_period'));
+        return null;
     }
 
     protected function assertOpenPeriodFor(Carbon $date): AccountingPeriod
