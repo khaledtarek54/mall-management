@@ -13,6 +13,7 @@ use App\Support\CatalogueTaxRate;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\Modules;
+use App\Support\Search\OptionDisplay;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -83,7 +84,27 @@ class VendorBillForm
                                 ));
                         })
                         ->helperText(function (Get $get) {
-                            $contract = VendorContract::find($get('vendor_contract_id'));
+                            // ── READ THROUGH THE SCOPE THE PICKER OFFERS FROM (SW-080) ─────────
+                            //
+                            // This was a bare `VendorContract::find()`. The id arrives in the
+                            // Livewire payload and this field is `->live()`, so an unscoped read
+                            // rendered another mall's contract VALUE, BILLED-TO-DATE and REMAINING
+                            // COMMITMENT to an operator who cannot open that mall. The SAVE was
+                            // never at risk — `EntitySelect` labels a submitted value through the
+                            // scoped `OptionDisplay::pickable()` query and refuses what it cannot
+                            // label — so only the FIGURE leaked, before any save, with nothing on
+                            // screen to say where it came from. The same oracle
+                            // `PurchaseRequest::saving()` names for warehouses.
+                            //
+                            // `OptionDisplay::scope()` rather than a clause written out here: it is
+                            // DERIVED from `PropertyIsolation`, so this read and the picker move
+                            // together — including on the day `VendorContract` is given
+                            // `portfolioRowsWhenNull` and master agreements become pickable.
+                            $contractId = $get('vendor_contract_id');
+
+                            $contract = blank($contractId)
+                                ? null
+                                : OptionDisplay::scope(VendorContract::query())->whereKey($contractId)->first();
 
                             if (! $contract instanceof VendorContract) {
                                 return __('admin.fields.vendor_contract_hint');
@@ -166,7 +187,14 @@ class VendorBillForm
                         ->columnSpanFull()
                         ->visible(fn (Get $get): bool => filled($get('purchase_request_id')))
                         ->content(function (Get $get, ?VendorBill $record): HtmlString {
-                            $pr = PurchaseRequest::find($get('purchase_request_id'));
+                            // Scoped for the reason the contract helper above is (SW-080): `$get()`
+                            // returns whatever the payload holds, and an unscoped `find()` printed
+                            // another mall's ORDERED / RECEIVED / BILLED figures into this panel.
+                            $prId = $get('purchase_request_id');
+
+                            $pr = blank($prId)
+                                ? null
+                                : OptionDisplay::scope(PurchaseRequest::query())->whereKey($prId)->first();
 
                             if ($pr === null) {
                                 return new HtmlString('—');

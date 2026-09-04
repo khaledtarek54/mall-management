@@ -7,6 +7,7 @@ use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\TaxCode;
 use App\Services\GratuityService;
+use App\Settings\TaxSettings;
 use App\Support\DeletionPolicy;
 use App\Support\DocumentNumbering;
 use App\Support\FiscalYearStart;
@@ -541,9 +542,18 @@ class Settings extends Page implements HasSchemas
                     Select::make('tax.wht_default_tax_code')
                         ->label(__('admin.settings.fields.wht_default_tax_code'))
                         ->helperText(__('admin.settings.fields.wht_default_tax_code_helper'))
+                        // `keep:` is what stops an operator retiring this code at /admin/tax-codes
+                        // and bricking the WHOLE screen. Measured 2026-09-03: with the code gone
+                        // from the options the Select emits `in:` — an empty list — and because all
+                        // eight tabs are one schema, `save()` validating the form refused every
+                        // setting in the app on a field nobody had touched.
+                        //
+                        // The PERSISTED value, never `$this->data`: that is client state, and
+                        // appending it would make any string a valid option.
                         ->options(fn () => TaxCode::options(
                             TaxCode::PURCHASES,
                             families: [TaxCode::FAMILY_WITHHOLDING],
+                            keep: app(TaxSettings::class)->wht_default_tax_code ?: null,
                         ))
                         ->native(false)
                         ->placeholder(__('admin.settings.fields.wht_default_none')),

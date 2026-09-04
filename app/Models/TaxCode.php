@@ -379,9 +379,9 @@ class TaxCode extends Model
      *
      * @return array<string, string>
      */
-    public static function options(string $direction = self::SALES, ?string $locale = null, ?array $families = null): array
+    public static function options(string $direction = self::SALES, ?string $locale = null, ?array $families = null, ?string $keep = null): array
     {
-        return static::query()
+        $options = static::query()
             ->active()
             ->ofDirection($direction)
             ->whereIn('family', $families ?? self::SUPPLY_FAMILIES)
@@ -390,6 +390,34 @@ class TaxCode extends Model
             ->get()
             ->mapWithKeys(fn (self $c) => [$c->code => $c->label($locale)])
             ->all();
+
+        // **`$keep` — the code the thing being edited ALREADY carries.**
+        //
+        // Filament derives a Select's `Rule::in` from the options it resolved, so a stored value
+        // that is not among them is refused as *invalid* on a field nobody touched. Measured
+        // 2026-09-03 on a mounted schema: state `WH_3_P`, options without it, and the rules come out
+        // `['nullable', Rule::in([])]` — an EMPTY in-list, which rejects everything. With the code
+        // present, `getInValidationRuleValues()` returns null and no in-rule is emitted at all.
+        //
+        // On /admin/settings that is not one field: all eight tabs are ONE schema and `save()` calls
+        // `$this->form->getState()`, which validates the lot — so retiring the withholding code the
+        // screen names stopped every setting in the app from saving.
+        //
+        // Appended, never prepended, and marked: the retired code is history, not a suggestion. Same
+        // shape and same reason as `FailureCode::options()`'s `$keep`, and as the container-level
+        // `CatalogueAwareSelect` that closes this for record forms — this is the seam for the
+        // pickers that have no record to read a stored value from.
+        //
+        // **The caller must pass the PERSISTED value, never the component's state.** State is
+        // whatever the client last submitted, and appending that would make every string a valid
+        // option — the hole `CatalogueAwareSelect` shipped and had to be corrected for.
+        if (filled($keep) && ! array_key_exists($keep, $options)) {
+            // `labelFor()` reads the whole catalogue including INACTIVE rows on purpose, and falls
+            // back to the code itself for one that has been deleted, so this can never be blank.
+            $options[$keep] = self::labelFor($keep, $locale).' ⚠';
+        }
+
+        return $options;
     }
 
     /** The rate in force today, for display beside the picker. */
