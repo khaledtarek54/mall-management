@@ -811,37 +811,42 @@ centre is sound and whose perimeter has grown faster than its gates.
 | **Built, and unreachable** | The code is complete and tested and nothing can start it, or nothing can enter the data it needs (`is_portal_user`, the draft purchase request, the disputed declaration, the terminated employee) | `ServiceReachability` covers services and `BillableAgreementIsConfigurable` covers agreements. Neither covers an **auth surface**, a **status**, or a **column no screen writes** |
 | **A row shape the code predates** | `invoices.lease_id` became nullable for unit owners in 2026-08-15 and several services still dereference it, so the nightly sweep fatals on exactly the rows module 37 introduced | Nothing. This is the "the lease is the route to the property" class the 2026-08-18 round found eleven of |
 
-### 9.2 The order to take them in
+### 9.2 What is left — tranches A–D are CLOSED (updated 2026-09-05)
 
-**Tranche A — the nightly runs that fatal (do first).** A scheduled command that throws is invisible
-in a way a wrong figure is not: nobody gets an error, the work simply never happens. `LateFeeService`
-dereferences `invoice->lease` and `invoices.lease_id` has been nullable since module 37, so **every
-overdue unit-owner assessment kills the run** — and with it the late fees for the leases that would
-otherwise have been charged. Same class: `leases:expire` emptying the holdover queue every morning,
-and the two free-text time settings that feed cron expressions. 🔴 **P0, effort S each.**
+**236 of 257 rows are closed.** The five tranches this section used to order the work by no longer
+describe it: the nightly runs that fatalled, the money that could move twice, the statuses with no
+way out and the tenant/contractor surfaces are all done, and most of the ~150 medium-and-low tail
+went with them. What follows is the actual remaining **21**, which are not a smaller version of the
+old list — they are the residue that resisted, and they group differently.
 
-**Tranche B — money that can move twice.** The concurrency and cross-channel rows: the move-out
-settlement that takes no lock over the deposit pot, `EditPayment` re-spending a surplus already drawn
-down as tenant credit, PDC clearing against a written-off invoice, the partial write-off that no
-collection surface can see. Each is a real double-spend, each needs `tests/Mysql/` rather than the
-sqlite suite to prove, and the fix pattern is the one this codebase already knows — a locking read
-behind the lock, and the guard named once so the doors cannot drift. 🔴 **P0, effort S–M.**
+**Four decisions, not code.** `SW-237` is the largest: *should re-pointing a posting role restate
+history at all?* Yardi's answer is that a GL mapping change is **prospective**, and honouring it means
+freezing the resolved account onto the journal line — a design change touching all 24 journalizers,
+which is why it has not been slipped into a sweep. `SW-236` is its other half and is blocked on it.
+`SW-238` is the credit-note twin of the deposit mistake SW-210 fixed, and carries the same
+prospective requirement. 🔴 **Ask the accountant before building any of them.**
 
-**Tranche C — a status with no way out.** A record that can reach a state no screen can act on is a
-workflow that stops dead: the disputed sales declaration, the draft purchase request, the terminated
-employee, the expired lease with no offered conversion. These are cheap and each unblocks somebody's
-actual day. 🟠 **P1, mostly XS–S.**
+**Three lock-order cycles** (`SW-009c/d/e`). Real, and each needs MySQL with two connections to prove
+— sqlite compiles `lockForUpdate()` to nothing, so the ordinary suite is structurally incapable of
+saying whether a reorder is correct. One was already found UNSAFE as designed (it took a whole-table
+exclusive lock on `units`). These belong in `tests/Mysql/` with `docs/qa/scripts/race.sh`, as a piece
+of work in their own right rather than a sweep row. 🟠 **P1, effort M.**
 
-**Tranche D — the tenant and contractor surfaces.** A draft invoice publicly payable through
-`/pay/{token}`, draft leases visible in the portal, a live Paymob checkout on a written-off invoice,
-the contractor who can post to a thread they cannot read. The portal is what a retailer judges the
-whole system by, and two of these are the draft-leak class that already cost seven surfaces once.
-🟠 **P1, S each.**
+**Fourteen ordinary rows** — the sales-declaration VAT pair (`SW-163`/`SW-164`, both money that
+reaches a tenant), an unscoped picker that deletes a property-isolation write guard (`SW-014`), a
+portal filter that lies about what it filters (`SW-016`), and a tail of registers missing a filter or
+a column. Nothing here is blocked; they are simply the ones nobody has reached yet. 🟡 **P2, mostly
+XS–S.**
 
-**Tranche E — the ~150 medium and low rows.** Validation gaps, missing filters and columns, unlocalised
-composed strings, wrong defaults. Worth a scheduled pass rather than a project: take them a module at
-a time, in the order the operator actually uses the modules, and let each pass end with the module's
-own doc updated. 🟡 **P2.**
+**What the sweep actually taught, which is worth more than the rows.** An adversarial review pass —
+a second agent told to read the code and try to break the change — found something real in
+**substantially every** fix it was pointed at, including several that were worse than the defect they
+replaced: a deposit split that would have restated closed-period entries on the next sweep, a legacy
+guard that made its own fix inert on any lease carrying a late fee, an arrears restriction that lost
+66,666.67 of rent, a whole-table lock, and two of my own comments that were factually wrong. Green
+tests said nothing about any of them, because each was a case the fixture did not contain. **Finish a
+part → review it → fix what the review finds → mutation-prove → commit** is the loop, and the review
+is the step that pays.
 
 ### 9.3 The four gates worth building, in the order they pay
 

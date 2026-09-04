@@ -40,9 +40,26 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 90 closed, 160 open (updated 2026-09-03)
+> ### Where this stands — 236 closed, 21 open (updated 2026-09-05)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
+>
+> **What is left is not a smaller version of the list — it is the residue that resisted.** Four are
+> DECISIONS rather than code (SW-236/237/238, and SW-237 is the one the other two wait on: *should
+> re-pointing a posting role restate history?* — Yardi says a GL mapping change is prospective, and
+> honouring that means freezing the resolved account onto the journal line, across all 24
+> journalizers). Three are lock-order cycles that **sqlite cannot prove**, because it compiles
+> `lockForUpdate()` to nothing — they need `tests/Mysql/` and two connections, and one was already
+> found unsafe as designed. The other fourteen are ordinary and unblocked.
+>
+> **The adversarial review is what this sweep is really evidence for.** A second agent told to read
+> the code and break the change found something real in substantially every fix it was pointed at,
+> and several of those findings were that the FIX was worse than the defect: a deposit split that
+> would have restated closed-period entries on the next sweep; a legacy guard that made its own fix
+> inert on any lease that had ever carried a late fee; an arrears restriction that lost 66,666.67 of
+> rent; a whole-table lock on `units`; two comments of mine that were simply false. Green tests said
+> nothing about any of them, because each was a case the fixture did not contain. Mutation testing
+> caught two more the review did not. **Neither is optional, and neither substitutes for the other.**
 
 **Severity** — `critical` wrong money, lost data, or something confidential leaving the building ·
 `high` an operator blocked, or data quietly wrong · `medium` real friction · `low` polish.
@@ -52,7 +69,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Money · AR · settlement
 
-*17 open — 8 medium, 9 low.*
+*6 open — 5 medium, 1 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -99,7 +116,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Billing · leases
 
-*16 open — 11 medium, 5 low.*
+*1 open — 1 medium.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -131,7 +148,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Facility · vendors · procurement
 
-*22 open — 10 medium, 12 low.*
+*1 open — 1 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -168,7 +185,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### HR · payroll · treasury
 
-*16 open — 8 medium, 8 low.*
+*0 open.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -198,7 +215,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Cross-cutting
 
-*15 open — 10 medium, 5 low.*
+*2 open — 1 medium, 1 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -225,7 +242,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### General ledger · period · banking
 
-*16 open — 1 high, 9 medium, 6 low.*
+*1 open — 1 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -252,7 +269,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Portals · mobile API
 
-*3 open — 1 medium, 2 low.*
+*0 open.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -267,7 +284,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### CAM · recoveries · sales
 
-*14 open — 10 medium, 4 low.*
+*3 open — 2 medium, 1 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -290,7 +307,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Reports · settings · system
 
-*12 open — 8 medium, 4 low.*
+*2 open — 2 medium.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -311,7 +328,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Inventory · fixed assets
 
-*9 open — 5 medium, 4 low.*
+*0 open.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -328,7 +345,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Tax
 
-*19 open — 3 high, 9 medium, 7 low.*
+*5 open — 2 high, 1 medium, 2 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
