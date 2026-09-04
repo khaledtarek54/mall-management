@@ -4,7 +4,6 @@ namespace App\Models\Concerns\FacilityWorkOrder;
 
 use App\Models\Expense;
 use App\Models\FacilityWorkOrderLabour;
-use App\Models\FacilityWorkOrderPart;
 use App\Models\VendorBill;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
@@ -65,8 +64,12 @@ trait HasWorkOrderCost
      * THREE CHANNELS, and adding a fourth means adding it here AND wiring its model events:
      *
      *   labour   — `facility_work_order_labour`, hours x the craft rate frozen at entry
-     *   material — approved/recorded part draws (`facility_work_order_parts.value`)
-     *   service  — vendor bills + expenses booked to this job
+     *   material — part draws the STOCK LEDGER says really moved (`FacilityWorkOrderPart::counted`)
+     *   service  — vendor bills + expenses that POST (`VendorBill::postable`, `Expense::postable`)
+     *
+     * **Each channel's "does this row count" is the CHILD's question**, answered by the child's own
+     * scope rather than restated here — the three clauses had drifted into three second opinions,
+     * two of them wrong. See the comments in the method body for what each one cost.
      *
      * **NET of tax, and net of any SLA penalty applied to the bill.** VAT is recoverable and is not
      * a cost of the job; a penalty credited against a contractor's invoice genuinely reduces what
@@ -111,20 +114,47 @@ trait HasWorkOrderCost
         [$labourHours, $b1] = $this->costAggregate($this->labour(), 'coalesce(sum(hours), 0)');
         [$labourCost, $b2] = $this->costAggregate($this->labour(), 'coalesce(sum(cost), 0)');
 
-        // Only a part that actually left the store (or was recorded as bought for the job) is a
-        // cost. A `pending` request is a proposal and a `rejected` one never happened.
+        // ── WHICH CHILD ROWS COUNT IS THE CHILD'S OWN QUESTION, NOT THIS METHOD'S ─────────────
+        //
+        // All three clauses used to be written out here, and two of them had drifted from the
+        // definition the child model already owned — a second truth about the same money, which is
+        // the one thing this method exists to prevent.
+        //
+        //   parts   — `counted()` is the scope `partsCost()` reads and the one module 26 documents
+        //             ("a voided draw's movement → `counted()` stops charging the job"). It follows
+        //             the STOCK LEDGER: an approved draw counts only while its movement is live,
+        //             because voiding puts the stock back on the shelf. The clause here asked only
+        //             for the STATUS, so the stored column went on charging a job for parts that
+        //             had been returned while `partsCost()` beside it said zero (SW-071).
+        //   bills   — `postable()` is `VendorBill`'s own "has this any GL effect at all", i.e. NOT
+        //             `draft` and NOT `cancelled`. `vendor_bills.status` DEFAULTS to `draft`
+        //             (measured on the live schema: `show columns from vendor_bills like 'status'`
+        //             → Default: draft), so a bill keyed and not yet approved was counted as ACTUAL
+        //             cost the moment it was saved — money the ledger has never seen, on a column
+        //             whose whole premise is that it is a management dimension OVER posted money.
+        //             `AssessSlaPenaltyService::jobValue()` reads it, so a percent-of-value SLA
+        //             penalty was priced off an invoice nobody had approved, and `assess()` freezes
+        //             a penalty once the job goes terminal — so approving the bill later never
+        //             re-priced it (SW-072).
+        //   expenses — `postable()` too. `expenses.status` holds only `recorded|cancelled` today,
+        //             so `!= cancelled` was right by coincidence; an ALLOWLIST is what keeps it
+        //             right when a third status arrives, and it errs toward not counting money the
+        //             books have not recognised.
+        //
+        // A `pending` part request is a proposal and a `rejected` one never happened — both are
+        // outside `counted()` for that reason.
         [$material, $b3] = $this->costAggregate(
-            $this->parts()->whereIn('status', [FacilityWorkOrderPart::STATUS_APPROVED, FacilityWorkOrderPart::STATUS_RECORDED]),
+            $this->parts()->counted(),
             'coalesce(sum(value), 0)',
         );
 
         [$bills, $b4] = $this->costAggregate(
-            $this->vendorBills()->where('status', '!=', 'cancelled'),
+            $this->vendorBills()->postable(),
             'coalesce(sum(subtotal - coalesce(penalty_applied_amount, 0)), 0)',
         );
 
         [$expenses, $b5] = $this->costAggregate(
-            $this->expenses()->where('status', '!=', 'cancelled'),
+            $this->expenses()->postable(),
             'coalesce(sum(amount), 0)',
         );
 

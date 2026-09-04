@@ -126,6 +126,52 @@ class Payment extends Model
         return $query->whereIn('status', self::RECEIVED_STATUSES);
     }
 
+    /**
+     * **Which property's money is this receipt?** — the ONE definition, for every scoped read.
+     *
+     * `payments` carries no `asset_id`: a receipt belongs to the property whose debt it clears, so
+     * the dimension is derived from the invoices it settles, with the CHEQUE it came from as the
+     * fallback for a receipt that settles nothing yet. That predicate was written out three times —
+     * `Tenant::creditBalance()`, `App\Support\TenantBalances`, and the tenant hub's Payments tab —
+     * and the third copy had drifted to `invoices.lease.unit`, a chain from before unit owners
+     * existed.
+     *
+     * Measured on `mall_management_qa` (2026-09-03): 42 of 42 unit-owner assessment invoices carry
+     * `lease_id` NULL — `UnitOwnership::invoiceLinkAttributes()` returns `lease_id => null` and
+     * `Invoice::assertBelongsToExactlyOneAgreement()` enforces it — so that chain matched NONE of
+     * them, and a receipt settling an owner's assessment was invisible on the tenant's own Payments
+     * tab for every property-restricted operator. The Payments RESOURCE listed the same receipt all
+     * along: it scopes from `#[PropertyOwned(via: 'invoices')]`, i.e. the invoice's own column.
+     *
+     * `null` = unrestricted (super_admin, or an install with no assignments) — nothing to narrow.
+     * An EMPTY array narrows to nothing, exactly as the three `->when($assetIds !== null, …)` call
+     * sites this replaces did; `VoidPaymentService` relies on that distinction and passes `null`.
+     *
+     * **The OR branch is GROUPED**, deliberately: AND binds tighter than OR, so written flat the
+     * second branch escapes whatever the caller has already narrowed by (`tenant_id`, `received()`),
+     * which is a wider leak than the one being closed.
+     *
+     * @param  array<int>|null  $assetIds
+     */
+    public function scopeInProperties($query, ?array $assetIds)
+    {
+        if ($assetIds === null) {
+            return $query;
+        }
+
+        return $query->where(fn ($where) => $where
+            ->whereHas('invoices', fn ($i) => $i->whereIn('invoices.asset_id', $assetIds))
+            // A receipt with NO allocations at all has no invoice to take a property from, and a
+            // cleared SERIES cheque names no invoice — the Egyptian norm, a year of monthly cheques
+            // handed over before most of those invoices exist. The property was never unknown: it is
+            // on the cheque, the same fact `originatingAssetId()` files the GL entry under. Only for
+            // a receipt with none at all — one allocated across two properties is a genuinely
+            // consolidated receipt, and collapsing it onto one mall is a different, wrong answer.
+            ->orWhere(fn ($c) => $c
+                ->whereDoesntHave('invoices')
+                ->whereHas('clearedCheque', fn ($ch) => $ch->whereIn('post_dated_cheques.asset_id', $assetIds))));
+    }
+
     protected $fillable = [
         'bank_account_id',
         'reference',

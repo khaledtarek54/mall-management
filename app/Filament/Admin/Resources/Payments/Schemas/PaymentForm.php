@@ -375,12 +375,27 @@ class PaymentForm
 
                     FormTab::make('admin.sections.gateway_cheque', [
 
+                        // `maxLength(255)` on all three, against `varchar(255)` — measured on
+                        // `mall_management_qa`, 2026-09-03. These are the only free-text string
+                        // inputs on this form and none of them was bounded; Laravel ships MySQL
+                        // `strict => true`, so the database answers `SQLSTATE[22001] Data too long
+                        // for column` (reproduced on that server with 300 characters) — a 500 on
+                        // Create that loses the whole receipt, from pasting a long bank reference
+                        // into a box that invites free text.
+                        //
+                        // **The suite structurally cannot see this**: SQLite does not enforce a
+                        // varchar width, so the bound has to be on the FORM to exist in a test at
+                        // all. The sibling `PostDatedChequeForm` had it right the whole time (100 and
+                        // 200, matching its own narrower columns).
                         TextInput::make('gateway')
-                            ->label(__('admin.fields.gateway')),
+                            ->label(__('admin.fields.gateway'))
+                            ->maxLength(255),
                         TextInput::make('gateway_transaction_id')
-                            ->label(__('admin.fields.gateway_transaction_id')),
+                            ->label(__('admin.fields.gateway_transaction_id'))
+                            ->maxLength(255),
                         TextInput::make('cheque_number')
-                            ->label(__('admin.fields.cheque_number')),
+                            ->label(__('admin.fields.cheque_number'))
+                            ->maxLength(255),
                         DatePicker::make('cheque_clearance_date')
                             ->label(__('admin.fields.cheque_clearance_date'))
                             ->native(false),

@@ -504,6 +504,36 @@ class UnitOwnership extends Model implements BillableAgreement
     }
 
     /**
+     * The `charges.frequency` values the assessment run understands. {@see billableChargeFrequencies()}
+     *
+     * A CONSTANT as well as a method because `BillUnitOwnershipsService::appliesToPeriod()` is
+     * handed a `Charge` and not the ownership it hangs off — and the selection and the write guard
+     * must read one list, or they can disagree about what is billable.
+     */
+    public const BILLABLE_CHARGE_FREQUENCIES = ['monthly', 'one_time'];
+
+    /**
+     * What `BillUnitOwnershipsService` can actually invoice — a monthly row and a one-off, no more.
+     *
+     * That service bills a `monthly` row every month and a `one_time` row once, in the month its
+     * start date falls in, and answers **false** for anything else. Until this method existed the
+     * fact was recorded only as a hardcoded pair of options on the assessment form, so
+     * `ChargeImporter` — which validates against the whole column set — loaded quarterly and
+     * annual assessments the run then skipped for ever, counted beside the tenures that genuinely
+     * had nothing to bill that month.
+     *
+     * Widening it is a real feature, not a one-line change: `appliesToPeriod()` needs its own arm
+     * (which month of the quarter, measured from what) BEFORE this list may grow, or a quarterly
+     * row is admitted to the schedule and still never invoiced.
+     *
+     * @see BillableAgreement::billableChargeFrequencies()
+     */
+    public function billableChargeFrequencies(): array
+    {
+        return self::BILLABLE_CHARGE_FREQUENCIES;
+    }
+
+    /**
      * Does this ownership bill anything for the period?
      *
      * Two conditions, and they are different questions. The STATUS says the keys have changed hands

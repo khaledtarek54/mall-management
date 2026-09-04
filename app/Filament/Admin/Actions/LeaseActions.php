@@ -845,7 +845,9 @@ class LeaseActions
                         // term — a rate below it would price overstaying BELOW renewing, which is
                         // the opposite of what the clause is for. A genuinely reduced wind-down
                         // rent is a rent change or a relief, not a holdover.
-                        ->minValue(100)
+                        // The floor is `Lease::HOLDOVER_MIN_RATE_PCT`, so the settings default that
+                        // fills this box and the service behind it cannot state a different one.
+                        ->minValue(Lease::HOLDOVER_MIN_RATE_PCT)
                         ->required(),
                     DatePicker::make('effective_from')
                         ->label(__('admin.actions.holdover_from'))

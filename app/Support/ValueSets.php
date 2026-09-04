@@ -624,8 +624,15 @@ class ValueSets
      * — behaves exactly as the literal list this replaced; and an operator who adds Fawry gets a
      * value the listener accepts, without a deploy.
      *
-     * It only ever WIDENS. Switching a rail off stops it being offered; it must never invalidate the
-     * documents that already name it.
+     * It only ever WIDENS, and the reader it widens from is deliberately EVERY code the catalogue
+     * names, retired ones included — see {@see IsCodeCatalogue::codes()}. Switching a rail off stops
+     * it being OFFERED, which is `catalogueOptions()`' job; it must never invalidate the documents
+     * that already name it.
+     *
+     * Until 2026-09-03 that second sentence was a CLAIM rather than a property (SW-206). The reader
+     * was `is_active = true` only, so retiring an operator-added code took it straight out of the
+     * accepted set and every write that re-stated the column was refused right here — including the
+     * nightly `expenses:generate-recurring` run, which then never booked that schedule again.
      *
      * @param  array<int, string>  $values
      * @return array<int, string>

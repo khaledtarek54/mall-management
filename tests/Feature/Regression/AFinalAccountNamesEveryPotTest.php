@@ -84,7 +84,7 @@ function onAccountCheque(int $assetId, string $reference, string $chequeNumber):
         'tenant_id' => test()->lease->tenant_id,
         'asset_id' => $assetId,
         'cheque_number' => $chequeNumber, 'bank_name' => 'CIB', 'amount' => 25000,
-        'cheque_date' => '2030-11-05', 'received_date' => '2030-10-01', 'due_date' => '2030-11-05',
+        'cheque_date' => '2030-11-05', 'received_date' => '2030-10-01',
         'reference' => 'PDC-'.$reference,
         'status' => PostDatedCheque::STATUS_CLEARED,
         'cleared_payment_id' => $payment->id,

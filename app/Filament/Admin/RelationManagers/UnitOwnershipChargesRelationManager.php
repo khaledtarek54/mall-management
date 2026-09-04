@@ -179,14 +179,17 @@ class UnitOwnershipChargesRelationManager extends RelationManager
                             ->helperText(__('admin.unit_ownerships.charges.amount_hint')),
                         Select::make('frequency')
                             ->label(__('admin.charge_schedule.frequency'))
-                            // Only the two the assessment run actually understands. It bills a
-                            // `monthly` row every month and a `one_time` row once, in the month its
-                            // start date falls in; a quarterly row would be silently ignored, which
-                            // is worse than not offering it.
-                            ->options([
-                                'monthly' => __('admin.charge_schedule.frequencies.monthly'),
-                                'one_time' => __('admin.charge_schedule.frequencies.one_time'),
-                            ])
+                            // Only the two the assessment run actually understands — DERIVED from
+                            // the ownership itself rather than listed here, because this list was
+                            // the ONLY statement of it and the charge importer, the other door onto
+                            // the same table, accepted all four. It bills a `monthly` row every
+                            // month and a `one_time` row once, in the month its start date falls
+                            // in; anything else would sit on the schedule and never be invoiced,
+                            // which is worse than not offering it. `Charge::assertFrequencyIsBillable()`
+                            // refuses against this same list, so picker and write guard cannot drift.
+                            ->options(fn (): array => collect(UnitOwnership::BILLABLE_CHARGE_FREQUENCIES)
+                                ->mapWithKeys(fn (string $f): array => [$f => __('admin.charge_schedule.frequencies.'.$f)])
+                                ->all())
                             ->default('monthly')
                             ->required()
                             ->native(false),

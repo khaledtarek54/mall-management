@@ -2,6 +2,7 @@
 
 namespace App\Support\Filament;
 
+use App\Models\TaxCode;
 use App\Support\ValueSets;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Model;
@@ -63,6 +64,34 @@ class CatalogueAwareSelect extends Select
      */
     private static ?array $governedColumns = null;
 
+    /**
+     * Retire-able catalogues that are NOT a `ValueSets` set, keyed by COLUMN NAME.
+     *
+     * `tax_codes` is the second such catalogue in the system and the one this class was structurally
+     * blind to. It is outside `ValueSets::CATALOGUE_WIDENED` on purpose — the tax catalogue owns the
+     * RATE and the charge code owns the RULING, two questions and two homes — so the derivation
+     * above answers null for every column naming one, while `TaxCode::options()` is `->active()`
+     * scoped exactly as `IsCodeCatalogue::catalogueOptions()` is.
+     *
+     * Measured 2026-09-03: `tax_code` is a `string(32)` column on SIX tables (`charge_codes`,
+     * `expenses`, `vendor_bills`, `recurring_expenses`, `invoice_items`, `credit_note_items`) plus
+     * `vendors.withholding_tax_code`, and nine pickers feed all of them from `TaxCode::options()`.
+     * Deactivating a tax code therefore left every record naming it unsavable, by the mechanism this
+     * class exists for: `Select::getInValidationRuleValues()` returns `[]` when
+     * `getOptionLabel(withDefault: false)` is blank, and `Rule::in([])` refuses every value — so the
+     * whole form is refused on a field the operator never touched, with nothing on screen to say so.
+     *
+     * Keyed by NAME rather than by `table.column` for two reasons: the column means the same thing
+     * on all seven tables, and the record a `Select` resolves is not always the row it writes
+     * (SW-205), which a name key is right about either way.
+     *
+     * @var array<string, class-string>
+     */
+    private const BY_COLUMN_NAME = [
+        'tax_code' => TaxCode::class,
+        'withholding_tax_code' => TaxCode::class,
+    ];
+
     private static ?ReflectionProperty $containerProperty = null;
 
     /**
@@ -72,9 +101,12 @@ class CatalogueAwareSelect extends Select
     {
         $options = parent::getOptions();
 
-        self::$governedColumns ??= array_fill_keys(array_map(
-            fn (string $key): string => substr($key, strpos($key, '.') + 1),
-            array_keys(ValueSets::catalogueWidenedColumns()),
+        self::$governedColumns ??= array_fill_keys(array_merge(
+            array_map(
+                fn (string $key): string => substr($key, strpos($key, '.') + 1),
+                array_keys(ValueSets::catalogueWidenedColumns()),
+            ),
+            array_keys(self::BY_COLUMN_NAME),
         ), true);
 
         if (! isset(self::$governedColumns[$this->getName()])) {
@@ -141,11 +173,14 @@ class CatalogueAwareSelect extends Select
         $key = $record->getTable().'.'.$this->getName();
         $entry = ValueSets::catalogueWidenedColumns()[$key] ?? null;
 
-        if ($entry === null) {
+        // The `ValueSets` registry answers for the sixteen columns whose value set the saving
+        // listener widens. It cannot answer for a tax code — see {@see BY_COLUMN_NAME} — so that map
+        // is the second source, consulted only when the first has nothing.
+        $model = $entry !== null ? $entry[0] : (self::BY_COLUMN_NAME[$this->getName()] ?? null);
+
+        if ($model === null) {
             return null;
         }
-
-        [$model] = $entry;
 
         return method_exists($model, 'labelFor') ? $model : null;
     }

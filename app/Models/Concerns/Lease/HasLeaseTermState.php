@@ -3,10 +3,11 @@
 namespace App\Models\Concerns\Lease;
 
 use App\Models\LeaseEvent;
-use Carbon\CarbonImmutable;
+use App\Support\ProjectedState;
 // Imported for the `@param Builder` docblocks below: without it they resolve to
 // App\Models\Concerns\Lease\Builder, a class that does not exist — a type annotation naming
 // nothing, which is the namespace-rebinding trap in its harmless form.
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -34,6 +35,17 @@ trait HasLeaseTermState
 {
     /** Terminal lease states — immutable once reached (CLAUDE.md invariant). */
     public const TERMINAL_STATUSES = ['terminated', 'expired', 'cancelled', 'renewed'];
+
+    /**
+     * Which lease statuses may bill a PERIOD — read by both halves of the eligibility pair below.
+     *
+     * `expired` is deliberately here and deliberately also in `TERMINAL_STATUSES`, because the two
+     * lists answer different questions: that one says the lease may no longer be CHANGED, this one
+     * says a month its term covered may still be INVOICED. `expired` is a projection of the dates
+     * ({@see ProjectedState}) written by `leases:expire` and by nothing else;
+     * `terminated`, `cancelled` and `renewed` are decisions with their own settlement behind them.
+     */
+    public const BILLABLE_STATUSES = ['active', 'expired'];
 
     public function isActive(): bool
     {
@@ -169,7 +181,29 @@ trait HasLeaseTermState
      */
     public function isBillableForPeriod(CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
     {
-        if ($this->status !== 'active') {
+        // ── STATUS IS A TODAY FACT AND THIS IS A PERIOD QUESTION ──────────────────────────────
+        //
+        // `leases:expire` (05:15 nightly) projects every active lease past its term to `expired`,
+        // so the morning after a term ends the lease drops out of BOTH halves of this pair — for
+        // every period, including the months it was running through. Traced on HEAD by reading
+        // the pair, not by running it — the regression test is what measures it: a lease
+        // commencing 2025-01-01 and expiring 2026-08-31, swept on 1 September, answers false here
+        // for AUGUST, and `billing:run-monthly --period=2026-08` — the documented recovery from a
+        // failed billing night — reports it in the ordinary `skipped` counter. The final month of
+        // every tenancy that ended between the failed run and the re-run is never invoiced, and
+        // nothing anywhere says so.
+        //
+        // Admitting `expired` says no more than the date clauses below already say: it is written
+        // by the sweep alone and only for a term that has actually run out.
+        // `terminated`/`cancelled`/`renewed` are DECISIONS — a terminated lease has had its final
+        // account and its unearned credit note — and stay refused, which is what
+        // `ManualBillingEligibilityTest` pins.
+        //
+        // This widens WHICH LEASES are asked, never WHICH MONTHS bill: the clauses below still
+        // require the period to fall inside the term, and `generateInvoiceForLease()` clips the
+        // trailing edge to `expiry_date`, so an expired lease can only ever be billed the part of
+        // its last month that it actually ran.
+        if (! in_array($this->status, self::BILLABLE_STATUSES, true)) {
             return false;
         }
 
@@ -192,6 +226,13 @@ trait HasLeaseTermState
         if (filled($this->expiry_date)
             && CarbonImmutable::instance($this->expiry_date)->lessThan($periodStart)
             && ! $this->isBillableHoldoverFor($periodEnd)) {
+            return false;
+        }
+
+        // Only an ACTIVE lease may be open-ended. The branch above tolerates a null expiry — and
+        // `leases.expiry_date` is NOT NULL today, so this cannot fire — but a row reading `expired`
+        // with no expiry date is not a projection of anything, and would otherwise bill for ever.
+        if (blank($this->expiry_date) && $this->status !== 'active') {
             return false;
         }
 
@@ -310,10 +351,13 @@ trait HasLeaseTermState
     public function scopeBillableForPeriod($query, CarbonImmutable $periodStart, CarbonImmutable $periodEnd)
     {
         return $query
-            ->where('status', 'active')
+            // The query half of the period-vs-today reading — see `isBillableForPeriod()`.
+            ->whereIn('status', self::BILLABLE_STATUSES)
             ->where('commencement_date', '<=', $periodEnd)
             ->where(function ($q) use ($periodStart, $periodEnd) {
-                $q->whereNull('expiry_date')
+                // Grouped, and narrowed to `active`: only an active lease may be open-ended, and
+                // an ungrouped `whereNull` here would OR its way past the status clause above.
+                $q->where(fn ($o) => $o->whereNull('expiry_date')->where('status', 'active'))
                     ->orWhere('expiry_date', '>=', $periodStart)
                     // The query half of the holdover exemption above. Kept in lockstep by hand
                     // because that is what this pair is: two copies of "which leases bill", which

@@ -128,18 +128,9 @@ final class TenantBalances
         $payments = Payment::query()
             ->whereIn('tenant_id', $ids)
             ->received()
-            ->when(
-                $assetIds !== null,
-                // Grouped, exactly as Tenant::creditBalance() groups it: an ungrouped OR branch
-                // escapes the tenant scope itself.
-                fn ($q) => $q->where(fn ($w) => $w
-                    ->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $assetIds))
-                    ->orWhere(fn ($c) => $c
-                        ->whereDoesntHave('invoices')
-                        ->whereHas('clearedCheque', fn ($ch) => $ch->whereIn('post_dated_cheques.asset_id', $assetIds))
-                    )
-                ),
-            )
+            // The same one definition `Tenant::creditBalance()` reads — this WAS a second copy of
+            // it, kept in step only by a comment saying so (SW-012).
+            ->inProperties($assetIds)
             ->with('invoices')
             ->get();
 

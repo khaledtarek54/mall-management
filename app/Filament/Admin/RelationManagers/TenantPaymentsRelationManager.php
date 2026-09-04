@@ -28,12 +28,19 @@ class TenantPaymentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            // Property isolation: a payment is visible only if it settles an invoice in
-            // one of the user's visible properties (a shared tenant may pay across malls).
-            ->modifyQueryUsing(fn ($query) => $query->when(
-                TenantScope::visibleAssetIds(),
-                fn ($q, $ids) => $q->whereHas('invoices.lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)),
-            ))
+            // Property isolation: a payment is visible only if its money is in one of the operator's
+            // visible properties (a shared counterparty may pay across malls).
+            //
+            // Through `Payment::scopeInProperties()`, the ONE definition. This read `invoices.lease
+            // .unit` — a chain from before unit owners existed — while `Tenant::creditBalance()` and
+            // `TenantBalances` beside it had already been corrected to the invoice's OWN `asset_id`.
+            // Measured on `mall_management_qa` 2026-09-03: 42 of 42 owner assessments carry
+            // `lease_id` NULL, so a receipt settling one appeared on the Payments REGISTER (which
+            // scopes from `#[PropertyOwned(via: 'invoices')]`) and vanished from the counterparty's
+            // own Payments tab — and so did every unallocated receipt, i.e. every cleared series
+            // cheque. `->when()` is gone with it: the scope answers the null case itself, so a
+            // caller cannot get the "unrestricted" branch subtly wrong.
+            ->modifyQueryUsing(fn ($query) => $query->inProperties(TenantScope::visibleAssetIds()))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.payment.reference'))

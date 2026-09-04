@@ -153,11 +153,17 @@ class RentableItem extends Model
      * while `active` or `pending_approval`, an ownership while it is not `transferred` — a sold-on
      * unit's former owner holds nothing.
      *
-     * @param  array{type: string, id: int}|null  $ignore  a holding to disregard, so re-assigning
-     *                                                     an item to its own current holder is not
-     *                                                     refused as a clash with itself
+     * **NOTHING MAY EXEMPT AN AGREEMENT'S OWN HOLDINGS FROM THIS TEST, and there is no longer a
+     * parameter for it (SW-054, 2026-09-03).** `$ignore` existed so a picker could offer an item
+     * back to its current holder, on the reasoning that re-assigning a bay it already has should
+     * read as "you have this" rather than "someone has this". `AssignRentableItemService::assign()`
+     * refuses exactly that, so the exemption only ever produced a picker whose value the write
+     * guard rejected — fixed in `RentableItemOptions::lettable()` on 2026-08-28. Its LAST caller was
+     * a dead private copy of that same list still sitting on `LeasesTable`, removed with this; the
+     * parameter goes too, because a mechanism kept for a rule that was reversed is how the rule
+     * comes back by copy-paste.
      */
-    public function isHeldOn(?CarbonImmutable $on = null, ?array $ignore = null): bool
+    public function isHeldOn(?CarbonImmutable $on = null): bool
     {
         $on = $on ?? CarbonImmutable::now();
         $date = $on->toDateString();
@@ -169,10 +175,6 @@ class RentableItem extends Model
                 ->orWhereDate('rentable_item_holdings.effective_to', '>=', $date));
 
         $heldByLease = $this->leases()
-            ->when(
-                $ignore && $ignore['type'] === 'lease',
-                fn ($q) => $q->where('leases.id', '!=', $ignore['id']),
-            )
             ->whereIn('leases.status', ['active', 'pending_approval'])
             ->where($dated)
             ->exists();
@@ -182,10 +184,6 @@ class RentableItem extends Model
         }
 
         return $this->ownerships()
-            ->when(
-                $ignore && $ignore['type'] === 'unit_ownership',
-                fn ($q) => $q->where('unit_ownerships.id', '!=', $ignore['id']),
-            )
             ->where('unit_ownerships.status', '!=', UnitOwnershipStatus::Transferred->value)
             ->where($dated)
             ->exists();

@@ -79,6 +79,29 @@ interface BillableAgreement
     /** How many months one invoice covers — 1 monthly, 3 quarterly, 12 annually. */
     public function billingCycleMonths(): int;
 
+    /**
+     * The `charges.frequency` values THIS agreement's billing run can actually invoice.
+     *
+     * Not the question {@see billingCycleMonths()} answers: that is how often an INVOICE is
+     * raised, this is how often a schedule ROW recurs — and the two runs understand different
+     * sets. `MonthlyBillingService::chargeAppliesToPeriod()` has an arm for all four values the
+     * column may hold; `BillUnitOwnershipsService::appliesToPeriod()` answers two, deliberately
+     * (no operator has asked for quarterly صيانة, and a half-built arm would bill the wrong month).
+     *
+     * It exists because that difference was written down in exactly ONE place — a hardcoded pair
+     * of options on the unit-ownership charges form, under a comment saying a quarterly row
+     * *"would be silently ignored, which is worse than not offering it"* — while `ChargeImporter`,
+     * the other door onto the same table, validated `frequency` against
+     * `ValueSets::allowed('charges', 'frequency')` and accepted all four. So a migrating
+     * operator's quarterly assessment loaded cleanly, rendered on the schedule as a live charge,
+     * and was counted by every monthly run as an ordinary `skipped`, for the life of the
+     * ownership. `Charge::assertFrequencyIsBillable()` asks this at the MODEL, so the next door
+     * onto the table is covered by existing rather than by being remembered.
+     *
+     * @return list<string> a subset of `ValueSets::allowed('charges', 'frequency')`
+     */
+    public function billableChargeFrequencies(): array;
+
     /** Does this agreement bill anything for the given period at all? */
     public function isBillableForPeriod(CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool;
 

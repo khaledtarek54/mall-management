@@ -9,6 +9,7 @@ use App\Models\FacilityWorkOrder;
 use App\Services\AcceptWorkOrderService;
 use App\Services\CommentOnWorkOrderService;
 use App\Services\WorkOrderProposalService;
+use App\Support\FacilityVocabulary;
 use App\Support\Filament\VendorScope;
 use DomainException;
 use Filament\Actions\Action;
@@ -18,6 +19,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 /**
@@ -49,9 +51,19 @@ class ListWorkOrders extends ListRecords
                 // `docs/PROPERTY-ISOLATION.md` deliberately does not apply here.
                 TextColumn::make('asset.name')
                     ->label(__('vendor.jobs.property')),
+                // **The operator's own word for the code, and the operator's own colour.** Both
+                // badges were a bare `->badge()`, and Filament renders a state RAW unless a
+                // formatter is given (`CanFormatState::formatState()` passes it through untouched
+                // when `formatStateUsing` is null) — so the contractor's ONLY screen showed
+                // `urgent` and `in_progress`, the database codes, in English on the English panel
+                // and in English on the Arabic one. Measured 2026-09-03 by sweeping every badge
+                // column in both panels over a `ValueSets`-governed column: 150 of them, and the
+                // only two with no formatter were these.
                 TextColumn::make('priority')
                     ->label(__('vendor.jobs.priority'))
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => FacilityVocabulary::priorityLabel($state))
+                    ->color(fn (?string $state): string => FacilityVocabulary::priorityColor($state)),
                 TextColumn::make('scheduled_for')
                     ->label(__('vendor.jobs.scheduled_for'))
                     ->date('d/m/Y')
@@ -66,7 +78,52 @@ class ListWorkOrders extends ListRecords
                     ->color(fn ($state) => $state ? 'success' : 'warning'),
                 TextColumn::make('status')
                     ->label(__('vendor.jobs.status'))
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => FacilityVocabulary::statusLabel($state))
+                    ->color(fn (?string $state): string => FacilityVocabulary::statusColor($state)),
+            ])
+            // ── THE LIST OPENED ON THE ARCHIVE ────────────────────────────────────────────
+            //
+            // Measured on the QA baseline (2026-09-03): the contractor holding the most
+            // dispatches has 13 jobs — 10 `done`, 3 `open`. With nothing to narrow it and
+            // `scheduled_for asc` below, rows 1 to 10 were all finished work (the top row
+            // scheduled 2 September 2024) and the three jobs they are actually expected to turn
+            // up to were rows 11, 12 and 13. `VendorScope::VISIBLE_STATUSES` includes `done` and
+            // `cancelled` DELIBERATELY — a contractor must be able to read back what they did —
+            // so the archive only ever grows, and it was burying the worklist this list is
+            // registered as (`TableSortPolicy::WORKLIST`, "soonest first: the top row is the next
+            // thing to do"). The sort was never wrong; it had nothing left to sort.
+            //
+            // **ONE control, not two.** An always-on "live jobs only" toggle beside a status
+            // picker lets a contractor ask for Done while a second filter silently refuses it —
+            // an empty list with two indicators arguing. A MULTIPLE status filter defaulted to
+            // the live statuses says exactly what it is doing in the indicator bar, clears in one
+            // click, and picking Done is picking Done.
+            //
+            // The default is DERIVED — the statuses this portal shows, less the terminal ones —
+            // so a status added to either constant lands on the right side of the line by itself.
+            //
+            // **No PROPERTY filter, deliberately.** The `asset.name` column above states the
+            // reason: a contractor's question is "where am I going", not "which mall am I in".
+            //
+            // A filter narrows; it can never widen. `WorkOrderResource::getEloquentQuery()` is
+            // already `VendorScope::jobs()`, so every clause here composes INSIDE that scope —
+            // asserted in the regression test rather than assumed, because a filter is the one
+            // thing added to this screen that takes a value from the reader.
+            ->filters([
+                SelectFilter::make('status')
+                    ->label(__('vendor.jobs.status'))
+                    ->multiple()
+                    // The lang array the operator's own board reads, never a second list of the
+                    // same four codes.
+                    ->options(fn () => __('admin.facility.statuses'))
+                    ->default(array_values(array_diff(
+                        VendorScope::VISIBLE_STATUSES,
+                        FacilityWorkOrder::TERMINAL,
+                    ))),
+                SelectFilter::make('priority')
+                    ->label(__('vendor.jobs.priority'))
+                    ->options(fn () => __('admin.facility.priorities')),
             ])
             ->recordActions([
                 // ── READ (step 0), and the half the portal shipped without. Four verbs and no way

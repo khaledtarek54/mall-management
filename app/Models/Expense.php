@@ -127,10 +127,34 @@ class Expense extends Model
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
+    /**
+     * The statuses that reach the GL.
+     *
+     * An ALLOWLIST, not `!= cancelled`: a status added to `expenses.status` later recognises
+     * nothing until somebody says it does, which is the safe direction for a column that decides
+     * whether money is on the books.
+     *
+     * @var array<int, string>
+     */
+    public const POSTABLE_STATUSES = ['recorded'];
+
     /** Recognised on the GL unless cancelled. */
     public function isPostable(): bool
     {
-        return $this->status === 'recorded';
+        return in_array($this->status, self::POSTABLE_STATUSES, true);
+    }
+
+    /**
+     * The query-side twin of {@see isPostable}, off the same constant so the two cannot drift —
+     * the shape {@see VendorBill::scopePostable()} already uses for the same question.
+     *
+     * Added 2026-09-03 for `FacilityWorkOrder::recomputeCosts()`, which was asking
+     * `status != 'cancelled'` in SQL of its own: the same answer today, and the opposite answer the
+     * day a third status exists. Which rows count is the DOCUMENT's question, not the cost object's.
+     */
+    public function scopePostable(Builder $query): Builder
+    {
+        return $query->whereIn('status', self::POSTABLE_STATUSES);
     }
 
     /**

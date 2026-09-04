@@ -484,7 +484,35 @@ class ChargeScheduleService
                 // falls before the period it is billing, so the schedule stops itself on the day the
                 // operator chose. The flag is only for a stop that has already arrived, where
                 // leaving it active would offer a dead row in every picker.
-                $stopsInTheFuture = $from->isFuture();
+                // …**AND AN ARREARS ROW IS STILL NEEDED BY AN INVOICE NOBODY HAS RAISED YET.**
+                //
+                // EG-30's arrears rows bill one cycle BEHIND the window they cover, so a service
+                // charge stopped from 1 September has consumed August and August is settled on the
+                // SEPTEMBER invoice. Traced on HEAD by reading `close()` against the planner, not
+                // by running them — the regression test measures it: with `end_date = 2026-08-31` and
+                // `is_active = false`, `MonthlyBillingService` drops the row at the top of its
+                // planner (the `! $c->is_active` bar) BEFORE the covered window is computed — so
+                // ending the charge on 2 September, on a mall whose billing day has not come round
+                // yet, forfeits the last month the tenant actually consumed. Silently, and it is
+                // the operator's own revenue.
+                //
+                // `end_date` is the real bound and already answers correctly: the planner tests it
+                // against the window the row COVERS (August), not against the invoice's own period,
+                // so the row stops itself after August whether or not the flag is set. All the flag
+                // has to do is wait until the invoice that settles that window can no longer be
+                // raised — one billing cycle past the stop.
+                //
+                // Residue, stated rather than left to be found: such a row then sits `is_active`
+                // with an `end_date` in the past — exactly what the future-stop branch has always
+                // left behind. The schedule tab's `state()` reads it as *ended* from the dates and
+                // the planner refuses it, so nothing bills; what it does do is make
+                // `pickInForce()`'s "latest active row" fallback treat it as current, which is a
+                // pre-existing hazard of that branch and is widened here by one cycle, no more.
+                $settledFrom = $current->billsInArrears()
+                    ? $from->addMonthsNoOverflow(max($lease->billingCycleMonths(), 1))
+                    : $from;
+
+                $stopsInTheFuture = $settledFrom->isFuture();
 
                 $current->update(match (true) {
                     $startsLater => ['is_active' => false],

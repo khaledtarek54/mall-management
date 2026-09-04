@@ -5,6 +5,7 @@ namespace App\Models\Concerns\Lease;
 use App\Models\Unit;
 use App\Support\PropertySettings;
 use App\Support\ProrationMethod;
+use App\Support\ValueSets;
 
 /**
  * **Who owes, where it posts, and on what terms — the {@see \App\Contracts\BillableAgreement} half.**
@@ -145,6 +146,23 @@ trait ActsAsBillableAgreement
     public function billingCurrency(): string
     {
         return $this->currency ?? 'EGP';
+    }
+
+    /**
+     * Every frequency the column may hold — the lease run answers all of them.
+     *
+     * DERIVED from `ValueSets`, never re-listed: `MonthlyBillingService::chargeAppliesToPeriod()`
+     * carries a `match` arm for each of monthly / quarterly / annually / one_time, so a lease
+     * refuses nothing and `Charge::assertFrequencyIsBillable()` is a no-op on this side. A FIFTH
+     * registered value would fall to that match's `default => false` — back to the silent skip
+     * this guard exists to end — so the day one is added it needs an arm there and a narrower
+     * answer here, and this docblock is where to look for that.
+     *
+     * @see BillableAgreement::billableChargeFrequencies()
+     */
+    public function billableChargeFrequencies(): array
+    {
+        return array_values(ValueSets::allowed('charges', 'frequency'));
     }
 
     /** @see BillableAgreement::invoiceLinkAttributes() */

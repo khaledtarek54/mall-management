@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Models\JournalEntry;
+use App\Models\Lease;
 use App\Models\TaxCode;
 use App\Services\GratuityService;
 use App\Support\DeletionPolicy;
@@ -358,7 +359,12 @@ class Settings extends Page implements HasSchemas
                         ->helperText(__('admin.settings.fields.holdover_default_rate_pct_helper'))
                         ->suffix('%')
                         ->numeric()
-                        ->minValue(0)
+                        // This box is the ONLY thing the Convert-to-holdover modal prefills itself
+                        // from, so a default below that modal's own floor is a value the operator is
+                        // refused for the moment they use it — on a field they never touched. One
+                        // number, read by the modal, by the service and by this: measured 2026-09-03,
+                        // it was 100 / "greater than zero" / 0 in the three places.
+                        ->minValue(Lease::HOLDOVER_MIN_RATE_PCT)
                         ->required(),
                 ]),
             Section::make(__('admin.settings.sections.schedules'))

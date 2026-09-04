@@ -15,9 +15,9 @@ use App\Models\Concerns\Lease\HasLeaseTermState;
 use App\Models\Concerns\Lease\HasRenewalLineage;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\ActivityLogging;
-use App\Support\DepositBilling;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\DepositBilling;
 use App\Support\DocumentNumbering;
 use App\Support\Translate;
 use Carbon\CarbonImmutable;
@@ -45,6 +45,22 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
+
+    /**
+     * A holdover rate is a PERCENTAGE OF the contracted rent, so 100 is the floor.
+     *
+     * `$lastRent * $rate / 100` — 150 means 150%, the shipped default. Below 100 prices overstaying
+     * BELOW renewing, which is the opposite of what a holdover clause is for; a genuinely reduced
+     * wind-down rent is a rent change or a relief, not a holdover.
+     *
+     * Here rather than in the three places that stated it, because they DISAGREED. Measured at HEAD
+     * on 2026-09-03: the conversion modal floored at 100 under a comment explaining why,
+     * `ConvertLeaseToHoldoverService` at "greater than zero", and the PORTFOLIO DEFAULT that modal
+     * prefills itself from — `billing.holdover_default_rate_pct` on /admin/settings — at 0. So an
+     * operator could save 80, press Convert to holdover, and be refused on a field they had never
+     * touched, quoting a minimum the settings screen had just accepted below.
+     */
+    public const HOLDOVER_MIN_RATE_PCT = 100.0;
 
     /**
      * A lease is found by its reference. Tenant and unit are reached through relation
@@ -191,6 +207,45 @@ class Lease extends Model implements BillableAgreement, HasMedia
                     'commencement' => $commencement->toDateString(),
                     'expiry' => $expiry->toDateString(),
                 ]));
+            }
+        });
+
+        // ── A RENEWAL REMINDER IS ABOUT ONE EXPIRY DATE, SO MOVING THE DATE RE-ARMS IT ────────
+        //
+        // `leases.expiry_reminder_notified_at` is the idempotency stamp `leases:remind-expiring`
+        // keys on (`whereNull(...)`), and nothing has ever cleared it. Traced on HEAD by reading
+        // every writer of the column, not by running one — the regression test measures it: a
+        // lease reminded 90 days before its 2026-10-31 expiry and then EXTENDED to 2029-10-31 carries
+        // that stamp for the rest of the tenancy, so the renewal conversation is never started
+        // again — an absence, which is the failure class nobody reports.
+        //
+        // The stamp says *"the tenant has been told about the expiry date this lease carries"*. A
+        // LATER expiry makes that statement false, so it is withdrawn. In the MODEL rather than in
+        // `LeaseExtensionService` because `expiry_date` is still an editable field on `LeaseForm`
+        // for an un-invoiced lease and `LeaseImporter` writes it too — the same reasoning that put
+        // the rate derivation and the deposit multiple here.
+        //
+        // **FORWARD ONLY.** `LeaseTerminationService` stamps the termination date onto
+        // `expiry_date` and, under notice, leaves the lease ACTIVE — so clearing on a backwards
+        // move would send *"your lease is approaching expiry, start the renewal conversation"* to a
+        // tenant who has already served notice. That message is outbound and cannot be recalled.
+        static::updating(function (self $lease) {
+            if (! $lease->isDirty('expiry_date')
+                || $lease->expiry_reminder_notified_at === null
+                // A caller that states the stamp in the same save has ruled on it itself.
+                || $lease->isDirty('expiry_reminder_notified_at')) {
+                return;
+            }
+
+            $previous = $lease->getOriginal('expiry_date');
+
+            if (blank($previous) || blank($lease->expiry_date)) {
+                return;
+            }
+
+            if (Carbon::parse($lease->expiry_date)->startOfDay()
+                ->greaterThan(Carbon::parse($previous)->startOfDay())) {
+                $lease->expiry_reminder_notified_at = null;
             }
         });
 
@@ -734,7 +789,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
      * Statuses whose invoice records neither a receipt nor a claim, so a deposit billed on one is
      * neither held nor still being asked for.
      *
-     * **Both questions moved to {@see \App\Support\DepositBilling} and are answered from AMOUNTS
+     * **Both questions moved to {@see DepositBilling} and are answered from AMOUNTS
      * now, not from a status.** They were one list read by both, and a status is a coarse proxy for
      * an amount-level question: it caught only the terminal cases and missed every partial one, in
      * both directions and both of them money. A full write-off erased what the tenant had actually
@@ -916,7 +971,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
     /**
      * The part of any BILLED security deposit the tenant has actually settled.
      *
-     * Derived through {@see \App\Support\DepositBilling}, over `InvoiceItemSettlement` — the one
+     * Derived through {@see DepositBilling}, over `InvoiceItemSettlement` — the one
      * place that answers "how much of this line has been paid". Per the money invariants a per-item
      * balance is never stored, because that would be a second truth about the same settlement.
      *
@@ -1073,6 +1128,48 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function depositShortfall(): float
     {
         return round(max((float) ($this->security_deposit ?? 0) - $this->depositHeld(), 0), 2);
+    }
+
+    /**
+     * Leases still short of the security deposit they agreed — the QUERY twin of
+     * {@see depositShortfall()}, and the only way that question may be asked of a LIST.
+     *
+     * **It cannot be one `whereRaw`, and pretending it could is what this replaces.** The leases
+     * list's "Deposit outstanding" filter re-expressed the pot in SQL: receipts less refunds and
+     * forfeits from `deposit_transactions`, less `deposit_applications`. That is three of the FOUR
+     * terms {@see depositHeld()} sums. The missing one is {@see settledDepositBillings()} — the
+     * deposit BILLED on an invoice and since paid — and that is not an exotic case:
+     * `BillSecurityDepositService` raises the deposit on its own invoice and writes no
+     * `deposit_transactions` row at all, so it is how a deposit is normally collected.
+     *
+     * Measured (2026-09-03, SW-055): a lease agreeing 60,000, billed and paid in full, read
+     * `depositShortfall() = 0.00` in the list's own `deposit_shortfall` COLUMN and was returned by
+     * the FILTER beside it as owing the whole 60,000 — two answers to one question on one page,
+     * with nothing to say which to believe.
+     *
+     * The missing term is `DepositBilling::heldOn()` over `InvoiceItemSettlement`, which splits
+     * `invoices.paid_amount` across the lines in priority order and then nets credit relief —
+     * arithmetic no correlated subquery can carry, and re-expressing it beside the original is how
+     * these two came to disagree. So the CANDIDATES are narrowed in SQL and the POT is asked of the
+     * model, once per candidate, off the three relations the list already eager-loads. One
+     * definition; the column and the filter cannot answer differently again.
+     *
+     * Cost is bounded by the leases carrying a positive agreed deposit within whatever the caller
+     * has ALREADY narrowed to, so chain this LAST — after the status clause and the property scope
+     * — and the candidate query inherits both.
+     */
+    public function scopeDepositOutstanding($query)
+    {
+        $short = (clone $query)
+            ->where('security_deposit', '>', 0)
+            ->with(['deposits', 'depositApplications', 'depositBillings'])
+            ->get()
+            ->filter(fn (self $lease): bool => $lease->depositShortfall() > 0)
+            ->modelKeys();
+
+        // An empty candidate set compiles to `id in ()`, which matches nothing — the right answer
+        // when no lease is short, and never "no narrowing".
+        return $query->whereKey($short);
     }
 
     public function postDatedCheques(): HasMany

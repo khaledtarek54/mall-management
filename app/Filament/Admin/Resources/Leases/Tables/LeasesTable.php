@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Resources\Leases\Tables;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Exports\LeaseExporter;
 use App\Models\Lease;
-use App\Models\RentableItem;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
@@ -13,6 +12,9 @@ use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\LeaseTerm;
+use App\Support\PropertySettings;
+use App\Support\TenantScope;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -41,58 +43,9 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 class LeasesTable
 {
-    /**
-     * Items this lease could take: same property, free on the day, not withdrawn.
-     *
-     * @return array<int, string>
-     */
-    private static function lettableItemOptions(Lease $record): array
-    {
-        $assetId = $record->unit?->asset_id;
-
-        if (! $assetId) {
-            return [];
-        }
-
-        return RentableItem::query()
-            ->where('asset_id', $assetId)
-            ->where('status', '!=', RentableItem::STATUS_OUT_OF_SERVICE)
-            ->orderBy('code')
-            ->get()
-            // Filtered in PHP rather than SQL: "held on a date" is a date-ranged predicate over the
-            // pivot that the model already owns, and duplicating it as a subquery is how the two
-            // drift apart.
-            ->reject(fn (RentableItem $i) => $i->isHeldOn(null, ignore: ['type' => 'lease', 'id' => (int) $record->id]))
-            ->mapWithKeys(fn (RentableItem $i) => [
-                $i->id => $i->label().' · EGP '.number_format((float) $i->monthly_rate, 2),
-            ])
-            ->all();
-    }
-
-    /** @return array<int, string> */
-    private static function heldItemOptions(Lease $record): array
-    {
-        // The negotiated rate comes from the pivot table directly: the relation carries no declared
-        // pivot type to read through, and this is one query either way.
-        $rates = DB::table('rentable_item_holdings')
-            ->where('holder_type', 'lease')
-            ->where('holder_id', $record->id)
-            ->whereNull('effective_to')
-            ->pluck('monthly_rate', 'rentable_item_id');
-
-        return $record->rentableItems()
-            ->wherePivotNull('effective_to')
-            ->get()
-            ->mapWithKeys(fn (RentableItem $i) => [
-                $i->id => $i->label().' · EGP '.number_format((float) ($rates[$i->id] ?? 0), 2),
-            ])
-            ->all();
-    }
-
     public static function configure(Table $table): Table
     {
         return $table
@@ -246,17 +199,21 @@ class LeasesTable
                 // The question an operator actually asks, as one click.
                 Filter::make('deposit_outstanding')
                     ->label(__('admin.filters.deposit_outstanding'))
+                    // ── ONE DEFINITION OF THE POT (SW-055, 2026-09-03) ────────────────────────
+                    //
+                    // This was a `whereRaw` re-expressing `Lease::depositHeld()` and missing its
+                    // billed-and-settled term, so a lease whose deposit had arrived on a PAID
+                    // deposit invoice was listed here as still owing every pound of it — while the
+                    // `deposit_shortfall` column three rows up, on the same page, read 0.00 for it.
+                    // `BillSecurityDepositService` writes no `deposit_transactions` row, so that
+                    // was the ordinary collection path and not an edge case.
+                    //
+                    // `scopeDepositOutstanding()` asks the MODEL, so the column and the filter
+                    // cannot answer differently again. Chained LAST so the scope's candidate query
+                    // inherits this status narrowing and the resource's property scope above it.
                     ->query(fn ($query) => $query
                         ->whereIn('status', ['active', 'pending_approval'])
-                        ->whereRaw('COALESCE(security_deposit, 0) > (
-                            COALESCE((select sum(case when type = \'receipt\' then amount else -amount end)
-                                      from deposit_transactions
-                                      where deposit_transactions.lease_id = leases.id
-                                        and deposit_transactions.status = \'recorded\'
-                                        and deposit_transactions.deleted_at is null), 0)
-                            - COALESCE((select sum(amount) from deposit_applications
-                                        where deposit_applications.lease_id = leases.id), 0)
-                        )')),
+                        ->depositOutstanding()),
                 Filter::make('without_options')
                     ->label(__('admin.filters.without_options'))
                     ->toggle()
@@ -383,14 +340,37 @@ class LeasesTable
                     ->modalHeading(__('admin.actions.quick_new_lease_modal_heading'))
                     ->modalSubmitActionLabel(__('admin.actions.quick_new_lease_submit'))
                     ->modalWidth('4xl')
-                    ->fillForm([
+                    // ── THE FAST DOOR OPENS ON THE MALL'S OWN CONVENTIONS (SW-042, 2026-09-03) ──
+                    //
+                    // These were the literals 36 and 7. Both have configured homes the MAIN lease
+                    // form has read since EG-35 — the lease term from
+                    // `AccountingSettings::default_lease_term_months`, the payment terms from
+                    // `PropertySettings::paymentTermsDays()` (property → portfolio) — so the two
+                    // doors onto "a new lease" opened on different numbers, and this is the door
+                    // used when nobody is thinking about the number.
+                    //
+                    // `LeaseCreationService`'s own `?? PropertySettings::paymentTermsDays()` could
+                    // never rescue it: the wizard's `lease.payment_terms_days` input is always
+                    // dehydrated, so the payload always STATES a value and the fallback branch is
+                    // dead for this path. Measured at HEAD with the portfolio at 45 days and a
+                    // 30-day property override: the wizard opened on 7.
+                    //
+                    // A CLOSURE, not an array. `Action::fillForm()` wraps its argument in
+                    // `$action->evaluate($data)` at MOUNT (vendor CanBeMounted.php:31-37), so the
+                    // property is read when the operator opens the modal rather than when the table
+                    // was assembled.
+                    ->fillForm(fn (): array => [
                         'tenant_mode' => 'new',
                         'tenant' => ['type' => 'company'],
                         'lease' => [
                             'commencement_date' => now()->toDateString(),
-                            'term_months' => 36,
+                            'term_months' => LeaseTerm::defaultMonths(),
                             'service_charge_monthly' => 0,
-                            'payment_terms_days' => 7,
+                            'payment_terms_days' => PropertySettings::paymentTermsDays(TenantScope::currentAssetId()),
+                            // Deliberately still a literal: `LeaseForm` hard-codes `->default(7)`
+                            // for the escalation rate too, so there is no configured convention
+                            // here to bypass. Routing it through one would invent a setting nothing
+                            // else reads — the inert-settings shape CLAUDE.md records.
                             'escalation_rate' => 7,
                         ],
                     ])

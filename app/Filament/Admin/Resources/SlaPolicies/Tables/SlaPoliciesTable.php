@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\SlaPolicies\Tables;
 use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Models\SlaPolicy;
+use App\Support\FacilityVocabulary;
 use App\Support\SlaResolver;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -52,20 +53,20 @@ class SlaPoliciesTable
                 TextColumn::make('priority')
                     ->label(__('admin.facility.fields.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.facility.priorities.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'urgent' => 'danger',
-                        'high' => 'warning',
-                        'low' => 'gray',
-                        default => 'info',
-                    })
+                    // One statement about a code — see `App\Support\FacilityVocabulary`. This was
+                    // the third hand-written copy of the same word-and-colour pair.
+                    ->formatStateUsing(fn (?string $state): string => FacilityVocabulary::priorityLabel($state))
+                    ->color(fn (?string $state): string => FacilityVocabulary::priorityColor($state))
                     ->sortable(),
                 TextColumn::make('resolve_hours')
                     ->label(__('admin.facility.sla.hours'))
                     // Against the operator-wide default, so the point of the override reads
                     // at a glance instead of needing the settings page open alongside.
                     ->description(fn (SlaPolicy $record) => $record->is_active
-                        ? __('admin.facility.sla.global_default').': '.SlaResolver::globalHoursFor($record->priority).'h'
+                        // The unit is `admin.facility.sla.hours_count`, the same key the work-order
+                        // list's two SLA clocks read — one home for the word, or an operator who
+                        // prefers «س» has three files to find.
+                        ? __('admin.facility.sla.global_default').': '.__('admin.facility.sla.hours_count', ['count' => SlaResolver::globalHoursFor($record->priority)])
                         : __('admin.facility.sla.inactive_note'))
                     ->color(fn (SlaPolicy $record) => $record->is_active ? null : 'gray')
                     ->sortable(),

@@ -185,6 +185,11 @@
                     "name": "terminate",
                     "label": "Terminate",
                     "opensModal": true
+                },
+                {
+                    "name": "reinstate",
+                    "label": "Reinstate",
+                    "opensModal": true
                 }
             ]
         },

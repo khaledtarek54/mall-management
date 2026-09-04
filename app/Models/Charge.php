@@ -126,6 +126,7 @@ class Charge extends Model
         static::saving(function (self $charge): void {
             $charge->assertBelongsToExactlyOneAgreement();
             $charge->assertTypeIsAKnownChargeCode();
+            $charge->assertFrequencyIsBillable();
             $charge->assertNoScheduleOverlap();
         });
     }
@@ -165,6 +166,60 @@ class Charge extends Model
 
         if ($hasLease === $hasOwnership) {
             throw new \DomainException(__('admin.errors.charge_needs_one_agreement'));
+        }
+    }
+
+    /**
+     * Refuse a frequency the agreement's own billing run cannot invoice.
+     *
+     * **A row nobody can bill is the silent kind of wrong.** It saves, it renders on the schedule
+     * as a live charge, and the run counts it as an ordinary `skipped` — the same counter as a
+     * tenure that genuinely owes nothing this month. Traced on HEAD by reading the two ends, not
+     * by running them — `AnAssessmentCarriesOnlyAFrequencyItsRunCanBillTest` is what measures it:
+     * `ChargeImporter::getColumns()` validates `frequency` against
+     * `ValueSets::allowed('charges', 'frequency')` (all four values) while
+     * `BillUnitOwnershipsService::appliesToPeriod()` answers only `monthly` and `one_time` — so an
+     * imported quarterly or annual صيانة assessment was never invoiced, for the life of the
+     * ownership, with nothing on any screen to say so.
+     *
+     * On the MODEL, not on the importer and not on the form, for the reason `ValueSets::guard()`
+     * is one wildcard listener: there are already three doors onto this table (the importer by way
+     * of `ChargeScheduleService`, the ownership form's direct `Charge::create()`, and the lease's
+     * own schedule tab) and the fourth is covered by existing rather than by being remembered.
+     *
+     * Only on a DIRTY frequency, exactly as {@see assertTypeIsAKnownChargeCode()} is: a row
+     * written before this guard keeps saving, so an operator can still correct the amount or the
+     * dates on a legacy quarterly assessment instead of finding the record frozen — the
+     * `#[NeverDeletable]` trap this codebase already records.
+     *
+     * @throws \DomainException
+     */
+    public function assertFrequencyIsBillable(): void
+    {
+        $frequency = (string) $this->frequency;
+
+        if ($frequency === '' || ! $this->isDirty('frequency')) {
+            return;
+        }
+
+        // Exactly one is set — `assertBelongsToExactlyOneAgreement()` has already refused a row
+        // naming both or neither. Null here means the agreement row itself is gone, and a guard
+        // cannot judge a frequency against an agreement it cannot read.
+        $agreement = $this->lease_id !== null ? $this->lease : $this->unitOwnership;
+
+        if ($agreement === null) {
+            return;
+        }
+
+        $billable = $agreement->billableChargeFrequencies();
+
+        if (! in_array($frequency, $billable, true)) {
+            throw new \DomainException(__('admin.errors.charge_frequency_not_billable', [
+                'frequency' => __('admin.charge_schedule.frequencies.'.$frequency),
+                'offered' => collect($billable)
+                    ->map(fn (string $f): string => __('admin.charge_schedule.frequencies.'.$f))
+                    ->implode('، '),
+            ]));
         }
     }
 

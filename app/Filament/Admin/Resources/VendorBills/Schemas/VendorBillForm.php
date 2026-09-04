@@ -206,6 +206,28 @@ class VendorBillForm
 
                     DatePicker::make('due_date')
                         ->label(__('admin.fields.due_date'))
+                        // A payable cannot fall due before the supplier issued it, and nothing
+                        // paired the two dates — so a mistyped year saved cleanly and then read as
+                        // OVERDUE for ever: `VendorBillResource::getNavigationBadge()` counts
+                        // `balance > 0 AND due_date < today`, so the red AP badge carried a number
+                        // the list could not explain.
+                        //
+                        // `afterOrEqual`, NOT `after`: "due on receipt" is ordinary supplier terms,
+                        // and an EG-33 recurring schedule with `payment_terms_days = 0` produces
+                        // exactly that pair. The AR twin (`InvoiceForm`) is strictly `after` for a
+                        // different reason — an invoice due on its issue date is overdue the moment
+                        // it is raised, which breaks AR ageing. A payable due today is just that.
+                        //
+                        // Lifted once the bill leaves draft. Filament validates a DISABLED field
+                        // anyway (`isValidatedWhenNotDehydrated` defaults true — schemas
+                        // HasState.php:795), and both dates are disabled from then on, so a bill
+                        // keyed before this rule existed would otherwise be unsavable on the one
+                        // field that stays open past draft: the work-order link. Refusing an
+                        // untouched form is the trap the work-permit freeze already recorded.
+                        ->afterOrEqual(fn (?VendorBill $record): ?string => $locked($record) ? null : 'bill_date')
+                        ->validationMessages([
+                            'after_or_equal' => __('admin.validation.bill_due_not_before_bill_date'),
+                        ])
                         ->native(false)
                         ->disabled($locked),
 

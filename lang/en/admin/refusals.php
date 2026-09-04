@@ -21,6 +21,7 @@
 
 return [
     'refusals' => [
+        'holdover_rate_below_floor' => 'A holdover is priced as a percentage of the last rent, so it cannot be less than :min% — below that, staying on costs the tenant less than renewing. Type at least :min% here, or raise the portfolio default under Settings → Billing. A genuinely reduced wind-down rent is a rent change or a relief, not a holdover.',
         'work_permit_issued_is_fixed' => 'This permit has been issued, so what it authorises is fixed — people may already be working under it. Cancel it and issue a corrected one.',
         'invoice_void_has_write_off' => 'This invoice carries a write-off. Reverse the write-off first — voiding on top of it would leave the bad-debt loss standing against a document that no longer exists, and drive receivables negative.',
         'cheque_deposit_future' => 'A cheque cannot be lodged on a future date — you either handed it to the bank or you did not. Use the day you actually presented it.',

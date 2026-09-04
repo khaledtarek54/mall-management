@@ -10,6 +10,7 @@ use App\Services\ChargeScheduleService;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Imports\Exceptions\RowImportFailedException;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -131,6 +132,23 @@ class ChargeImporter extends Importer
      * bypass it and put a bare row in the table.
      */
     public function resolveRecord(): ?Charge
+    {
+        // A model-level refusal is a sentence written FOR A PERSON — the schedule-overlap guard,
+        // the unknown charge code, and (2026-09-03) a frequency the agreement's billing run cannot
+        // invoice. Filament logs a bare `Throwable` as a failed row with **no message at all**
+        // (`ImportCsv::logFailedRow($row)` — the message argument is only passed for
+        // `RowImportFailedException` and `ValidationException`), so every one of those sentences
+        // was dropped and the operator's failure CSV said only that the row failed. Re-thrown as
+        // the one shape that carries it through.
+        try {
+            return $this->place();
+        } catch (\DomainException $e) {
+            throw new RowImportFailedException($e->getMessage());
+        }
+    }
+
+    /** The schedule write itself — see {@see resolveRecord()} for why it is wrapped. */
+    private function place(): ?Charge
     {
         $agreement = $this->resolveAgreement();
 

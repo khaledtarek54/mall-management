@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Settings\AccountingSettings;
 use Carbon\CarbonImmutable;
 
 /**
@@ -39,6 +40,29 @@ use Carbon\CarbonImmutable;
  */
 class LeaseTerm
 {
+    /**
+     * The term a NEW lease starts from, clamped to at least one month.
+     *
+     * One place, because two screens must agree and did not: the lease FORM's `term_months` default
+     * read `AccountingSettings::default_lease_term_months` while the leases list's quick-lease
+     * wizard prefilled a literal 36. So an operator who set the portfolio to 24 got 24 through one
+     * door and 36 through the other — and the wizard is the FAST door, i.e. the one used when
+     * nobody is thinking about the number.
+     *
+     * Clamped for the reason {@see PropertySettings::paymentTermsDays()} clamps: a zero or negative
+     * setting is an operator typo, and the form puts `minValue(1)` on this field — a default the
+     * form would immediately refuse is worse than no default at all.
+     *
+     * It lives HERE rather than as a static on `AccountingSettings` deliberately.
+     * `SettingsReachConformanceTest` proves a setting is read by something outside `app/Settings`,
+     * so moving the only read into the settings class would blind the gate that exists to catch a
+     * setting nothing consults — which is the exact failure `default_payment_terms_days` was.
+     */
+    public static function defaultMonths(): int
+    {
+        return max(1, (int) app(AccountingSettings::class)->default_lease_term_months);
+    }
+
     /** The expiry a term of `$months` from `$commencement` ends on, or null if either is missing. */
     public static function expiryFrom(mixed $commencement, mixed $months): ?string
     {

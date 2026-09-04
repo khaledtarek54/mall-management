@@ -152,7 +152,39 @@ trait IsCodeCatalogue
     }
 
     /**
-     * Active codes — what {@see ValueSets} widens the column from.
+     * Every code this catalogue names — ACTIVE OR RETIRED — which is what {@see ValueSets} widens
+     * the column from.
+     *
+     * **A catalogue answers two questions and it already has two methods for them.**
+     * {@see options()} is *what may be filed NOW* — active rows only, which is precisely what
+     * retiring a code means — and {@see filterOptions()} is *what may already be filed*, every row.
+     * `ValueSets` asks the SECOND question: it is the replacement for the DB enum, and an enum never
+     * knew about `is_active`. It was calling the first.
+     *
+     * So retiring an OPERATOR-ADDED code removed it from the set the saving listener accepts, and
+     * every path that re-states the column — an importer, a `replicate()`, a service `update()`, a
+     * document minted from a template row — was refused at the model layer. A plain edit survived
+     * only by accident: `guard()` short-circuits on `! isDirty()`.
+     *
+     * Measured 2026-09-03. `ExpenseCategorySeeder` ships FIVE Egyptian overheads switched off —
+     * insurance, government fees, bank charges, legal and professional, fuel — so "activate it, file
+     * costs under it, retire it" is the ordinary life of a row here rather than an exotic case.
+     * Retire one that a `recurring_expenses` schedule names and `expenses:generate-recurring`
+     * refuses that schedule for ever: `Expense::create(['category' => $schedule->category, …])`
+     * makes the column dirty, `ValueSets::guard()` no longer finds the code, and the
+     * `DomainException` is caught per schedule, logged and counted as a failure — so the command
+     * exits non-zero every night and the levy never books again.
+     * `GenerateRecurringExpensesService` carries a paragraph on exactly that failure (*"a statutory
+     * cost that never books is what EG-33 exists to prevent"*); the catalogue re-opened it through
+     * a different door.
+     *
+     * **Nothing new is OFFERED by this.** {@see catalogueOptions()} skips any code that has a row at
+     * all (`$known`), so a retired one stays out of every picker and `is_active` goes on deciding
+     * exactly what it decided. Only what the column may HOLD changed. The single read outside
+     * `ValueSets` is `ListPublicStoresController`, which sanitises a `?category=` filter: a shopper
+     * filtering on a category the operator has since retired now finds the stores filed under it
+     * instead of being silently handed everything — the same answer {@see filterOptions()} already
+     * gives the panel, and for the same reason.
      *
      * @return array<int, string>
      */
@@ -176,7 +208,12 @@ trait IsCodeCatalogue
         }
 
         try {
-            $codes = $scope(static::query()->where('is_active', true))
+            // **NOT `->where('is_active', true)`, and that is the whole of SW-206.** This list is
+            // what `ValueSets` widens a COLUMN from — what the column may HOLD — and a retired code
+            // is sitting in rows right now. The question "what may be filed today" is answered by
+            // `catalogueOptions()`, which is unchanged and still drops it. See `codes()` above for
+            // the measurement.
+            $codes = $scope(static::query())
                 ->orderBy('sort_order')
                 ->pluck('code')
                 ->all();

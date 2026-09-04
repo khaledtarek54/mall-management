@@ -8,7 +8,6 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\UnitOwnership;
 use App\Services\MarketingLevyService;
-use App\Settings\AccountingSettings;
 use App\Settings\BillingSettings;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
@@ -347,7 +346,10 @@ class LeaseForm
                             // did neither and recorded nothing.
                             ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
                             ->numeric()
-                            ->default(fn () => max(1, (int) app(AccountingSettings::class)->default_lease_term_months))
+                            // Through `LeaseTerm` rather than inline: the quick-lease wizard needs
+                            // the same answer, and the two doors onto "a new lease" prefilling
+                            // different terms is what SW-042 was.
+                            ->default(fn () => LeaseTerm::defaultMonths())
                             ->required()
                             ->minValue(1)
                             ->maxValue(120)

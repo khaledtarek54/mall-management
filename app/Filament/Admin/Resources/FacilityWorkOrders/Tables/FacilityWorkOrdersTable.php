@@ -14,6 +14,7 @@ use App\Services\AssessSlaPenaltyService;
 use App\Services\AttributeWorkOrderFaultService;
 use App\Services\FacilityWorkOrderService;
 use App\Services\RaiseCorrectiveWorkOrderService;
+use App\Support\FacilityVocabulary;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\TableGroup;
 use Filament\Actions\Action;
@@ -44,7 +45,10 @@ class FacilityWorkOrdersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade', 'parentWorkOrder', 'sourceItem', 'penalty'])
+            // `vendor` and `assignee` are eager-loaded for the "who is on this job" column below.
+            // It reads both relations on EVERY row, and a relation read per row is what cost the
+            // tenants list 181 queries before `TenantBalances` batched it (CLAUDE.md, 2026-09-02).
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade', 'parentWorkOrder', 'sourceItem', 'penalty', 'vendor', 'assignee'])
                 ->withPriorVisitCount())
             ->columns([
                 TextColumn::make('reference')
@@ -70,6 +74,35 @@ class FacilityWorkOrdersTable
                     ->weight('bold')
                     ->description(fn (FacilityWorkOrder $record) => $record->trade?->label() ?? '—')
                     ->searchable(),
+                // **Who is on this job** — the dispatch board's own first question, which this list
+                // could not answer. Measured at HEAD 2026-09-03: nineteen columns, and neither
+                // `vendor_id` nor `assigned_to_user_id` among them, though both have been on the row
+                // since the module shipped and both already drive a notification. Finding out
+                // whether anybody had a fault meant opening each record.
+                //
+                // ONE column, not two. `FacilityWorkOrder::booted()` enforces an XOR on a corrective
+                // order — internal may not name a vendor, external may not name a technician — so a
+                // pair of columns would render one blank cell per row for ever. A PREVENTIVE order
+                // is outside that guard and can legitimately carry both, which is why the vendor is
+                // the headline and the technician sits beneath it rather than being hidden by it.
+                //
+                // Not sortable: the value is derived from two relations, so a header the reader can
+                // click would have to sort on one of them and silently mean something else. WHICH
+                // jobs nobody has taken on is already a filter — `response_breached`.
+                TextColumn::make('handled_by')
+                    ->label(__('admin.fields.assigned_to'))
+                    ->state(fn (FacilityWorkOrder $record): ?string => $record->vendor?->name ?? $record->assignee?->name)
+                    ->description(fn (FacilityWorkOrder $record): ?string => $record->vendor && $record->assignee
+                        ? $record->assignee->name
+                        : null)
+                    // A blank cell and "nobody yet" are the same pixel; this says which it is.
+                    ->placeholder(__('admin.facility.unassigned'))
+                    // DESKTOP only. The phone list is deliberately six columns — what a technician
+                    // standing at the equipment needs — and `TheTechniciansScreensFitAPhoneTest`
+                    // pins that set; a seventh column arriving without a breakpoint is what turned
+                    // it red. Who is handling it is a supervisor's question, asked at a desk.
+                    ->visibleFrom('md')
+                    ->toggleable(),
                 TextColumn::make('asset.name')
                     ->visibleFrom('md')
                     ->label(__('admin.facility.fields.property'))
@@ -111,13 +144,11 @@ class FacilityWorkOrdersTable
                 TextColumn::make('priority')
                     ->label(__('admin.facility.fields.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.facility.priorities.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'urgent' => 'danger',
-                        'high' => 'warning',
-                        'low' => 'gray',
-                        default => 'info',
-                    })
+                    // The word and the colour are ONE statement about a code, and this pair was
+                    // written out three times (here, the status column below, and
+                    // `SlaPoliciesTable`) while the contractor's own list had neither.
+                    ->formatStateUsing(fn (?string $state): string => FacilityVocabulary::priorityLabel($state))
+                    ->color(fn (?string $state): string => FacilityVocabulary::priorityColor($state))
                     ->toggleable(),
                 // The clock nobody could see. An order sitting unaccepted had no resolution
                 // deadline at all, so the column beside this one was blank and the job read as
@@ -129,7 +160,11 @@ class FacilityWorkOrdersTable
                     ->placeholder('—')
                     ->color(fn (FacilityWorkOrder $record) => $record->isResponseBreached() ? 'danger' : null)
                     ->description(fn (FacilityWorkOrder $record) => $record->isResponseBreached()
-                        ? __('admin.facility.sla.unanswered').' · '.$record->hoursOverResponseSla().'h'
+                        // The hour is a WORD resolved for the reader, never a Latin letter glued on:
+                        // the Arabic panel read «بلا استجابة · 67h». `admin.facility.sla.hours_count`
+                        // is the one place that unit is written, the same way the breach
+                        // notification for this very clock has always written it.
+                        ? __('admin.facility.sla.unanswered').' · '.__('admin.facility.sla.hours_count', ['count' => $record->hoursOverResponseSla()])
                         : null)
                     // Sortable AND shown by default, because the dashboard's "nobody has
                     // responded" card links here with `sort=target_response_at:asc`. A
@@ -147,7 +182,8 @@ class FacilityWorkOrdersTable
                     // whole point of the clock is that it is visible before someone asks.
                     ->color(fn (FacilityWorkOrder $record) => $record->isOverdue() ? 'danger' : null)
                     ->description(fn (FacilityWorkOrder $record) => $record->isOverdue()
-                        ? __('admin.facility.sla.overdue').' · '.$record->hoursOverSla().'h'
+                        // Same one unit key as the response clock above.
+                        ? __('admin.facility.sla.overdue').' · '.__('admin.facility.sla.hours_count', ['count' => $record->hoursOverSla()])
                         : null)
                     // Same reason: the breached-SLA card sorts on this column.
                     ->sortable()
@@ -183,13 +219,8 @@ class FacilityWorkOrdersTable
                 TextColumn::make('status')
                     ->label(__('admin.facility.fields.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.facility.statuses.$state"))
-                    ->color(fn (string $state) => match ($state) {
-                        'done' => 'success',
-                        'in_progress' => 'warning',
-                        'cancelled' => 'gray',
-                        default => 'info',
-                    }),
+                    ->formatStateUsing(fn (?string $state): string => FacilityVocabulary::statusLabel($state))
+                    ->color(fn (?string $state): string => FacilityVocabulary::statusColor($state)),
                 // What the job actually cost — the whole point of the cost object. Toggleable
                 // rather than always-on: a coordinator triaging today's faults is not costing
                 // them, and a column nobody reads on that screen is noise.

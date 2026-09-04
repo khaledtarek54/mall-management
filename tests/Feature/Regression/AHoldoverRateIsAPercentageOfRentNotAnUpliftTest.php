@@ -61,8 +61,20 @@ it('refuses a holdover rate that would cut the rent', function (): void {
     $source = file_get_contents(app_path('Filament/Admin/Actions/LeaseActions.php'));
     $chunk = substr($source, strpos($source, "TextInput::make('rate_pct')"), 1600);
 
-    expect($chunk)->toContain('->minValue(100)');
+    // The FLOOR, however it is spelled. This asserted the literal `->minValue(100)` and so went red
+    // the day the literal became `Lease::HOLDOVER_MIN_RATE_PCT` — a change in the direction this
+    // codebase asks for (derive, never re-list), refused by a gate reading source text for a
+    // property that is really about the VALUE. So: whichever spelling is present, the bound it
+    // resolves to must be 100, and it must not be 1.
+    expect($chunk)->toContain('->minValue(');
+    expect((float) Lease::HOLDOVER_MIN_RATE_PCT)->toBe(100.0);
     expect($chunk)->not->toContain('->minValue(1)');
+
+    // …and the constant is the one the field actually reads, or the assertion above proves nothing
+    // about this form.
+    expect($chunk)->toContain(
+        str_contains($chunk, 'HOLDOVER_MIN_RATE_PCT') ? 'HOLDOVER_MIN_RATE_PCT' : '->minValue(100)'
+    );
 });
 
 it('labels the field by its basis in both languages', function (): void {

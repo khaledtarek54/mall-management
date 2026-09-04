@@ -125,6 +125,7 @@ return [
             'empty_hint' => 'In-house work costs nothing on any report until its hours are here.',
         ],
         'not_estimated' => 'Not estimated',
+        'unassigned' => 'Unassigned',
         'help' => [
             'attach_evidence' => 'Photographs of the finished work. This is what a completion may require, and what settles an argument later.',
             'route_stop' => 'A machine this visit covers. Each becomes its own line on the job, so a failure names the device.',
@@ -376,6 +377,17 @@ return [
             'response_breached_filter' => 'Unanswered past response target',
             'active_hint' => 'Turn off to put this property back on the operator default, keeping the row for reference.',
             'inactive_note' => 'Inactive — this property uses the operator default',
+            // The ONE place an hour count is turned into words. Three column descriptions composed
+            // the figure and then glued a bare Latin `h` onto it, so the Arabic panel printed a
+            // Latin letter as the unit in the middle of a right-to-left sentence. Measured
+            // 2026-09-03: exactly three sites in two files, found by tokenising all 629 files under
+            // app/Filament — the Arabic chrome gate reads column LABELS and never descriptions.
+            //
+            // The unit belongs to the language, exactly as the three SLA breach notification bodies
+            // (`admin.notifications.wo_sla_breached_body` and its two siblings) have always written
+            // it. Arabic keeps the invariant «ساعة» to match them; it is the correct form for 11–99,
+            // which is where an SLA overrun almost always lands.
+            'hours_count' => ':count h',
         ],
         'execution_types' => ['internal' => 'Internal (in-house)', 'external' => 'External (vendor)'],
         'cm' => [

@@ -71,8 +71,17 @@ class ConvertLeaseToHoldoverService
             ? (float) $data['rate_pct']
             : (float) app(BillingSettings::class)->holdover_default_rate_pct;
 
-        if ($rate <= 0) {
-            throw new InvalidArgumentException('The holdover rate must be greater than zero.');
+        // The same floor the modal enforces, because this is the gate: the modal's `minValue` is a
+        // real server-side rule, but `$data['rate_pct']` may be absent — in which case the rate is
+        // the PORTFOLIO DEFAULT, which until 2026-09-03 could itself be saved below 100.
+        //
+        // Translated, unlike its four siblings in this method, because the action catches
+        // `\InvalidArgumentException` and renders the message as a danger notification — so this one
+        // is the app talking to a person, and it names the escape.
+        if ($rate < Lease::HOLDOVER_MIN_RATE_PCT) {
+            throw new InvalidArgumentException(__('admin.refusals.holdover_rate_below_floor', [
+                'min' => (int) Lease::HOLDOVER_MIN_RATE_PCT,
+            ]));
         }
 
         // Holdover begins the month after the term ended unless the operator says otherwise. A
