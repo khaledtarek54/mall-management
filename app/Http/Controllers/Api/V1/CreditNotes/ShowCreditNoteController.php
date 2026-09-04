@@ -15,7 +15,7 @@ class ShowCreditNoteController extends ApiController
 {
     public function __invoke(Request $request, int $id): CreditNoteResource
     {
-        $creditNote = $request->user()->creditNotes()->visibleToTenant()->with(['invoice', 'items'])->find($id);
+        $creditNote = $request->user()->tenant->creditNotes()->visibleToTenant()->with(['invoice', 'items'])->find($id);
 
         if (! $creditNote) {
             abort(404);

@@ -524,19 +524,6 @@ return [
             'empty_heading' => 'No documents on file',
             'empty_description' => 'Record the insurance certificate, tax card and commercial register here. Anything with an expiry date is chased automatically before it lapses.',
         ],
-        // This sets `tenants.password`, the MOBILE APP credential (`/api/v1`, Sanctum `tenant-api`
-        // against Tenant). It is NOT the web portal login: `/portal` authenticates a TenantUser row,
-        // added on the Portal Users tab. Until 2026-09-04 this said "portal" and told the operator to
-        // send the tenant to /portal with it, where it can never work — the two surfaces read two
-        // different tables. See ATenantsAppPasswordIsNotAPortalLoginTest.
-        'setup_mobile' => 'Set Up Mobile App Access',
-        'reset_mobile' => 'Reset Mobile App Password',
-        'mobile_modal_heading' => 'Mobile app access for :name',
-        'mobile_modal_description' => 'The password this tenant signs in to the mobile app with, using their company email. Web portal access (/portal) is separate — add those logins on the Portal Users tab.',
-        'mobile_password_helper' => 'Auto-generated. Edit before saving if you want a custom value.',
-        'save_password' => 'Save Password',
-        'mobile_set' => 'Mobile app access granted',
-        'mobile_set_body' => 'Email: :email · Password: :password',
     ],
 
     'tenancy' => [

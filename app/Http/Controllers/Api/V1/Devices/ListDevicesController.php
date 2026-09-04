@@ -27,7 +27,7 @@ class ListDevicesController extends ApiController
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $devices = $request->user()->deviceTokens()->latest('id')->get();
+        $devices = $request->user()->tenant->deviceTokens()->latest('id')->get();
 
         return $this->ok(DeviceTokenResource::collection($devices)->resolve());
     }

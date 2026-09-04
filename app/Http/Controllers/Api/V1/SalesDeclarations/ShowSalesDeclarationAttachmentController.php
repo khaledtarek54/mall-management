@@ -18,7 +18,7 @@ class ShowSalesDeclarationAttachmentController extends ApiController
     public function __invoke(Request $request, int $id, int $media): StreamedResponse
     {
         /** @var TenantSalesDeclaration $declaration */
-        $declaration = $request->user()->salesDeclarations()->findOrFail($id);
+        $declaration = $request->user()->tenant->salesDeclarations()->findOrFail($id);
 
         $item = $declaration->getMedia(TenantSalesDeclaration::REPORT_COLLECTION)->firstWhere('id', $media);
         abort_if($item === null, 404);

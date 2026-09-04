@@ -27,7 +27,7 @@ class ShowAnnouncementHeroController extends ApiController
     public function __invoke(Request $request, int $id, int $media): StreamedResponse
     {
         /** @var Tenant $tenant */
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         $announcement = Announcement::query()->liveFor($tenant)->findOrFail($id);
 

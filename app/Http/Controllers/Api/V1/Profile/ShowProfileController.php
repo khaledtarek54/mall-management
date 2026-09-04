@@ -14,6 +14,6 @@ class ShowProfileController extends ApiController
 {
     public function __invoke(Request $request): TenantResource
     {
-        return new TenantResource($request->user());
+        return new TenantResource($request->user()->tenant);
     }
 }

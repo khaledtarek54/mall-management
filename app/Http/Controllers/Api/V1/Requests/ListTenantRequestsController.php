@@ -14,7 +14,7 @@ class ListTenantRequestsController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $query = $request->user()->tenantRequests()
+        $query = $request->user()->tenant->tenantRequests()
             ->with(['unit', 'media'])
             ->latest('submitted_at');
 

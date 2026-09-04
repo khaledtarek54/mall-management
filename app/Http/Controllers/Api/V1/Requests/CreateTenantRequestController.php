@@ -18,7 +18,7 @@ class CreateTenantRequestController extends ApiController
         CreateTenantRequestAction $action
     ): JsonResponse {
         $maintenanceRequest = $action->handle(
-            $request->user(),
+            $request->user()->tenant,
             $request->payload(),
             $request->attachments(),
         );

@@ -99,6 +99,14 @@ VAT in Egypt is 14%. Currency is always **EGP** in the pilot.
 
 ## 2. Authentication
 
+**Since 2026-09-05 the credential is a PERSON, not the company.** `POST /auth/login` authenticates a
+`tenant_users` row — the very same login the web portal uses — so a retailer's staff member has one
+email and password for both surfaces, and the app can say which of them acted. **The request and
+response shapes did not change**: the same fields go in, the same `data` + `accessToken` come back,
+and `/me` still answers with the COMPANY, which is what every screen is keyed on. No client change
+is required. Tenants who were using the app before that date were given a login on their existing
+company email and password by migration, so nobody was signed out.
+
 The API uses **Sanctum personal access tokens**. Flow:
 
 1. `POST /auth/login` with email + password + a device name → you get a `token`.

@@ -20,7 +20,7 @@ class CreateSalesDeclarationController extends ApiController
         CreateSalesDeclarationAction $action
     ): JsonResponse {
         $declaration = $action->handle(
-            $request->user(),
+            $request->user()->tenant,
             $request->payload(),
             $request->attachments(),
         );

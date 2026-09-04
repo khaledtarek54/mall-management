@@ -20,7 +20,7 @@ class StatementController extends ApiController
 {
     public function __invoke(Request $request, TenantStatementPdfService $pdf): Response
     {
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         return $this->streamPdf(
             $pdf->build($tenant, null, $request->date('from'), $request->date('to'), $this->documentLocale($request)),

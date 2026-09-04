@@ -22,7 +22,7 @@ class CreateSalesDeclarationRequest extends FormRequest
             'lease_id' => [
                 'required',
                 'integer',
-                Rule::exists('leases', 'id')->where('tenant_id', $this->user()->id),
+                Rule::exists('leases', 'id')->where('tenant_id', $this->user()->tenant_id),
             ],
             'period_start' => ['required', 'date'],
             'period_end' => ['required', 'date', 'after_or_equal:period_start'],

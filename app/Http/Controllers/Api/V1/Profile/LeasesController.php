@@ -15,7 +15,7 @@ class LeasesController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $leases = $request->user()
+        $leases = $request->user()->tenant
             ->activeLeases()
             // `units` and `media` join the eager load because the resource answers three questions
             // off them that a released client never had: the FULL premises (a lease over two shops

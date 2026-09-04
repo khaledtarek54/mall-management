@@ -44,10 +44,16 @@ use Laravel\Sanctum\PersonalAccessToken;
 /** A tenant with a known password so the login endpoint can be exercised. */
 function loginableTenant(array $attrs = []): Tenant
 {
-    return makeTenant(array_merge([
+    $tenant = makeTenant(array_merge([
         'password' => Hash::make('secret-pw'),
         'status' => 'active',
     ], $attrs));
+
+    // The login endpoint authenticates a PERSON since 2026-09-05, so the company needs one — on
+    // its own address, exactly as the backfill migration gives the tenants that already existed.
+    tenantLogin($tenant, 'secret-pw');
+
+    return $tenant;
 }
 
 /** Log a tenant in via the public endpoint and return the issued bearer. */
@@ -254,12 +260,12 @@ it('rejects the old bearer end-to-end after a password reset revokes tokens', fu
     // PasswordTest asserts the DB rows drop to zero; this proves the bearer is
     // actually dead at the guard on the next protected call.
     $tenant = makeTenant(['email' => 'reset-e2e@t.test', 'password' => Hash::make('old-password')]);
-    $bearer = $tenant->createToken('phone', ['tenant:*'])->plainTextToken;
+    $bearer = tenantLogin($tenant, 'old-password')->createToken('phone', ['tenant:*'])->plainTextToken;
 
     // Sanity: token works first.
     $this->getJson('/api/v1/me', ['Authorization' => "Bearer {$bearer}"])->assertOk();
 
-    $resetToken = Password::broker('tenants')->createToken($tenant);
+    $resetToken = Password::broker('tenant_users')->createToken(tenantLogin($tenant));
     $this->postJson('/api/v1/auth/reset-password', [
         'token' => $resetToken,
         'email' => 'reset-e2e@t.test',
@@ -279,8 +285,8 @@ it('keeps the calling device alive but kills siblings after change-password', fu
     // change-password revokes other devices; the bearer that made the call
     // must remain usable on the next protected request.
     $tenant = makeTenant(['password' => Hash::make('current-pw')]);
-    $caller = $tenant->createToken('this-device', ['tenant:*'])->plainTextToken;
-    $sibling = $tenant->createToken('other-device', ['tenant:*'])->plainTextToken;
+    $caller = tenantLogin($tenant, 'current-pw')->createToken('this-device', ['tenant:*'])->plainTextToken;
+    $sibling = tenantLogin($tenant)->createToken('other-device', ['tenant:*'])->plainTextToken;
 
     $this->postJson('/api/v1/auth/change-password', [
         'current_password' => 'current-pw',
@@ -308,8 +314,10 @@ it('accepts a token minted without the tenant:* ability (routes have no ability 
     // ->can(...) middleware. A narrower/empty-ability token must still pass —
     // this pins that contract so a future ability gate is a conscious change.
     $tenant = makeTenant();
-    $bearer = $tenant->createToken('locked-down', [])->plainTextToken;
+    $bearer = tenantLogin($tenant)->createToken('locked-down', [])->plainTextToken;
 
+    // `data.id` stays the COMPANY's: the token belongs to a person, and /me answers for the
+    // business they act for — which is what every downstream screen in the app is keyed on.
     $this->getJson('/api/v1/me', ['Authorization' => "Bearer {$bearer}"])
         ->assertOk()
         ->assertJsonPath('data.id', $tenant->id);

@@ -31,7 +31,7 @@ class MarketingPostsController extends ApiController
     public function index(Request $request): JsonResponse
     {
         /** @var Tenant $tenant */
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         $query = $tenant->marketingPosts()
             ->with(['asset', 'media'])
@@ -56,7 +56,7 @@ class MarketingPostsController extends ApiController
 
     public function store(SaveMarketingPostRequest $request, SaveMarketingPostAction $action): JsonResponse
     {
-        $post = $action->create($request->user(), $request->payload(), [
+        $post = $action->create($request->user()->tenant, $request->payload(), [
             'hero' => $request->file('hero'),
             'gallery' => $request->file('gallery', []),
         ]);
@@ -70,7 +70,7 @@ class MarketingPostsController extends ApiController
 
     public function update(SaveMarketingPostRequest $request, int $id, SaveMarketingPostAction $action): JsonResponse
     {
-        $post = $action->update($this->ownPost($request, $id), $request->user(), $request->payload(), [
+        $post = $action->update($this->ownPost($request, $id), $request->user()->tenant, $request->payload(), [
             'hero' => $request->file('hero'),
             'gallery' => $request->file('gallery', []),
         ]);
@@ -134,7 +134,7 @@ class MarketingPostsController extends ApiController
     public function feed(Request $request): JsonResponse
     {
         /** @var Tenant $tenant */
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         // The malls this retailer actually trades in — through the lease_unit pivot, so a
         // multi-unit lease's additional property is included.
@@ -162,7 +162,7 @@ class MarketingPostsController extends ApiController
     private function ownPost(Request $request, int $id): MarketingPost
     {
         /** @var Tenant $tenant */
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         $post = $tenant->marketingPosts()->whereKey($id)->first();
 

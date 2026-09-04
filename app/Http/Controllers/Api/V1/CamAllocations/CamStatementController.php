@@ -24,7 +24,7 @@ class CamStatementController extends ApiController
 {
     public function __invoke(Request $request, int $id, CamStatementPdfService $pdf): Response
     {
-        $allocation = CamAllocation::ownedBy($request->user())->findOrFail($id);
+        $allocation = CamAllocation::ownedBy($request->user()->tenant)->findOrFail($id);
 
         return $this->streamPdf(
             $pdf->build($allocation, $this->documentLocale($request)),

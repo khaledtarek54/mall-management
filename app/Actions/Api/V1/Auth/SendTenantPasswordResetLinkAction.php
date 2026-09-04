@@ -2,6 +2,7 @@
 
 namespace App\Actions\Api\V1\Auth;
 
+use App\Notifications\TenantResetPasswordNotification;
 use Illuminate\Support\Facades\Password;
 
 /**
@@ -14,6 +15,12 @@ class SendTenantPasswordResetLinkAction
 {
     public function handle(string $email): string
     {
-        return Password::broker('tenants')->sendResetLink(['email' => $email]);
+        // The callback is what keeps the MOBILE deep link on the mobile flow. Since 2026-09-05 the
+        // broker resolves a TenantUser, and only Tenant implemented sendPasswordResetNotification()
+        // — so without this, a retailer locked out of the APP is emailed a link into the web portal.
+        return Password::broker('tenant_users')->sendResetLink(
+            ['email' => $email],
+            fn ($user, $token) => $user->notify(new TenantResetPasswordNotification($token)),
+        );
     }
 }

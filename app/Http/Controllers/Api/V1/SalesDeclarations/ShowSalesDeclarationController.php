@@ -14,7 +14,7 @@ class ShowSalesDeclarationController extends ApiController
 {
     public function __invoke(Request $request, int $id): TenantSalesDeclarationResource
     {
-        $declaration = $request->user()->salesDeclarations()
+        $declaration = $request->user()->tenant->salesDeclarations()
             ->with(['lease.unit', 'media'])
             ->findOrFail($id);
 

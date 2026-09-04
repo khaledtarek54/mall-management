@@ -25,7 +25,7 @@ class ListAnnouncementsController extends ApiController
     public function __invoke(Request $request): AnonymousResourceCollection
     {
         /** @var Tenant $tenant */
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         $query = Announcement::query()
             ->liveFor($tenant)

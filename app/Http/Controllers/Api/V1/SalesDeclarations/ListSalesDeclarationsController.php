@@ -15,7 +15,7 @@ class ListSalesDeclarationsController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $query = $request->user()->salesDeclarations()
+        $query = $request->user()->tenant->salesDeclarations()
             ->with(['lease.unit', 'media'])
             ->orderByDesc('period_start');
 

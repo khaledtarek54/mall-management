@@ -15,7 +15,7 @@ class UpdateProfileController extends ApiController
 {
     public function __invoke(UpdateProfileRequest $request, UpdateTenantProfileAction $action): JsonResponse
     {
-        $tenant = $action->handle($request->user(), $request->editableData());
+        $tenant = $action->handle($request->user()->tenant, $request->editableData());
 
         return $this->ok(new TenantResource($tenant), __('api.profile_updated'));
     }

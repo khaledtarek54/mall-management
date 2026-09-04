@@ -105,7 +105,7 @@ return [
         ],
         'ledger_account' => ['singular' => 'Ledger Account', 'plural' => 'Chart of Accounts'],
         'journal_entry' => ['singular' => 'Journal Entry', 'plural' => 'Journal Entries'],
-        'portal_user' => ['singular' => 'Portal User', 'plural' => 'Portal Users'],
+        'portal_user' => ['singular' => 'Login', 'plural' => 'Portal & App Logins'],
         'asset' => ['singular' => 'Property', 'plural' => 'Properties'],
         'unit' => ['singular' => 'Unit', 'plural' => 'Units'],
         'tenant' => ['singular' => 'Tenant', 'plural' => 'Tenants'],

@@ -546,7 +546,7 @@ return [
         'additional_units_locked' => 'Locked once the lease is live — use the “Change premises” action, which records the date the space changes and re-rates the rent from it.',
         'additional_units_helper' => 'Optional — extra units this lease also covers (e.g. an adjacent kiosk). All count as occupied.',
         'password' => 'Password',
-        'portal_admin' => 'Portal admin',
+        'portal_admin' => 'Can submit and pay',
         'commencement_date' => 'Commencement Date',
         'expiry_date' => 'Expiry Date',
         'due_date_derived' => 'Filled in from the issue date and this lease\'s agreed payment terms, and editable — the same rule the monthly billing run applies.',

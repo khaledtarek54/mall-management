@@ -18,7 +18,7 @@ class SummaryController extends ApiController
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         // `writeOffs` eager-loaded: every figure below is COLLECTABLE, and
         // `Invoice::collectableBalance()` prefers a loaded relation over an aggregate per row.

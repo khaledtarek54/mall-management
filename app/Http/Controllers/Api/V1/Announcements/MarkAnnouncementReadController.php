@@ -26,7 +26,7 @@ class MarkAnnouncementReadController extends ApiController
     public function __invoke(Request $request, int $id, MarkAnnouncementReadAction $action): JsonResponse
     {
         /** @var Tenant $tenant */
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         $announcement = Announcement::query()->liveFor($tenant)->findOrFail($id);
 

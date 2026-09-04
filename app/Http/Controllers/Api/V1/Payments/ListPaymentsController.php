@@ -15,7 +15,7 @@ class ListPaymentsController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $query = $request->user()->payments()
+        $query = $request->user()->tenant->payments()
             ->with('invoices')
             ->latest('payment_date');
 

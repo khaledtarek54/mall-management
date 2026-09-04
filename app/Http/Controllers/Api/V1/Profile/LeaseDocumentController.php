@@ -32,7 +32,7 @@ class LeaseDocumentController extends ApiController
     public function __invoke(Request $request, int $id): Response
     {
         /** @var Lease $lease */
-        $lease = $request->user()->leases()->visibleToTenant()->findOrFail($id);
+        $lease = $request->user()->tenant->leases()->visibleToTenant()->findOrFail($id);
 
         $media = $lease->getMedia(Lease::DOCUMENTS_COLLECTION)->last();
 

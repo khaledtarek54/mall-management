@@ -19,7 +19,7 @@ class CancelTenantRequestController extends ApiController
         int $id,
         CancelTenantRequestAction $action
     ): JsonResponse {
-        $tenantRequest = $request->user()->tenantRequests()->findOrFail($id);
+        $tenantRequest = $request->user()->tenant->tenantRequests()->findOrFail($id);
 
         $tenantRequest = $action->handle($tenantRequest);
 

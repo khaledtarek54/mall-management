@@ -15,7 +15,7 @@ class UnregisterDeviceController extends ApiController
 {
     public function __invoke(Request $request, int $id, UnregisterDeviceTokenAction $action): JsonResponse
     {
-        if (! $action->handle($request->user(), $id)) {
+        if (! $action->handle($request->user()->tenant, $id)) {
             throw new NotFoundHttpException(__('api.not_found'));
         }
 

@@ -2,7 +2,7 @@
 
 namespace App\Actions\Api\Auth;
 
-use App\Models\Tenant;
+use App\Models\TenantUser;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\NewAccessToken;
@@ -25,23 +25,28 @@ class LoginTenantAction
      */
     public function handle(string $email, string $password, string $deviceName): array
     {
-        $tenant = Tenant::query()
+        $user = TenantUser::query()
+            ->with('tenant')
             ->where('email', $email)
             ->first();
 
-        if (! $tenant || ! Hash::check($password, $tenant->password)) {
+        if (! $user || ! Hash::check($password, $user->password)) {
             abort(401, __('auth.failed'));
         }
 
-        if ($tenant->status !== 'active') {
+        $tenant = $user->tenant;
+
+        // The COMPANY's standing gates the app, exactly as before — a blocked retailer's staff are
+        // all blocked. A single person is refused by removing their login, not by a status column.
+        if (! $tenant || $tenant->status !== 'active') {
             abort(403, __('auth.account_blocked'));
         }
 
         // Revoke any prior token issued to the same device name so the user
         // can log in cleanly from a phone they've signed out of before.
-        $tenant->tokens()->where('name', $deviceName)->delete();
+        $user->tokens()->where('name', $deviceName)->delete();
 
-        $token = $tenant->createToken(name: $deviceName, abilities: ['tenant:*']);
+        $token = $user->createToken(name: $deviceName, abilities: ['tenant:*']);
 
         // All leases (active + historical) with unit/asset context. Share the
         // already-loaded tenant onto each so the resource doesn't re-query.
@@ -53,6 +58,7 @@ class LoginTenantAction
             ->each->setRelation('tenant', $tenant);
 
         return [
+            'user' => $user,
             'tenant' => $tenant,
             'token' => $token,
             'leases' => $leases,

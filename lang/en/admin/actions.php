@@ -266,7 +266,7 @@ return [
         'add_option' => 'Add option',
         'add_spend' => 'Add spend',
         'add_floor' => 'Add floor',
-        'add_portal_user' => 'Add portal user',
+        'add_portal_user' => 'Add login',
         'add_request_line' => 'Add line',
         'add_bin' => 'Add bin',
         'lock_declaration_confirm' => 'Locking finalizes the declaration and generates a percentage-rent charge on the lease for the next billing run.',

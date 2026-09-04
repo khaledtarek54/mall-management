@@ -476,7 +476,9 @@ However, **key validation & business logic** is shared via:
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
 **The mobile token belongs to the COMPANY, not to a person — so `/me` can never report a role.**
-`LoginTenantAction` authenticates against `tenants.email` + `tenants.password` and issues
+`LoginTenantAction` authenticates against `tenant_users.email` + `tenant_users.password` — the same
+row the web portal authenticates, unified 2026-09-05; it was `tenants.*` (the company) until then —
+resolves the company as `$user->tenant`, and issues
 `$tenant->createToken(...)`. No `TenantUser` is involved at any point, which is the opposite of
 `/portal` (multi-user `TenantUser`, `is_admin` decides who may write). Consequences, all of them
 deliberate rather than missing:

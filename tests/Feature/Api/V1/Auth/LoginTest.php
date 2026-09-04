@@ -12,8 +12,31 @@ class LoginTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * The login authenticates a PERSON since 2026-09-05, so a company on its own can no longer sign
+     * in. Every case here still turns on the company's own email/password/status, so the person is
+     * minted alongside on the same address — which is exactly what the backfill migration does for
+     * the tenants that already existed.
+     */
     private function makeTenant(array $overrides = []): Tenant
     {
+        $tenant = $this->makeTenantRow($overrides);
+
+        \App\Models\TenantUser::create([
+            'tenant_id' => $tenant->id,
+            'name' => $tenant->contact_person ?: $tenant->name,
+            'email' => $tenant->email,
+            'password' => $overrides['plain_password'] ?? 'secret-pw',
+            'is_admin' => true,
+        ]);
+
+        return $tenant;
+    }
+
+    private function makeTenantRow(array $overrides = []): Tenant
+    {
+        unset($overrides['plain_password']);
+
         return Tenant::create(array_merge([
             'name' => 'Test Tenant',
             'email' => 'test-'.uniqid().'@tenant.local',
@@ -49,8 +72,8 @@ class LoginTest extends TestCase
 
         $this->assertNotEmpty($response->json('accessToken'));
         $this->assertDatabaseHas('personal_access_tokens', [
-            'tokenable_type' => MorphMap::alias(Tenant::class),
-            'tokenable_id' => $tenant->id,
+            'tokenable_type' => MorphMap::alias(\App\Models\TenantUser::class),
+            'tokenable_id' => tenantLogin($tenant)->id,
         ]);
     }
 
@@ -124,7 +147,7 @@ class LoginTest extends TestCase
         ])->json('accessToken');
 
         $this->assertNotSame($first, $second);
-        $this->assertEquals(1, $tenant->tokens()->where('name', 'iPhone 16')->count());
+        $this->assertEquals(1, tenantLogin($tenant)->tokens()->where('name', 'iPhone 16')->count());
     }
 
     public function test_keeps_tokens_separate_across_devices(): void
@@ -138,6 +161,6 @@ class LoginTest extends TestCase
             'email' => $tenant->email, 'password' => 'secret-pw', 'device_name' => 'iPad',
         ])->assertOk();
 
-        $this->assertEquals(2, $tenant->tokens()->count());
+        $this->assertEquals(2, tenantLogin($tenant)->tokens()->count());
     }
 }

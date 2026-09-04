@@ -18,7 +18,7 @@ class ShowTenantRequestAttachmentController extends ApiController
     public function __invoke(Request $request, int $id, int $media): StreamedResponse
     {
         /** @var TenantRequest $tenantRequest */
-        $tenantRequest = $request->user()->tenantRequests()->findOrFail($id);
+        $tenantRequest = $request->user()->tenant->tenantRequests()->findOrFail($id);
 
         $item = $tenantRequest->getMedia('attachments')->firstWhere('id', $media);
         abort_if($item === null, 404);

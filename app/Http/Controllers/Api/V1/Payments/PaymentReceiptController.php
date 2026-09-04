@@ -31,7 +31,7 @@ class PaymentReceiptController extends ApiController
     public function __invoke(Request $request, int $id, ReceiptPdfService $pdf): Response
     {
         /** @var Payment $payment */
-        $payment = $request->user()->payments()->findOrFail($id);
+        $payment = $request->user()->tenant->payments()->findOrFail($id);
 
         abort_unless($payment->isReceived(), 422, __('api.payment_receipt_not_available'));
 

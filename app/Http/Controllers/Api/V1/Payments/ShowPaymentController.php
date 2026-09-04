@@ -14,7 +14,7 @@ class ShowPaymentController extends ApiController
 {
     public function __invoke(Request $request, int $id): PaymentResource
     {
-        $payment = $request->user()->payments()
+        $payment = $request->user()->tenant->payments()
             ->with('invoices')
             ->findOrFail($id);
 

@@ -38,7 +38,7 @@ class InitiatePaymobSessionController extends Controller
         Invoice $invoice,
         PaymobPaymentInitiator $initiator,
     ): PaymobSessionResource|JsonResponse {
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         if (! config('integrations.paymob.enabled')) {
             return response()->json([

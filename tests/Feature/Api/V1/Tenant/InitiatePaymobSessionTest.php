@@ -45,7 +45,7 @@ class InitiatePaymobSessionTest extends TestCase
         $lease = makeLease($unit, $tenant);
         $invoice = makeInvoice($lease, ['total' => $balance, 'balance' => $balance]);
 
-        $token = $tenant->createToken('test-device', ['tenant:*'])->plainTextToken;
+        $token = tenantLogin($tenant)->createToken('test-device', ['tenant:*'])->plainTextToken;
 
         return [$tenant, $invoice, $token];
     }
@@ -102,7 +102,7 @@ class InitiatePaymobSessionTest extends TestCase
             'status' => 'active',
             'type' => 'company',
         ]);
-        $intruderToken = $intruder->createToken('device', ['tenant:*'])->plainTextToken;
+        $intruderToken = tenantLogin($intruder)->createToken('device', ['tenant:*'])->plainTextToken;
 
         $this->postJson(
             "/api/v1/me/invoices/{$invoice->id}/paymob-session",

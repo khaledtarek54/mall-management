@@ -285,9 +285,31 @@ function makeTenantRequest(array $attrs = []): TenantRequest
  *
  * @return array<string,string>
  */
+/** The person a company signs in as — resolve-or-create, so a fixture need not care. */
+function tenantLogin(Tenant $tenant, ?string $password = null): TenantUser
+{
+    $user = $tenant->users()->first();
+
+    if (! $user) {
+        $user = makeTenantUser($tenant);
+        $user->update(['email' => $tenant->email]);
+    }
+
+    if ($password !== null) {
+        $user->update(['password' => $password]);
+    }
+
+    return $user;
+}
+
 function apiHeaders(Tenant $tenant, string $device = 'test-device'): array
 {
-    return ['Authorization' => 'Bearer '.$tenant->createToken($device, ['tenant:*'])->plainTextToken];
+    // The mobile API authenticates a PERSON since 2026-09-05, so the token belongs to a TenantUser
+    // and no longer to the company row. Taking the tenant's existing login when there is one keeps
+    // every caller that also drives the portal talking about the same person.
+    $user = $tenant->users()->first() ?? makeTenantUser($tenant);
+
+    return ['Authorization' => 'Bearer '.$user->createToken($device, ['tenant:*'])->plainTextToken];
 }
 
 function makeUser(string $role = 'manager', array $assetIds = []): User

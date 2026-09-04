@@ -16,7 +16,11 @@ class Portal
 {
     public static function user(): ?TenantUser
     {
-        return Auth::guard('portal')->user();
+        // Both tenant-facing surfaces authenticate the same TenantUser row (2026-09-05): the portal
+        // through a session guard, the mobile app through a Sanctum token. Asking only the portal
+        // guard answered NULL on every API request, so the two controllers that record who acted on
+        // a request stored nobody whenever the act came from the phone.
+        return Auth::guard('portal')->user() ?? Auth::guard('tenant-api')->user();
     }
 
     /** The company (Tenant) the current portal user belongs to. */

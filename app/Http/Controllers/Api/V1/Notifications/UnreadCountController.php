@@ -14,6 +14,6 @@ class UnreadCountController extends ApiController
 {
     public function __invoke(Request $request): JsonResponse
     {
-        return $this->ok(['unread_count' => $request->user()->unreadNotifications()->count()]);
+        return $this->ok(['unread_count' => $request->user()->tenant->unreadNotifications()->count()]);
     }
 }

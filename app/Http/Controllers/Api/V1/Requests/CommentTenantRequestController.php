@@ -18,7 +18,7 @@ class CommentTenantRequestController extends ApiController
         int $id,
         AddTenantRequestCommentAction $action
     ): JsonResponse {
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
         $tenantRequest = $tenant->tenantRequests()->findOrFail($id);
 
         $comment = $action->handle($tenantRequest, $tenant, $request->input('body'));

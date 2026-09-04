@@ -35,7 +35,7 @@ class DemoPayInvoiceController extends ApiController
         Invoice $invoice,
         RecordDemoPaymentAction $action,
     ): JsonResponse {
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         // One predicate, asked in one place — App\Support\DemoPayments. Gating this on
         // `paymob.enabled` alone meant the endpoint was live precisely on a production box with no

@@ -18,7 +18,7 @@ class ListInvoicesController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $query = $request->user()->invoices()
+        $query = $request->user()->tenant->invoices()
             ->visibleToTenant()
             ->with([
                 'lease.unit',

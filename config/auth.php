@@ -56,10 +56,17 @@ return [
             'driver' => 'session',
             'provider' => 'vendor_contacts',
         ],
-        // Mobile API — Sanctum token guard authenticating against the Tenant model.
+        // Mobile API — Sanctum token guard authenticating a TenantUser, the SAME row the web portal
+        // authenticates (2026-09-05). It authenticated the Tenant (the company) until then, so one
+        // retailer had one shared secret: the app could not say WHICH member of staff paid an
+        // invoice, one person could not be revoked without changing everybody's password, and the
+        // operator had to set up two credentials per tenant, which drifted. The company is ->tenant.
+        //
+        // Sanctum checks the token's tokenable against THIS provider's model (`hasValidProvider`),
+        // so this line and the model a token is minted on must move together or every request 401s.
         'tenant-api' => [
             'driver' => 'sanctum',
-            'provider' => 'tenants',
+            'provider' => 'tenant_users',
         ],
     ],
 

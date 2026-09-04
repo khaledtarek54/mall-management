@@ -26,7 +26,7 @@ class ListCamAllocationsController extends ApiController
     {
         $query = CamAllocation::query()
             ->with(['pool.asset', 'lease.unit.floor', 'unitOwnership.unit.floor'])
-            ->ownedBy($request->user())
+            ->ownedBy($request->user()->tenant)
             ->orderByDesc('id');
 
         if ($status = $request->query('status')) {

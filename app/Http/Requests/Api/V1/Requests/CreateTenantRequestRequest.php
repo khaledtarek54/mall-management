@@ -55,7 +55,7 @@ class CreateTenantRequestRequest extends FormRequest
                         return;
                     }
 
-                    $leased = $this->user()->leases()
+                    $leased = $this->user()->tenant->leases()
                         ->where(fn ($q) => $q
                             ->where('unit_id', $value)
                             ->orWhereHas('units', fn ($u) => $u->whereKey($value)))
@@ -72,7 +72,7 @@ class CreateTenantRequestRequest extends FormRequest
                     // The predicate is the service's, exactly — `handed_over` AND covering today —
                     // so the two cannot disagree about which shops are theirs. A `contracted` shop
                     // has not been given to them yet and a `transferred` one is somebody else's now.
-                    $owned = ! $leased && $this->user()->unitOwnerships()
+                    $owned = ! $leased && $this->user()->tenant->unitOwnerships()
                         ->where('status', UnitOwnershipStatus::HandedOver)
                         ->covering()
                         ->where('unit_id', $value)

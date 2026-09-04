@@ -100,7 +100,7 @@ return [
         ],
         'ledger_account' => ['singular' => 'حساب', 'plural' => 'دليل الحسابات'],
         'journal_entry' => ['singular' => 'قيد يومية', 'plural' => 'قيود اليومية'],
-        'portal_user' => ['singular' => 'مستخدم بوابة', 'plural' => 'مستخدمو البوابة'],
+        'portal_user' => ['singular' => 'حساب دخول', 'plural' => 'حسابات البوابة والتطبيق'],
         'asset' => ['singular' => 'عقار', 'plural' => 'العقارات'],
         'unit' => ['singular' => 'وحدة', 'plural' => 'الوحدات'],
         'tenant' => ['singular' => 'مستأجر', 'plural' => 'المستأجرون'],

@@ -14,7 +14,7 @@ class BalanceController extends ApiController
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         // Net AR (open invoice balances minus issued credit notes) — the same
         // figure the portal's AccountBalance widget shows.

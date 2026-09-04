@@ -15,7 +15,7 @@ class ListCreditNotesController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $query = $request->user()->creditNotes()
+        $query = $request->user()->tenant->creditNotes()
             ->visibleToTenant()
             ->with(['invoice', 'items'])
             ->latest('issue_date');

@@ -18,7 +18,9 @@ class EnsureTenantActive
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $tenant = $request->user();
+        // `user()` is the TenantUser since 2026-09-05; the standing re-checked here is the
+        // COMPANY's, which is what the app is blocked on.
+        $tenant = $request->user()?->tenant;
 
         if (! $tenant || $tenant->status !== 'active') {
             $request->user()?->currentAccessToken()?->delete();

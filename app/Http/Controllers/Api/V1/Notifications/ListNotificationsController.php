@@ -16,7 +16,7 @@ class ListNotificationsController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $tenant = $request->user();
+        $tenant = $request->user()->tenant;
 
         $query = $request->boolean('unread')
             ? $tenant->unreadNotifications()

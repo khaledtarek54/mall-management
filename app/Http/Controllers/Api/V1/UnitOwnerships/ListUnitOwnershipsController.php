@@ -24,7 +24,7 @@ class ListUnitOwnershipsController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
-        $ownerships = $request->user()
+        $ownerships = $request->user()->tenant
             ->unitOwnerships()
             ->with(['unit.floor', 'asset'])
             // Newest purchase first — an owner buying a second shop looks for the new one.

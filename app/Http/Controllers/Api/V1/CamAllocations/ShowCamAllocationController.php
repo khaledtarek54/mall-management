@@ -18,7 +18,7 @@ class ShowCamAllocationController extends ApiController
     public function __invoke(Request $request, int $id): CamAllocationResource
     {
         return new CamAllocationResource(
-            CamAllocation::ownedBy($request->user())
+            CamAllocation::ownedBy($request->user()->tenant)
                 ->with(['pool.asset', 'lease.unit.floor', 'unitOwnership.unit.floor'])
                 ->findOrFail($id),
         );

@@ -21,7 +21,7 @@ class RateTenantRequestController extends ApiController
         int $id,
         RateTenantRequestAction $action
     ): JsonResponse {
-        $tenantRequest = $request->user()->tenantRequests()->findOrFail($id);
+        $tenantRequest = $request->user()->tenant->tenantRequests()->findOrFail($id);
 
         $tenantRequest = $action->handle(
             $tenantRequest,

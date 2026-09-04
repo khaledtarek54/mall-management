@@ -14,7 +14,7 @@ class ShowTenantRequestController extends ApiController
 {
     public function __invoke(Request $request, int $id): TenantRequestResource
     {
-        $tenantRequest = $request->user()->tenantRequests()
+        $tenantRequest = $request->user()->tenant->tenantRequests()
             ->with([
                 'unit',
                 'media',

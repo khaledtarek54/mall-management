@@ -21,7 +21,7 @@ class AuthenticatedRoutesTest extends TestCase
             'status' => 'active',
             'type' => 'company',
         ]);
-        $token = $tenant->createToken('test-device', ['tenant:*'])->plainTextToken;
+        $token = tenantLogin($tenant)->createToken('test-device', ['tenant:*'])->plainTextToken;
 
         return [$tenant, $token];
     }
@@ -57,7 +57,7 @@ class AuthenticatedRoutesTest extends TestCase
             ->assertJsonStructure(['message']);
 
         // The DB row must be gone.
-        $this->assertEquals(0, $tenant->fresh()->tokens()->count(),
+        $this->assertEquals(0, tenantLogin($tenant)->fresh()->tokens()->count(),
             'logout should delete the personal_access_tokens row');
 
         // Laravel's test client shares the auth manager between requests in
@@ -79,8 +79,8 @@ class AuthenticatedRoutesTest extends TestCase
             'status' => 'active',
             'type' => 'company',
         ]);
-        $iphone = $tenant->createToken('iphone', ['tenant:*'])->plainTextToken;
-        $ipad = $tenant->createToken('ipad', ['tenant:*'])->plainTextToken;
+        $iphone = tenantLogin($tenant)->createToken('iphone', ['tenant:*'])->plainTextToken;
+        $ipad = tenantLogin($tenant)->createToken('ipad', ['tenant:*'])->plainTextToken;
 
         $this->postJson('/api/v1/auth/logout', [], ['Authorization' => "Bearer {$iphone}"])
             ->assertOk();
@@ -88,6 +88,6 @@ class AuthenticatedRoutesTest extends TestCase
         // ipad still works
         $this->getJson('/api/v1/auth/me', ['Authorization' => "Bearer {$ipad}"])
             ->assertOk();
-        $this->assertEquals(1, $tenant->tokens()->count());
+        $this->assertEquals(1, tenantLogin($tenant)->tokens()->count());
     }
 }

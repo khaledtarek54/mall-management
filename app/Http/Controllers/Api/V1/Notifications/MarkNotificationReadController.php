@@ -15,7 +15,7 @@ class MarkNotificationReadController extends ApiController
 {
     public function __invoke(Request $request, string $id): JsonResponse
     {
-        $notification = $request->user()->notifications()->whereKey($id)->first();
+        $notification = $request->user()->tenant->notifications()->whereKey($id)->first();
 
         if (! $notification) {
             abort(404);

@@ -1,7 +1,6 @@
 <?php
 
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
-use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Support\Vat;
@@ -33,20 +32,15 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
-it('refuses a leasing user provisioning tenant portal credentials (mobileAppAccess is manager+ only)', function () {
-    $tenant = makeTenant(['password' => null, 'status' => 'inactive']);
-
-    // `leasing` holds tenants.edit — so it reaches EditTenant — but is NOT super_admin/manager.
-    $this->actingAs(makeUser('leasing', [$this->asset->id]));
-    Filament::setTenant($this->asset);
-
-    Livewire::test(EditTenant::class, ['record' => $tenant->id])
-        ->mountAction('mobileAppAccess')
-        ->callMountedAction();
-
-    expect($tenant->fresh()->password)->toBeNull()          // no credentials set
-        ->and($tenant->fresh()->status)->toBe('inactive');  // not silently activated
-});
+/*
+ * REMOVED 2026-09-05 — the action it guarded no longer exists. `mobileAppAccess` (formerly
+ * `portalAccess`) set `tenants.password`, the mobile API's credential, back when the app
+ * authenticated the COMPANY. The two tenant-facing logins merged onto TenantUser, so that column
+ * authenticates nothing and the button was deleted rather than left setting a dead value. Issuing a
+ * tenant login is now the Portal Users relation manager's Create action, gated on `tenants.edit`
+ * with the `is_admin` grant reserved to super_admin — covered by AOneTenantLoginOpensBothSurfacesTest
+ * and the relation manager's own gates.
+ */
 
 it('refuses a read-only viewer triggering a property-wide monthly billing run', function () {
     makeLease(makeUnit($this->asset), makeTenant(), ['status' => 'active']);
