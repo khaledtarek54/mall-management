@@ -1904,3 +1904,26 @@ add beside the estimates/cost-object material:
 
 `facility_work_orders.est_labour_hours` is `decimal(8,2)`, and both forms that collect it — the resource form and `CorrectiveWorkOrderForm`, which is reached only through an action modal — carried `->minValue(0)` and no ceiling. Measured on MySQL in strict mode (a TEMPORARY table, no real row touched): `999999.99` is accepted and `1000000` raises `SQLSTATE[22003] … 1264 Out of range value`, so a mistyped figure was a `QueryException` and a 500 page after Save, with the form lost. **The suite is structurally blind to it** — SQLite has no decimal precision to overflow, so the same create succeeds there; what a test CAN assert is the refusal, which is why the regression drives the real create page. `FacilityWorkOrder::MAX_EST_LABOUR_HOURS` (9,999.99) is the one definition and both forms read it: far enough above real work that nothing is refused (an annual shutdown is three people for four weeks — 480 hours), and far enough below the column's own 999,999.99 that the driver never sees an overflow. The help text states the limit in both languages, which is what `BoundedFieldsExplainTheirLimitConformanceTest` asks of any bounded field. Note `service_plans.est_labour_hours` is the same width and has no form field, and the timesheet's own `facility_work_order_labour.hours` (`decimal(6,2)`) has been capped at 24 since it shipped — so those two doors were never exposed.
 
+## Sweep fixes — 2026-09-05
+
+### SW-076
+
+**A SEARCH RESULT NAMES THE TRADE, NOT A COLUMN THAT NO LONGER EXISTS (SW-076, fixed 2026-09-05).**
+`facility_work_orders.category` and `equipment.category` were both dropped when the Trade catalogue
+replaced them — the trade is the routing spine, and two columns answering *"what kind of work is
+this"* would be two truths about one question. Both resources' global-search details were left
+reading `$record->category`.
+
+**A missing attribute resolves NULL rather than throwing**, which is why this survived: the top-bar
+result rendered a permanently blank *Category* row where the routing spine should be, on both
+resources — and a blank row reads as *"this record has no trade"* rather than as a bug, so it was
+never reported. The tables beside them have read `$record->trade?->label()` all along; two doors
+onto one fact had been allowed to disagree, which is the same shape as SW-165's `->tenant`.
+
+The work order's **priority** was the second half: printed as the raw stored code, so an Arabic
+operator read `high` in a list of otherwise translated details, while the table three files away
+resolves it through `FacilityVocabulary::priorityLabel()`. Both resources now eager-load `trade`,
+because these details fire per ROW of a live-search dropdown and the fix would otherwise trade a
+blank row for an N+1 on every keystroke — the reason the work-order resource's own docblock already
+gives for eager-loading `unit` and `area`. `GlobalSearchDetailsNameTheTradeNotADroppedColumnTest`
+asserts the columns really are gone before reporting on them, and all four teeth are mutation-proved.

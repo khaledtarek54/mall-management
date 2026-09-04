@@ -382,3 +382,14 @@ time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md
 ### SW-129
 
 **A search hit's DETAILS are rendered, not dumped (SW-129, 2026-09-04).** `getGlobalSearchResultDetails()` is the context under a hit, and two of the panel's 23 overrides printed a live `IsCodeCatalogue` code raw while the list beside them formatted the identical column through `labelFor()` — `ViolationResource` (`violations.category`) and `ExpenseResource` (`expenses.category`), both catalogue-widened columns in `ValueSets::CATALOGUE_WIDENED`. That matters beyond tidiness: a rule or cost type the operator ADDED has no lang key at all, so the bar printed `unauthorized_works` beside a register reading \"Unauthorised works\", and a rename reached every screen except this one. Both now resolve through the catalogue, which reads INACTIVE rows on purpose so a retired code still labels the record carrying it, and answers an em dash for null. Two of the remaining `$record->category` details — work orders and equipment — read a column the trade migration DROPPED (neither table has one), so they render a permanently blank row; that is SW-076 and is deliberately not touched here.
+
+### SW-076
+
+**A global-search DETAIL is a second door onto a fact, and it drifted from the first.** Both facility
+resources' `getGlobalSearchResultDetails()` read `$record->category` — a column dropped when the
+Trade catalogue replaced it — and a missing attribute is NULL rather than an error, so the top-bar
+result carried a permanently blank row. `SearchPolicy` could not see it: the gate governs which
+models are indexed, which attributes are searchABLE and that no resource searches a raw column, and
+says nothing about what a result DISPLAYS. Full reasoning in
+[modules/26 → SW-076](26-facility.md); regression test
+`GlobalSearchDetailsNameTheTradeNotADroppedColumnTest`.

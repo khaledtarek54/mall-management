@@ -19,6 +19,7 @@ use App\Models\Area;
 use App\Models\FacilityWorkOrder;
 use App\Models\Unit;
 use App\Support\AssignmentScope;
+use App\Support\FacilityVocabulary;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -162,10 +163,19 @@ class FacilityWorkOrderResource extends Resource
         /** @var Area|null $area */
         $area = $record->area;
 
+        // THE TRADE, not `category` (SW-076). `facility_work_orders.category` was dropped when
+        // the Trade catalogue replaced it — measured: the column does not exist — and a missing
+        // attribute resolves NULL rather than throwing, so global search rendered a permanently
+        // blank `Category` row where the routing spine should be. The table beside it has read
+        // `$record->trade?->label()` all along; this is the same fact through the search door.
+        //
+        // And the priority is a LABEL: it was printed as the raw stored code, so the Arabic panel
+        // read `high` in a list of otherwise translated details. `FacilityVocabulary` is the one
+        // vocabulary the table, the filter and now the search result all resolve through.
         return [
-            __('admin.fields.category') => $record->category,
+            __('admin.facility.fields.trade') => $record->trade?->label() ?? '—',
             __('admin.tables.common.unit') => $unit->code ?? $area?->name,
-            __('admin.fields.priority') => $record->priority,
+            __('admin.facility.fields.priority') => FacilityVocabulary::priorityLabel($record->priority),
         ];
     }
 
@@ -175,7 +185,7 @@ class FacilityWorkOrderResource extends Resource
      */
     public static function getGlobalSearchEloquentQuery(): Builder
     {
-        return parent::getGlobalSearchEloquentQuery()->with(['unit', 'area']);
+        return parent::getGlobalSearchEloquentQuery()->with(['unit', 'area', 'trade']);
     }
 
     /**

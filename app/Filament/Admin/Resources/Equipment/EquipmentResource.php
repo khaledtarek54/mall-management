@@ -13,6 +13,7 @@ use App\Filament\Admin\Resources\Equipment\Tables\EquipmentTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Equipment;
 use BackedEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -107,9 +108,23 @@ class EquipmentResource extends Resource
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
+        // The TRADE, not `category` (SW-076) — `equipment.category` was dropped with the work
+        // order's when the Trade catalogue replaced both, and a missing attribute is NULL rather
+        // than an error, so this printed a permanently blank row. `EquipmentTable:46` already
+        // reads `$record->trade?->label()`; the search result is the same fact through another
+        // door, and the two had been allowed to disagree.
         return [
-            __('admin.fields.category') => $record->category,
+            __('admin.facility.fields.trade') => $record->trade?->label() ?? '—',
             __('admin.tables.meter.location') => $record->location,
         ];
+    }
+
+    /**
+     * Eager-load what the search details reach for — otherwise the trade is one query per row,
+     * per keystroke, on top of the search itself. The work-order resource states the same reason.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('trade');
     }
 }
