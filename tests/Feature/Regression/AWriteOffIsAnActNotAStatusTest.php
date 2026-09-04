@@ -100,9 +100,17 @@ it('does not offer written off, or any derived status, on the form', function ()
         ->and($options)->not->toHaveKey('paid')
         ->and($options)->not->toHaveKey('partially_paid')
         ->and($options)->not->toHaveKey('overdue')
-        // The control: the field is still usable for the transitions a person really does make.
-        ->and($options)->toHaveKey('issued')
-        ->and($options)->toHaveKey('disputed');
+        // `disputed` went the same way, and this control named it until it did. It was the LAST
+        // status here with no act behind it: nothing in `app/` ever wrote it, and picking it stopped
+        // collections on the WHOLE document (`Invoice::NOT_CHASEABLE`) with no reason and no audit
+        // event, while `DisputeInvoiceItemService` — which flags one LINE and requires a reason —
+        // says in its own docblock that the header status is the wrong tool.
+        // See APostedDocumentsStatusIsNotAPickerTest.
+        ->and($options)->not->toHaveKey('disputed')
+        // The control: the field is still usable for the one transition a person really does make,
+        // and it has not been emptied — an options list that returned nothing would satisfy every
+        // refusal above.
+        ->and($options)->toHaveKey('issued');
 });
 
 it('keeps the invoice own status in the list so an unrelated edit can still save', function () {

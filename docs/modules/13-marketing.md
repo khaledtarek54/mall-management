@@ -416,3 +416,18 @@ Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-
 
 **The spend↔campaign link is readable at last, and the export follows the filter (SW-187, 2026-09-04).** `marketing_spends.marketing_post_id` shipped with module 36 as "the join no competitor has — Placewise and Mallcomm hold the content, Yardi holds the ledger, and reconciling them is a spreadsheet", and then nothing read it back: the spend form collected it, and there was no column, no filter, and no line in the register CSV the owner reviews. So *what did the Ramadan campaign cost* was a question the data could answer and the panel could not. There is now a `post.title` column (blank, not absent, for the many spends that are not tied to a published post — a banner frame, a printed directory), and an `EntitySelectFilter` on `marketing_post_id` scoped to the budget's own property, which is the other half of the picker on the form rather than a second opinion about it. **The filter created a hazard of its own and closing it is part of the same change:** an "Export" beside a filter that ignores it hands the owner a different set from the one on screen, under a total that will not match the list they just read — which reads as an arithmetic fault, not as a filter. `spendRegisterCsv()` therefore takes the caller's own query (`getFilteredSortedTableQuery()`), and passing none is byte-for-byte the old behaviour. The campaign column is **appended** to the CSV, never slotted in beside the description: this file is a spreadsheet somebody already keeps a pivot over, and moving column D would silently move every figure in it.
 
+
+### SW-238
+
+**Editing a posted spend re-posted its journal entry behind a plain "Saved".** Every fillable of
+`MarketingSpend` is classified DERIVED in `ChangeImpact` — deliberately, and
+`MarketingSpendStaysDerivedTest` carries the paragraph on why a posted spend is not frozen — but
+DERIVED's own definition ends *"the operator must be told"*, and nothing told them.
+`AnnouncesLedgerRestatement` hooks `getSavedNotification()`, an `EditRecord` method, so it reaches
+the nine money Edit **pages** and never the relation-manager modal where a spend is actually edited.
+`App\Support\Filament\LedgerRestatement` is the wording extracted so the page and the modal read
+one sentence — with the FIGURES, since an operator who meant to fix a description cannot otherwise
+tell a harmless re-derive from one that moves the month's spend. A second copy in the relation
+manager would have been the drift this codebase keeps recording. Full reasoning in
+[CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
+regression test `AnActOnAPostedDocumentIsWhereItCanBeSeenTest`.

@@ -10,6 +10,7 @@ use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\LedgerRestatement;
 use App\Support\ReportCsv;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -199,7 +200,20 @@ class MarketingSpendsRelationManager extends RelationManager
                 // question a derived ledger makes people ask ("what happened to my entry?") had no
                 // answer here. Read-only and gated on `general_ledger.view`.
                 LedgerEntryAction::make(),
+                // **A posted spend is deliberately NOT frozen, so the save must SAY what it did.**
+                // Every fillable of `MarketingSpend` is classified DERIVED in `ChangeImpact`
+                // (`MarketingSpendStaysDerivedTest` carries the paragraph on why), and DERIVED's own
+                // definition ends *"the operator must be told"* — the entry is voided and re-posted
+                // behind the toast. Nothing told them: `AnnouncesLedgerRestatement` hooks
+                // `getSavedNotification()`, an `EditRecord` method, so it reaches the nine money Edit
+                // PAGES and never a relation manager's modal. This is the same sentence from the
+                // same seam, so the two surfaces cannot drift.
                 EditAction::make()->after(fn () => $this->warnIfOverBudget())
+                    ->successNotification(function (Notification $notification, MarketingSpend $record): Notification {
+                        $notice = LedgerRestatement::noticeFor($record);
+
+                        return $notice === null ? $notification : $notification->body($notice);
+                    })
                     ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('marketing.edit') ?? false),
                 // Was a bare `DeleteAction` on a GL-posting document: no reason asked, nothing

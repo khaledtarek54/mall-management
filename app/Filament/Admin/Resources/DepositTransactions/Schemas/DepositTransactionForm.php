@@ -23,6 +23,50 @@ class DepositTransactionForm
         // A cancelled deposit is a terminal record — read-only.
         $locked = fn (?DepositTransaction $record) => $record !== null && $record->status !== 'recorded';
 
+        // **The MONEY lock, and it is a different question from the one above.**
+        //
+        // `$locked` asks "has this row left the books", which freezes a CANCELLED deposit and leaves
+        // a live one wide open. The model asks something else entirely and refuses in `saving`:
+        //
+        //   • a RECEIPT is fixed once the lease's pot `hasBeenDrawnOn()` — netted onto an invoice,
+        //     refunded or forfeited — because editing it down after 80,000 was netted against
+        //     arrears leaves `depositHeld()` negative and the receipt's GL entry re-derived while
+        //     the application's `Dr Deposits Held` does not move;
+        //   • ANY row is fixed once `finalAccountIsSettled()`, because a settled move-out is
+        //     evidence: measured, a 100,000 refund already paid out could be edited to 10,000, the
+        //     pot climbed back to 90,000 and a second refund against that phantom was accepted.
+        //
+        // So on a drawn-on receipt the form rendered every field enabled, the operator retyped the
+        // amount, and the model answered with a `DomainException` toast on submit. The house rule is
+        // the one `ExpenseForm` states beside its own `$moneyLocked`: the same predicate on both
+        // layers, so the operator sees a disabled field and the reason instead of a refusal after
+        // the fact — and a rule stated twice is stated once.
+        //
+        // The column sets are the model's, not a stricter guess: `bank_account_id`, `method`,
+        // `is_opening_balance` and `notes` are in neither freeze, so they stay on `$locked` alone.
+        // `status` is frozen by the receipt guard and has no field here — `cancel_deposit` on this
+        // page is the escape, which is why the settled guard deliberately leaves `status` out.
+        // Memoised per record: both predicates are queries, four fields ask, and Filament evaluates
+        // a `disabled()` closure on every render pass — so without this one edit page costs a dozen
+        // round trips to answer one question. Keyed by id (with a `new` sentinel) rather than held
+        // in a static, because the schema is rebuilt per request and a static would outlive it.
+        $drawnOrSettled = [];
+        $moneyLocked = function (?DepositTransaction $record) use (&$drawnOrSettled): bool {
+            if ($record === null) {
+                return false;
+            }
+
+            $key = $record->getKey() ?? 'new';
+
+            return $drawnOrSettled[$key] ??= (
+                ($record->type === 'receipt' && $record->hasBeenDrawnOn())
+                || $record->finalAccountIsSettled()
+            );
+        };
+
+        /** Either reason to freeze a money field: it left the books, or something depends on it. */
+        $frozen = fn (?DepositTransaction $record) => $locked($record) || $moneyLocked($record);
+
         return $schema->columns(1)->components([
             Section::make(__('admin.sections.deposit_details'))
                 ->columns(3)
@@ -44,7 +88,7 @@ class DepositTransactionForm
                             TenantScope::currentAssetId(),
                             fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
                         ))
-                        ->disabled($locked),
+                        ->disabled($frozen),
 
                     // Which bank account this money moved through. `for()` takes the document class
                     // because the document declares BOTH the purpose its money belongs to and the
@@ -63,7 +107,7 @@ class DepositTransactionForm
                         // than only on reload — an opening flag left visible on a refund is the
                         // combination the model refuses.
                         ->live()
-                        ->disabled($locked),
+                        ->disabled($frozen),
 
                     Select::make('method')
                         ->label(__('admin.fields.method'))
@@ -87,7 +131,7 @@ class DepositTransactionForm
                         ->required()
                         ->default(now())
                         ->native(false)
-                        ->disabled($locked),
+                        ->disabled($frozen),
 
                     TextInput::make('amount')
                         ->label(__('admin.fields.amount'))
@@ -95,7 +139,7 @@ class DepositTransactionForm
                         ->numeric()
                         ->minValue(0.01)
                         ->required()
-                        ->disabled($locked),
+                        ->disabled($frozen),
 
                     // The cutover switch. Visible only on a RECEIPT, because that is the only
                     // movement that can predate this system: a refund or forfeit of an old deposit

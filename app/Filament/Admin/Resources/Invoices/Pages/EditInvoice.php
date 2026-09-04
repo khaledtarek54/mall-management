@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Invoices\Pages;
 
 use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\PostMonthAction;
 use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Actions\InvoiceActions;
 use App\Filament\Admin\Actions\LeaseActions;
@@ -97,8 +98,9 @@ class EditInvoice extends EditRecord
         'document' => ['downloadPdf', 'sendToTenant', 'paymentLink', 'regeneratePaymentLink', 'submitToEta'],
         // What SETTLES it — and the undo for each channel that can.
         'settlement' => ['apply_credit', 'allocateToLines', 'reverse_credit', 'reverse_deposit_application', 'reverse_write_off'],
-        // What CORRECTS it, once it is no longer a draft.
-        'corrections' => ['disputeLine', 'resolveDispute', 'write_off', 'void_invoice'],
+        // What CORRECTS it, once it is no longer a draft. `postToMonth` corrects the PERIOD rather
+        // than the figures — a bill or an invoice that arrives after its own month has closed.
+        'corrections' => ['disputeLine', 'resolveDispute', 'postToMonth', 'write_off', 'void_invoice'],
     ];
 
     /** @var array<string, string> */
@@ -171,6 +173,14 @@ class EditInvoice extends EditRecord
                 ->service(InvoicePdfService::class)
                 ->recipient(fn (Invoice $record) => $record->tenant)
                 ->authorize(fn () => Auth::user()?->can('invoices.view') ?? false),
+            // **The post month** — for the case it exists for: a document that arrives after its own
+            // month has closed (MF-05). It re-posts a live AR document into a different accounting
+            // period, which makes it the most consequential thing on this page after the void, and
+            // it lived on the LIST row until now. `RowActionPolicy` could not see it there: a
+            // factory's `->action()` sits in its own file, so `InvoicesTable` reported ZERO write
+            // verbs. Nothing is lost by moving it — it gates on `invoices.edit`, the same permission
+            // `canEdit()` requires to open this page at all.
+            PostMonthAction::make('invoices.edit'),
             // UX5-09. Until this shipped, the ONLY invoice a tenant was ever emailed was one the
             // monthly run raised: a violation fine, a CAM recovery, an NSF fee or anything an
             // operator typed reached them only if they opened the portal — and there was no way to

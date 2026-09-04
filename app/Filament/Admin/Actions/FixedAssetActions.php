@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Actions;
 
+use App\Filament\Actions\ReverseDocumentAction;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Models\FixedAsset;
 use App\Services\DisposeFixedAssetService;
@@ -92,6 +93,27 @@ class FixedAssetActions
                     app(DisposeFixedAssetService::class)->dispose($record, $data);
                     Notification::make()->title(__('admin.fixed_assets.disposed'))->success()->send();
                 }),
+
+            // **Recorded in error**, which is a different act from DISPOSAL above. Disposing books
+            // proceeds and a gain or loss because the company sold something; reversing says the
+            // acquisition should never have been on the books at all, and the sweep voids the
+            // asset's whole GL footprint. Offered only while the asset is still ACTIVE — once
+            // disposed, the disposal is the document that speaks for it and reversing underneath it
+            // would strand the disposal entry.
+            //
+            // Moved here from `FixedAssetsTable` (which carried a comment saying *"the list FINDS;
+            // the record ACTS"* while keeping this in the row). It was invisible to
+            // {@see RowActionPolicy} because a factory's `->action()` lives in its own file, so the
+            // table reported ZERO write verbs while offering the reversal of a posted GL document.
+            // Safe to move on the same measured test as `dispose`: it gates on
+            // `FixedAssetResource::canEdit()`, which is exactly what reaching this page requires.
+            ReverseDocumentAction::make(
+                can: fn (FixedAsset $record) => FixedAssetResource::canEdit($record),
+                label: 'admin.actions.reverse_acquisition',
+                confirm: 'admin.actions.reverse_acquisition_confirm',
+                done: 'admin.notifications.acquisition_reversed',
+                when: fn (FixedAsset $record) => $record->status === 'active',
+            ),
         ];
     }
 }

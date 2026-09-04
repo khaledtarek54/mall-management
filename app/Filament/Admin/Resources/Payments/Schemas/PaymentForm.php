@@ -119,15 +119,31 @@ class PaymentForm
                             // Only the forward "money in" lifecycle is manually selectable. Reversals
                             // (refunded / failed / bounced) re-open AR + void the GL cash leg, so they
                             // must go through the reason-gated Void action — never a bare status edit
-                            // (which would leave no reason + no 'voided' audit event). A payment that is
-                            // already received can only move WITHIN the received set (captured →
-                            // reconciled → settled), never back to un-received. A terminal/reversed
-                            // payment keeps showing its status read-only so the record still renders.
+                            // (which would leave no reason + no 'voided' audit event). A terminal or
+                            // reversed payment keeps showing its status read-only so the record still
+                            // renders.
+                            //
+                            // **`reconciled` and `settled` are NOT offered, because nothing produces
+                            // them.** `payments.status` documents them as "matched in accounting" and
+                            // "final", and bank reconciliation — `MatchBankStatementLineService`, the
+                            // thing that decides whether a receipt appeared on a statement — writes a
+                            // `BankMatch` row and never touches this column. Nothing in `app/` writes
+                            // either value, and nothing reads them apart from membership in
+                            // `RECEIVED_STATUSES`, which `captured` already satisfies. So the operator
+                            // was choosing between three words that mean the same thing to every
+                            // consumer, one of which claims a reconciliation that did not happen —
+                            // a status offered as a decision with no act behind it, which is what the
+                            // reversal statuses above were taken out for.
+                            //
+                            // The vocabulary STAYS in `ValueSets` and in both lang files: legacy and
+                            // imported rows carry these values, `RECEIVED_STATUSES` must go on
+                            // counting them as money in, and the fallback below keeps such a row
+                            // rendering and saveable. When the reconciliation screen is given a
+                            // status to write, this is the list it re-joins.
                             ->options(function (?Payment $record) {
-                                $received = ['captured', 'reconciled', 'settled'];
                                 $keys = $record && $record->isReceived()
-                                    ? $received
-                                    : array_merge(['initiated'], $received);
+                                    ? ['captured']
+                                    : ['initiated', 'captured'];
                                 $opts = collect(__('admin.statuses.payment'))->only($keys);
                                 if ($record && ! $opts->has($record->status)) {
                                     $opts->put($record->status, __('admin.statuses.payment.'.$record->status));

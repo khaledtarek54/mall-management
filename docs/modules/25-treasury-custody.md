@@ -211,3 +211,15 @@ time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md
 ### The custodian picker always offers the record's own custodian
 `CustodyForm::employeeOptions()` narrows to `Employee::query()->active()` of the visible properties, and it appends the record's OWN `employee_id` when that narrowing would drop it. Both halves are load-bearing and the second is not cosmetic: Filament derives an `in:` rule from a Select's options and validates the CURRENT value against it (`Select::getInValidationRuleValues()` returns `[]` once `getOptionLabel()` comes back blank, giving `Rule::in([])`), and a **disabled field is still validated** — `disabled()` only stops it being SAVED. So with the active-only list alone, terminating the custodian made the whole custody record unsavable: the purpose and reference too, which `Custody::saving()` deliberately leaves editable ("an operator must be able to record what it turned out to be for"). The lockout arrived on exactly the day an outstanding custody has to be chased. Two reachable states drop the stored custodian and one mechanism covers both — termination, and the employee's `asset_id` moving to another mall while the custody keeps the property it was granted under; the migration's own docblock had already anticipated this ("asset_id is denormalised from the custodian employee so the GL dimension survives the employee being archived"). A soft-deleted employee is not a third: `Employee` is `#[DeletableWhenUnused(blockedBy: [..., 'custodies'])]`. **CREATE is untouched** — a new custody still cannot be granted to somebody who has left. Same shape as `App\Support\EquipmentPicker` and the `UnitForm` area picker.
 
+
+### SW-238
+
+**Reversing a عهدة recorded in error was reachable only from the LIST.** `ReverseDocumentAction` is a
+factory, so its `->action()` lives in `app/Filament/Actions/` and `RowActionPolicy` — which derives a
+write verb from that string appearing in the row's own chain — read `CustodiesTable` as carrying
+**zero** write verbs. An operator who opened a custody to check it had to go back to the list to
+reverse it, which is the exact thing that policy exists to prevent. It is on `EditCustody` now,
+beside the ledger panel it changes; the move is safe because it gates on `CustodyResource::canEdit()`,
+which is what reaching that page already requires. Full reasoning in
+[CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
+regression test `AnActOnAPostedDocumentIsWhereItCanBeSeenTest`.

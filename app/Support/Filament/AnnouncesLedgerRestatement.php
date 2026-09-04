@@ -3,10 +3,7 @@
 namespace App\Support\Filament;
 
 use App\Filament\Actions\LedgerEntryAction;
-use App\Services\Accounting\LedgerPoster;
-use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * **"Saved" is not enough when the save moved the books.**
@@ -39,64 +36,22 @@ trait AnnouncesLedgerRestatement
     protected function getSavedNotification(): ?Notification
     {
         $notification = parent::getSavedNotification();
-        $record = $this->getRecord();
 
-        if (! $notification instanceof Notification || ! $record instanceof Model) {
+        if (! $notification instanceof Notification) {
             return $notification;
         }
 
-        // Best-effort. A journalizer that cannot resolve an account throws, and a TOAST is never
-        // worth failing a save that already committed — the operator would see an error page after
-        // a successful write, which is the most confusing outcome available.
-        try {
-            // The FIGURES, not a boolean — CHANGE-IMPACT-PLAN §6.3 asked for "this will reverse EGP
-            // 12,400 and re-post EGP 13,050" and the note is worth much less without them: an
-            // operator who meant to change a description cannot tell a harmless re-derive from one
-            // that moves the month's revenue.
-            $pending = app(LedgerPoster::class)->pendingRestatement($record);
-        } catch (\Throwable) {
-            return $notification;
-        }
+        // The FIGURES, not a boolean — CHANGE-IMPACT-PLAN §6.3 asked for "this will reverse EGP
+        // 12,400 and re-post EGP 13,050" and the note is worth much less without them: an operator
+        // who meant to change a description cannot tell a harmless re-derive from one that moves
+        // the month's revenue.
+        //
+        // The resolve and the wording live in {@see LedgerRestatement} rather than here, because
+        // `getSavedNotification()` is an `EditRecord` method and so reaches exactly the nine money
+        // Edit PAGES — while a GL source is also edited from a relation manager's modal, which had
+        // no notice at all. One seam, so the two surfaces cannot word it differently.
+        $notice = LedgerRestatement::noticeFor($this->getRecord());
 
-        if ($pending === null) {
-            return $notification;
-        }
-
-        return $notification->body(self::sentenceFor($pending));
-    }
-
-    /**
-     * Three shapes, three sentences, because they are three different things happening to the books
-     * and an operator acts differently on each: a first post, a reversal, or a reversal followed by
-     * a re-post at a new figure.
-     *
-     * @param  array{from: ?float, to: ?float, date: ?string}  $pending
-     */
-    private static function sentenceFor(array $pending): string
-    {
-        $money = fn (float $amount): string => 'EGP '.number_format($amount, 2);
-
-        return match (true) {
-            $pending['from'] === null => __('admin.notifications.ledger_will_post', [
-                'amount' => $money((float) $pending['to']),
-            ]),
-            $pending['to'] === null => __('admin.notifications.ledger_will_reverse', [
-                'amount' => $money((float) $pending['from']),
-            ]),
-            // Same figure, different month — a re-dated document. "Reversed EGP 1,000 and re-posted
-            // at EGP 1,000" reads as a no-op and hides the only thing that moved, which is the
-            // PERIOD: one month's P&L understates and another overstates, by construction, and no
-            // control account moves so the AR/AP tie-out cannot see it either. Say the month.
-            abs((float) $pending['from'] - (float) $pending['to']) < 0.005 => __('admin.notifications.ledger_will_move_month', [
-                'amount' => $money((float) $pending['to']),
-                'month' => $pending['date'] === null
-                    ? '—'
-                    : CarbonImmutable::parse($pending['date'])->format('m/Y'),
-            ]),
-            default => __('admin.notifications.ledger_will_repost', [
-                'from' => $money((float) $pending['from']),
-                'to' => $money((float) $pending['to']),
-            ]),
-        };
+        return $notice === null ? $notification : $notification->body($notice);
     }
 }

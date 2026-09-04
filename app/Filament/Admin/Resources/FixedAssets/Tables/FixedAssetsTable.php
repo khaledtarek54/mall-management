@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\FixedAssets\Tables;
 
-use App\Filament\Actions\ReverseDocumentAction;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
@@ -189,19 +188,10 @@ class FixedAssetsTable
                 // Defined once in App\Filament\Admin\Actions\FixedAssetActions and composed onto this
                 // record's own page, so opening the record is enough to act on it.
                 EditAction::make()->visible(fn (FixedAsset $record) => FixedAssetResource::canEdit($record) && $record->status === 'active'),
-                // **Recorded in error**, which is a different act from DISPOSAL directly above.
-                // Disposing books proceeds and a gain or loss because the company sold something;
-                // reversing says the acquisition should never have been on the books at all, and
-                // the sweep voids the asset's whole GL footprint. Offered only while the asset is
-                // still ACTIVE — once disposed, the disposal is the document that speaks for it and
-                // reversing underneath it would strand the disposal entry.
-                ReverseDocumentAction::make(
-                    can: fn (FixedAsset $record) => FixedAssetResource::canEdit($record),
-                    label: 'admin.actions.reverse_acquisition',
-                    confirm: 'admin.actions.reverse_acquisition_confirm',
-                    done: 'admin.notifications.acquisition_reversed',
-                    when: fn (FixedAsset $record) => $record->status === 'active',
-                ),
+                // `reverse_acquisition` used to sit here, under the comment above saying the record
+                // acts — a factory hides its `->action()` in its own file, so `RowActionPolicy` read
+                // this table as carrying no write verb at all. It is in `FixedAssetActions` now,
+                // beside `dispose`, on the page an operator is already on when they decide.
             ])
             ->emptyStateIcon('heroicon-o-building-library')
             ->emptyStateHeading(__('admin.empty.fixed_assets.heading'))

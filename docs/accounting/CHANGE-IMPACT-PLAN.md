@@ -867,3 +867,98 @@ same lesson §15.2 records, and the reason they were not swept in with the rest.
 
 **Nothing from §13 is now outstanding.** D1's scope is the one thing that ended smaller than proposed,
 and §15.2 says why — three of its promotions were wrong and the code was right.
+
+---
+
+## 16. The UI sweep, 2026-09-05 — a status is the outcome of an act, and an act is on the record
+
+§15 closed the question at the **model** layer: which fields a committed document refuses, which
+re-derive, and what every reversal records. This section closes the half it did not ask — **what the
+panel actually offers**. All 24 sources were swept for three things: can an operator type over a
+posted document, is any state offered as a *value* rather than as the outcome of an act, and is the
+act that corrects it where they are standing when they decide.
+
+**What was already right, and is worth stating so nobody re-derives it.** 9 of the 24 have a
+free-form Edit page; the other 15 are act-only. `Reversals::ACTS` gives 18 a named reversal and the
+other 6 a written reason. All nine Edit pages announce a restatement. **No money document anywhere in
+the panel has an inline-editable table column.** Five of the nine — vendor bill, expense, payroll,
+deposit transaction, custody — keep `status` off the form entirely. That is Yardi's shape already.
+
+### 16.1 — Two statuses were still pickable, and neither had an act behind it
+
+| | What one click did | The act that should have done it |
+|---|---|---|
+| `invoices.status = 'disputed'` | Stopped collections on the **whole** document — `Invoice::NOT_CHASEABLE` is `['disputed','paid']`, so the overdue scan, the dunning sweep and the late-fee sweep all skip it — with no reason stored and no audit event, after which `CreditNoteService` refuses to credit it at all | `DisputeInvoiceItemService` — flags one **line**, requires a reason, records who and when, removes only that line's outstanding from the late-fee base. Already on the record page as `disputeLine` / `resolveDispute` |
+| `payments.status = 'reconciled' \| 'settled'` | Nothing. The column documents them as *"matched in accounting"* and *"final"*, and `MatchBankStatementLineService` writes a `BankMatch` row and never touches this column | Bank reconciliation, when it is given a status to write |
+
+**`disputed` is the fourth time this reasoning has been applied to `InvoiceForm`** — after
+`cancelled`, `written_off` and `credited`, two of whose own comments record that the rule *"was never
+generalised"* to the next one. `DisputeInvoiceItemService`'s docblock had already stated in writing
+that the header status is the wrong tool, *because an invoice is rarely disputed in full*: the
+argument is over the service charge while the rent on the same document is undisputed and
+collectable. **Nothing in `app/` or `database/` ever wrote either value** — the dropdown was the only
+door onto both.
+
+**The vocabulary stays in `ValueSets` and in both lang files.** `RECEIVED_STATUSES` must go on
+counting a `reconciled` receipt as money in, `NOT_CHASEABLE` must go on honouring a legacy
+`disputed` row, and Filament validates a Select by resolving the submitted value's label — so a
+record already carrying one has to stay renderable and saveable, with a way back beside it. Removing
+an option without that fallback refuses every save of such a record on a field the operator never
+touched. (`APostedDocumentsStatusIsNotAPickerTest`, mutation-proved.)
+
+### 16.2 — A factory hides its `->action()` in another file, and the gate could not see it
+
+`RowActionPolicy` derives a write verb from `->action(` appearing in the row action's chain — but
+this app's two shared money-action factories are one-line call sites with the closure in
+`app/Filament/Actions/`. Measured before the fix:
+
+```
+InvoicesTable.php       verbs=[]  reads=[View, Edit, downloadPdf, PostMonth, LedgerEntry, paymentLink]
+VendorBillsTable.php    verbs=[]  reads=[PostMonth, LedgerEntry, View, Edit]
+CustodiesTable.php      verbs=[]  reads=[View, Edit, ReverseDocument]
+FixedAssetsTable.php    verbs=[]  reads=[View, Edit, ReverseDocument]
+```
+
+`InvoicesTable` reported **zero write verbs** while carrying *Post to month* — the act that re-posts
+a live AR document into a different accounting period, the most consequential thing on that screen
+after the void. `FixedAssetsTable` carried a banner reading *"The list FINDS; the record ACTS"*
+directly above the reversal it kept in the row. Four tables passed a gate that could not see them.
+
+A factory is now resolved to its own file and classified by **its** source. Two things about that:
+
+- **Comments are stripped first.** `LedgerEntryAction`'s docblock says *"Read-only —
+  `modalSubmitAction(false)` and no `->action()`"*, so a raw `str_contains` classified the one
+  read-only affordance in that folder as a destructive verb on four tables at once. Two conformance
+  gates here have already been weakened by firing on a sentence.
+- **`handsBackAFile()` is deliberately not applied** to a whole file the way it is to one chain: a
+  factory that both acts and mentions a download anywhere would be waved through, which is the false
+  *negative* direction. No factory streams a file today; one that did would be flagged and get an
+  `IN_ROW_EXCEPTIONS` entry — noisy and safe rather than quiet and wrong.
+
+All four verbs moved onto their record pages, and **reachability was measured, not assumed**: each
+gates on the same `{module}.edit` permission `canEdit()` requires to open the page, so no role loses
+the act — the check that kept four other resources' verbs in the row (§`RowActionPolicy`).
+`postToMonth` also joined `EditInvoice::HEADER_GROUPS`, because an act missing from a grouped
+header's map is defined and rendered **nowhere**.
+
+### 16.3 — A guarded field must LOOK guarded, and a DERIVED one must say so
+
+- **`DepositTransactionForm` locked on `status !== 'recorded'`** — i.e. it froze a *cancelled*
+  deposit and left a live one wide open — while the model refuses on `hasBeenDrawnOn()` and
+  `finalAccountIsSettled()`. A receipt already netted against arrears rendered every field enabled;
+  the operator retyped the amount and the model answered with a refusal toast on submit. The form now
+  mirrors both model freezes on exactly the columns each one names, memoised per record because both
+  predicates are queries and Filament evaluates `disabled()` on every render pass. `ExpenseForm`
+  states the house rule beside its own `$moneyLocked`: **the same predicate on both layers.**
+- **`FixedAssetForm` had no lock and no notice.** `acquisition_date` *is* the acquisition entry's
+  `entry_date` and `funded_from` decides which account its credit leg hits. Both stay editable — the
+  model deliberately permits it (§15.2) and a form stricter than its model is the deposit divergence
+  in the other direction — but each now states the consequence, because DERIVED's own definition ends
+  *"the operator must be told"* and the toast tells them at the wrong end of the decision.
+- **`MarketingSpend` was edited from a relation-manager modal, which announced nothing.**
+  `AnnouncesLedgerRestatement` hooks `getSavedNotification()`, an `EditRecord` method, so it reaches
+  the nine money Edit **pages** and no modal. `App\Support\Filament\LedgerRestatement` is the wording
+  extracted so both surfaces read one sentence; a second copy in the relation manager is the drift
+  this codebase keeps recording.
+
+(`AnActOnAPostedDocumentIsWhereItCanBeSeenTest`, six mutations, each killing its own tooth.)

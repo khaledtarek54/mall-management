@@ -77,7 +77,17 @@ class FixedAssetForm
                 ->label(__('admin.fixed_assets.fields.acquisition_date'))
                 ->default(now())
                 ->required()
-                ->native(false),
+                ->native(false)
+                // This IS the acquisition entry's `entry_date`, so moving it moves which period
+                // recognised the asset. `ChangeImpact` classifies it DERIVED — legitimate to change,
+                // and the posted entry is voided and re-posted to match — but DERIVED's own
+                // definition ends *"the operator must be told"*, and this was the one money form in
+                // the panel that said nothing at all: `AnnouncesLedgerRestatement` reports the
+                // restatement AFTER the save, which is the wrong end of the decision. Not disabled,
+                // because the model deliberately permits it (a re-cost is a supported operation, see
+                // `DepreciationService::assertRecostValid`) and a form stricter than its model is
+                // the divergence `DepositTransactionForm` had in the other direction.
+                ->helperText(__('admin.fixed_assets.posted_field_hint')),
             TextInput::make('acquisition_cost')
                 ->label(__('admin.fixed_assets.fields.acquisition_cost'))
                 ->numeric()
@@ -124,7 +134,11 @@ class FixedAssetForm
                 ->options(fn (): array => __('admin.enums.cash_or_bank'))
                 ->default('cash')
                 ->required()
-                ->native(false),
+                ->native(false)
+                // Decides which account the acquisition's CREDIT leg hits, so switching it on a
+                // posted asset moves real money between cash and bank in the books. Same reasoning
+                // as the acquisition date above.
+                ->helperText(__('admin.fixed_assets.posted_field_hint')),
             Textarea::make('notes')
                 ->label(__('admin.fixed_assets.fields.notes'))
                 ->rows(2)

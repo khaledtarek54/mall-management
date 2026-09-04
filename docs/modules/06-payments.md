@@ -996,3 +996,21 @@ in no worklist tab either, so nothing on the register could name it — the reve
 find was the one you could not select. Now `StatusOptions::for('payments')`. Full reasoning in
 [modules/05 → SW-027](05-billing-invoices.md); regression test
 `ARegisterFilterFindsEveryStatusItHoldsTest`.
+
+### SW-238
+
+**`reconciled` and `settled` were offered on the status field and nothing has ever written them.**
+The column documents them as *"matched in accounting"* and *"final"* — and bank reconciliation,
+`MatchBankStatementLineService`, writes a `BankMatch` row and never touches `payments.status`.
+Nothing in `app/` writes either value; nothing reads them apart from membership in
+`RECEIVED_STATUSES`, which `captured` already satisfies. So an operator marked a receipt
+**Reconciled**, believed it had been matched to a bank statement, and it meant nothing to any
+consumer — a lifecycle outcome offered as a decision with no act behind it, which is exactly why the
+reversal statuses (`refunded` / `failed` / `bounced`) were taken off this field and routed through
+the reason-gated Void action. A received payment now has one target: `captured`. **The vocabulary
+stays** in `ValueSets` and in both lang files — `RECEIVED_STATUSES` must go on counting a
+`reconciled` receipt as money in, or removing the OPTION would quietly un-pay every invoice such a
+payment settles — and a record already carrying one still renders and still saves. When the
+reconciliation screen is given a status to write, this is the list it re-joins. Full reasoning in
+[CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
+regression test `APostedDocumentsStatusIsNotAPickerTest`.

@@ -37,8 +37,9 @@ class InvoiceForm
         // (vestigial) draft is freely editable. Mirrors the VendorBill/Expense $locked
         // convention. The derived amounts (subtotal/vat/total/balance) are already
         // read-only, so locking the ITEMS repeater + the GL-identity selects (lease /
-        // tenant / issue_date) is what freezes the numbers. Status stays open so
-        // dispute / cancel transitions still work. (GL integrity hardening — Phase 1.)
+        // tenant / issue_date) is what freezes the numbers. Status is NOT a decision on
+        // an issued invoice — every state past `issued` is the outcome of an act, and the
+        // Select below is down to raising a draft. (GL integrity hardening — Phase 1.)
         $locked = fn (?Invoice $record) => $record !== null && $record->status !== 'draft';
 
         // Tabs, one per concern, through App\Support\FormTab so each carries a badge counting the
@@ -165,6 +166,38 @@ class InvoiceForm
                                 foreach (['paid', 'partially_paid', 'overdue'] as $derived) {
                                     unset($options[$derived]);
                                 }
+
+                                // 'disputed' is the FOURTH time this reasoning has had to be
+                                // generalised — after 'cancelled', 'written_off' and 'credited', two
+                                // of whose own comments above record that the rule "was never
+                                // generalised" to the next one. With it gone an issued invoice's
+                                // Select offers exactly one target, which is what a status that is
+                                // not a decision should look like.
+                                //
+                                // **A dispute is about a LINE, and the act already exists.**
+                                // `DisputeInvoiceItemService` flags one item, REQUIRES a reason,
+                                // records who and when, and takes only that line's outstanding out
+                                // of the late-fee base — reached from this record's own page as
+                                // `disputeLine` / `resolveDispute` (InvoiceActions). Its docblock
+                                // states the header status is the wrong tool in so many words: an
+                                // invoice is rarely disputed in full, so the argument is over the
+                                // service charge while the rent on the same document is undisputed
+                                // and collectable.
+                                //
+                                // Picked here instead, one click stopped collections on the WHOLE
+                                // document — `Invoice::NOT_CHASEABLE` is `['disputed', 'paid']`, so
+                                // the overdue scan, the dunning sweep and the late-fee sweep all
+                                // skip it — with no reason stored, no audit act, and
+                                // `CreditNoteService` then refusing to credit the invoice at all.
+                                // Nothing else in `app/` or `database/` writes this value: the
+                                // dropdown was the only door onto it.
+                                //
+                                // Not refused at the model, for the same reason as the derived three
+                                // above and because legacy and imported rows may legitimately carry
+                                // it — the fallback below keeps such a row rendering AND keeps
+                                // 'issued' available beside it, so an already-disputed invoice has a
+                                // way back rather than the one-way door 'written_off' had.
+                                unset($options['disputed']);
 
                                 // Whatever the record IS must stay in the list even when it is not a
                                 // legitimate target, or Filament — which validates a Select by

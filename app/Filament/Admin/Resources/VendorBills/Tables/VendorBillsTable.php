@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources\VendorBills\Tables;
 
 use App\Filament\Actions\LedgerEntryAction;
-use App\Filament\Actions\PostMonthAction;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Models\ExpenseCategory;
 use App\Models\Vendor;
@@ -97,9 +96,10 @@ class VendorBillsTable
                 Group::make('vendor.name')->label(__('admin.fields.vendor'))->collapsible(),
             ])
             ->recordActions([
-                // The post month, for the case it exists for: a bill that arrives after its own
-                // month has closed (MF-05).
-                PostMonthAction::make('vendor_bills.edit'),
+                // `postToMonth` used to sit here. A factory hides its `->action()` in its own file,
+                // so `RowActionPolicy` read this table as carrying NO write verb while it offered
+                // the act that re-posts a committed payable into a different accounting period.
+                // It is on `EditVendorBill` now, beside the ledger panel it changes.
                 LedgerEntryAction::make(),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The

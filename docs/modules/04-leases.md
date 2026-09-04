@@ -2253,3 +2253,20 @@ can reach is the drift.
 Now `StatusOptions::for('leases')`. Full reasoning in
 [modules/05 → SW-027](05-billing-invoices.md); regression test
 `ARegisterFilterFindsEveryStatusItHoldsTest`.
+
+### SW-238
+
+**The deposit form and the deposit model disagreed about when a receipt freezes.**
+`DepositTransactionForm` locked on `status !== 'recorded'` — so it froze a CANCELLED deposit and left
+a live one wide open — while `DepositTransaction::saving` refuses on `hasBeenDrawnOn()` (asked of the
+LEASE, because the deposit is one pot per lease) and on `finalAccountIsSettled()`. A 100,000 receipt
+already netted 80,000 against arrears therefore rendered every field enabled: the operator retyped
+the amount and the model answered with a refusal toast on submit. The form now mirrors both freezes
+on exactly the columns each one names — `bank_account_id`, `method`, `is_opening_balance` and `notes`
+are in neither, so they stay on the cancelled-only lock — memoised per record, because both
+predicates are queries and Filament evaluates a `disabled()` closure on every render pass. The house
+rule is the one `ExpenseForm` states beside its own `$moneyLocked`: **the same predicate on both
+layers**, so the operator sees a disabled field and the reason rather than a refusal after
+submitting. Full reasoning in
+[CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
+regression test `AnActOnAPostedDocumentIsWhereItCanBeSeenTest`.

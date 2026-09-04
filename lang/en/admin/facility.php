@@ -484,6 +484,7 @@ return [
         'statuses' => ['active' => 'Active', 'disposed' => 'Disposed'],
         'actions' => ['dispose' => 'Dispose', 'post_depreciation' => 'Post this month'],
         'history' => 'Depreciation schedule',
+        'posted_field_hint' => 'Changing this re-posts the acquisition entry: the old one is voided and replaced.',
         'proceeds_hint' => 'Leave 0 if the asset was scrapped or written off (no sale).',
         'proceeds_account_hint' => 'Where the sale proceeds landed. Ignored when there are no proceeds.',
         'disposed' => 'Fixed asset disposed',

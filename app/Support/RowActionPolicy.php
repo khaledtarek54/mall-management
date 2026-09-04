@@ -26,6 +26,21 @@ namespace App\Support;
  * maintaining a vocabulary — `ViewAction`, a PDF download, a ledger-entry peek and an `open` link
  * all read or navigate, and all of them belong in the row.
  *
+ * **A FACTORY hides its `->action()` in another file, and that made this gate blind to the two
+ * most consequential acts in the panel.** `PostMonthAction::make('invoices.edit')` and
+ * `ReverseDocumentAction::make(...)` are one-line call sites; the closure lives in
+ * `app/Filament/Actions/`. Reading only the call site, this classified both as affordances —
+ * measured, `InvoicesTable` reported **zero write verbs** while carrying "Post to month", the act
+ * that re-posts a live AR document into a different accounting period, and `CustodiesTable` and
+ * `FixedAssetsTable` each reported zero while carrying the REVERSAL of a posted GL document. Six
+ * tables passed a gate that could not see them, which is the shape recorded elsewhere in this
+ * codebase as a gate reading only the source it guards.
+ *
+ * So a factory is resolved to its own file and classified by ITS source ({@see factoryDeclaresAnAct}).
+ * Derived like everything else here: a new factory is classified by being one, and
+ * {@see LedgerEntryAction} — read-only, `modalSubmitAction(false)`, no `->action()` at all — stays
+ * an affordance because that is what its own file says.
+ *
  * ## What legitimately stays
  *
  * **Every relation manager**, derived rather than listed. A relation manager is ALREADY on the
@@ -115,7 +130,10 @@ final class RowActionPolicy
 
             $name = ($m[2] ?? '') !== '' ? $m[2] : ($m[1] !== '' ? $m[1] : 'Action');
 
-            if (str_contains($segment, '->action(') && ! self::handsBackAFile($segment)) {
+            $acts = (str_contains($segment, '->action(') && ! self::handsBackAFile($segment))
+                || self::factoryDeclaresAnAct($m[1]);
+
+            if ($acts) {
                 $verbs[] = $name;
             } else {
                 $reads[] = $name;
@@ -141,6 +159,77 @@ final class RowActionPolicy
     private static function handsBackAFile(string $segment): bool
     {
         return (bool) preg_match('/ReportCsv::stream|response\(\)->download|streamDownload|->download\(/', $segment);
+    }
+
+    /**
+     * Does one of THIS app's action factories declare an act in its own file?
+     *
+     * `PostMonthAction::make('invoices.edit')` is the whole call site; the `->action()` closure is
+     * in `app/Filament/Actions/PostMonthAction.php`. Reading the call site alone therefore reports
+     * a re-post of a live GL document as a read, which is how six tables carried a write verb past
+     * this gate. Resolving the factory to its file and asking the same `->action(` question of ITS
+     * source is the same derivation one level up.
+     *
+     * Scoped to `app/Filament/Actions/` on purpose. `Edit`, `View`, `Create` and `Delete` are
+     * Filament's own and are deliberately NOT verbs here: in a resource table they navigate to the
+     * record hub, which is the destination this whole policy is pushing acts towards, and in a
+     * relation manager the file is exempt by derivation anyway. A prefix that resolves to no file
+     * of ours falls through unchanged.
+     *
+     * @param  string  $prefix  the capture before `Action::make(` — "PostMonth", "Edit", "" …
+     */
+    private static function factoryDeclaresAnAct(string $prefix): bool
+    {
+        if ($prefix === '') {
+            return false;
+        }
+
+        static $memo = [];
+
+        if (array_key_exists($prefix, $memo)) {
+            return $memo[$prefix];
+        }
+
+        $file = app_path("Filament/Actions/{$prefix}Action.php");
+
+        if (! is_file($file)) {
+            return $memo[$prefix] = false;
+        }
+
+        // COMMENTS STRIPPED FIRST, and that is not tidiness. `LedgerEntryAction`'s own docblock
+        // says *"Read-only — `modalSubmitAction(false)` and no `->action()`"* — so a raw
+        // `str_contains` classified the ledger peek, the one affordance this factory set exists to
+        // provide read-only, as a write verb on four tables. Two conformance gates here have
+        // already been weakened by firing on a sentence; `segments()` below strips comments for
+        // exactly this reason and the factory read has to do the same.
+        //
+        // `handsBackAFile()` is deliberately NOT applied here, unlike on a call-site segment. There
+        // the scope is one action chain; here it is a whole file, so a factory that both acts and
+        // mentions a download anywhere would be waved through — a false NEGATIVE, the direction
+        // that lets a write verb sit in a row unseen. No factory streams a file today; if one ever
+        // does it is flagged as a verb and gets an entry in IN_ROW_EXCEPTIONS, which is noisy and
+        // safe rather than quiet and wrong.
+        return $memo[$prefix] = str_contains(self::code($file), '->action(');
+    }
+
+    /** A file's PHP with comments and docblocks removed — never grep prose for code. */
+    private static function code(string $file): string
+    {
+        $code = '';
+
+        foreach (token_get_all((string) file_get_contents($file)) as $token) {
+            if (! is_array($token)) {
+                $code .= $token;
+
+                continue;
+            }
+
+            if (! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                $code .= $token[1];
+            }
+        }
+
+        return $code;
     }
 
     /**

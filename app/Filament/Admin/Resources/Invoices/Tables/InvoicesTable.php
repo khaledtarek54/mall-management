@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources\Invoices\Tables;
 
 use App\Filament\Actions\LedgerEntryAction;
-use App\Filament\Actions\PostMonthAction;
 use App\Filament\Admin\Pages\BillingRunPreview;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Exports\InvoiceExporter;
@@ -335,7 +334,10 @@ class InvoicesTable
                 PdfDownloadAction::make('downloadPdf')
                     ->service(InvoicePdfService::class)
                     ->recipient(fn (Invoice $record) => $record->tenant),
-                PostMonthAction::make('invoices.edit'),
+                // `postToMonth` used to sit here, under the banner above saying the record acts.
+                // A factory hides its `->action()` in its own file, so `RowActionPolicy` read this
+                // table as carrying NO write verb while it offered the act that re-posts a live AR
+                // document into a different accounting period. It is on `EditInvoice` now.
                 LedgerEntryAction::make(),
 
                 Action::make('paymentLink')

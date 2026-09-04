@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VendorBills\Pages;
 
 use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\PostMonthAction;
 use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Models\PaymentMethod;
@@ -83,6 +84,13 @@ class EditVendorBill extends EditRecord
             // where you audit, not where you act. An operator about to retype a figure could not
             // see what the document had already done to the books without leaving the page.
             LedgerEntryAction::make(),
+            // **The post month** — the case it exists for: a bill that arrives after its own month
+            // has closed (MF-05). It re-posts a committed payable into a different accounting
+            // period, and it lived on the LIST row until now, where `RowActionPolicy` could not see
+            // it: a factory's `->action()` sits in its own file, so `VendorBillsTable` reported ZERO
+            // write verbs. Nothing is lost by moving it — it gates on `vendor_bills.edit`, the same
+            // permission `canEdit()` requires to open this page.
+            PostMonthAction::make('vendor_bills.edit'),
             Action::make('approve')
                 ->label(__('admin.actions.approve_bill'))
                 ->icon('heroicon-o-check-circle')

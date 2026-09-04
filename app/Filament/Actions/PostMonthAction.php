@@ -4,6 +4,7 @@ namespace App\Filament\Actions;
 
 use App\Services\Accounting\SetPostMonthService;
 use App\Support\PostMonth;
+use App\Support\RowActionPolicy;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -19,7 +20,15 @@ use Illuminate\Database\Eloquent\Model;
  * authorisation there, a reason field that is optional on one screen and required on the next. This
  * is the UI counterpart of the single override the whole story rests on.
  *
- * Usage: `PostMonthAction::make('vendor_bills.edit')` in a table's `recordActions()`.
+ * Usage: `PostMonthAction::make('vendor_bills.edit')` in a record page's `getHeaderActions()`.
+ *
+ * **On the RECORD, not the row** (SW-238). Re-posting a committed document into a different
+ * accounting period is the most consequential act on either screen after the void, and it lived
+ * on the invoice and vendor-bill LIST rows — invisible to {@see RowActionPolicy},
+ * which derives a write verb from `->action(` appearing in the row's own chain and cannot see a
+ * factory's closure in this file. Both tables reported ZERO write verbs. It gates on
+ * `{module}.edit`, which is what `canEdit()` requires to open the record page, so nothing lost
+ * reach in the move.
  *
  * Gated in BOTH `visible()` and `action()` — the house rule. `visible()` is the UI; the
  * `abort_unless` inside `action()` is the gate.

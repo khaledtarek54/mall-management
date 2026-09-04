@@ -2340,3 +2340,23 @@ say which of the two refused. Nothing in the suite had ever read what that toast
 (`AllocatesDocumentNumber` assigns it in `creating`; 290/290 on the QA baseline).
 `admin.refusals.invoice_void_eta_filed` is deliberately untouched — module 16 is `Modules::FROZEN`.
 `AVoidRefusalNamesTheInvoiceItRefusedTest`, mutation-proved.
+
+### SW-238
+
+**`disputed` was still a status you could PICK, and it stopped collections on the whole invoice.** It
+was the last of the four — after `cancelled`, `written_off` and `credited`, two of whose own comments
+in `InvoiceForm` record that the rule *"was never generalised"* to the next one. **Nothing in `app/`
+or `database/` ever wrote it**: the dropdown was the only door. One click put the invoice in
+`Invoice::NOT_CHASEABLE`, so the overdue scan, the dunning sweep and the late-fee sweep all skipped
+it — with no reason stored and no audit event — and `CreditNoteService`, which refuses a disputed
+invoice deliberately, then declined to credit it at all. The act was already built and already on
+this record's page: `DisputeInvoiceItemService` flags one **LINE**, requires a reason, records who
+and when, and removes only that line's outstanding from the late-fee base; its docblock states in so
+many words that the header status is the wrong tool, *because an invoice is rarely disputed in full*
+— the argument is over the service charge while the rent on the same document is collectable. The
+value STAYS in `ValueSets` and `NOT_CHASEABLE` still honours it, so a legacy or imported row renders,
+saves, and keeps `issued` beside it as the way back (`written_off` was a one-way door once). **Post to
+month** moved off the row onto this record's header at the same time — see
+[modules/23 → SW-238](23-fixed-assets.md) for why the gate could not see it. Full reasoning in
+[CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
+regression test `APostedDocumentsStatusIsNotAPickerTest`.

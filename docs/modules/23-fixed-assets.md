@@ -333,3 +333,27 @@ new subsection under '## 2. Business rules':
 
 The filter now compares the depreciable base against `FixedAsset::accumulatedDepreciationSql()` — **the same expression the register's derived `accumulated` column is built from**, so the two can no longer drift; a select alias is not referenceable from a WHERE, which is why the filter could not simply read `accumulated` and why a second hand-written sum grew there in the first place. The seam also adds `deleted_at is null` (the PHP twin reads the relation and gets the soft-delete scope; the old raw copy did not — measured, 0 trashed entries on either database, so nothing moves today). **No `GREATEST` clamp**: SQLite has no such function, and an asset salvaged above its cost has nothing left to depreciate, so a negative base answering *fully depreciated* is the right answer anyway. `TheWriteOffWorklistFindsWhatItExistsForTest` pins both missing terms plus the SQL↔PHP agreement.
 
+
+### SW-238
+
+**The reversal sat on the list row, under a comment saying the record acts — and the gate could not
+see it.** `RowActionPolicy` derives a write verb from `->action(` appearing in the row action's
+chain, and `ReverseDocumentAction::make(...)` is a one-line call site whose closure lives in
+`app/Filament/Actions/`. Measured: `FixedAssetsTable` reported **zero write verbs** while carrying
+the reversal of a posted GL document, and so did `CustodiesTable`; `InvoicesTable` and
+`VendorBillsTable` did the same for `PostMonthAction`, the act that re-posts a live document into a
+different accounting period. A factory is now resolved to its own file and classified by ITS source
+— **with comments stripped first**, because `LedgerEntryAction`'s docblock says *"no `->action()`"*
+and a raw match classified the one read-only affordance in that folder as a destructive verb on four
+tables at once. All four verbs moved to their record pages; reachability was measured, not assumed
+(each gates on the `{module}.edit` the record page already requires, so no role loses the act).
+
+**And the form said nothing about what an edit does to the books.** `acquisition_date` IS the
+acquisition entry's `entry_date`, and `funded_from` decides which account its credit leg hits. Both
+stay editable — the model deliberately permits it (a re-cost is a supported operation guarded by
+`DepreciationService::assertRecostValid()`, and a form stricter than its model is its own defect) —
+but each now states the consequence, because `ChangeImpact`'s DERIVED verdict ends *"the operator
+must be told"* and `AnnouncesLedgerRestatement` tells them after the save, at the wrong end of the
+decision. Full reasoning in
+[CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
+regression test `AnActOnAPostedDocumentIsWhereItCanBeSeenTest`.
