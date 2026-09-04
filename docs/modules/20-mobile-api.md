@@ -476,6 +476,10 @@ However, **key validation & business logic** is shared via:
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
 **The mobile token belongs to the COMPANY, not to a person — so `/me` can never report a role.**
+Writes are gated on `tenant_users.is_admin` by `EnsurePortalAdminForWrites`, which gates by DEFAULT:
+safe methods pass, the self-scoped routes it names pass, and anything else needs an admin — so a
+write route added later is covered by existing rather than by being remembered.
+
 `LoginTenantAction` authenticates against `tenant_users.email` + `tenant_users.password` — the same
 row the web portal authenticates, unified 2026-09-05; it was `tenants.*` (the company) until then —
 resolves the company as `$user->tenant`, and issues

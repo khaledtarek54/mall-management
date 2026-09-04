@@ -107,6 +107,14 @@ and `/me` still answers with the COMPANY, which is what every screen is keyed on
 is required. Tenants who were using the app before that date were given a login on their existing
 company email and password by migration, so nobody was signed out.
 
+**A login is admin or read-only, and it means the same thing here as in the portal.** Only an admin
+may act for the company — pay, submit a request or a sales declaration, publish a marketing post,
+edit the profile. A read-only login reads everything and gets **403** with `auth.read_only` on a
+write, so the app should present those actions as unavailable rather than let them fail. Acts that
+are the person's OWN — logout, changing their own password, registering or removing their own
+device, marking their own notifications read — are open to every login. The operator sets the tick
+on the tenant's **Portal & App Logins** tab.
+
 The API uses **Sanctum personal access tokens**. Flow:
 
 1. `POST /auth/login` with email + password + a device name → you get a `token`.
@@ -196,7 +204,7 @@ additionally carry an `errors` map (camelCase field → messages):
 |---|---|
 | `400` | Malformed/missing request body (used on **login**) |
 | `401` | Missing/invalid/revoked token, or wrong login credentials |
-| `403` | Blocked account, or authenticated-but-not-allowed |
+| `403` | Blocked account, or a **read-only login attempting a write** (`auth.read_only`) — see below |
 | `404` | Not found **or** not yours |
 | `422` | Semantic validation failure (carries `errors`) |
 | `429` | Rate limited (respect `Retry-After`) |

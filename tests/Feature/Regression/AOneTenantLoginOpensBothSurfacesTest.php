@@ -98,3 +98,51 @@ it('does not lock out a tenant who was using the app before the change', functio
     $migration->up();
     expect(TenantUser::where('tenant_id', $tenant->id)->count())->toBe(1);
 });
+
+/**
+ * The `is_admin` tick means the same thing on both surfaces.
+ *
+ * The portal has gated writes on it since the multi-user portal shipped. The API never did and
+ * never needed to, because it authenticated the COMPANY — one credential that was the admin by
+ * construction. Unifying the logins removed that guarantee in the dangerous direction: a read-only
+ * person who could not previously reach the API at all would otherwise be able to pay an invoice
+ * from the phone. Each refusal below is paired with the same call succeeding for an admin, because
+ * a refusal test passes just as happily when the endpoint is broken for everyone.
+ */
+it('lets a read-only login read but not act, on the app as in the portal', function () {
+    $tenant = makeTenant();
+    $lease = makeLease(makeUnit(makeAsset()), $tenant);
+    makeInvoice($lease, ['status' => 'issued']);
+
+    $readOnly = makeTenantUser($tenant, false);
+    $headers = ['Authorization' => 'Bearer '.$readOnly->createToken('phone', ['tenant:*'])->plainTextToken];
+
+    // CONTROL — reading is exactly what a read-only login is for.
+    $this->withHeaders($headers)->getJson('/api/v1/me/invoices')->assertOk();
+
+    // ...and it may still act on its OWN session and device.
+    $this->withHeaders($headers)->postJson('/api/v1/me/devices', [
+        'token' => 'fcm-token-abc', 'platform' => 'ios',
+    ])->assertSuccessful();
+
+    // THE REFUSALS — acts that commit the COMPANY.
+    $this->withHeaders($headers)->postJson('/api/v1/me/requests', [
+        'category' => 'electrical', 'description' => 'Lights out in the stockroom',
+    ])->assertForbidden();
+
+    $this->withHeaders($headers)->patchJson('/api/v1/me', ['contactPerson' => 'Someone Else'])
+        ->assertForbidden();
+});
+
+it('lets an admin login act', function () {
+    $tenant = makeTenant();
+    makeLease(makeUnit(makeAsset()), $tenant);
+
+    $admin = makeTenantUser($tenant, true);
+    $headers = ['Authorization' => 'Bearer '.$admin->createToken('phone', ['tenant:*'])->plainTextToken];
+
+    // The same write the read-only login was refused — so the refusal above is about the ROLE and
+    // not about a broken endpoint.
+    $this->withHeaders($headers)->patchJson('/api/v1/me', ['contactPerson' => 'Someone Else'])
+        ->assertOk();
+});

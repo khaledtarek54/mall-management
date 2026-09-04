@@ -11,6 +11,7 @@ return [
     'logout_success' => 'Signed out.',
     'account_inactive' => 'This account is not active. Contact your property manager.',
     'account_blocked' => 'Your account has been blocked. Please contact the mall management.',
+    'read_only' => 'Your login can view this account but cannot act on it. Ask your administrator for permission.',
 
     // Password reset (mobile API). These mirror Laravel's passwords.* statuses
     // but live here so the API returns consistent, branded copy.

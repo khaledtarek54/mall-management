@@ -60,6 +60,7 @@ use App\Http\Controllers\Api\V1\Tenant\DemoPayInvoiceController;
 use App\Http\Controllers\Api\V1\UnitOwnerships\ListUnitOwnershipsController;
 use App\Http\Controllers\Api\V1\Tenant\InitiatePaymobSessionController;
 use App\Http\Middleware\EnsureMarketingPostsEnabled;
+use App\Http\Middleware\EnsurePortalAdminForWrites;
 use App\Http\Middleware\EnsureTenantActive;
 use Illuminate\Support\Facades\Route;
 
@@ -139,7 +140,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ============ Authenticated (Sanctum tenant-api guard) ============
-    Route::middleware(['auth:tenant-api', EnsureTenantActive::class, 'throttle:60,1'])->group(function () {
+    Route::middleware(['auth:tenant-api', EnsureTenantActive::class, EnsurePortalAdminForWrites::class, 'throttle:60,1'])->group(function () {
 
         // --- Auth / session ---
         // Same controller as `GET /me` — deliberately, because they are the same answer. Two
