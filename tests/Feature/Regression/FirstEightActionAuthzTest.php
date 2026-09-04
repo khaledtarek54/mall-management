@@ -33,7 +33,7 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
-it('refuses a leasing user provisioning tenant portal credentials (portalAccess is manager+ only)', function () {
+it('refuses a leasing user provisioning tenant portal credentials (mobileAppAccess is manager+ only)', function () {
     $tenant = makeTenant(['password' => null, 'status' => 'inactive']);
 
     // `leasing` holds tenants.edit — so it reaches EditTenant — but is NOT super_admin/manager.
@@ -41,7 +41,7 @@ it('refuses a leasing user provisioning tenant portal credentials (portalAccess 
     Filament::setTenant($this->asset);
 
     Livewire::test(EditTenant::class, ['record' => $tenant->id])
-        ->mountAction('portalAccess')
+        ->mountAction('mobileAppAccess')
         ->callMountedAction();
 
     expect($tenant->fresh()->password)->toBeNull()          // no credentials set

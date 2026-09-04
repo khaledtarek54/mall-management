@@ -42,16 +42,16 @@ class EditTenant extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('portalAccess')
+            Action::make('mobileAppAccess')
                 ->label(fn () => $this->record->password
-                    ? __('admin.tenants.reset_portal')
-                    : __('admin.tenants.setup_portal'))
+                    ? __('admin.tenants.reset_mobile')
+                    : __('admin.tenants.setup_mobile'))
                 ->icon('heroicon-o-key')
                 ->color('primary')
                 ->visible(fn () => Auth::user()?->hasAnyRole(['super_admin', 'manager']) ?? false)
                 ->authorize(fn () => Auth::user()?->hasAnyRole(['super_admin', 'manager']) ?? false)
-                ->modalHeading(fn () => __('admin.tenants.portal_modal_heading', ['name' => $this->record->name]))
-                ->modalDescription(__('admin.tenants.portal_modal_description'))
+                ->modalHeading(fn () => __('admin.tenants.mobile_modal_heading', ['name' => $this->record->name]))
+                ->modalDescription(__('admin.tenants.mobile_modal_description'))
                 ->modalSubmitActionLabel(__('admin.tenants.save_password'))
                 ->fillForm(fn () => [
                     'password' => Str::password(10, symbols: false),
@@ -63,12 +63,16 @@ class EditTenant extends EditRecord
                         ->revealable()
                         ->required()
                         ->minLength(6)
-                        ->helperText(__('admin.tenants.portal_password_helper')),
+                        ->helperText(__('admin.tenants.mobile_password_helper')),
                 ])
                 ->action(function (array $data) {
                     // action() is the real gate — mountAction() never checks visible(); a role with
                     // tenants.edit but not super_admin/manager must not set/reset portal credentials.
                     abort_unless(Auth::user()?->hasAnyRole(['super_admin', 'manager']) ?? false, 403);
+                    // `tenants.password` is the MOBILE APP credential — LoginTenantAction checks it
+                    // for `/api/v1`. The web portal authenticates a TenantUser (guard `portal` →
+                    // provider `tenant_users`) and never reads this column, so this button cannot
+                    // grant /portal access however it is labelled. Portal logins: Portal Users tab.
                     $this->record->update([
                         'password' => Hash::make($data['password']),
                         'status' => 'active',
@@ -77,8 +81,8 @@ class EditTenant extends EditRecord
                     $this->refreshFormData(['status']);
 
                     Notification::make()
-                        ->title(__('admin.tenants.portal_set'))
-                        ->body(__('admin.tenants.portal_set_body', [
+                        ->title(__('admin.tenants.mobile_set'))
+                        ->body(__('admin.tenants.mobile_set_body', [
                             'email' => $this->record->email ?? '—',
                             'password' => $data['password'],
                         ]))
