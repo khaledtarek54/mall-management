@@ -123,6 +123,14 @@ class RolesPermissionsSeeder extends Seeder
             'invoices.view' => 'View invoices',
             'invoices.create' => 'Create invoices',
             'invoices.edit' => 'Edit invoices',
+            // SW-241 — Yardi's split: ENTERING a charge and POSTING it are different rights
+            // (Voyager posts charge batches under its own permission), mirroring
+            // `credit_notes.issue` beside it. Granted to exactly the set that could issue via the
+            // status dropdown this right replaced — accounting explicitly, the blanket roles by
+            // derivation — so day one changes nobody's reach; narrowing it is the roles matrix's
+            // job. It gates the Issue act AND the create form's born-`issued` choice, because a
+            // split the create form ignores is a split in name only.
+            'invoices.issue' => 'Issue a draft invoice',
             'invoices.void' => 'Void (cancel) an issued invoice',
             // Covers BOTH billing runs on the Invoices header — the lease run and the unit-owner
             // assessment run. Raising one invoice (`invoices.create`) and raising every invoice in
@@ -804,7 +812,7 @@ class RolesPermissionsSeeder extends Seeder
 
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
         $grants['accounting'] = [
-            'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.void',
+            'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.issue', 'invoices.void',
             'invoices.run_monthly_billing',
             'payments.view', 'payments.create', 'payments.edit', 'payments.void',
             'credit_notes.view', 'credit_notes.create', 'credit_notes.edit',

@@ -177,16 +177,18 @@ class EditInvoice extends EditRecord
             // happened by picking `issued` in the form's status Select — the most consequential
             // transition an invoice has, riding on an ordinary save with no confirmation — while
             // the credit note beside it had an Issue button and a service. Gated on
-            // `invoices.edit`, deliberately: that is exactly what the Select door required, so no
-            // role gains or loses the act (the RowActionPolicy reachability rule); an
-            // `invoices.issue` permission split is a separate decision for the roles matrix.
+            // `invoices.issue` (SW-241) — Yardi's split between entering a charge and posting it,
+            // mirroring `credit_notes.issue`. Reach measured, not assumed: the right is seeded to
+            // exactly the set that held `invoices.edit` (accounting explicitly, the blanket roles
+            // by derivation), so day one nobody gains or loses the act; the split exists so the
+            // roles matrix CAN narrow it later.
             Action::make('issue')
                 ->label(__('admin.actions.issue_invoice'))
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->visible(fn () => $this->record->status === 'draft'
-                    && Auth::user()?->can('invoices.edit'))
-                ->authorize(fn () => Auth::user()?->can('invoices.edit') ?? false)
+                    && Auth::user()?->can('invoices.issue'))
+                ->authorize(fn () => Auth::user()?->can('invoices.issue') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.issue_invoice_confirm'))
                 ->action(function (): void {

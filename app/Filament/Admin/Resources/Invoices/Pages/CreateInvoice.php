@@ -31,6 +31,15 @@ class CreateInvoice extends CreateRecord
             $data['tenant_id'] = Lease::whereKey($data['lease_id'])->value('tenant_id') ?? $data['tenant_id'] ?? null;
         }
 
+        // Born-`issued` needs `invoices.issue` (SW-241). The form's options already withhold the
+        // choice — and options derive the `Rule::in` server-side — but a status arrives in the
+        // Livewire payload whatever the picker offered, so the clamp is the layer we own rather
+        // than an upstream behaviour we inherit. Clamped to draft, not refused: the operator
+        // keeps their work and the Issue act (or a colleague holding the right) finishes it.
+        if (($data['status'] ?? 'draft') !== 'draft' && ! auth()->user()?->can('invoices.issue')) {
+            $data['status'] = 'draft';
+        }
+
         return $data;
     }
 }

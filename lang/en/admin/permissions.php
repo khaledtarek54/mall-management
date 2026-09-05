@@ -47,6 +47,7 @@ return [
             'view' => 'View invoices',
             'create' => 'Create invoices',
             'edit' => 'Edit invoices',
+            'issue' => 'Issue a draft invoice',
             'void' => 'Void (cancel) an issued invoice',
             'run_monthly_billing' => 'Run the monthly billing and owner-assessment runs',
         ],

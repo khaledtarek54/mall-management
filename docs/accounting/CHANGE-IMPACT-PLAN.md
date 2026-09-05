@@ -1163,3 +1163,35 @@ the same lesson the 2026-09-01 sweep recorded: *the review is worth more than th
 
 All nine findings fixed and the four behavioural ones mutation-proved (R1–R4). Every suite the
 review ran red is green.
+
+### 17.10 — SW-241: the three market-standard options taken, 2026-09-05
+
+The operator's instruction closed the items §17 had left as decisions: *"do market standard or
+Yardi recommended in everything."*
+
+- **`invoices.issue`** — Yardi's split between ENTERING a charge and POSTING it, mirroring
+  `credit_notes.issue`. Seeded to exactly the set that could issue through the old dropdown
+  (`accounting` explicitly; `manager`/`mall_admin`/`super_admin` through the blanket derivation),
+  so day one nobody's reach moves — the split exists so the roles matrix can narrow it. The Issue
+  act gates on it, and so does the CREATE form's born-`issued` choice on both AR documents,
+  because a split the create form ignores is a split in name only. **Two server-side layers, and
+  writing the test taught the layering**: Filament derives `Rule::in` from the options resolved
+  for THIS user, so a smuggled `issued` is refused at validation before `mutateFormDataBeforeCreate`
+  ever runs — the clamp there is the layer we own, standing behind the upstream rule, and each
+  layer has its own test because a refusal that cannot say which layer refused proves neither.
+  **Deploy step**: the right exists only where `RolesPermissionsSeeder` has run —
+  `atriom:install --force` in `deploy.sh` does; the RBAC matrix dump is regenerated with it.
+- **The credit note's create form** was the two-door defect in miniature — born-`issued` on
+  `credit_notes.edit` alone while the Issue act demanded `credit_notes.issue`. Same two layers now.
+- **"Post to month" is offered only where something is POSTED.** It sat on drafts, writing an
+  override nothing reads under a modal implying the books move now; Voyager's post-month control
+  lives on posted batches, not entry screens. The predicate is derived — the poster's registry
+  plus a posted entry existing — so a new source needs no list edited, and it is both the
+  visibility truth and the dispatch gate.
+
+**Kept, deliberately, as the market-consistent answers**: `expense_date` stays
+editable-with-announcement (§13 D-6 is the recorded architecture — `SealedPeriod` already refuses
+once the month closes, so within an open period this is not looser than the intent of Voyager's
+control, only differently shaped); and bank reconciliation continues to mark the JOURNAL LINE
+matched (`BankMatch`) rather than writing `payments.status` — which is Yardi's own shape: you
+reconcile the bank account, not the receipt's lifecycle. Five mutations (S1–S5), each red.

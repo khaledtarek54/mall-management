@@ -1,12 +1,16 @@
 <?php
 
+use App\Filament\Admin\Resources\CreditNotes\Pages\CreateCreditNote;
 use App\Filament\Admin\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Admin\Resources\DepositTransactions\Pages\EditDepositTransaction;
+use App\Filament\Admin\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Admin\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Admin\Resources\Payments\Pages\EditPayment;
 use App\Models\CreditNote;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Payment;
+use App\Models\User;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\CapturePaymentService;
 use App\Services\IssueInvoiceService;
@@ -15,6 +19,8 @@ use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * **The last two bare-dropdown routes onto the books are acts now (SW-240 phases 1 and 4 + D-A).**
@@ -302,4 +308,124 @@ it('leaves the flag correctable on an undrawn receipt — the over-lock control'
     $receipt->update(['is_opening_balance' => true]);
 
     expect($receipt->refresh()->is_opening_balance)->toBeTrue();
+});
+
+// ─────────────── Entering and posting are different rights (SW-241) ───────────────
+
+/** An accounting user whose role was narrowed on the matrix: keeps create/edit, loses issue. */
+function accountantWhoCannotIssue(): User
+{
+    Role::findByName('accounting')->revokePermissionTo('invoices.issue');
+    Role::findByName('accounting')->revokePermissionTo('credit_notes.issue');
+    app()->make(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    return makeUser('accounting');
+}
+
+it('withholds the Issue act from a role the matrix has narrowed, and keeps it for one it has not', function () {
+    // Yardi's split: ENTERING a charge and POSTING it are different rights. `invoices.issue` is
+    // seeded to exactly the set that could issue through the old dropdown, so day one nobody's
+    // reach moves — the point of the split is that the matrix CAN now narrow it, which is what
+    // this fixture does, through the same revoke the roles screen performs.
+    $draft = makeInvoice($this->lease, ['status' => 'draft']);
+
+    // CONTROL first: the un-narrowed role still issues (a hidden act passes just as happily when
+    // the whole header broke).
+    Livewire::test(EditInvoice::class, ['record' => $draft->id])
+        ->assertActionVisible('issue');
+
+    $this->actingAs(accountantWhoCannotIssue());
+
+    Livewire::test(EditInvoice::class, ['record' => $draft->id])
+        ->assertActionHidden('issue');
+});
+
+it('clamps a born-issued invoice to draft for a creator without the issue right', function () {
+    // Without this, the permission gating the Issue act is bypassed by creating issued — the
+    // credit note's two-door defect in miniature, rebuilt on day one of the split. Driven through
+    // the REAL create page, because the clamp lives in `mutateFormDataBeforeCreate` and the
+    // options-derived `Rule::in` lives in the form: a crafted payload meets the clamp, an honest
+    // one never sees the option.
+    $this->actingAs(accountantWhoCannotIssue());
+
+    $page = Livewire::test(CreateInvoice::class);
+
+    // The picker no longer offers it…
+    expect(array_keys($page->instance()->form->getComponent('status')->getOptions()))
+        ->not->toContain('issued');
+
+    // …and a smuggled payload is REFUSED at validation: Filament derives `Rule::in` from the
+    // options the picker resolved for THIS user, so the withheld value fails on the field. Writing
+    // this test taught the layering: the refusal fires before `mutateFormDataBeforeCreate` ever
+    // runs, so the clamp below it is unreachable through the form — pinned here as the upstream
+    // contract, the way PropertyScopeControlNeverOffersAnotherMallTest pins the same rule.
+    $before = Invoice::count();
+
+    $page->fillForm([
+        'lease_id' => $this->lease->id,
+        'tenant_id' => $this->lease->tenant_id,
+        'status' => 'issued',
+        'issue_date' => now()->toDateString(),
+        'due_date' => now()->addDays(10)->toDateString(),
+        'period_start' => now()->startOfMonth()->toDateString(),
+        'period_end' => now()->endOfMonth()->toDateString(),
+        'items' => [['type' => 'base_rent', 'description' => 'Rent', 'amount' => 1000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 1000]],
+    ])->call('create')->assertHasFormErrors(['status']);
+
+    expect(Invoice::count())->toBe($before);
+
+    // And the CLAMP — the layer we own, standing behind that upstream rule in case a future
+    // change resolves options differently. Invoked directly, because through the form it is
+    // deliberately unreachable: a refusal test that cannot say which layer refused proves
+    // neither, so each layer gets its own.
+    $clamped = invade($page->instance())->mutateFormDataBeforeCreate([
+        'lease_id' => $this->lease->id,
+        'status' => 'issued',
+    ]);
+
+    expect($clamped['status'])->toBe('draft');
+});
+
+it('still lets the right-holder create born-issued — the over-clamp control', function () {
+    // Without this, a clamp that forced EVERY create to draft would satisfy the refusal above and
+    // quietly remove the born state SW-215 preserved.
+    $invoice = makeInvoice($this->lease); // makeInvoice creates issued through the model — the born state
+
+    expect($invoice->status)->toBe('issued');
+
+    $page = Livewire::test(CreateInvoice::class);
+
+    expect(array_keys($page->instance()->form->getComponent('status')->getOptions()))
+        ->toContain('issued');
+});
+
+it('refuses and clamps a born-issued credit note the same way', function () {
+    $this->actingAs(accountantWhoCannotIssue());
+
+    $page = Livewire::test(CreateCreditNote::class);
+
+    expect(array_keys($page->instance()->form->getComponent('status')->getOptions()))
+        ->not->toContain('issued');
+
+    $before = CreditNote::count();
+
+    $page->fillForm([
+        'tenant_id' => $this->lease->tenant_id,
+        'lease_id' => $this->lease->id,
+        'status' => 'issued',
+        'issue_date' => now()->toDateString(),
+        'reason' => 'adjustment',
+        'items' => [['description' => 'Goodwill', 'amount' => 100, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 100]],
+    ])->call('create')->assertHasFormErrors(['status']);
+
+    expect(CreditNote::count())->toBe($before);
+
+    // The clamp behind the rule, same layering as the invoice case.
+    $clamped = invade($page->instance())->mutateFormDataBeforeCreate([
+        'lease_id' => $this->lease->id,
+        'status' => 'issued',
+        'issue_date' => now()->toDateString(),
+    ]);
+
+    expect($clamped['status'])->toBe('draft');
 });

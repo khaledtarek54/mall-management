@@ -195,6 +195,15 @@ class CreditNoteForm
                                     // with its own permission, and `applied` is derived.
                                     unset($options['void'], $options['applied']);
 
+                                    // Born-`issued` is `credit_notes.issue`'s to give (SW-241) —
+                                    // the right has gated the Issue act all along, and the create
+                                    // form offering the same outcome on `credit_notes.edit` alone
+                                    // was the second door in miniature. `CreateCreditNote` clamps
+                                    // the payload as the belt.
+                                    if ($record === null && ! auth()->user()?->can('credit_notes.issue')) {
+                                        unset($options['issued']);
+                                    }
+
                                     return $options;
                                 }
 

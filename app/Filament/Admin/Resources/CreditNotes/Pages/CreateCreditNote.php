@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
-use App\Models\Lease;
 use App\Models\CreditNote;
+use App\Models\Lease;
 use App\Support\PostingDate;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -23,6 +23,15 @@ class CreateCreditNote extends CreateRecord
             CreditNoteResource::assertAssetInScope(
                 Lease::with('unit')->find($data['lease_id'])?->unit?->asset_id
             );
+        }
+
+        // Born to a posting status needs `credit_notes.issue` (SW-241), the same right the Issue
+        // act has always demanded — the create form was the second door in miniature. Clamped to
+        // draft rather than refused, BEFORE the posting-date guard below so that guard reads the
+        // status this create will actually carry.
+        if (! array_key_exists($data['status'] ?? 'draft', CreditNote::NOT_ON_THE_BOOKS)
+            && ! auth()->user()?->can('credit_notes.issue')) {
+            $data['status'] = 'draft';
         }
 
         // Creating a note straight to a posting status (bypassing the Issue action) still posts to

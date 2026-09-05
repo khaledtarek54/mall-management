@@ -2406,3 +2406,15 @@ page. Full record in
 [CHANGE-IMPACT-PLAN §17](../accounting/CHANGE-IMPACT-PLAN.md); tests
 `AMoneyStateMovesThroughAnActTest`, `AMoneyFormIsClosedOnceCommittedTest` — nine mutations across
 the two, each killing its own tooth.
+
+### SW-241
+
+**`invoices.issue` — entering and posting are different rights.** Yardi's split, mirroring
+`credit_notes.issue`: the Issue act and the create form's born-`issued` choice both gate on it,
+seeded to exactly the old dropdown's reach (accounting + the blanket roles) so the matrix can
+narrow it without a deploy. Two server-side layers on create — the options-derived `Rule::in`
+refuses a smuggled status first, and the `CreateInvoice` clamp stands behind it. **Post to month**
+now appears only when the document has a posted entry — an override on a draft is a setting
+nothing reads, under a modal implying the books move. Deploy: run `RolesPermissionsSeeder`
+(`atriom:install --force` does). See [CHANGE-IMPACT-PLAN §17.10](../accounting/CHANGE-IMPACT-PLAN.md);
+`AMoneyStateMovesThroughAnActTest`, five mutations proved.

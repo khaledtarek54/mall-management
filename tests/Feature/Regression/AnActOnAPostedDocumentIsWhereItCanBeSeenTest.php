@@ -112,9 +112,18 @@ it('leaves no write verb in the row of the four money tables it could not see', 
 
 // ───────────────────── …and the act is on the record instead ─────────────────────
 
-it('offers the post month on the invoice record page', function () {
+it('offers the post month on the invoice record page — once something is posted', function () {
+    // The predicate is a POSTED ENTRY existing (SW-241): "post to month" on a document with
+    // nothing posted writes an override nothing reads, under a modal implying the books move now
+    // — Voyager's post-month control lives on posted batches, not entry screens. So the fixture
+    // must genuinely post: chart, posting map, and the sweep.
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
+
     $lease = makeLease(makeUnit($this->asset, ['code' => 'AC-01']));
-    $invoice = makeInvoice($lease);
+    $invoice = makeInvoice($lease, ['issue_date' => now()->toDateString()]);
+    test()->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
     $page = Livewire::test(EditInvoice::class, ['record' => $invoice->id]);
 
@@ -125,9 +134,14 @@ it('offers the post month on the invoice record page', function () {
         ->and(EditInvoice::HEADER_GROUPS['corrections'])->toContain('postToMonth');
 
     $page->assertActionVisible('postToMonth');
+
+    // The other half: a DRAFT has nothing posted, so there is no month to move and no button.
+    $draft = makeInvoice($lease, ['status' => 'draft']);
+    Livewire::test(EditInvoice::class, ['record' => $draft->id])
+        ->assertActionHidden('postToMonth');
 });
 
-it('offers the post month on the vendor bill record page', function () {
+it('hides the post month on a vendor bill that has posted nothing', function () {
     $vendor = Vendor::create(['name' => 'Contractor', 'status' => 'active', 'asset_id' => $this->asset->id]);
     $bill = VendorBill::create([
         'asset_id' => $this->asset->id,
@@ -140,8 +154,10 @@ it('offers the post month on the vendor bill record page', function () {
         'status' => 'draft',
     ]);
 
+    // A DRAFT bill has posted nothing — no month to move, no button (SW-241). The visible half
+    // for the bill is the same predicate the invoice case above proves against a real entry.
     Livewire::test(EditVendorBill::class, ['record' => $bill->id])
-        ->assertActionVisible('postToMonth');
+        ->assertActionHidden('postToMonth');
 });
 
 it('offers the reversal on the custody record page', function () {

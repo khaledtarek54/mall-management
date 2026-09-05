@@ -124,6 +124,15 @@ class InvoiceForm
                                     unset($options['draft']);
                                 }
 
+                                // On CREATE, born-`issued` is offered only to `invoices.issue`
+                                // holders (SW-241) — Yardi's entering/posting split, and without
+                                // this the permission gating the Issue act is bypassed by creating
+                                // issued. Server-side twice over: these options derive the
+                                // `Rule::in`, and `CreateInvoice` clamps the payload as the belt.
+                                if ($record === null && ! auth()->user()?->can('invoices.issue')) {
+                                    unset($options['issued']);
+                                }
+
                                 // 'cancelled' is NOT a status you pick — it is the outcome of the
                                 // "Void invoice" action, which refuses when captured cash is still
                                 // allocated, returns any applied credit, reverses the GL entry and

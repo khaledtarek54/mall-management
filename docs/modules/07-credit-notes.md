@@ -586,3 +586,12 @@ SAVED note now; create keeps the born-state choice. `reason` locks once issued (
 classification on a delivered document; Yardi's line is memo open, classification closed), while
 `reason_notes` and `notes` stay open because they are the memo. See
 [CHANGE-IMPACT-PLAN §17](../accounting/CHANGE-IMPACT-PLAN.md); `AMoneyStateMovesThroughAnActTest`.
+
+### SW-241
+
+**The create form joined the `credit_notes.issue` gate.** Born-`issued` at create was the two-door
+defect in miniature — the act demanded the issue right while the create form offered the same
+outcome on `credit_notes.edit`. The options withhold `issued` from non-holders (Filament's
+`Rule::in` refuses a smuggled one) and `CreateCreditNote` clamps to draft behind it, BEFORE its
+posting-date guard so that guard reads the status the create will actually carry. See
+[CHANGE-IMPACT-PLAN §17.10](../accounting/CHANGE-IMPACT-PLAN.md).

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Actions;
 
+use App\Models\JournalEntry;
+use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\SetPostMonthService;
 use App\Support\PostMonth;
 use App\Support\RowActionPolicy;
@@ -39,13 +41,27 @@ class PostMonthAction
     {
         $allowed = fn (): bool => auth()->user()?->can($permission) ?? false;
 
+        // A document with NOTHING POSTED has no month to move (SW-241). Offered on a draft —
+        // which is where this action sat until somebody looked — "Post to month" writes an
+        // override that nothing reads until the document commits, under a modal implying the
+        // books will move now: Voyager's post-month control exists on posted batches, not on
+        // entry screens. Derived from the poster's own registry + a posted entry existing, so a
+        // new source needs no list edited; the override row itself is cheap either way, which is
+        // why this is a visibility truth AND the dispatch gate in one predicate.
+        $hasPostedEntry = fn (Model $record): bool => array_key_exists($record::class, LedgerPoster::JOURNALIZERS)
+            && JournalEntry::query()
+                ->where('source_type', $record->getMorphClass())
+                ->where('source_id', $record->getKey())
+                ->where('status', 'posted')
+                ->exists();
+
         return Action::make('postToMonth')
             ->label(__('admin.actions.post_to_month'))
             ->icon('heroicon-o-calendar-days')
             ->color('gray')
             ->modalDescription(__('admin.actions.post_to_month_hint'))
-            ->visible($allowed)
-            ->authorize($allowed)
+            ->visible(fn (Model $record): bool => $allowed() && $hasPostedEntry($record))
+            ->authorize(fn (Model $record): bool => $allowed() && $hasPostedEntry($record))
             ->fillForm(fn (Model $record): array => [
                 'post_month' => PostMonth::forSource($record)?->toDateString(),
             ])
