@@ -140,6 +140,19 @@ class DepositBilling
     }
 
     /**
+     * Where a security-deposit line's credit went at ISSUE — resolved exactly as
+     * `InvoiceJournalizer` resolves it, with the same shipped floor. Shared by the write-off
+     * journalizer (SW-210) and the credit-note journalizer (SW-238), because a reversal never
+     * re-classifies what it reverses, and two copies of the resolution is how the two reversal
+     * doors come to debit different accounts for one obligation.
+     */
+    public static function depositPostingRole(): string
+    {
+        return ChargeCode::roleFor('security_deposit')
+            ?? InvoiceJournalizer::REVENUE_ROLE['security_deposit'];
+    }
+
+    /**
      * How ONE write-off splits between relieving the deposit obligation and taking a bad debt
      * (SW-210) — `['deposit' => x, 'bad_debt' => y]`, summing to the write-off's own amount.
      *
@@ -162,19 +175,6 @@ class DepositBilling
      *
      * @return array{deposit: float, bad_debt: float}
      */
-    /**
-     * Where a security-deposit line's credit went at ISSUE — resolved exactly as
-     * `InvoiceJournalizer` resolves it, with the same shipped floor. Shared by the write-off
-     * journalizer (SW-210) and the credit-note journalizer (SW-238), because a reversal never
-     * re-classifies what it reverses, and two copies of the resolution is how the two reversal
-     * doors come to debit different accounts for one obligation.
-     */
-    public static function depositPostingRole(): string
-    {
-        return ChargeCode::roleFor('security_deposit')
-            ?? InvoiceJournalizer::REVENUE_ROLE['security_deposit'];
-    }
-
     public static function writeOffSplit(InvoiceWriteOff $writeOff): array
     {
         $amount = round((float) $writeOff->amount, 2);
@@ -228,8 +228,21 @@ class DepositBilling
 
         $other = round((float) $lines->where('type', '!=', 'security_deposit')->sum('outstanding'), 2);
 
+        // "Earlier" by [entry_date, id], as the docblock above promises — the final review caught
+        // the claim without the code: a bare sum made "earlier" mean CREATED before, so two
+        // write-offs recorded out of date order attributed the deposit relief to the wrong month's
+        // P&L. The operator's own dates lead; the id only breaks a tie.
+        $self = $excludeWriteOffId !== null
+            ? $invoice->writeOffs()->whereKey($excludeWriteOffId)->first(['entry_date', 'id'])
+            : null;
+
         $earlier = round((float) $invoice->writeOffs()
             ->when($excludeWriteOffId !== null, fn ($q) => $q->whereKeyNot($excludeWriteOffId))
+            ->when($self !== null, fn ($q) => $q->where(fn ($w) => $w
+                ->whereDate('entry_date', '<', $self->entry_date)
+                ->orWhere(fn ($x) => $x
+                    ->whereDate('entry_date', '=', $self->entry_date)
+                    ->where('id', '<', $self->id))))
             ->sum('amount'), 2);
 
         $reachedBefore = min(max($earlier - $other, 0), $deposit);

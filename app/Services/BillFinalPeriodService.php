@@ -8,6 +8,7 @@ use App\Support\OpsLog;
 use App\Support\PostingDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Bill the FINAL period a terminated lease consumed but was never invoiced for (SW-050).
@@ -68,11 +69,15 @@ class BillFinalPeriodService
     public function billFor(Lease $lease, CarbonImmutable $terminationDate): array
     {
         $skip = function (string $reason) use ($lease, $terminationDate): array {
-            // A SKIP IS REPORTED, never swallowed. Every reason below leaves a departing tenant's
-            // consumed period unbilled, permanently — a terminated lease never reaches
-            // `leases:expire` (that sweep filters on `active`), so there is no second chance. An
-            // absence with nothing written down is the failure class this codebase keeps citing.
-            OpsLog::warning('Final consumed period was not billed at move-out', [
+            // A SKIP IS REPORTED, never swallowed — but at the level it deserves (the final
+            // review's N6). For a lease billing wholly in advance — the MAJORITY — every line
+            // clamps out and "nothing left to bill" is the CORRECT outcome, not an absence; a
+            // WARNING on every healthy termination is the permanently-red-step this codebase
+            // names, and it trains the reader past the one that matters. Absence-shaped reasons
+            // (no open period, unrecorded line history, a schedule conflict) stay warnings.
+            $expected = in_array($reason, ['nothing_left_to_bill', 'no_applicable_charges'], true);
+
+            OpsLog::{$expected ? 'info' : 'warning'}('Final consumed period was not billed at move-out', [
                 'lease_id' => $lease->id,
                 'termination_date' => $terminationDate->toDateString(),
                 'reason' => $reason,
@@ -97,10 +102,36 @@ class BillFinalPeriodService
         // why in writing: idempotency here is a check-then-act with no unique key, so a termination
         // racing a catch-up run for that month would read `lastCoveredEndFor` before the run's
         // invoice lands, find no clamp, and raise the period twice.
-        $result = Cache::lock('billing:run:'.$periodStart->format('Y-m'), 900)
-            ->get(fn () => $this->billUnderLock($lease, $periodStart, $terminationDate, $skip));
+        //
+        // HELD THROUGH THE CALLER'S COMMIT (the final review's N3). Both doors call this from
+        // inside an outer DB transaction, and `Lock::get($closure)` releases in a `finally` when
+        // the closure returns — i.e. BEFORE that commit — so a concurrent run could take the lock
+        // in the gap and see neither the invoice nor the status change. The twin has it the right
+        // way round (lock outside, transaction inside); here the caller owns the transaction, so
+        // the release is deferred to `afterCommit` instead. The TTL is the backstop for the one
+        // leak path — a rollback after our return discards the afterCommit callback — and is kept
+        // SHORT so a leaked lock delays the nightly run by two minutes, not fifteen.
+        $lock = Cache::lock('billing:run:'.$periodStart->format('Y-m'), 120);
 
-        return $result === false ? $skip('run_in_progress') : $result;
+        if (! $lock->get()) {
+            return $skip('run_in_progress');
+        }
+
+        try {
+            $result = $this->billUnderLock($lease, $periodStart, $terminationDate, $skip);
+        } catch (\Throwable $e) {
+            $lock->release();
+
+            throw $e;
+        }
+
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn () => $lock->release());
+        } else {
+            $lock->release();
+        }
+
+        return $result;
     }
 
     /** @param  callable(string): array{status:string, reason:string, invoice:null}  $skip */
@@ -109,7 +140,11 @@ class BillFinalPeriodService
         // `forceFinalCycle`: the tenancy ends HERE. Without it a converted holdover answers false
         // (its expiry is deliberately in the past) and an arrears row covers only the previous
         // month — and termination is a holdover's only door, since `leases:expire` excludes them.
-        $plan = $this->billing->planInvoiceForLease($lease, $periodStart, $terminationDate, false, true);
+        // `prorate: true`, as the bulk run and the preview pass it — false ignores the
+        // COMMENCEMENT date, so a lease commencing on the 10th and terminated on the 25th before
+        // any run reached it billed rent from the 1st: 30,000 outbound on the last document the
+        // tenant receives, netted straight off their deposit (the final review's N5).
+        $plan = $this->billing->planInvoiceForLease($lease, $periodStart, $terminationDate, true, true);
 
         if (! ($plan['billable'] ?? false)) {
             return $skip($plan['reason'] ?? 'not_billable');
@@ -162,7 +197,19 @@ class BillFinalPeriodService
             return $skip('no_open_period');
         }
 
-        $invoice = $this->issuer->issue($lease, $items, $issueDate, $periodStart, $terminationDate);
+        // The PLAN's due date, for the reason `generateInvoiceForLease` states when it passes the
+        // same thing: the plan anchors terms to `max(issue_date, today)`, so a back-dated issue —
+        // and BOTH doors here back-date, the sweep to `expiry_date` and the operator to the day the
+        // tenant actually left — is not born overdue, visible to the overdue scan, the dunning
+        // sweep and the late-fee run on the day it is raised (the final review's N2).
+        $invoice = $this->issuer->issue(
+            $lease,
+            $items,
+            $issueDate,
+            $periodStart,
+            $terminationDate,
+            $plan['due_date'] ?? null,
+        );
 
         // The last document a departing tenant is charged, and the one netted off their deposit.
         // The recurring run notifies every invoice it raises; this reached them by no channel.

@@ -178,6 +178,57 @@ it('is PROSPECTIVE — a legacy note posts exactly what it always posted', funct
         ->and($debits[codeForRole('deposits_held')] ?? 0.0)->toEqual(0.0);
 });
 
+it('keeps deposits_tie_out GREEN while the note stands unapplied — the FATAL the review caught', function () {
+    // The first version of this fix debited `deposits_held` at issue and taught the DOCUMENTS side
+    // nothing: an issued-but-unapplied deposit credit note read relieved in the GL and claimed on
+    // the register, so `deposits_tie_out` went red, `atriom:preflight` failed, and deploys were
+    // blocked by an ordinary operator act — the exact state this row was justified by, re-created
+    // through its own fix. `DepositHoldings::standingDepositCredits()` is the missing term, the
+    // deposit twin of `glTieOut()`'s `outstandingCredits`.
+    $note = creditNoteWithLines([
+        ['description' => 'Security deposit credited', 'type' => 'security_deposit', 'total' => 100000, 'vat' => 0],
+    ]);
+
+    app(LedgerPoster::class)->sync($note->invoice->fresh());
+    app(LedgerPoster::class)->sync($note);
+
+    $ids = [test()->asset->id];
+
+    // The tie-out itself, both sides — not the journalizer's arithmetic.
+    expect(App\Support\DepositHoldings::standingDepositCredits($ids))->toEqual(100000.0)
+        ->and(App\Support\DepositHoldings::expectedGlBalance($ids))
+        ->toEqual((float) App\Support\DepositHoldings::glBalance($ids));
+});
+
+it('keeps the tie-out green after the note is APPLIED too — the other end of the window', function () {
+    $note = creditNoteWithLines([
+        ['description' => 'Security deposit credited', 'type' => 'security_deposit', 'total' => 100000, 'vat' => 0],
+    ]);
+
+    // Through the REAL service — two hand fixtures were silently reverted by the model's own
+    // derive hooks (applied_amount re-summed from applications; credit_applied re-derived by
+    // recomputeTotals), which is those hooks doing their job. The service is the reachable input,
+    // and it caps at the invoice's settleable amount — so the source invoice must actually carry
+    // the 100,000 deposit line it is being credited for.
+    $source = $note->invoice->fresh();
+    $source->items()->create([
+        'type' => 'security_deposit', 'description' => 'Security deposit', 'quantity' => 1,
+        'unit_price' => 100000, 'amount' => 100000, 'tax_amount' => 0, 'total' => 100000,
+    ]);
+    $source->fresh()->recomputeTotals();
+
+    app(App\Services\CreditNoteService::class)->applyToInvoice($note->fresh(), $source->fresh());
+
+    app(LedgerPoster::class)->sync($note->invoice->fresh());
+    app(LedgerPoster::class)->sync($note->fresh());
+
+    $ids = [test()->asset->id];
+
+    expect(App\Support\DepositHoldings::standingDepositCredits($ids))->toEqual(0.0)
+        ->and(App\Support\DepositHoldings::expectedGlBalance($ids))
+        ->toEqual((float) App\Support\DepositHoldings::glBalance($ids));
+});
+
 it('shares ONE role resolution with the write-off door', function () {
     // Two reversal doors onto one obligation. A second copy of the resolution is how they come to
     // debit different accounts the day the accountant re-points the charge code.

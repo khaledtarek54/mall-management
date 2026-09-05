@@ -297,6 +297,73 @@ it('debits where the ISSUE credited, even if the accountant re-points the code',
         ->and($debits[$deposits] ?? 0.0)->toEqual(0.0);
 });
 
+it('keeps deposits_tie_out GREEN — the check both rows were justified by', function () {
+    // 100,000 billed, 60,000 received, 40,000 written off. GL: Cr 100,000 at issue, Dr 40,000 at
+    // write-off = 60,000. Documents: held 60,000 + claimed 0. The review found neither deposit
+    // regression test asserted the tie-out that is the entire stated reason for the fix.
+    $invoice = depositInvoice();
+
+    $payment = Payment::create([
+        'tenant_id' => $invoice->tenant_id, 'payment_date' => now(), 'amount' => 60000,
+        'method' => 'bank_transfer', 'status' => 'captured',
+    ]);
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => 60000]);
+    $invoice->fresh()->recomputeTotals();
+
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 40000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
+    ]);
+
+    app(LedgerPoster::class)->sync($invoice->fresh());
+    $writeOff = $invoice->fresh()->writeOffs()->latest('id')->firstOrFail();
+    app(LedgerPoster::class)->sync($writeOff);
+
+    $ids = [test()->asset->id];
+
+    expect((float) App\Support\DepositHoldings::glBalance($ids))->toEqual(60000.0)
+        ->and(App\Support\DepositHoldings::expectedGlBalance($ids))->toEqual(60000.0);
+});
+
+it('attributes the deposit relief by the operator’s DATES, not by insertion order', function () {
+    // Mixed invoice: rent 30,000 + deposit 100,000. The SECOND write-off recorded carries the
+    // EARLIER date. By [entry_date, id] the earlier-dated 30,000 exhausts the rent, so the
+    // later-dated 20,000 reaches the deposit in full; a bare created-order sum attributes the
+    // relief the other way and moves the wrong month's P&L.
+    $invoice = makeInvoice($this->lease, [
+        'status' => 'issued', 'subtotal' => 130000, 'vat_amount' => 0,
+        'total' => 130000, 'balance' => 130000,
+    ]);
+    $invoice->items()->create([
+        'type' => 'base_rent', 'description' => 'Rent', 'quantity' => 1,
+        'unit_price' => 30000, 'amount' => 30000, 'tax_amount' => 0, 'total' => 30000,
+    ]);
+    $invoice->items()->create([
+        'type' => 'security_deposit', 'description' => 'Security deposit', 'quantity' => 1,
+        'unit_price' => 100000, 'amount' => 100000, 'tax_amount' => 0, 'total' => 100000,
+    ]);
+    $invoice->recomputeTotals();
+
+    // Recorded FIRST, dated LATER.
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 20000, 'reason' => 'settled_short', 'entry_date' => now()->toDateString(),
+    ]);
+    // Recorded SECOND, dated EARLIER — the back-dated correction an operator really keys.
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 30000, 'reason' => 'settled_short', 'entry_date' => now()->subMonth()->toDateString(),
+    ]);
+
+    [$laterDated, $earlierDated] = $invoice->fresh()->writeOffs()->orderBy('id')->get();
+
+    // The split each row FROZE is what its entry posts, so the attribution question is asked of
+    // the origination computation directly, with each row's own siblings in place.
+    expect(round(App\Support\DepositBilling::depositShareAtWriteOff(
+        $invoice->fresh(), (float) $earlierDated->amount, $earlierDated->id), 2))
+        ->toEqual(0.0)      // the earlier-dated 30,000 IS the rent
+        ->and(round(App\Support\DepositBilling::depositShareAtWriteOff(
+            $invoice->fresh(), (float) $laterDated->amount, $laterDated->id), 2))
+        ->toEqual(20000.0); // the later-dated 20,000 reaches the deposit in full
+});
+
 it('always balances, whatever the split', function () {
     $invoice = depositInvoice();
 

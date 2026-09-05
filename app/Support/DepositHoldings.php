@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\CreditNote;
 use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\JournalEntry;
@@ -158,7 +159,58 @@ class DepositHoldings
      */
     public static function expectedGlBalance(?array $assetIds = null): float
     {
-        return round(self::held($assetIds) + self::billedAndOutstanding($assetIds), 2);
+        return round(
+            self::held($assetIds)
+            + self::billedAndOutstanding($assetIds)
+            - self::standingDepositCredits($assetIds),
+            2,
+        );
+    }
+
+    /**
+     * Deposit relief the LEDGER has recognised that the documents have not yet absorbed (SW-238's
+     * FATAL, caught by the final review) — the deposit twin of `glTieOut()`'s `outstandingCredits`.
+     *
+     * `CreditNoteJournalizer` debits `deposits_held` at ISSUE (by the note's frozen
+     * `deposit_amount`), but the invoice's `paid_amount` — and therefore `claimedOn()` — only moves
+     * when the note is APPLIED. In that window the GL reads relieved and the documents read claimed,
+     * so an issued-but-unapplied deposit credit note turned `deposits_tie_out` red, blocked
+     * `atriom:preflight`, and stayed red for ever if the note was deliberately left standing as
+     * tenant credit. Before SW-238 this case was green only because the ledger was WRONG (the debit
+     * went to contra-revenue); the AR side solved the identical shape with an explicit
+     * `− outstandingCredits` term, and `DepositHoldings` had no equivalent.
+     *
+     * Per note: `deposit_amount × (balance ÷ total)` — the UNAPPLIED fraction. Exact for an
+     * all-deposit note at every stage (unapplied = full, applied = zero, partial = linear, matching
+     * the deposit-first relief `heldOn()` applies on the invoice side); an approximation only for a
+     * MIXED partially-applied note, which is the same per-note proration the AR term already
+     * accepts. A legacy note carries `deposit_amount = 0` and contributes nothing — prospective,
+     * exactly as its ledger half is.
+     */
+    public static function standingDepositCredits(?array $assetIds = null): float
+    {
+        $notes = CreditNote::query()
+            ->whereNotIn('status', array_keys(CreditNote::NOT_ON_THE_BOOKS))
+            ->where('deposit_amount', '>', 0);
+
+        if ($assetIds !== null) {
+            $notes->whereIn('asset_id', $assetIds);
+        }
+
+        $standing = 0.0;
+
+        foreach ($notes->get(['deposit_amount', 'balance', 'total']) as $note) {
+            $total = (float) $note->total;
+
+            if ($total <= 0) {
+                continue;
+            }
+
+            $fraction = max(0.0, min(1.0, (float) $note->balance / $total));
+            $standing += (float) $note->deposit_amount * $fraction;
+        }
+
+        return round($standing, 2);
     }
 
     /**

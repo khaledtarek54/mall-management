@@ -12,6 +12,7 @@ use App\Models\DepositApplication;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Models\TenantCreditApplication;
+use App\Services\Accounting\LedgerPoster;
 use App\Services\ApplyDepositToInvoiceService;
 use App\Services\ApplyTenantCreditService;
 use App\Services\InvoicePdfService;
@@ -34,6 +35,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class EditInvoice extends EditRecord
 {
@@ -400,10 +402,28 @@ class EditInvoice extends EditRecord
                     $recovered = 0.0;
 
                     try {
-                        foreach (InvoiceWriteOff::where('invoice_id', $this->record->id)->get() as $writeOff) {
-                            $recovered += (float) $writeOff->amount;
-                            $writeOffs->reverse($writeOff, $data['reason'] ?? null);
+                        // ONE transaction over the whole recovery, and every row pre-checked before
+                        // any is touched (the final review's N1). A partial write-off is ordinary
+                        // (`settled_short`), so two rows on one invoice is the normal case — and
+                        // each carries its OWN entry_date, so with A's period open and B's closed,
+                        // the bare loop reversed A, threw on B, showed a failure toast and
+                        // returned: half a bad-debt recovery, committed, under a message saying it
+                        // failed, with the form still reading `written_off`. All-or-nothing now.
+                        $rows = InvoiceWriteOff::where('invoice_id', $this->record->id)->get();
+                        $ledger = app(LedgerPoster::class);
+
+                        foreach ($rows as $writeOff) {
+                            if (! $ledger->canVoidEntryFor($writeOff)) {
+                                throw new \DomainException(__('admin.refusals.write_off_reverse_no_open_period'));
+                            }
                         }
+
+                        DB::transaction(function () use ($rows, $writeOffs, $data, &$recovered) {
+                            foreach ($rows as $writeOff) {
+                                $recovered += (float) $writeOff->amount;
+                                $writeOffs->reverse($writeOff, $data['reason'] ?? null);
+                            }
+                        });
                     } catch (\DomainException $e) {
                         // e.g. the GL void lands in a CLOSED period — a toast, not a 500, exactly as
                         // its two sibling reversals on this page do.
