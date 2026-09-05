@@ -1019,3 +1019,14 @@ time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md
 
 **A GATE IN A METHOD NOTHING CALLS IS NOT A GATE, AND A CUSTOM PAGE IS WHERE THAT HAPPENS (2026-09-04).** `PropertyOverrides` declared `getFormActions()` carrying `->authorize(… settings.manage)` and its Blade rendered `<x-filament::button type="submit">` unconditionally beside it. `Filament\Pages\Page` does **not** use `Concerns\InteractsWithFormActions` — only `RegisterTenant`/`EditTenantProfile` and the resource CRUD pages do — so that method was read by nothing (`grep -rn getCachedFormActions app resources` finds no caller) and had been dead since the screen shipped. The screen is reachable on `settings.view` and the write needs `settings.manage`, and **three roles hold the first without the second** (measured on the dev database: `manager`, `viewer`, `mall_admin`), so all three were shown a Save whose only possible outcome was the raw 403 from `save()`. `canSave()` is now the ONE predicate, read by the header action's `->authorize()` (which both hides the button and aborts at dispatch, via `AuthorizedAction`) and by `save()`'s own `abort_unless` — the same double gate `Settings`, this screen's twin, has always used. **The lesson generalises to every custom `Page`:** a write control belongs in `getHeaderActions()` where the action system can gate it, never in the page's Blade, because a Blade button is gated by whatever the author remembered to write around it. Budget, OpeningBalances and CompanyProfile were checked and are not affected — the first two use one permission for both reading and writing, and CompanyProfile gates its button in the Blade explicitly.
 
+### Gate: an auth surface is grantable from a screen (§9.3-1, 2026-09-05)
+
+**`AuthSurfaceIsGrantableConformanceTest`** makes the `is_portal_user` shape a build failure: the
+vendor panel shipped with a flag its `canAccessPanel()` required and NOTHING wrote — built, tested,
+and unenterable, invisible to every test that builds contacts by hand. The rule: every attribute a
+panel's own `canAccessPanel()` gates on must name a WRITE PATH an operator can reach, in a registry
+checked against the predicate's SOURCE in both directions (a new gate attribute fails until
+registered; a stale row fails when the predicate stops reading it), with the writer file required to
+still carry the writing shape, and the sharpest flags driven end to end (grant → the panel opens,
+revoke → it shuts, company suspension beats the personal flag). Mutation-proved three ways,
+including deleting the only writer — the original bug, replayed.
