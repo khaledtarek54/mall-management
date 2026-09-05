@@ -114,8 +114,7 @@ final class TenantBalances
         // --- delinquent: the SAME predicate, asked of the set ---------------------------------
         $delinquent = Invoice::query()
             ->whereIn('tenant_id', $ids)
-            ->where('due_date', '<', now())
-            ->stillOwed()
+            ->overdue()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->distinct()
             ->pluck('tenant_id');

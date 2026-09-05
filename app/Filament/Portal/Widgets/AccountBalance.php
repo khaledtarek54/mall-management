@@ -28,7 +28,13 @@ class AccountBalance extends StatsOverviewWidget
         }
 
         $outstanding = $tenant->outstandingBalance();
-        $overdueCount = (int) $tenant->invoices()->where('status', 'overdue')->count();
+        // `overdue()`, never `where('status', 'overdue')`. That column is a STAMP the nightly
+        // `billing:scan-overdue-invoices` writes: it lags by up to a day, and a `partially_paid`
+        // invoice can never carry it at all. Measured on the QA baseline, it counted 4 where 11
+        // invoices were genuinely past due and still owed — while the `due_date` column on the very
+        // list below coloured all 11 red, and `/api/v1/me/balance` quoted the money for all 11.
+        // Three answers to one question, on the screen the tenant is asked to act on (SW-016).
+        $overdueCount = (int) $tenant->invoices()->overdue()->count();
         $activeLeases = (int) $tenant->activeLeases()->count();
         $paidLifetime = (float) $tenant->payments()
             ->whereIn('status', Payment::RECEIVED_STATUSES)
@@ -72,8 +78,13 @@ class AccountBalance extends StatsOverviewWidget
                 ->color($overdueCount > 0 ? 'danger' : 'success')
                 // The overdue subset specifically, not everything unpaid — the tenant clicked a
                 // count of overdue invoices and must land on exactly those.
+                //
+                // Through the `overdue_only` FILTER, not through `status = overdue`: the count above
+                // is `Invoice::scopeOverdue()`, and a link that selects the status would land on the
+                // subset the nightly sweep happens to have stamped — a smaller list than the number
+                // the tenant just clicked, which is the defect this pair exists to prevent.
                 ->url($overdueCount > 0
-                    ? ResourceLink::indexSelect(InvoiceResource::class, 'status', 'overdue', 'due_date:asc')
+                    ? ResourceLink::indexWhere(InvoiceResource::class, 'overdue_only', 'due_date:asc')
                     : null),
 
             Stat::make(__('admin.widgets.account_balance.active_leases'), (string) $activeLeases)

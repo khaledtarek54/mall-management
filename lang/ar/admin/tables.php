@@ -247,6 +247,7 @@ return [
         'document_attention' => 'مستند منتهٍ أو يقارب الانتهاء',
         'notice_due' => 'إخطار التجديد مستحق',
         'overdue_only' => 'المتأخرة فقط',
+        'unpaid_only' => 'غير المسددة فقط',
         'eta_status' => 'حالة مصلحة الضرائب',
         'needs_eta_attention' => 'تحتاج تدخّل لدى المصلحة',
         'eta_pending' => 'قيد التقديم للمصلحة',

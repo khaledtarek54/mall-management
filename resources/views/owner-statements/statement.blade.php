@@ -13,9 +13,14 @@
     [$chipBg, $chipInk] = T::bandChip($statement->status);
 
     $fmt = fn ($v) => number_format((float) $v, 2).' '.($asset->currency ?? 'EGP');
-    // The frozen per-account breakdown snapshotted at generate time; localized name per row.
-    $breakdown = $run->income_breakdown ?? ['revenue' => [], 'expense' => []];
-    $rowName = fn ($r) => $isRtl ? ($r['name_ar'] ?? $r['name_en'] ?? $r['code']) : ($r['name_en'] ?? $r['name_ar'] ?? $r['code']);
+    // The frozen per-account breakdown snapshotted at generate time, named in the reader's own
+    // language by the model — the ONE reading of this column, shared with the "View working" panel
+    // in the admin panel. No locale is passed: the renderer sets the app locale around the whole
+    // render, so asking for one here would be a second answer to a question it has already settled.
+    $breakdown = [
+        'revenue' => $run->breakdownRows('revenue'),
+        'expense' => $run->breakdownRows('expense'),
+    ];
 @endphp
 
 @extends('pdf.layout', [
@@ -62,7 +67,7 @@
             <tr class="section-row"><td colspan="2">{{ __('admin.owner_statements.pdf.revenue') }}</td></tr>
             @forelse ($breakdown['revenue'] as $r)
                 <tr class="sub">
-                    <td>{{ $rowName($r) }}</td>
+                    <td>{{ $r['name'] }}</td>
                     <td class="num">{{ $fmt($r['amount']) }}</td>
                 </tr>
             @empty
@@ -76,7 +81,7 @@
             <tr class="section-row"><td colspan="2">{{ __('admin.owner_statements.pdf.expenses') }}</td></tr>
             @forelse ($breakdown['expense'] as $r)
                 <tr class="sub">
-                    <td>{{ $rowName($r) }}</td>
+                    <td>{{ $r['name'] }}</td>
                     <td class="num">({{ $fmt($r['amount']) }})</td>
                 </tr>
             @empty

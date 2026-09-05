@@ -100,6 +100,43 @@ class OwnerStatementRun extends Model
     ];
 
     /**
+     * One row per P&L account from the FROZEN snapshot, named in the READER's language.
+     *
+     * The snapshot is `income_breakdown`, and until now two screens read it with two copies of one
+     * locale ladder — the statement PDF's `$rowName` closure and the "View working" panel's own — so
+     * *which language an account name reads in* was a rule written twice about one column, on the
+     * document an owner uses to check what they were paid.
+     *
+     * No locale argument is needed by either caller: `PdfDocument` sets the app locale around the
+     * whole render, so `app()->getLocale()` IS the reader's language inside the template, exactly as
+     * it is inside the panel. The parameter exists for a caller that has to say so explicitly.
+     *
+     * Falls through the other language and then to the account CODE: a blank line on an owner's
+     * statement is worse than one naming an account number. `[]` for a run generated before the
+     * snapshot existed — both readers fall back to the bare totals on that rather than printing an
+     * empty statement.
+     *
+     * @return array<int, array{code: string, name: string, amount: float}>
+     */
+    public function breakdownRows(string $side, ?string $locale = null): array
+    {
+        $arabic = str_starts_with($locale ?? app()->getLocale(), 'ar');
+        $rows = (array) (($this->income_breakdown ?? [])[$side] ?? []);
+
+        return array_values(array_map(function (array $row) use ($arabic): array {
+            $code = (string) ($row['code'] ?? '');
+
+            return [
+                'code' => $code,
+                'name' => (string) ($arabic
+                    ? ($row['name_ar'] ?? $row['name_en'] ?? $code)
+                    : ($row['name_en'] ?? $row['name_ar'] ?? $code)),
+                'amount' => round((float) ($row['amount'] ?? 0), 2),
+            ];
+        }, $rows));
+    }
+
+    /**
      * The run reference.
      *
      * @return array<int, string|int|float|null>

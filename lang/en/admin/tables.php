@@ -247,6 +247,7 @@ return [
         'document_attention' => 'Document lapsed / lapsing',
         'notice_due' => 'Renewal notice due',
         'overdue_only' => 'Overdue Only',
+        'unpaid_only' => 'Unpaid Only',
         'eta_status' => 'ETA Status',
         'needs_eta_attention' => 'Needs ETA Attention',
         'eta_pending' => 'ETA Pending',

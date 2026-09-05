@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\FacilityWorkOrders\Schemas;
 
+use App\Filament\Actions\EvidenceUpload;
 use App\Models\Department;
 use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
@@ -266,7 +267,14 @@ class FacilityWorkOrderForm
             // engineer legitimately adds after the fact — the job is done, the phone is in their
             // pocket, and refusing the upload because the order reached a terminal state is how a
             // record ends up with no evidence at all. The commercial fields stay frozen.
-            SpatieMediaLibraryFileUpload::make('evidence')
+            //
+            // What it ACCEPTS is no longer stated here (SW-126). These three lines were the only
+            // place in the app that let a PDF onto the `evidence` collection, so the operator's own
+            // "Attach evidence" button and the contractor's portal door both refused the signed
+            // permit this form takes. `EvidenceUpload::accepting()` is the one answer for all three;
+            // everything else on this chain is genuinely this door's own — removal included, which
+            // is why the field is still built here rather than by `EvidenceUpload::make()`.
+            EvidenceUpload::accepting(SpatieMediaLibraryFileUpload::make('evidence'))
                 ->label(__('admin.facility.fields.evidence'))
                 ->helperText(__('admin.facility.helpers.evidence'))
                 ->collection('evidence')
@@ -276,9 +284,6 @@ class FacilityWorkOrderForm
                 ->downloadable()
                 ->openable()
                 ->preserveFilenames()
-                ->acceptedFileTypes(['image/*', 'application/pdf'])
-                ->maxSize(10240)
-                ->maxFiles(10)
                 ->columnSpanFull(),
         ]);
     }

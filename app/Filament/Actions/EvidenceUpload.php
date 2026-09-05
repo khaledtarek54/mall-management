@@ -36,13 +36,58 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
  * The label and helper text stay with the caller: the contractor and the operator are told different
  * things about the same field, and that is right.
  *
- * (`EvidenceAppendsAndNeverReplacesTest` pins both doors, and goes red if either reverts.)
+ * **WHAT MAY BE FILED IS NOT one of the things a caller decides (SW-126).** It was: this factory
+ * said `->image()` and capped nothing, while `FacilityWorkOrderForm` — a THIRD door onto the same
+ * `evidence` collection, and the one this class never counted — accepted `application/pdf`, capped
+ * each file at 10 MB and the batch at 10. So one collection had two answers to *"may I file the
+ * signed permit?"*: yes on the work-order form, refused at the button actually labelled *Attach
+ * evidence* and refused again at the contractor's own door, which is where a completion certificate,
+ * a signed hot-work permit or a supplier's report arrives from. The shared field was also the only
+ * one with no size cap at all, on a PRIVATE disk written to by an external contractor, leaving
+ * Livewire's 12 MB temporary-upload default as the whole bound.
+ *
+ * {@see accepting()} is that one answer, and the work-order form composes it too, so the three doors
+ * cannot drift. Removal is still NOT shared: the form hydrates from the record, so "absent means the
+ * operator removed it" is true there and false in a modal that opens empty — which is the whole
+ * reason for the save override below.
+ *
+ * (`EvidenceAppendsAndNeverReplacesTest` pins both doors and goes red if either reverts;
+ * `EveryDoorOntoTheEvidenceCollectionTakesTheSameFileTest` pins what all three of them accept.)
  */
 class EvidenceUpload
 {
+    /**
+     * A photograph OR a document. Evidence is whatever settles the question later — a picture of the
+     * repaired pump, and equally the signed permit or the completion certificate that came with it.
+     *
+     * @var array<int, string>
+     */
+    public const ACCEPTED_FILE_TYPES = ['image/*', 'application/pdf'];
+
+    /** Kilobytes per file — the cap `FacilityWorkOrderForm` has always applied, now applied everywhere. */
+    public const MAX_KILOBYTES = 10240;
+
+    /** Files per upload. `maxFiles()` compiles to a `max:` rule on the array, so this is a real refusal. */
+    public const MAX_FILES = 10;
+
+    /**
+     * What a piece of evidence may BE, applied to whichever field is asking for it.
+     *
+     * Takes the component rather than returning a configured one, because the three doors differ in
+     * everything else — label, helper text, whether removal is possible, whether the file can be
+     * opened from the panel — and only agree on this.
+     */
+    public static function accepting(SpatieMediaLibraryFileUpload $upload): SpatieMediaLibraryFileUpload
+    {
+        return $upload
+            ->acceptedFileTypes(self::ACCEPTED_FILE_TYPES)
+            ->maxSize(self::MAX_KILOBYTES)
+            ->maxFiles(self::MAX_FILES);
+    }
+
     public static function make(string $name = 'evidence'): SpatieMediaLibraryFileUpload
     {
-        return SpatieMediaLibraryFileUpload::make($name)
+        return self::accepting(SpatieMediaLibraryFileUpload::make($name))
             // A default label, because a component with none is humanised into English by Filament —
             // and `TranslationKeyConformanceTest` reads the source file, so the factory cannot rely
             // on its two call sites each setting one. They still override it: the contractor and the
@@ -50,7 +95,6 @@ class EvidenceUpload
             ->label(__('admin.facility.fields.evidence'))
             ->collection($name)
             ->multiple()
-            ->image()
             // Kept for what it genuinely does: a second drop onto the widget adds to the list rather
             // than replacing it, which is the right client behaviour. The line below is what makes
             // the same promise true of the database.

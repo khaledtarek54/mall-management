@@ -1927,3 +1927,18 @@ because these details fire per ROW of a live-search dropdown and the fix would o
 blank row for an N+1 on every keystroke — the reason the work-order resource's own docblock already
 gives for eager-loading `unit` and `area`. `GlobalSearchDetailsNameTheTradeNotADroppedColumnTest`
 asserts the columns really are gone before reporting on them, and all four teeth are mutation-proved.
+
+### SW-126
+
+**EVERY DOOR ONTO THE EVIDENCE COLLECTION TAKES THE SAME FILE (SW-126, fixed 2026-09-05).** One
+collection, three doors, two answers: the work-order FORM accepted `image/* + application/pdf`,
+capped 10 MB × 10 files, while `EvidenceUpload` — the shared factory behind the operator's *Attach
+evidence* button AND the contractor's portal verb — said `->image()` and capped **nothing**. So the
+signed hot-work permit and the completion certificate were takeable on the edit form and refused at
+the button named for them, and refused again at the contractor's own door — the door the vendor
+portal exists for — while the ONLY uncapped upload field in the app sat on a private disk written to
+by an external contractor (Livewire's 12 MB temporary-upload default was the entire bound).
+`EvidenceUpload::accepting()` is the one answer, composed by all three doors; REMOVAL stays
+per-door, because "absent means removed" is true on a form hydrated from the record and false in a
+modal that opens empty. Testing note: the shared field does not `preserveFilenames()`, so media
+lands under a generated name — assert the MIME, not the filename.

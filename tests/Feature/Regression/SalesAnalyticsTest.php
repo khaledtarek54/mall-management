@@ -45,7 +45,11 @@ function declareSales(Lease $lease, string $month, float $amount, bool $estimate
 }
 
 it('rolls MTD, YTD and the trailing twelve months from the same declarations', function () {
-    CarbonImmutable::setTestNow('2029-06-20');
+    // Just AFTER the window, because a month's sales are declared once the month has closed — the
+    // rule TenantSalesDeclaration::lastDeclarableMonth() names. Standing inside June while declaring
+    // June was a calendar artefact of the fixture, not the case under test; every figure below is
+    // unchanged by the move.
+    CarbonImmutable::setTestNow('2029-07-05');
     $asset = makeAsset();
     $lease = salesLease($asset->id, 'A-01');
 
@@ -64,7 +68,7 @@ it('rolls MTD, YTD and the trailing twelve months from the same declarations', f
 });
 
 it('reports growth against the same twelve months a year earlier', function () {
-    CarbonImmutable::setTestNow('2029-06-20');
+    CarbonImmutable::setTestNow('2029-07-05');
     $asset = makeAsset();
     $lease = salesLease($asset->id, 'A-01');
 
@@ -84,7 +88,7 @@ it('reports growth against the same twelve months a year earlier', function () {
 it('excludes a tenant with no prior year from like-for-like', function () {
     // THE trap. A mall that let a new anchor last month would otherwise report its whole turnover
     // as "growth", which measures letting rather than trading.
-    CarbonImmutable::setTestNow('2029-06-20');
+    CarbonImmutable::setTestNow('2029-07-05');
     $asset = makeAsset();
 
     $established = salesLease($asset->id, 'A-01');
@@ -112,7 +116,7 @@ it('excludes a tenant with no prior year from like-for-like', function () {
 it('excludes a tenant who has stopped declaring from like-for-like too', function () {
     // The mirror case: a departed tenant drags the headline down without saying anything about how
     // the remaining ones are trading.
-    CarbonImmutable::setTestNow('2029-06-20');
+    CarbonImmutable::setTestNow('2029-07-05');
     $asset = makeAsset();
 
     $trading = salesLease($asset->id, 'A-01');
@@ -135,7 +139,7 @@ it('excludes a tenant who has stopped declaring from like-for-like too', functio
 
 it('reports unknown growth, not zero, for a tenant with no prior sales', function () {
     // Zero would read as flat trading, which is a claim the data does not support.
-    CarbonImmutable::setTestNow('2029-06-20');
+    CarbonImmutable::setTestNow('2029-07-05');
     $asset = makeAsset();
     $lease = salesLease($asset->id, 'A-01');
 
@@ -149,7 +153,7 @@ it('reports unknown growth, not zero, for a tenant with no prior sales', functio
 });
 
 it('flags a figure built on estimated declarations', function () {
-    CarbonImmutable::setTestNow('2029-06-20');
+    CarbonImmutable::setTestNow('2029-07-05');
     $asset = makeAsset();
     $lease = salesLease($asset->id, 'A-01');
 
@@ -162,7 +166,7 @@ it('flags a figure built on estimated declarations', function () {
 });
 
 it('stays inside the selected property', function () {
-    CarbonImmutable::setTestNow('2029-06-20');
+    CarbonImmutable::setTestNow('2029-07-05');
     $here = makeAsset();
     $elsewhere = makeAsset();
 

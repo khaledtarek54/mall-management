@@ -352,7 +352,7 @@ return [
         'nav_label' => 'Occupancy cost %',
         'from' => 'From',
         'to' => 'To',
-        'window_help' => 'Defaults to a rolling 12 months. Only leases with percentage rent declare sales, so only they appear here.',
+        'window_help' => 'A rolling 12 months ending with the last CLOSED month — sales are declared after a month ends. Percentage-rent leases only.',
         'subheading' => ':tenants tenants · :portfolio of sales across the portfolio · :over above the danger line · :from – :to.',
         'cost' => 'Occupancy cost',
         'sales' => 'Declared sales',

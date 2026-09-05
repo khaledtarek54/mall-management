@@ -44,6 +44,11 @@ class ChargeCodeForm
                         ->searchable()
                         ->native(false)
                         ->placeholder(__('admin.charge_codes.unmapped'))
+                        // Same field, same helper, same defect as the posting map's own picker
+                        // (SW-145): the sentence naming the expected account group reads `$get()`,
+                        // so a deferred binding never renders it while the role is being chosen.
+                        // Fixing one and leaving the other is how the two halves of one screen drift.
+                        ->live()
                         ->helperText(fn (Get $get) => ($group = PostingRoles::group((string) $get('posting_role')))
                             ? __('admin.helpers.posting_role_expects', ['group' => PostingRoles::groupLabel($group)])
                             : __('admin.helpers.charge_code_role'))

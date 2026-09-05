@@ -959,3 +959,29 @@ and `[['key' => 'vat', 'value' => 280000]]` after any Livewire UPDATE — it swi
 shape it actually edits in. A test reading only the first shape sees `0.0` after the very interaction
 it is testing and reports a working fix as broken.
 `ASalesDeductionIsWorthWhatTheOperatorTypedTest`, 10 cases, 4 mutations.
+
+### SW-171 · SW-183
+
+**A LOCKED DECLARATION'S VIEW MODAL SHOWS THE FIGURE IT WAS BILLED AT (SW-171, fixed 2026-09-05).**
+The comment on the preview field claimed a locked declaration never reaches the hydration hook
+because `canEdit()` refuses it — true of the Edit page, false of the `ViewAction` beside it, which
+declares no schema of its own so Filament renders THIS form and runs every `afterStateHydrated` on
+it. With no lock passed, `refreshDerived()` recomputed and OVERWROTE the billed figure with a live
+estimate: an overage invoiced at 2,500 read 5,000 the day the rate was renegotiated, and read BLANK
+if the lease stopped carrying percentage rent. The hook now reads the RECORD's own status (`mixed`,
+because a schema resolves `$record` by name and it is null on a create page); the unlocked preview is
+pinned by its own control so the guard cannot be widened into deleting the feature.
+
+**A RATIO IS NOT DIVIDED BY A MONTH NOBODY COULD DECLARE (SW-183, fixed 2026-09-05).** Cost is
+billed on the FIRST of a month and sales are declared after the LAST, so a window ending inside the
+running month carried a whole month of cost and no sales: occupancy cost overstated by exactly 12/11
+(+9.09%, enough to walk a genuine 23.0% tenant across the 25% red line), and MAT measured eleven
+months against a complete prior twelve, so flat trading read **−8.3% growth every month of the
+year**. `TenantSalesDeclaration::lastDeclarableMonth()` names the rule ONCE — both scheduled
+commands already encoded it by defaulting to the previous month — and both reports clamp to it.
+**The rule is the CALENDAR, never the data**: skipping *months with no declaration* would drop a
+missing month from BOTH sides, so a tenant who stops filing would read CHEAPER — inverting the one
+signal the report exists to give; under the calendar rule they read 25.09%, which is worse, which is
+the truth. `mtd`/`ytd` deliberately keep the running month — that is what *to date* means. Also
+fixed in passing, found while measuring: `subMonths(11)` OVERFLOWS off a 31st, so the "rolling 12
+months" was silently eleven in five months of the year.

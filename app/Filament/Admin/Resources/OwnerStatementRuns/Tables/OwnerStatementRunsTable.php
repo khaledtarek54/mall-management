@@ -19,21 +19,79 @@ use Filament\Tables\Table;
 
 class OwnerStatementRunsTable
 {
-    /** One line per P&L account from the frozen snapshot (localized), or a dash for a legacy run. */
-    private static function breakdownLines(OwnerStatementRun $run, string $side): string
+    /**
+     * One line per P&L account from the frozen snapshot — an ARRAY, never a "\n"-joined string.
+     *
+     * A `TextEntry` renders its state as HTML, where a newline is whitespace: with a single scalar
+     * state Filament emits ONE `<div>` (`TextEntry::render()`), and nothing in its stylesheet sets
+     * `white-space`. So the itemised owner P&L ran together on one line — "Base rent — EGP
+     * 100,000.00 Service charge — EGP 25,000.00 Cleaning — EGP 18,000.00" — which is what an owner
+     * reads to understand what they were paid, and the only place in the app that showed a P&L as a
+     * paragraph; the PDF beside it has always drawn a proper table (SW-121).
+     *
+     * Filament's own answer to a list is an array state plus `listWithLineBreaks()`, which routes to
+     * the `<ul>` branch. Passing an array is therefore not a formatting preference — it is the
+     * contract that branch is selected by.
+     *
+     * The names come from `OwnerStatementRun::breakdownRows()`, the ONE reading of that column, so
+     * this panel and the statement PDF can never name an account in different languages.
+     *
+     * @return array<int, string>
+     */
+    public static function workingLines(OwnerStatementRun $run, string $side): array
     {
-        $isRtl = app()->getLocale() === 'ar';
-        $rows = (array) (($run->income_breakdown ?? [])[$side] ?? []);
+        $rows = $run->breakdownRows($side);
 
         if ($rows === []) {
-            return __('admin.owner_statements.pdf.none');
+            return [__('admin.owner_statements.pdf.none')];
         }
 
-        return collect($rows)->map(function (array $r) use ($isRtl) {
-            $name = $isRtl ? ($r['name_ar'] ?? $r['name_en'] ?? $r['code']) : ($r['name_en'] ?? $r['name_ar'] ?? $r['code']);
+        // An expense is parenthesised, exactly as the statement PDF prints it. On a panel that lists
+        // revenue and cost one under the other, a cost that looks like income is the one misreading
+        // that changes what the owner thinks they earned.
+        $wrap = $side === 'expense'
+            ? fn (string $money): string => '('.$money.')'
+            : fn (string $money): string => $money;
 
-            return $name.' — EGP '.number_format((float) ($r['amount'] ?? 0), 2);
-        })->join("\n");
+        return array_map(
+            fn (array $row): string => $row['name'].' — '.$wrap('EGP '.number_format($row['amount'], 2)),
+            $rows,
+        );
+    }
+
+    /**
+     * The "View working" panel: the itemised P&L, each side under its own frozen total.
+     *
+     * Lifted out of the action's `schema()` closure so it can be read without mounting a modal — the
+     * same seam `PdfDocument::html()` exists for, and for the same reason: a test that has to inflate
+     * rendered HTML to find out whether the working is on one line or four will not be written, and
+     * the one written instead proves nothing.
+     *
+     * @return array<int, TextEntry>
+     */
+    public static function workingSchema(OwnerStatementRun $record): array
+    {
+        $money = fn (float|string|null $amount): string => 'EGP '.number_format((float) $amount, 2);
+
+        return [
+            TextEntry::make('revenue_working')
+                ->label(__('admin.owner_statements.pdf.revenue'))
+                ->state(fn (): array => self::workingLines($record, 'revenue'))
+                ->listWithLineBreaks()
+                // The side's own total, from the same frozen snapshot the lines came from — the
+                // subtotal rows the PDF has always carried. Without them the panel showed a list of
+                // accounts and a net, with nothing the reader could add up in between.
+                ->helperText(__('admin.owner_statements.fields.total_revenue').' — '.$money($record->total_revenue)),
+            TextEntry::make('expense_working')
+                ->label(__('admin.owner_statements.pdf.expenses'))
+                ->state(fn (): array => self::workingLines($record, 'expense'))
+                ->listWithLineBreaks()
+                ->helperText(__('admin.owner_statements.fields.total_expense').' — ('.$money($record->total_expense).')'),
+            TextEntry::make('net_working')
+                ->label(__('admin.owner_statements.fields.net_operating_income'))
+                ->state(fn (): string => $money($record->net_operating_income))
+                ->helperText(__('admin.owner_statements.pdf.net_hint')),
+        ];
     }
 
     public static function configure(Table $table): Table
@@ -101,18 +159,7 @@ class OwnerStatementRunsTable
                     ->label(__('admin.owner_statements.actions.view_working'))
                     ->icon('heroicon-o-calculator')->color('gray')
                     ->modalSubmitAction(false)
-                    ->schema(fn (OwnerStatementRun $record) => [
-                        TextEntry::make('revenue_working')
-                            ->label(__('admin.owner_statements.pdf.revenue'))
-                            ->state(fn () => self::breakdownLines($record, 'revenue')),
-                        TextEntry::make('expense_working')
-                            ->label(__('admin.owner_statements.pdf.expenses'))
-                            ->state(fn () => self::breakdownLines($record, 'expense')),
-                        TextEntry::make('net_working')
-                            ->label(__('admin.owner_statements.fields.net_operating_income'))
-                            ->state(fn () => 'EGP '.number_format((float) $record->net_operating_income, 2))
-                            ->helperText(__('admin.owner_statements.pdf.net_hint')),
-                    ]),
+                    ->schema(fn (OwnerStatementRun $record) => self::workingSchema($record)),
 
                 PdfDownloadAction::make('download_pdf')
                     ->label(__('admin.owner_statements.actions.download_pdf'))

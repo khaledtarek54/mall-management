@@ -193,7 +193,7 @@ return [
         'title' => 'Sales & trading performance',
         'nav_label' => 'Sales analytics',
         'as_of' => 'Twelve months ending',
-        'as_of_help' => 'The trailing twelve months strip out seasonality, so two dates are comparable. Only leases with percentage rent declare sales.',
+        'as_of_help' => 'The trailing twelve months strip out seasonality. They end with the last CLOSED month, because the year they are compared against is complete.',
         'subheading' => ':mat over the twelve months to :to · :growth overall · :lfl like-for-like across :lfl_leases tenants trading in both years.',
         'mtd' => 'This month',
         'ytd' => 'Year to date',

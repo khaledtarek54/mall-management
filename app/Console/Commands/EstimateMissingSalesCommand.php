@@ -39,8 +39,11 @@ class EstimateMissingSalesCommand extends Command
 
     public function handle(): int
     {
-        $periodStart = CarbonImmutable::parse($this->option('period') ?? CarbonImmutable::now()->subMonthNoOverflow()->toDateString())
-            ->startOfMonth();
+        $periodStart = $this->option('period')
+            ? CarbonImmutable::parse($this->option('period'))->startOfMonth()
+            // The ONE definition of "the last month a declaration can exist for", shared with
+            // `sales:scan-missing-declarations` and with the two reports that divide by it.
+            : TenantSalesDeclaration::lastDeclarableMonth();
         $periodEnd = $periodStart->endOfMonth();
         $minHistory = (int) $this->option('min-history');
         $dryRun = (bool) $this->option('dry-run');

@@ -6,6 +6,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\SalesExclusions;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -59,6 +60,62 @@ class TenantSalesDeclaration extends Model implements HasMedia
         'deducted_amount' => 'decimal:2',
         'calculated_percentage_rent' => 'decimal:2',
     ];
+
+    /**
+     * **The latest month a turnover declaration can exist for — the month that has ENDED.**
+     *
+     * A tenant declares a month's sales AFTER that month closes. Both scheduled commands already
+     * said so by defaulting to *the previous month* — `sales:scan-missing-declarations` and
+     * `sales:estimate-missing` — and this is that rule named once, so a third caller cannot state
+     * it differently. Both now read it from here.
+     *
+     * It matters most to the two reports that DIVIDE by it. Occupancy cost and MAT take cost from
+     * invoices, which are raised on the FIRST of a month, and sales from declarations, which arrive
+     * after the LAST — so a window ending inside the running month carries a whole month of cost
+     * against no sales at all. Measured on the QA books at 2026-09-05: 250,945.00 of September cost
+     * against zero September declarations, and a portfolio ratio of 38.05% where the same books over
+     * twelve COMPLETE months read 36.88%. In steady state the distortion is exactly 12/11 — +9.09%
+     * relative — which is enough to walk a genuine 23.0% tenant across the 25% danger line the
+     * occupancy-cost colour band draws (SW-183).
+     *
+     * `subMonthNoOverflow()`, because 31 March minus a month is 28 February and not 3 March.
+     */
+    public static function lastDeclarableMonth(?CarbonImmutable $on = null): CarbonImmutable
+    {
+        return ($on ?? CarbonImmutable::now())->subMonthNoOverflow()->startOfMonth();
+    }
+
+    /** The last DAY that month covers — the far end of any window measured against sales. */
+    public static function declaredThrough(?CarbonImmutable $on = null): CarbonImmutable
+    {
+        return self::lastDeclarableMonth($on)->endOfMonth()->startOfDay();
+    }
+
+    /**
+     * `$end`, or {@see declaredThrough()}, whichever is EARLIER.
+     *
+     * Applied to an EXPLICIT end as well as to a default, deliberately: "the twelve months ending
+     * September", asked in September, is precisely the question that cannot be answered, and
+     * honouring it would leave the defect one keystroke away from the operator. A window that ends
+     * in a month already closed is never touched.
+     *
+     * Compared at DAY granularity so a caller that hands over an end-of-day timestamp for the last
+     * day of the closed month keeps its own precision instead of being silently rounded down.
+     *
+     * **The rule is the CALENDAR, never the data.** "Skip any month with no declaration" is the
+     * other available fix and it is worse: it drops a missing month from BOTH the cost and the sales
+     * side, so a tenant who simply stops filing reads CHEAPER — inverting the one signal the
+     * occupancy-cost report exists to give — and it makes the window per-tenant, so two rows of one
+     * table would describe different periods and a moving ANNUAL total would stop being annual.
+     * Silence is what `sales:scan-missing-declarations` and `sales:estimate-missing` exist to chase;
+     * a gap is reported as it always was, through `months_declared` and a ratio that RISES.
+     */
+    public static function clampToDeclaredMonths(CarbonImmutable $end, ?CarbonImmutable $on = null): CarbonImmutable
+    {
+        $through = self::declaredThrough($on);
+
+        return $end->startOfDay()->greaterThan($through) ? $through : $end;
+    }
 
     /**
      * What a lock freezes: everything the TENANT stated, and the period it was stated for.

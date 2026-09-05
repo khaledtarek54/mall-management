@@ -312,10 +312,31 @@ class TenantSalesDeclarationForm
                         // only after the operator typed — exactly the state where they most want
                         // to see what the lock is going to charge.
                         //
-                        // A LOCKED declaration never reaches this: `canEdit()` refuses it outright,
-                        // because it has already raised an invoice. The frozen figure is read on
-                        // the VIEW page and in the table, not here.
-                        ->afterStateHydrated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
+                        // **A LOCKED declaration DOES reach this — through the VIEW modal (SW-171).**
+                        // The claim that used to stand here — `canEdit()` refuses a locked record, so
+                        // the frozen figure is only ever read elsewhere — is true of the Edit page and
+                        // false of the door beside it. A resource's `ViewAction` declares no schema of
+                        // its own, so Filament renders THIS form
+                        // (`Resources\Pages\ListRecords::configureAction()` -> `infolist(form($schema))`,
+                        // and `Resource::infolist()` hands the schema straight back), fills it from the
+                        // record and runs every `afterStateHydrated` on it. With no lock passed,
+                        // `refreshDerived()` recomputed and OVERWROTE the billed figure with a fresh
+                        // estimate: an overage invoiced at 2,500 reads 5,000 the day the lease's
+                        // percentage rate is renegotiated, and reads BLANK if the lease stops carrying
+                        // percentage rent at all. A locked declaration is evidence — an invoice was
+                        // raised for that number — so the screen showing a different one disagrees
+                        // with the document a dispute would be settled on.
+                        //
+                        // Read from the RECORD, exactly as `refreshDerived()`'s own note says: at
+                        // hydration the form state is still being filled and `status` is declared
+                        // after this field. `mixed` rather than a typed parameter for the reason
+                        // `FacilityWorkOrderForm` states — a schema resolves `$record` by NAME, it is
+                        // null on a create page, and `Schema::getRecord()` may answer an array.
+                        ->afterStateHydrated(fn (Get $get, Set $set, mixed $record) => self::refreshDerived(
+                            $get,
+                            $set,
+                            locked: $record instanceof TenantSalesDeclaration && $record->status === 'locked',
+                        ))
                         ->prefix('EGP')
                         ->numeric()
                         ->disabled()

@@ -94,7 +94,10 @@ class SalesAnalytics extends Page implements DeliverableReport, HasSchemas, HasT
             'growth' => $pct($r['mat_growth_pct']),
             'lfl' => $pct($r['lfl_growth_pct']),
             'lfl_leases' => $r['lfl_leases'],
-            'to' => CarbonImmutable::parse($this->asOf)->format('m/Y'),
+            // The month MAT actually ends at, not the one the picker holds: the trailing twelve
+            // months stop at the last month that CLOSED, because the prior-year window they are
+            // measured against is always complete (SW-183).
+            'to' => $r['mat_to']->format('m/Y'),
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Models\TenantSalesDeclaration;
 use App\Services\Reports\ReportService;
 use App\Support\Modules;
 use App\Support\ReportFilters;
@@ -75,10 +76,21 @@ class OccupancyCost extends Page implements DeliverableReport, HasSchemas, HasTa
 
     public function mount(): void
     {
-        $to = ArAging::parseAsOf(request()->query('to'))->endOfMonth();
+        // Clamped to the last month that CLOSED, from the same place the service clamps, so the two
+        // date pickers open on the window the figures actually cover. Cost is billed on the first of
+        // a month and sales are declared after the last, so a window ending in the running month
+        // divides twelve months of cost by eleven of sales (SW-183).
+        //
+        // `startOfMonth()` before `subMonths()` below for the same reason it moved in the service:
+        // `subMonths()` overflows off a 31st and the "rolling 12 months" became 11.
+        $to = TenantSalesDeclaration::clampToDeclaredMonths(
+            ArAging::parseAsOf(request()->query('to'))->endOfMonth(),
+        );
 
         $this->to = $to->toDateString();
-        $this->from = $to->subMonths(11)->startOfMonth()->toDateString();
+        // `startOfMonth()` BEFORE `subMonths()` — `subMonths()` overflows off a 31st (31 March
+        // lands on 1 May), so the "rolling 12 months" was silently 11 in five months of the year.
+        $this->from = $to->startOfMonth()->subMonths(11)->toDateString();
     }
 
     public function filtersForm(Schema $schema): Schema
@@ -104,6 +116,10 @@ class OccupancyCost extends Page implements DeliverableReport, HasSchemas, HasTa
         $rows = $this->rows();
         $cost = (float) $rows->sum('occupancy_cost');
         $sales = (float) $rows->sum('declared_sales');
+        // The window the SERVICE actually read — every row carries the same pair. The service clamps
+        // the end to the last month that closed, so a caption built from `$this->to` would name a
+        // month whose figures are not in the totals printed beside it.
+        $window = $rows->first();
 
         return __('admin.occupancy_cost.subheading', [
             'tenants' => $rows->count(),
@@ -111,8 +127,8 @@ class OccupancyCost extends Page implements DeliverableReport, HasSchemas, HasTa
             // ratios, which would let one tiny tenant with no sales dominate the headline.
             'portfolio' => $sales > 0 ? number_format($cost / $sales * 100, 1).'%' : '—',
             'over' => $rows->filter(fn (array $r) => ($r['occupancy_cost_pct'] ?? 0) >= self::RED_PCT)->count(),
-            'from' => CarbonImmutable::parse($this->from)->format('m/Y'),
-            'to' => CarbonImmutable::parse($this->to)->format('m/Y'),
+            'from' => CarbonImmutable::parse($window['from'] ?? $this->from)->format('m/Y'),
+            'to' => CarbonImmutable::parse($window['to'] ?? $this->to)->format('m/Y'),
         ]);
     }
 

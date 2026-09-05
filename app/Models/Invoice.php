@@ -585,6 +585,37 @@ class Invoice extends Model
     }
 
     /**
+     * **Past due and still owed — the ONE definition of overdue.**
+     *
+     * `status = 'overdue'` is a STAMP the nightly `billing:scan-overdue-invoices` writes, not the
+     * question. It lags by up to a day, and `partially_paid` can never carry it at all, so reading
+     * the column answers a narrower question than the one every collections surface is asking.
+     * Measured on the QA baseline: 4 invoices carry the status where **11** are genuinely past due
+     * and still owed, and 108 merely have something left on them.
+     *
+     * Both halves are load-bearing and neither is enough alone. `stillOwed()` carries LIVE (which a
+     * hand-kept status list got wrong by omitting `disputed`) and COLLECTABLE (a partial write-off
+     * leaves the balance standing, so a bare `balance > 0` chases money the operator forgave and the
+     * bad-debt entry already relieved). The date decides whether it is late.
+     *
+     * It exists because that pair was written out SIX times — the invoice list's "Overdue only"
+     * filter, the sidebar badge, both figures on the dashboard's Action Required card,
+     * `Tenant::isDelinquent()` and `TenantBalances`' batched twin — under comments asking each other
+     * to stay identical, which is a promise a comment cannot keep. The portal was the copy that
+     * finally disagreed: its "Overdue Only" filter ran `whereCollectable()` alone and its dashboard
+     * counted the raw status, so one screen offered three different answers to one question
+     * (SW-016).
+     *
+     * `where`, not `whereDate`: an invoice due TODAY is overdue from midnight, which is what the
+     * six call sites this replaces have always done. The two console sweeps use `whereDate` and are
+     * deliberately left alone — that is a separate question about the day a fee starts accruing.
+     */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        return $query->stillOwed()->where('due_date', '<', now());
+    }
+
+    /**
      * **Money we may CHASE or PENALISE** — still owed, less `NOT_CHASEABLE`.
      *
      * The SELECTION counterpart to `chargeableBalance()`, and deliberately not its twin: this

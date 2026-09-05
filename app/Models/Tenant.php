@@ -556,8 +556,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     public function isDelinquent(?array $assetIds = null): bool
     {
         return $this->invoices()
-            ->where('due_date', '<', now())
-            ->stillOwed()
+            ->overdue()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->exists();
     }

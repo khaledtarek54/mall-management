@@ -33,6 +33,16 @@ class AccountMappingForm
                         ->required()
                         ->searchable()
                         ->native(false)
+                        // LIVE, because the helper below reads this field's OWN state (SW-145).
+                        // Without it the binding is deferred — nothing reaches the server when the
+                        // role is picked — so the sentence naming the group the role expects, the
+                        // one thing that tells the accountant whether the account they are about to
+                        // choose belongs here, only ever appeared AFTER a save, on an edit page,
+                        // about a decision already taken. Measured at HEAD by reflecting on the
+                        // built schema: `isLive` was null on this field, and `isLive()` falls
+                        // through the Section to the root Schema, which answers false. `tax_code`
+                        // on the charge-code form beside it sets `->live()` for exactly this reason.
+                        ->live()
                         ->helperText(fn (Get $get) => ($group = PostingRoles::group((string) $get('key')))
                             ? __('admin.helpers.posting_role_expects', ['group' => PostingRoles::groupLabel($group)])
                             : __('admin.helpers.posting_role'))

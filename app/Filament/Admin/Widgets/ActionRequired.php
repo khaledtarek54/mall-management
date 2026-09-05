@@ -106,8 +106,8 @@ class ActionRequired extends Widget
         // a partially written-off invoice at its full figure. This card is where an operator starts
         // their morning, and it deep-links into the AR report — which reads the same scope now, so
         // the two cannot show different arrears.
-        $overdueCount = $invoiceBase()->stillOwed()->where('due_date', '<', $now)->count();
-        $overdueAmount = $invoiceBase()->stillOwed()->where('due_date', '<', $now)
+        $overdueCount = $invoiceBase()->overdue()->count();
+        $overdueAmount = $invoiceBase()->overdue()
             ->with('writeOffs')->get()->sum(fn (Invoice $i): float => $i->collectableBalance());
 
         // Holdover: active leases PAST their end date whose billing has silently stopped, so

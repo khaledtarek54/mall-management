@@ -1951,3 +1951,27 @@ freely reversible, so a closed month cannot strand a row the ledger never knew a
 reversal is refused too. Both refusals are in English and Arabic.
 `AWriteOffReversalCannotStrandItsLedgerEntryTest`, 7 cases, 3 mutations including one that makes the
 guard stricter than the act.
+
+### SW-145 · SW-224
+
+**THE POSTING-ROLE HINT APPEARS WHILE CHOOSING (SW-145, fixed 2026-09-05).** Both posting-role
+pickers — the posting map's `key` and the charge code's `posting_role` — carry a helper that reads
+their OWN state (*"Normally points at a Revenue account"*), and neither was `->live()`, so the
+binding was deferred and the sentence first appeared after a SAVE, about a decision already taken.
+Measured by reflecting on the built schema: `isLive` null on both, falling through to the root
+Schema's `false`. `tax_code` three fields below had `->live()` for exactly this reason. Both fixed —
+fixing one and leaving the other is how two halves of one screen drift. Note for tests: Filament
+v4.11 has **no `getHelperText()` reader** (`helperText()` composes into `belowContent()`), so the
+rendered page is the only honest probe of a helper.
+
+**A THIRTEENTH MONTH IS NO MONTH (SW-224, fixed 2026-09-05).** `selectedMonth()` tested
+`\d{4}-\d{2}` and **Carbon does not throw on `2026-13`** — it overflows to January 2027 (and
+`2026-99` to March 2034), so a malformed period rendered a confident report for a different month
+under a picker showing its own *Full year* placeholder. Two teeth, each closing a door the other
+cannot: the SHAPE floor in `selectedMonth()` (strict month range — deliberately not a membership
+test, because the withholding return legitimately carries `2026-Q1` there and
+`createFromFormat('Y-m-d','2026-Q1-01')` THROWS) and `updatedPeriod()`, the membership test for the
+Livewire-update door, which also clears a WELL-FORMED month from another fiscal year — the
+pickers-disagree state no shape test can see. `ReportParameters::apply()` writes the property
+directly on scheduled delivery and passes through neither hook, which is why the read-side floor
+exists.

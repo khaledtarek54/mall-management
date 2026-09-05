@@ -144,9 +144,33 @@ class InvoicesTable
 
                         return $indicators;
                     }),
+                // Two filters, because the tenant's dashboard shows two figures and they are not
+                // the same set. This one is EVERYTHING STILL OWED — the set behind "Outstanding
+                // balance", which is the stat that links here.
+                //
+                // It was labelled "Overdue Only" while running `whereCollectable()`, so the tenant
+                // clicked an outstanding figure and landed on a list captioned Overdue that showed
+                // every unpaid invoice: on the QA baseline, 108 rows under a word that describes 11
+                // of them (SW-016). The key already said `unpaid_only`; only the label lied, and it
+                // is the label the reader sees.
+                //
+                // `stillOwed()` rather than the bare `whereCollectable()` it ran before, so the
+                // filter and `Tenant::outstandingBalance()` — which sums exactly this scope — cannot
+                // describe different sets. On today's data the two agree (a cancelled or fully
+                // credited invoice already carries a zero balance, and a draft is hidden by
+                // `visibleToTenant()`), which is why nobody noticed; agreeing by accident is not
+                // agreeing.
                 Filter::make('unpaid_only')
+                    ->label(__('admin.filters.unpaid_only'))
+                    ->query(fn (Builder $query) => $query->stillOwed()),
+                // …and this one is the OVERDUE subset, the set behind the "Overdue invoices" count.
+                // `Invoice::scopeOverdue()` is the single definition the admin filter, the sidebar
+                // badge, the dashboard card, the delinquency test and this share — never the raw
+                // `status = 'overdue'` stamp, which the nightly sweep has not written yet on a
+                // freshly-lapsed invoice and can never write on a `partially_paid` one.
+                Filter::make('overdue_only')
                     ->label(__('admin.filters.overdue_only'))
-                    ->query(fn (Builder $query) => $query->whereCollectable()),
+                    ->query(fn (Builder $query) => $query->overdue()),
             ])
             ->filtersFormColumns(2)
             ->recordActions([

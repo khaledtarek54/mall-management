@@ -661,8 +661,37 @@ class ReportService
         // Inverted, this report answers with zero cost, zero sales and a null ratio for every
         // tenant, which reads as "nobody has declared" rather than as an impossible window.
         [$from, $to] = ReportPeriod::orderedSpan($from, $to);
+
+        // ── The window may not end inside a month that has not closed (SW-183) ────────────────
+        // Cost is BILLED on the first of a month and sales are DECLARED after the last, so the
+        // running month always contributes a full month of cost and no sales at all. Ending at
+        // `now()->endOfMonth()` put twelve months of cost over eleven of sales — exactly ×12/11,
+        // +9.09% on every ratio on the page, enough to walk a genuine 23.0% tenant across the 25%
+        // danger line the colour band draws. Measured on the QA books at 2026-09-05: 250,945.00 of
+        // September cost against zero September declarations, portfolio ratio 38.05% where twelve
+        // COMPLETE months read 36.88%.
+        //
+        // See TenantSalesDeclaration::clampToDeclaredMonths() for why the rule is the CALENDAR and
+        // not "any month with no declaration" — that alternative makes a tenant who stops filing
+        // look CHEAPER.
+        //
+        // Clamped BEFORE `$from` is derived, so the default stays twelve WHOLE months rather than
+        // eleven — and never behind a start the caller STATED, because a window lying entirely
+        // inside the running month is answered honestly (cost, no sales, a null ratio) rather than
+        // emptied.
+        $declaredThrough = TenantSalesDeclaration::declaredThrough();
+
         $to = ($to ?? CarbonImmutable::now())->endOfMonth()->startOfDay();
-        $from = ($from ?? $to->subMonths(11))->startOfMonth();
+
+        if ($to->greaterThan($declaredThrough) && ($from === null || ! $from->greaterThan($declaredThrough))) {
+            $to = $declaredThrough;
+        }
+
+        // `startOfMonth()` BEFORE `subMonths()`, never after — and that is a bug fix, not a tidy-up.
+        // `subMonths()` OVERFLOWS: from 31 March it lands on 1 May, from 31 August on 1 October, so
+        // `$to->subMonths(11)->startOfMonth()` produced an ELEVEN-month window in five months of the
+        // year while the screen said twelve. Day 1 cannot overflow.
+        $from = ($from ?? $to->startOfMonth()->subMonths(11))->startOfMonth();
 
         $leases = TenantScope::applyTo(Lease::query(), 'unit')
             ->whereIn('status', ['active', 'terminated', 'expired', 'renewed'])
@@ -762,6 +791,7 @@ class ReportService
      *
      * @return array{
      *   as_of: CarbonImmutable,
+     *   mat_to: CarbonImmutable,
      *   rows: Collection<int, array<string, mixed>>,
      *   mat: float, prior_mat: float, mat_growth_pct: ?float,
      *   lfl_mat: float, lfl_prior_mat: float, lfl_growth_pct: ?float, lfl_leases: int,
@@ -772,7 +802,19 @@ class ReportService
     {
         $asOf = ($asOf ?? CarbonImmutable::now())->endOfMonth()->startOfDay();
 
-        $matFrom = $asOf->startOfMonth()->subMonths(11);
+        // ── The trailing twelve months end at the last month that CLOSED (SW-183) ─────────────
+        // MAT is compared against the same twelve months a year earlier, and that prior window is
+        // always complete. With the running month inside MAT, its missing declaration measured
+        // ELEVEN months of sales against twelve: a portfolio trading dead flat reported −8.3%
+        // growth, every month of the year, and `lfl_growth_pct` inherited it.
+        //
+        // `mtd` and `ytd` deliberately keep `$asOf`. Those are "to date" figures and the running
+        // month is what they are FOR — clamping them would make a column labelled *This month* show
+        // last month. It is the COMPARISON that has to be like-for-like, which is the same reason
+        // `lfl_eligible` exists one level down.
+        $matTo = TenantSalesDeclaration::clampToDeclaredMonths($asOf);
+
+        $matFrom = $matTo->startOfMonth()->subMonths(11);
         $priorFrom = $matFrom->subYear();
         $priorTo = $matFrom->subDay();
 
@@ -784,7 +826,7 @@ class ReportService
 
         if ($leases->isEmpty()) {
             return [
-                'as_of' => $asOf, 'rows' => collect(),
+                'as_of' => $asOf, 'mat_to' => $matTo, 'rows' => collect(),
                 'mat' => 0.0, 'prior_mat' => 0.0, 'mat_growth_pct' => null,
                 'lfl_mat' => 0.0, 'lfl_prior_mat' => 0.0, 'lfl_growth_pct' => null, 'lfl_leases' => 0,
                 'has_estimates' => false,
@@ -806,12 +848,12 @@ class ReportService
                 return $p->gte($from) && $p->lte($to);
             });
 
-        $rows = $leases->map(function (Lease $lease) use ($declarations, $asOf, $matFrom, $priorFrom, $priorTo, $inWindow): array {
+        $rows = $leases->map(function (Lease $lease) use ($declarations, $asOf, $matFrom, $matTo, $priorFrom, $priorTo, $inWindow): array {
             $all = $declarations->get($lease->id, collect());
 
             $mtd = $inWindow($all, $asOf->startOfMonth(), $asOf);
             $ytd = $inWindow($all, $asOf->startOfYear(), $asOf);
-            $mat = $inWindow($all, $matFrom, $asOf);
+            $mat = $inWindow($all, $matFrom, $matTo);
             $prior = $inWindow($all, $priorFrom, $priorTo);
 
             $matTotal = round((float) $mat->sum('declared_sales'), 2);
@@ -845,6 +887,10 @@ class ReportService
         /** @var Collection<int, array<string, mixed>> $rows */
         return [
             'as_of' => $asOf,
+            // The month MAT actually ends at, so the caption above the figures can name the window
+            // that was read rather than the one the picker holds. It differs from `as_of` exactly
+            // when the reader asked for a month that has not closed.
+            'mat_to' => $matTo,
             'rows' => $rows,
             'mat' => $mat,
             'prior_mat' => $priorMat,

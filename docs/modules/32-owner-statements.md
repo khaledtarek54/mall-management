@@ -254,3 +254,18 @@ Every sibling AR read already excluded these: `TenantLedger`, `TenantStatementPd
 
 Tests: `AnOwnerStatementShowsOnlyRealArrearsTest` — draft, full write-off, partial write-off, and a
 tenant whose debt is half paid and half forgiven. Mutation-proved both ways.
+
+### SW-121
+
+**AN OWNER READS THEIR WORKING AS LINES, NOT A PARAGRAPH (SW-121, fixed 2026-09-05).** *View
+working* built the itemised P&L with `->join("\n")` and handed the string to a `TextEntry` — and a
+newline is HTML whitespace, so the one place an owner checks what they were paid rendered as *"Base
+rent — EGP 100,000.00 Service charge — EGP 25,000.00 Cleaning — …"*, the only P&L in the app shown
+as a paragraph. Filament's own answer is an ARRAY state + `listWithLineBreaks()`, which selects the
+`<ul>` branch. Three things travelled with it: each side now shows its own frozen TOTAL (the
+subtotal rows the PDF has always carried — the panel showed accounts and a net with nothing to add
+up in between); an expense is PARENTHESISED exactly as the PDF prints it, because a cost that reads
+as income is the misreading that changes what an owner thinks they earned; and
+`OwnerStatementRun::breakdownRows()` is now the ONE locale ladder over `income_breakdown` — it was
+written twice, once in the table and once in the statement template, i.e. *which language an account
+name reads in* had two spellings on the document a dispute would be settled on.

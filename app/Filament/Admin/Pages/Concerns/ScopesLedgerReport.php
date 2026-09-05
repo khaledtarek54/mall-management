@@ -179,6 +179,29 @@ trait ScopesLedgerReport
     }
 
     /**
+     * A period arriving from a LATER update is held to the same test `mount()` applies (SW-224).
+     *
+     * `hydrateLedgerScopeFromQuery()` closed the URL door by deriving the accepted set from the
+     * page's own `periodOptions()`. `$period` is a public Livewire property, so a `$wire.set()` in
+     * the next request reaches all seventeen readers without passing through `mount()` at all, and
+     * two states got through: a MALFORMED month, which {@see selectedMonth()} now floors; and a
+     * WELL-FORMED month belonging to another fiscal year, which no shape test can catch — `year`
+     * 2026 beside `period` 2019-03 renders March 2019 under a year picker reading 2026.
+     *
+     * Cleared rather than corrected, and silently: null means "the whole fiscal year", which is this
+     * page's own default and exactly what the placeholder under the picker says — the same answer
+     * `mount()` gives a period it will not accept. Membership is asked of `periodOptions()`, the
+     * page's OWN picker, so the quarterly return keeps its `2026-Qn` for the same reason `mount()`
+     * does; a month regex here would discard every Form 41 period, which is SW-131 again.
+     */
+    public function updatedPeriod(): void
+    {
+        if ($this->period !== null && ! array_key_exists($this->period, $this->periodOptions())) {
+            $this->period = null;
+        }
+    }
+
+    /**
      * The fiscal year is never blank. `period` deliberately is not listed: its blank means
      * "full year", which is why it is typed `?string` and carries a placeholder saying so.
      *
@@ -269,10 +292,30 @@ trait ScopesLedgerReport
             ?? $this->fiscalYearEnd();
     }
 
-    /** The chosen month as a Carbon, or null when the whole year is selected. */
+    /**
+     * The chosen month as a Carbon, or null when the whole year is selected.
+     *
+     * **The shape test is strict about the MONTH, because Carbon is not (SW-224).** `\d{4}-\d{2}`
+     * accepts a thirteenth month and `createFromFormat()` does not throw on one — measured at HEAD:
+     * `2026-13-01` overflows to **2027-01-01**, `2026-99` to 2034-03-01 and `2026-00` back to
+     * 2025-12-01. So a malformed period rendered a confident report for a different month, headed
+     * "January 2027", beside a picker showing its own "Full year" placeholder because it cannot
+     * label a value it never offered — the pickers-disagree state {@see updatedYear()} exists to
+     * prevent, reached through a third door.
+     *
+     * This is the READ-SIDE FLOOR, and it is needed on top of the two membership tests rather than
+     * instead of them: `mount()` guards the URL and {@see updatedPeriod()} guards a Livewire update,
+     * while `$period` is a public property that `ReportParameters::apply()` writes DIRECTLY on the
+     * scheduled-delivery path, which passes through neither.
+     *
+     * Deliberately a SHAPE test and not a membership one. `WithholdingTaxReturn` legitimately
+     * carries `2026-Q1` here, and `createFromFormat('Y-m-d', '2026-Q1-01')` THROWS
+     * `InvalidFormatException` rather than returning false — measured — so a membership test alone
+     * would turn Form 41 into a 500. It is the same month pattern `ReportPeriod` already writes.
+     */
     private function selectedMonth(): ?Carbon
     {
-        if (! is_string($this->period) || ! preg_match('/^\d{4}-\d{2}$/', $this->period)) {
+        if (! is_string($this->period) || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->period)) {
             return null;
         }
 

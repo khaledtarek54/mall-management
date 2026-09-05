@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Lease;
 use App\Models\Tenant;
+use App\Models\TenantSalesDeclaration;
 use App\Notifications\SalesDeclarationReminderNotification;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
@@ -52,7 +53,9 @@ class ScanMissingSalesDeclarationsCommand extends Command
     {
         $periodStart = $this->option('period')
             ? Carbon::parse($this->option('period'))->startOfMonth()
-            : now()->subMonthNoOverflow()->startOfMonth();
+            // The ONE definition of "the last month a declaration can exist for", shared with
+            // `sales:estimate-missing` and with the two reports that divide sales into cost by it.
+            : TenantSalesDeclaration::lastDeclarableMonth();
         $periodEnd = $periodStart->copy()->endOfMonth();
         $periodKey = $periodStart->format('Y-m');
         $periodLabel = $periodStart->format('F Y');

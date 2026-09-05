@@ -102,8 +102,7 @@ class InvoiceResource extends Resource
         // `stillOwed()`: the badge must count what the "Overdue only" filter shows and what the
         // dashboard card says, and `balance > 0` alone counts drafts and written-off debts.
         $overdue = static::getEloquentQuery()
-            ->stillOwed()
-            ->where('due_date', '<', now())
+            ->overdue()
             ->count();
 
         return $overdue > 0 ? (string) $overdue : null;
