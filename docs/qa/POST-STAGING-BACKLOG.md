@@ -104,10 +104,10 @@ Real operator pain, none of it wrong money.
 | **UX5-06** | **Dead-end KPIs** — MallStats (every money role's landing widget), MonthlyRevenueTrend and EnergyConsumptionTrend have no drill-down. *(ArAging and TenantMix DO link — verified)* | The numbers are right; the click is missing | S |
 | **UX5-05** | **Technician on a phone**: PM jobs show **no date at all** and no equipment code, with no operator override of `visibleFrom('md')` | O3 (a technician app) is declined, so this is the tool — but a technician can still open the record | S |
 | **UX5-01** | **No CAM reconciliation workbench** — the year-end runs as four sequential row actions with no arithmetic shown before commitment | The engine is at/above Yardi and allocations are inspectable after generation. Only unshipped 🟠 UI story | M |
-| **UX5-04** | **⌘K reaches records only** — 33 report/utility pages are sidebar-scan-only while UX-28 advertises the palette | Sidebar navigation works | S |
-| **UX5-07** | **The Arabic-chrome gate sweeps the admin panel only** — the portal has no runtime chrome guard | Portal chrome IS translated today; this is a missing *guard*, not a defect | S |
+| ~~**UX5-04**~~ | ~~**⌘K reaches records only** — 33 report/utility pages are sidebar-scan-only while UX-28 advertises the palette~~ **SHIPPED 2026-09-05** — the palette now carries a *Screens & reports* category, LAST (someone typing here usually holds a document number). Not a second index: the entries are `AssistantCorpus`, which already scores every screen and report in both languages and carries the operator's own synonyms — ranking is most of that feature and a second copy is a second thing to keep good. Access is asked per entry per request through `AssistantEntry::isReachableByReader()`, extracted from the assistant on its second real call site. Every word must land, or one shared word answers with a spray of screens. | — | — |
+| ~~**UX5-07**~~ | ~~The Arabic-chrome gate sweeps the admin panel only~~ **ALREADY CLOSED, verified 2026-09-05** — `ArabicPanelHasNoEnglishChromeConformanceTest` has swept `portal` and `vendor` since 2026-08-30, with the premise counted PER PANEL so a total cannot stay satisfied by the admin panel's own resources. | — | — |
 | ~~**AR-GL-03**~~ | ~~The tenant statement itemizes two of the four settlement channels its own `total_paid` counts~~ **SHIPPED 2026-08-26** — applied on-account credit and a netted security deposit now render in one "Other settlements" section with a KIND column. One table rather than two: both answer the same question and carry the same four facts. | — | — |
-| **D3-04** | `TableView::makeDefault()` clears defaults by the **view owner's** id, so a colleague adopting a shared view wipes the owner's personal default; a non-owner's "clear" silently cannot escape a team default | A preference, not money | M |
+| **D3-04** | ~~`TableView::makeDefault()` clears defaults by the **view owner's** id, so a colleague adopting a shared view wipes the owner's personal default~~ **FIXED 2026-09-05** — the clearing is scoped to the ACTOR, plus the shared tier when the marked view is itself shared (two team defaults resolve by row id, which nobody decided). Mutation-proved per tooth. **STILL OPEN, and it is the smaller half:** a non-owner's "clear" cannot escape a team default — the flag is a column on the shared row, so there is nowhere to record "not for me". Needs the per-user pivot `ReportPreference` already models. | A preference, not money | S remaining |
 | ~~**D2-09**~~ | ~~No retention/prune for `notifications`, `exports` (+files), `failed_import_rows`, `failed_jobs`, expired Sanctum tokens~~ **SHIPPED 2026-08-26** — `HousekeepingSettings` + `atriom:prune-transient-data`, weekly, a period per class. Laravel's and Sanctum's own pruners are CALLED rather than reimplemented, from inside the command so the period is read at run time. The export FILE is the substance: Filament's `Export` uses the `Prunable` trait with no `prunable()` method and no `pruning()` hook, so even a working prune would orphan the file. | — | — |
 | **UX5-08** | Tenant 360 lacks the violations tab and sales trend | Both reachable from their own screens | S |
 | **UX5-10** | No consolidated approvals inbox | Per-module badges + tabs exist; the ladder is single-level anyway | S |
@@ -140,7 +140,7 @@ round changed the reading.
 - **D2-04** — run `gh workflow run ci.yml` once before the cutover commit. CI stays off by the
   owner's standing decision; this is the documented manual substitute, and the CVE audit has never
   run since the jobs were repaired.
-- **OPS-05** — reseed this workstation (`migrate:fresh --seed`) once the activity-log session lands:
+- ~~**OPS-05**~~ — **CLOSED 2026-09-05**: `atriom:health` reports `0 queued, 0 failed`. Was: reseed this workstation (`migrate:fresh --seed`) once the activity-log session lands:
   716 stale queued jobs and 5 E2E rows from 2026-08-23 are what turn the local health queue row red.
 - **D2-13 / H3** — measure the leading-wildcard `LIKE` search on a posture-B staging box before
   optimising anything. H3's own instruction, and staging is the first place it can be measured.
@@ -150,12 +150,12 @@ round changed the reading.
   exists and CI is paused, so nothing has enforced it. Almost all of it is `ordered_imports` /
   `unary_operator_spaces`. One `composer fix` run closes it — do it on a QUIET tree, because it
   rewrites files across the whole app and would collide with anything in flight.
-- **OPS-08** — `ADocumentIsWrittenInItsReadersLanguageTest` is **RED on `main`** (3 of 11 cases: an
+- ~~**OPS-08**~~ — **GREEN as of 2026-09-05** (11/11, re-run at HEAD). Was: `ADocumentIsWrittenInItsReadersLanguageTest` is **RED on `main`** (3 of 11 cases: an
   English-locale invoice renders «فاتورة»). It is red at HEAD independently of any deposit or
   payment-link work, and the PDF views were last touched by `98fa45cc` — whoever owns that commit
   should re-run the file. Recorded here rather than fixed because several sessions are working the
   tree and this is not this sweep's area.
-- **OPS-07** — the MySQL QA baseline is **stale** and two `tests/Mysql` cases fail on it for reasons
+- ~~**OPS-07**~~ — **CLOSED 2026-09-05**: baseline rebuilt, `composer qa` is 1087/0. Was: the MySQL QA baseline is **stale** and two `tests/Mysql` cases fail on it for reasons
   unrelated to any code: `leases.requires_sales_reporting` and the `facility_work_order_comments`
   table are both missing from `docs/qa/scripts/baseline.sql`. Rebuild with `composer qa:baseline`.
   Until then the tier reports two red rows that read as product defects and are not.

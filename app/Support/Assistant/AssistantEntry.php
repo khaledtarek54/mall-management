@@ -25,6 +25,41 @@ final class AssistantEntry
     ) {}
 
     /**
+     * Whether the signed-in reader could actually open what this entry points at.
+     *
+     * Lives on the ENTRY because two surfaces ask it — the assistant, which will not suggest a
+     * screen the reader cannot open, and global search, which will not list one. A second copy is
+     * a second thing to keep in step, and the one that drifted would be the one that leaked.
+     *
+     * A TASK is asked of the RESOURCE, not of the create page. Measured when the assistant shipped:
+     * a `viewer` — who may create nothing anywhere — was offered "New invoice" with a link straight
+     * to the form, because the page's own `canAccess()` answered true and the refusal only arrived
+     * after the click. `canCreate()` is the right question and the one the button itself asks.
+     *
+     * Asked HERE rather than while building the corpus, deliberately: the corpus is memoised per
+     * locale and shared by every request, so filtering it by the current user would hand the next
+     * reader whatever the previous one was allowed to see.
+     *
+     * `rescue()`d to FALSE: a `canAccess()` that throws is a screen whose access cannot be
+     * established, and the safe reading of that is "no". Failing open would be a permission bypass
+     * reached through a search box.
+     */
+    public function isReachableByReader(): bool
+    {
+        return rescue(
+            function (): bool {
+                if ($this->kind === 'task') {
+                    return (bool) $this->key::canCreate();
+                }
+
+                return (bool) $this->screen::canAccess();
+            },
+            false,
+            report: false,
+        );
+    }
+
+    /**
      * What this entry scores against one folded query word, and how many distinct words it hit.
      *
      * Returned together rather than as two passes because ranking needs both: a long guide can

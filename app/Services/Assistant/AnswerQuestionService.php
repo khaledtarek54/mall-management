@@ -798,33 +798,13 @@ class AnswerQuestionService
     /**
      * Whether the signed-in reader could actually open this screen.
      *
-     * `rescue()`d to FALSE: a `canAccess()` that throws is a screen whose access cannot be
-     * established, and the safe reading of that is "no". Failing open here would be a permission
-     * bypass reached through a search box.
+     * Extracted onto {@see AssistantEntry::isReachableByReader()} when global search became the
+     * second surface asking it (UX5-04). The reasoning — tasks asked of the resource, per-request
+     * rather than per-corpus, rescued to false — lives with the method.
      */
     private function readerMayOpen(AssistantEntry $entry): bool
     {
-        return rescue(
-            function () use ($entry): bool {
-                // A TASK is asked of the RESOURCE, not of the create page.
-                //
-                // Measured: a `viewer` — who may create nothing anywhere — was offered "New
-                // invoice" with a link straight to the form. The page's own `canAccess()` answered
-                // true, so the existing check waved it through, and the refusal only arrived after
-                // the click. `canCreate()` is the right question and the one the button itself asks.
-                //
-                // Checked HERE rather than while building the corpus deliberately: the corpus is
-                // memoised per locale and shared by every request, so filtering it by the current
-                // user would hand the next reader whatever the previous one was allowed to see.
-                if ($entry->kind === 'task') {
-                    return (bool) $entry->key::canCreate();
-                }
-
-                return (bool) $entry->screen::canAccess();
-            },
-            false,
-            report: false,
-        );
+        return $entry->isReachableByReader();
     }
 
     /**

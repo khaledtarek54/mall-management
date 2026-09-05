@@ -418,6 +418,11 @@ return [
         ],
         'table_placeholder' => 'Search by name, number or reference…',
 
+        // The ⌘K palette's SCREENS category (UX5-04). Named for what the operator is choosing
+        // between, not for how it is found: the entries are pages, reports and create-forms, and
+        // "Screens & reports" is what an operator would call that list.
+        'screens' => 'Screens & reports',
+
         /*
          | Dropdown search prompts. Shown INSIDE an open picker before anything is typed, and they
          | exist to answer a question the operator otherwise answers by guessing: what may I type

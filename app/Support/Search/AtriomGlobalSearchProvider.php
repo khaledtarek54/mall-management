@@ -2,6 +2,7 @@
 
 namespace App\Support\Search;
 
+use App\Support\Assistant\AssistantCorpus;
 use App\Support\SearchPolicy;
 use Filament\Facades\Filament;
 use Filament\GlobalSearch\GlobalSearchResult;
@@ -28,6 +29,15 @@ use Illuminate\Contracts\Support\Htmlable;
  */
 class AtriomGlobalSearchProvider implements GlobalSearchProvider
 {
+    /**
+     * How many screens the palette will offer.
+     *
+     * Small on purpose: this category sits under every record category, and a long tail of
+     * loosely-matching screens pushes the records the operator was probably looking for off the
+     * bottom of the dropdown.
+     */
+    public const MAX_SCREEN_RESULTS = 5;
+
     public function getResults(string $query): ?GlobalSearchResults
     {
         // ---- 1. A floor on the query ------------------------------------
@@ -92,7 +102,84 @@ class AtriomGlobalSearchProvider implements GlobalSearchProvider
             $builder->category($label, $results);
         }
 
+        // ---- 4. The SCREENS, last ---------------------------------------
+        //
+        // ⌘K reached records only (UX5-04), so the 33 report and utility PAGES — the VAT return,
+        // month-end close, the rent roll, the ageing report — were reachable by scanning a
+        // fourteen-group sidebar, while the palette that UX-28 advertises to every operator could
+        // not find them. A search box that answers for half the panel is worse than one that
+        // answers for none, because the half it misses reads as absent rather than as elsewhere.
+        //
+        // Deliberately LAST, under every record category: someone typing into this box is usually
+        // holding a document number, and a screen suggestion above the invoice they pasted would
+        // be a worse answer to the commoner question.
+        foreach ($this->screenResults($query) as $label => $results) {
+            $builder->category($label, $results);
+        }
+
+
         return $builder;
+    }
+
+    /**
+     * Screens, reports and create-forms matching the query — the assistant's corpus, re-read.
+     *
+     * NOT a second index. `AssistantCorpus` already scores every screen and report against a
+     * folded query in both languages, carries the operator's own vocabulary (`synonyms`), and is
+     * memoised per locale; ranking is most of that feature and a second copy here would be a
+     * second thing to keep good. What differs is only the presentation and the ceiling.
+     *
+     * Access is asked per ENTRY and per REQUEST through `isReachableByReader()` — never while
+     * building the corpus, which is shared between operators.
+     *
+     * @return array<string, array<int, GlobalSearchResult>>
+     */
+    protected function screenResults(string $query): array
+    {
+        $words = AssistantCorpus::tokenise($query);
+
+        if ($words === []) {
+            return [];
+        }
+
+        $scored = [];
+
+        foreach (AssistantCorpus::entries(app()->getLocale()) as $entry) {
+            ['score' => $score, 'hits' => $hits] = $entry->scoreAgainst($words);
+
+            // Every word the operator typed must land somewhere. A single shared word ("tenant",
+            // "report") matches most of the corpus, and a palette that answers everything with
+            // twelve screens is one people stop opening.
+            if ($score <= 0 || $hits < count($words)) {
+                continue;
+            }
+
+            if (! $entry->isReachableByReader()) {
+                continue;
+            }
+
+            $url = rescue(fn (): ?string => $entry->screen::getUrl(), null, report: false);
+
+            if ($url === null) {
+                continue;
+            }
+
+            $scored[] = ['score' => $score, 'title' => $entry->title, 'url' => $url, 'kind' => $entry->kind];
+        }
+
+        if ($scored === []) {
+            return [];
+        }
+
+        usort($scored, fn (array $a, array $b): int => [$b['score'], $a['title']] <=> [$a['score'], $b['title']]);
+
+        $results = [];
+
+        foreach (array_slice($scored, 0, self::MAX_SCREEN_RESULTS) as $row) {
+            $results[] = new GlobalSearchResult(title: $row['title'], url: $row['url']);
+        }
+
+        return [(string) __('admin.search.screens') => $results];
     }
 
     /**
