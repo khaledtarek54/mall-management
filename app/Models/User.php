@@ -251,7 +251,11 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
     public function assignedAssets(): BelongsToMany
     {
         return $this->belongsToMany(Asset::class, 'asset_user')
-            ->withPivot(['assigned_at', 'ended_at', 'notes'])
+            // The same pivot model as `Asset::staff()`, and the same withPivot set: one table read
+            // through two relations that disagree about the shape of a row is how `title` came to
+            // be readable from one side and null from the other.
+            ->using(AssetUser::class)
+            ->withPivot(['id', 'title', 'assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
     }
 

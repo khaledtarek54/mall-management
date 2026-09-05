@@ -10,6 +10,7 @@ use App\Models\ApprovalRule;
 use App\Models\Area;
 use App\Models\Asset;
 use App\Models\AssetOwner;
+use App\Models\AssetUser;
 use App\Models\AssistantDocChunk;
 use App\Models\AssistantQuestion;
 use App\Models\BankAccount;
@@ -185,6 +186,9 @@ class MorphMap
         'area' => Area::class,
         'asset' => Asset::class,
         'asset_owner' => AssetOwner::class,
+        // The staff twin of the ownership pivot. It gained a model on 2026-09-05 so the register
+        // could say who still works here without re-parsing raw pivot strings.
+        'asset_user' => AssetUser::class,
         'bank_account' => BankAccount::class,
         'bank_match' => BankMatch::class,
         'bank_statement' => BankStatement::class,

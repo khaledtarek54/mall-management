@@ -11,6 +11,11 @@ return [
         'other' => 'أخرى (حسب البند)',
     ],
     'statuses' => [
+        'staff_tenure' => [
+            'active' => 'يعمل حاليًا',
+            'scheduled' => 'لم يبدأ بعد',
+            'ended' => 'لم يعد يعمل هنا',
+        ],
         'journal_entry' => [
             'draft' => 'مسودة',
             'posted' => 'مرحّل',
@@ -531,5 +536,4 @@ return [
             'other' => 'أخرى',
         ],
     ],
-
 ];

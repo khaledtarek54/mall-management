@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
+use App\Filament\Admin\Resources\Users\UserResource;
+use App\Models\User;
 use App\Support\Filament\AttachedOnce;
 use App\Support\Filament\TenureRange;
 use App\Support\PermissionVocabulary;
@@ -73,9 +75,26 @@ class AssetStaffRelationManager extends RelationManager
                     ->label(__('admin.tables.user.name'))
                     ->weight('bold')
                     ->searchable(),
+                // A PERSON'S EMAIL LIVES ON THE PERSON, and this column is now the way to reach it.
+                // Reported by the tester as "no way to edit the assigned staff email": there was
+                // none from here, and there should not be an email FIELD on this modal — the
+                // address is the user's LOGIN, not a fact about their assignment to this mall, and
+                // editing a credential from a property tab is the wrong place for it. What was
+                // missing is the ROUTE, so the address links to the user record for anyone who may
+                // edit it, and stays plain copyable text for anyone who may not.
                 TextColumn::make('email')
                     ->label(__('admin.tables.user.email'))
-                    ->copyable(),
+                    ->copyable()
+                    // The TENANT is passed explicitly. This panel is tenant-scoped, so `getUrl()`
+                    // otherwise builds the route from whatever tenant happens to be set on the
+                    // request — and a relation manager already knows the property it belongs to.
+                    ->url(fn (User $record): ?string => UserResource::canEdit($record)
+                        ? UserResource::getUrl('edit', ['record' => $record], tenant: $this->getOwnerRecord())
+                        : null)
+                    ->color(fn (User $record): ?string => UserResource::canEdit($record) ? 'primary' : null)
+                    ->tooltip(fn (User $record): ?string => UserResource::canEdit($record)
+                        ? __('admin.tables.user.edit_person_tooltip')
+                        : null),
                 TextColumn::make('roles.name')
                     ->label(__('admin.tables.user.role'))
                     ->badge()
@@ -88,6 +107,30 @@ class AssetStaffRelationManager extends RelationManager
                     ->label(__('admin.fields.assigned_at'))
                     ->date('d/m/Y')
                     ->placeholder('—'),
+                // WHETHER THIS PERSON STILL WORKS HERE. The register showed an Assigned date and an
+                // Ended date and left the reader to compare them against today — for every row, in
+                // their head. Derived from `AssetUser::coversDate()`, the same predicate shape the
+                // ownership pivot beside it uses, so the two tenures cannot come to disagree about
+                // what "current" means.
+                TextColumn::make('tenure')
+                    ->label(__('admin.tables.common.status'))
+                    ->badge()
+                    ->state(fn (User $record): string => match (true) {
+                        $record->pivot->hasEnded() => 'ended',
+                        ! $record->pivot->coversDate() => 'scheduled',
+                        default => 'active',
+                    })
+                    ->formatStateUsing(fn (string $state): string => __("admin.statuses.staff_tenure.{$state}"))
+                    ->color(fn (string $state): string => match ($state) {
+                        'ended' => 'danger',
+                        'scheduled' => 'warning',
+                        default => 'success',
+                    })
+                    // The end date is what the badge is derived FROM, so it belongs beside it
+                    // rather than being a second thing to go and look up.
+                    ->description(fn (User $record): ?string => $record->pivot->ended_at
+                        ? __('admin.tables.user.ended_on', ['date' => $record->pivot->ended_at->format('d/m/Y')])
+                        : null),
             ])
             ->headerActions([
                 AttachAction::make()

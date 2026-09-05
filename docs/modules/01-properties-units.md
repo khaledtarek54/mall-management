@@ -210,6 +210,25 @@ Companion accessors: `occupiedAreaSqm()`, `totalUnitAreaSqm()`. Guarding test: `
 - `AssetResource::canCreate()` returns false when inside a specific property context; true only when tenant is the ALL pseudo-asset or unset.
 - `AssignedAssets::idsForCurrentUser()` scopes to user's assigned assets (both `asset_user` and `asset_owner` relationships), but always hides the ALL pseudo-asset from the restricted user's visible set.
 
+### Assigned Staff: tenure, and where a person's email lives
+
+`asset_user` has a pivot model (`App\Models\AssetUser`) as of 2026-09-05 — the twin of
+`AssetOwner`. Before that its dates came back as raw strings while the ownership pivot beside it
+returned real dates, and "is this assignment still running?" had no definition anywhere:
+`AssignedAssets::idsFor()` says in as many words that *staff assignments stay all-time — that tenure
+is a separate concern*, so nothing read `ended_at` at all.
+
+The register's **Status** column derives from `AssetUser::coversDate()`, deliberately identical in
+shape to `AssetOwner::coversDate()` including the `startOfDay()` on every side. Three states, not
+two: *Active*, *Ended*, and *Not started* — a future assignment and a finished one are both "not
+currently working here" and they call for opposite actions.
+
+**A person's email is not editable from here, and that is deliberate.** The address is the user's
+LOGIN, not a fact about their posting to this mall, so the assignment modal has no email field;
+the column LINKS to the user record for anyone holding `users.edit` instead. The tenant is passed
+to `getUrl()` explicitly — this panel is tenant-scoped and a relation manager already knows which
+property it belongs to. (`TheStaffRegisterSaysWhoStillWorksHereTest`.)
+
 ### A unit fits inside its property
 
 `App\Support\AreaFitsTheProperty` refuses a unit whose area exceeds the property's stated

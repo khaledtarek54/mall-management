@@ -11,6 +11,11 @@ return [
         'other' => 'Other (per the clause)',
     ],
     'statuses' => [
+        'staff_tenure' => [
+            'active' => 'Active',
+            'scheduled' => 'Not started',
+            'ended' => 'No longer here',
+        ],
         'journal_entry' => [
             'draft' => 'Draft',
             'posted' => 'Posted',
@@ -532,5 +537,4 @@ return [
             'other' => 'Other',
         ],
     ],
-
 ];

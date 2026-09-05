@@ -224,6 +224,8 @@ return [
             'unassigned_only' => 'Not assigned to anyone',
         ],
         'user' => [
+        'edit_person_tooltip' => 'Open this person\'s record to change their name, email or password.',
+        'ended_on' => 'Ended :date',
             'name' => 'Name',
             'email' => 'Email',
             'role' => 'Role',
