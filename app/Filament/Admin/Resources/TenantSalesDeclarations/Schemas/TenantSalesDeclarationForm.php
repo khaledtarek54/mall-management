@@ -6,6 +6,7 @@ use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TenureRange;
 use App\Support\SalesExclusions;
 use App\Support\Search\OptionDisplay;
 use App\Support\Search\RecordOption;
@@ -173,7 +174,7 @@ class TenantSalesDeclarationForm
                         ->label(__('admin.fields.period_end'))
                         ->required()
                         ->displayFormat('d/m/Y')
-                        ->afterOrEqual('period_start')
+                        ->minDate(TenureRange::endsOnOrAfter('period_start'))
                         ->default(now()->subMonth()->endOfMonth()),
                     // The tenant no longer types a figure — they attach a sales
                     // report (see the section below). Staff read the number off

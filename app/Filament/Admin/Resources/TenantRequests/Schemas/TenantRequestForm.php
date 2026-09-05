@@ -12,6 +12,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TenureRange;
 use App\Support\FormTab;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
@@ -207,7 +208,7 @@ class TenantRequestForm
                             ->label(__('admin.fields.valid_to'))
                             ->native(false)
                             ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value)
-                            ->afterOrEqual('valid_from'),
+                            ->minDate(TenureRange::endsOnOrAfter('valid_from')),
                     ])->columns(2)
                         // Permit-only, exactly as the SECTION was: a Tab takes
                         // ->visible() too, and without it every request would carry an
@@ -268,7 +269,7 @@ class TenantRequestForm
                             ->label(__('admin.fields.scheduled_to'))
                             ->native(false)
                             ->seconds(false)
-                            ->afterOrEqual('scheduled_from'),
+                            ->minDate(TenureRange::endsOnOrAfter('scheduled_from')),
                     ])->columns(2),
 
                     FormTab::make('admin.sections.resolution', [

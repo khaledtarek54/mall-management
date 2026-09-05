@@ -6,6 +6,7 @@ use App\Models\OwnerRequest;
 use App\Models\User;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\Filament\TenureRange;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -74,7 +75,7 @@ class OwnerRequestForm
                         ->label(__('admin.tables.owner_request.schedule_to'))
                         ->native(false)
                         ->seconds(false)
-                        ->afterOrEqual('scheduled_from'),
+                        ->minDate(TenureRange::endsOnOrAfter('scheduled_from')),
                 ]),
         ]);
     }

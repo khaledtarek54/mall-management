@@ -8,6 +8,7 @@ use App\Models\LeaseOption;
 use App\Models\Unit;
 use App\Services\ExerciseLeaseOptionService;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TenureRange;
 use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Actions\Action;
@@ -89,7 +90,7 @@ class LeaseOptionsRelationManager extends RelationManager
             DatePicker::make('latest_notice_date')
                 ->label(__('admin.lease_options.latest_notice_date'))
                 ->native(false)
-                ->afterOrEqual('earliest_notice_date')
+                ->minDate(TenureRange::endsOnOrAfter('earliest_notice_date'))
                 ->helperText(__('admin.helpers.lease_option_latest_notice'))
                 ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.lease_option_latest_notice')),
 

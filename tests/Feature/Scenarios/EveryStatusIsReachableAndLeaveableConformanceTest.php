@@ -39,7 +39,10 @@
  * gateway-written; sweeping it would demand exemptions for a module deliberately invisible.
  */
 
+use App\Support\ProjectedState;
 use App\Support\ValueSets;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /** value => reason. A terminal value is one the record correctly never leaves. */
@@ -112,6 +115,17 @@ const STATUS_TERMINAL = [
  * passes `'done'` and this gate goes red, which is exactly the `expired` failure it exists for.
  */
 const STATUS_EXEMPT = [
+    // ── WRITTEN BY A PROJECTOR, THROUGH A VARIABLE ────────────────────────────────────────────
+    //
+    // `recomputeStatus()` picks the value in a `match` and writes `['status' => $target]`, so the
+    // literals are in the file but the WRITE is a variable — invisible to the derivation above.
+    // These are the values a person may NOT state (see `ProjectedState::declarable()`): the form
+    // deliberately does not offer them, because offering them let an operator type a unit into
+    // occupancy and have it silently reverted.
+    'units.status.occupied' => ['Unit::recomputeStatus projects it from the leases holding the unit', 'app/Models/Unit.php', "=> 'occupied'"],
+    'units.status.reserved' => ['Unit::recomputeStatus projects it from a lease not yet released', 'app/Models/Unit.php', "=> 'reserved'"],
+    'rentable_items.status.assigned' => ['RentableItem::recomputeStatus projects it from a live holding', 'app/Models/RentableItem.php', 'STATUS_ASSIGNED'],
+
     // The gateway callback maps provider states through a variable.
     'payments.status.initiated' => ['PaymobPaymentInitiator seeds the pending receipt', 'app/Services/Paymob/PaymobPaymentInitiator.php', 'Payment::create'],
     'payments.status.authorized' => ['the gateway callback maps provider states', 'app/Http/Controllers/Paymob/CallbackController.php', 'status'],
@@ -265,7 +279,7 @@ function statusGateDerive(): array
         // The column's own DEFAULT is a writer: a create that omits `status` births the record in
         // it (draft, open, recorded, active — the born-state family).
         try {
-            foreach (Illuminate\Support\Facades\Schema::getColumns($table) as $col) {
+            foreach (Schema::getColumns($table) as $col) {
                 if ($col['name'] === 'status' && is_string($col['default'] ?? null)) {
                     $default = trim($col['default'], "'\"");
                     if (in_array($default, ValueSets::allowed($table, 'status'), true)) {
@@ -321,7 +335,7 @@ function statusGateDerive(): array
             // resolve against the file's own class via the PSR-4 path (app/Models writers assign
             // their own constants that way).
             // PHP enum cases written as `X::Case->value` (UnitOwnershipStatus lives in App\Support).
-            preg_match_all("/([A-Za-z_][A-Za-z0-9_]*)::([A-Za-z][A-Za-z0-9_]*)->value/", $window, $cases, PREG_SET_ORDER);
+            preg_match_all('/([A-Za-z_][A-Za-z0-9_]*)::([A-Za-z][A-Za-z0-9_]*)->value/', $window, $cases, PREG_SET_ORDER);
             foreach ($cases as $c) {
                 foreach (['App\\Enums\\', 'App\\Support\\', 'App\\Models\\'] as $ns) {
                     $enum = $ns.$c[1];
@@ -339,7 +353,7 @@ function statusGateDerive(): array
                 }
             }
 
-            preg_match_all("/([A-Za-z_][A-Za-z0-9_]*|self|static)::([A-Z][A-Z0-9_]*)/", $window, $consts, PREG_SET_ORDER);
+            preg_match_all('/([A-Za-z_][A-Za-z0-9_]*|self|static)::([A-Z][A-Z0-9_]*)/', $window, $consts, PREG_SET_ORDER);
             foreach ($consts as $c) {
                 $class = in_array($c[1], ['self', 'static'], true)
                     ? 'App\\'.str_replace('/', '\\', substr($rel, 4, -4))
@@ -348,7 +362,7 @@ function statusGateDerive(): array
                     continue;
                 }
                 $value = constant("$class::{$c[2]}");
-                if (! is_string($value) || ! is_subclass_of($class, Illuminate\Database\Eloquent\Model::class)) {
+                if (! is_string($value) || ! is_subclass_of($class, Model::class)) {
                     continue;
                 }
                 $table = (new $class)->getTable();
@@ -401,8 +415,20 @@ function statusGateDerive(): array
 function statusGateFormOffered(string $table, string $model): array
 {
     $hint = class_basename($model);
-    $enum = Illuminate\Support\Str::studly(Illuminate\Support\Str::singular($table)).'Status';
-    $offered = [];
+    $enum = Str::studly(Str::singular($table)).'Status';
+
+    // A PROJECTED column's form offers exactly the DECLARABLE set, and it does so through a closure
+    // that no static read can resolve (2026-09-05). `units.status` and `rentable_items.status` are
+    // written by their projector, not typed, so their forms narrow the options to the two values an
+    // operator may state — at which point this sweep, which reads source, saw no options at all and
+    // reported every value of both columns as unreachable.
+    //
+    // Read from the registry that owns the fact instead of trying to parse the closure. This is the
+    // narrow answer, not a blanket one: it accounts for the declarable values only, and the values
+    // the PROJECTOR writes still have to earn their place in STATUS_EXEMPT below, naming the
+    // projector and a proof token — so a projection that stopped writing `occupied` still turns
+    // this gate red.
+    $offered = ProjectedState::declarable($model);
 
     foreach (statusGateSources() as $rel => $src) {
         if (! str_contains($src, "Select::make('status')") && ! str_contains($src, "ToggleButtons::make('status')")) {
@@ -526,6 +552,7 @@ it('every non-terminal value has a leaver — a file that mentions it and writes
             foreach ($derived[$table]['mentioned'][$v] ?? [] as $rel) {
                 if (in_array($rel, $writersOfOthers, true)) {
                     $leavers[] = $rel;
+
                     continue;
                 }
 
@@ -534,7 +561,7 @@ it('every non-terminal value has a leaver — a file that mentions it and writes
                 // routinely different files — `EditDepositTransaction` gates its cancel button on
                 // `status === 'recorded'` and `DepositService::cancel()` writes `cancelled`.
                 // Without the hop, every service-mediated transition reads as a dead end.
-                if (preg_match_all("/([A-Z][A-Za-z0-9_]*)::class/", statusGateSources()[$rel] ?? '', $calls)) {
+                if (preg_match_all('/([A-Z][A-Za-z0-9_]*)::class/', statusGateSources()[$rel] ?? '', $calls)) {
                     foreach (array_unique($calls[1]) as $called) {
                         foreach ($writersOfOthers as $writerFile) {
                             if (str_ends_with($writerFile, "/$called.php")) {
@@ -583,6 +610,7 @@ it('keeps the registries honest — no terminal or exempt row for a value that l
         $allowed = isset($columns[$table]) ? ValueSets::allowed($table, 'status') : [];
         if (! in_array($v, $allowed, true)) {
             $stale[] = "STATUS_EXEMPT: $key — value no longer in the set";
+
             continue;
         }
 

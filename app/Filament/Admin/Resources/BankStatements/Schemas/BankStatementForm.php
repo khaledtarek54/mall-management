@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\BankStatements\Schemas;
 
 use App\Models\BankAccount;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TenureRange;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
@@ -42,7 +43,7 @@ class BankStatementForm
                         ->label(__('admin.fields.period_end'))
                         ->required()
                         ->native(false)
-                        ->afterOrEqual('period_start'),
+                        ->minDate(TenureRange::endsOnOrAfter('period_start')),
 
                     TextInput::make('opening_balance')
                         ->label(__('admin.fields.opening_balance'))

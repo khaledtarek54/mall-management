@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\LeaseClause;
+use App\Support\Filament\TenureRange;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -118,7 +119,7 @@ class LeaseClausesRelationManager extends RelationManager
                 ->label(__('admin.fields.clause_applies_to'))
                 ->native(false)
                 ->displayFormat('d/m/Y')
-                ->afterOrEqual('applies_from')
+                ->minDate(TenureRange::endsOnOrAfter('applies_from'))
                 ->helperText(__('admin.lease_clauses.applies_to_helper')),
 
             TextInput::make('source_reference')

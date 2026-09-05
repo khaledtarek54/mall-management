@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Support\Filament\AttachedOnce;
+use App\Support\Filament\TenureRange;
 use App\Support\PermissionVocabulary;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
@@ -48,7 +49,10 @@ class AssetStaffRelationManager extends RelationManager
                 ->native(false),
             DatePicker::make('ended_at')
                 ->label(__('admin.fields.ended_at'))
-                ->afterOrEqual('assigned_at')
+                // A one-day tenure is ordinary, so the end may EQUAL the start. Compared at
+                // midnight and via minDate (which also greys out the impossible days in the
+                // calendar) — see TenureRange for why `afterOrEqual('assigned_at')` was not enough.
+                ->minDate(TenureRange::endsOnOrAfter('assigned_at'))
                 ->native(false),
             Textarea::make('notes')
                 ->label(__('admin.fields.notes'))

@@ -13,6 +13,7 @@ use App\Services\MarketingLevyService;
 use App\Settings\BillingSettings;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TenureRange;
 use App\Support\FormTab;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
@@ -492,7 +493,7 @@ class LeaseForm
                             // Earlier than commencement is not a grace period, and the model guards
                             // against it pulling the first billable month backwards; refused here too
                             // so the operator gets an inline error rather than a silent no-op.
-                            ->afterOrEqual('commencement_date')
+                            ->minDate(TenureRange::endsOnOrAfter('commencement_date'))
                             // Locked once invoiced, with `fit_out_scope`: together they decided what
                             // was abated on invoices already issued, and moving them afterwards
                             // makes the system disagree with its own documents.

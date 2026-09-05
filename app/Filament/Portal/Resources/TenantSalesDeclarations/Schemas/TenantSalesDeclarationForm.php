@@ -5,6 +5,7 @@ namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TenureRange;
 use App\Support\Portal;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -60,7 +61,7 @@ class TenantSalesDeclarationForm
                         ->label(__('admin.fields.period_end'))
                         ->required()
                         ->displayFormat('d/m/Y')
-                        ->afterOrEqual('period_start')
+                        ->minDate(TenureRange::endsOnOrAfter('period_start'))
                         ->default(now()->subMonth()->endOfMonth()),
                     // Tenants upload their sales report instead of typing a
                     // figure; the property team reads the number off it and

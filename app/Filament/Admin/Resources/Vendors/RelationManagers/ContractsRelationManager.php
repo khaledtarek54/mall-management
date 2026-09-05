@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Vendors\RelationManagers;
 use App\Models\Asset;
 use App\Models\VendorContract;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TenureRange;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -96,7 +97,7 @@ class ContractsRelationManager extends RelationManager
                 DatePicker::make('end_date')
                     ->label(__('admin.fields.end_date') ?: 'End')
                     ->native(false)
-                    ->afterOrEqual('start_date')
+                    ->minDate(TenureRange::endsOnOrAfter('start_date'))
                     ->live(),
                 // The end date is not the date anyone decides on — the NOTICE deadline is.
                 // Captured here so `vendors:scan-contract-renewals` can chase it.

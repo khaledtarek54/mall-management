@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Support\Filament\AttachedOnce;
+use App\Support\Filament\TenureRange;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
 use Filament\Actions\EditAction;
@@ -73,7 +74,10 @@ class AssetOwnersRelationManager extends RelationManager
                 ->helperText(__('admin.fields.owned_since_helper')),
             DatePicker::make('ended_at')
                 ->label(__('admin.fields.owned_until'))
-                ->afterOrEqual('started_at')
+                // A one-day tenure is ordinary, so the end may EQUAL the start. Compared at
+                // midnight and via minDate (which also greys out the impossible days in the
+                // calendar) — see TenureRange for why `afterOrEqual('started_at')` was not enough.
+                ->minDate(TenureRange::endsOnOrAfter('started_at'))
                 ->native(false)
                 ->helperText(__('admin.fields.owned_until_helper')),
         ]);
