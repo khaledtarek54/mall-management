@@ -665,10 +665,25 @@ class Invoice extends Model
 
     // ============ Status helpers ============
 
+    /**
+     * The row twin of {@see scopeOverdue()} — past due AND still owed, decided the way the scope
+     * decides it, because this is what the MOBILE CONTRACT sends as `is_overdue`/`days_overdue`.
+     *
+     * Until 2026-09-05 this was the SEVENTH spelling of the pair the scope was built to end, and
+     * the one on the retailer's own phone: a hand allowlist of `issued|partially_paid` plus the raw
+     * status stamp, reading no balance at all. Three provable disagreements with the scope — a
+     * past-due DISPUTED invoice answered false (still claimed, so it is overdue everywhere else),
+     * a `paid`-with-standing-balance one answered false, and a partially WRITTEN-OFF one whose
+     * `collectableBalance()` is 0 answered `is_overdue: true, days_overdue: 47` — the app chasing
+     * the operator's own forgiveness, which is exactly what `collectableBalance()` was built to
+     * stop. Same construction as `isChaseable()` above, minus the NOT_CHASEABLE narrowing: a
+     * disputed invoice IS overdue (the money is claimed and late), it is only not dunnable.
+     */
     public function isOverdue(): bool
     {
-        return $this->status === 'overdue' ||
-               (in_array($this->status, ['issued', 'partially_paid']) && $this->due_date->isPast());
+        return ! in_array($this->status, InvoiceSettlement::relievedStatuses(), true)
+            && $this->collectableBalance() > 0
+            && $this->due_date->isPast();
     }
 
     public function daysOverdue(): int

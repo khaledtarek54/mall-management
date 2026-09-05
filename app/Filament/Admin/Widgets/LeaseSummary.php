@@ -166,7 +166,12 @@ class LeaseSummary extends StatsOverviewWidget
         // its full balance asks the tenant for money the operator forgave. `writeOffs` is eager
         // loaded because `collectableBalance()` prefers a loaded relation to a query per row.
         $owed = round((float) $open->sum(fn ($invoice): float => $invoice->collectableBalance()), 2);
-        $overdue = $open->where('status', 'overdue')->count();
+        // `isOverdue()`, never the raw status STAMP (SW-016's defect one directory away, caught by
+        // the final review). `recomputeTotals()` puts the `partially_paid` arm before the `overdue`
+        // arm, so a part-paid past-due invoice can NEVER carry the stamp, and a freshly-lapsed one
+        // keeps `issued` until the nightly scan — so the figure a collections call opens with
+        // rendered warning + "N open invoices" where danger + "N overdue" was the truth.
+        $overdue = $open->filter(fn ($invoice): bool => $invoice->isOverdue())->count();
 
         return Stat::make(__('admin.lease_summary.outstanding'), 'EGP '.number_format($owed, 2))
             ->description($overdue > 0

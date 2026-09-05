@@ -33,8 +33,8 @@
     <div class="doc-number">{{ Bidi::isolate($statement->reference) }}</div>
     <div class="doc-meta" style="margin-top:4pt;">
         {{ __('admin.owner_statements.fields.period') }}
-        <strong>{{ \Illuminate\Support\Carbon::parse($run->period_start)->format('d M Y') }}
-            – {{ \Illuminate\Support\Carbon::parse($run->period_end)->format('d M Y') }}</strong>
+        <strong>{{ \Illuminate\Support\Carbon::parse($run->period_start)->locale(app()->getLocale())->isoFormat('DD MMM YYYY') }}
+            – {{ \Illuminate\Support\Carbon::parse($run->period_end)->locale(app()->getLocale())->isoFormat('DD MMM YYYY') }}</strong>
     </div>
     <div>
         <span class="band-chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">

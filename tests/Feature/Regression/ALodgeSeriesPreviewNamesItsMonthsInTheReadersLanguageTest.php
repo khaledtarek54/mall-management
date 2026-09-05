@@ -173,6 +173,16 @@ function panelRenderedSourceFiles(): array
         base_path('app/Filament'),
         base_path('app/Support/Search'),
         base_path('app/Support/Filament'),
+        // The final review caught the gate checking a narrower property than its name: the roots
+        // above excluded every BLADE — including the owner statement's period line, the public
+        // pay link and the invoice e-mail, all reader-facing and locale-wrapped — and a commit
+        // edited one of those files 22 lines away from an offender the gate reported zero of.
+        // Models carry `label()`s the pickers render, so they are swept too. `app/Services` stays
+        // OUT deliberately: a month formatted there is `invoice_items.description`, stored English
+        // prose whose reason is written in `MonthlyBillingService`, and console output is English
+        // on purpose.
+        base_path('resources/views'),
+        base_path('app/Models'),
     ];
 
     $files = [];
@@ -186,7 +196,9 @@ function panelRenderedSourceFiles(): array
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS));
 
         foreach ($it as $file) {
-            if ($file->isFile() && $file->getExtension() === 'php') {
+            $name = $file->getFilename();
+
+            if ($file->isFile() && (str_ends_with($name, '.php') || str_ends_with($name, '.blade.php'))) {
                 $files[] = $file->getPathname();
             }
         }

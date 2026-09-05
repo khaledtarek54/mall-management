@@ -956,3 +956,11 @@ is bridged by `SnakeCaseRequestKeys` + `CamelCaseResponseKeys` middleware (using
 `App\Support\KeyCase`); the `{message, statusCode}` error envelope is produced by
 the `render` callback in `bootstrap/app.php`. Login error codes (400/401/403)
 live in `LoginRequest::failedValidation` + `LoginTenantAction`.
+
+## Changelog note — 2026-09-05
+
+`is_overdue` / `days_overdue` on the invoice payload: **same keys, same types, corrected answer.**
+They now derive from the system-wide overdue definition (past due AND still collectable) instead of
+a status allowlist. Practically: a disputed past-due invoice reads overdue; a partially written-off
+invoice with nothing left to collect reads NOT overdue and `days_overdue: 0`, where it previously
+told the tenant to chase a figure the operator had forgiven.

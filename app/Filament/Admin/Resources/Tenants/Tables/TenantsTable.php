@@ -203,13 +203,15 @@ class TenantsTable
                         // `whereCollectable()`, matching the badge beside it, which reads
                         // `isDelinquent()`. Filtering to *Delinquent* used to return tenants whose
                         // own badge said *Current*, because only one of the two nets write-offs.
+                        // `overdue()` — the ONE definition SW-016 named, replacing the 7th and 8th
+                        // hand-written copies of its pair. The comment above already demands this
+                        // filter match `isDelinquent()`, which reads the scope; two spellings of
+                        // one demand is how they drift.
                         true: fn (Builder $query) => $query->whereHas('invoices', fn (Builder $q) => $q
-                            ->where('due_date', '<', now())
-                            ->stillOwed()
+                            ->overdue()
                             ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         false: fn (Builder $query) => $query->whereDoesntHave('invoices', fn (Builder $q) => $q
-                            ->where('due_date', '<', now())
-                            ->stillOwed()
+                            ->overdue()
                             ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         blank: fn (Builder $query) => $query,
                     ),

@@ -31,15 +31,15 @@
          own <br> escaped, which is the trap slice 1 recorded on the PDF. --}}
     <p>{!! nl2br(e(\App\Support\DocumentText::for('invoice.email_body', $invoice->asset_id, [
         'number' => $invoice->number,
-        'due_date' => $invoice->due_date->format('d M Y'),
+        'due_date' => $invoice->due_date->locale(app()->getLocale())->isoFormat('DD MMM YYYY'),
     ]) ?? '')) !!}</p>
 
     <div class="amount">{{ number_format((float) $invoice->total, 2) }} {{ $invoice->currency }}</div>
 
     <table>
         <tr><th>{{ __('admin.tables.invoice.number') }}</th><td>{{ $invoice->number }}</td></tr>
-        <tr><th>{{ __('admin.fields.period') }}</th><td>{{ $invoice->period_start->format('d M Y') }} → {{ $invoice->period_end->format('d M Y') }}</td></tr>
-        <tr><th>{{ __('admin.tables.invoice.due_date') }}</th><td>{{ $invoice->due_date->format('d M Y') }}</td></tr>
+        <tr><th>{{ __('admin.fields.period') }}</th><td>{{ $invoice->period_start->locale(app()->getLocale())->isoFormat('DD MMM YYYY') }} → {{ $invoice->period_end->locale(app()->getLocale())->isoFormat('DD MMM YYYY') }}</td></tr>
+        <tr><th>{{ __('admin.tables.invoice.due_date') }}</th><td>{{ $invoice->due_date->locale(app()->getLocale())->isoFormat('DD MMM YYYY') }}</td></tr>
         <tr><th>{{ __('admin.tables.invoice.balance') }}</th><td>{{ number_format((float) $invoice->balance, 2) }} {{ $invoice->currency }}</td></tr>
     </table>
 

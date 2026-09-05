@@ -343,8 +343,10 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
     /**
      * The audit trail exports on its OWN permission, not on `reports.view`.
      *
-     * {@see ExportsReport::mayExport()} defaults to `reports.view` because that is the gate on the
-     * nineteen report PAGES. This page is not one of them: it is gated on `activity_log.view`, which
+     * {@see ExportsReport::mayExport()} answers `static::canAccess()` since SW-177 — so this override
+     * is now byte-identical and kept DELIBERATELY: it pins this page's export to its own gate in its
+     * own file, so a later change to the trait's default cannot silently re-route the audit trail's
+     * export. The page is gated on `activity_log.view`, which
      * the seeder withholds from `mall_admin` precisely because the feed spans every property and
      * cannot be scoped to one. Inheriting the default would have made the export a second door into
      * exactly the cross-property data the screen's own gate exists to withhold.

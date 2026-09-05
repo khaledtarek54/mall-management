@@ -53,10 +53,10 @@
                     <div class="row"><span class="k">{{ __('pay.billed_to') }}</span><span>{{ $invoice->tenant->name }}</span></div>
                 @endif
                 @if ($invoice->period_start && $invoice->period_end)
-                    <div class="row"><span class="k">{{ __('pay.period') }}</span><span>{{ $invoice->period_start->format('d M') }} – {{ $invoice->period_end->format('d M Y') }}</span></div>
+                    <div class="row"><span class="k">{{ __('pay.period') }}</span><span>{{ $invoice->period_start->locale(app()->getLocale())->isoFormat('DD MMM') }} – {{ $invoice->period_end->locale(app()->getLocale())->isoFormat('DD MMM YYYY') }}</span></div>
                 @endif
                 @if ($invoice->due_date)
-                    <div class="row"><span class="k">{{ __('pay.due') }}</span><span>{{ $invoice->due_date->format('d M Y') }}</span></div>
+                    <div class="row"><span class="k">{{ __('pay.due') }}</span><span>{{ $invoice->due_date->locale(app()->getLocale())->isoFormat('DD MMM YYYY') }}</span></div>
                 @endif
             </div>
 
