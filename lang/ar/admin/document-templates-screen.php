@@ -10,6 +10,7 @@ return [
             'invoice_footer' => 'الفاتورة — التذييل',
             'invoice_payment_instructions' => 'الفاتورة — طرق السداد',
             'invoice_terms' => 'الفاتورة — الشروط',
+            'lease_agreement_terms' => 'عقد الإيجار — الشروط الثابتة',
             'invoice_email_body' => 'بريد الفاتورة — نص التقديم',
             'dunning_overdue_reminder' => 'تذكير التأخر — بريد',
             'dunning_overdue_subject' => 'تذكير التأخر — عنوان الرسالة',

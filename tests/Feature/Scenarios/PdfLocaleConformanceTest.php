@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\File;
  * **Every document this system issues can be asked for a language, and only one class renders one.**
  *
  * Two properties, both of which were true of nothing before 2026-08-27 and both of which decay the
- * same way — by a fourteenth document shipping that looks like the thirteen beside it.
+ * same way — by a fifteenth document shipping that looks like the fourteen beside it.
  *
  * 1. **Every PDF-producing method takes a locale.** A service that does not is not merely missing a
  *    feature: it silently renders in `app()->getLocale()`, which for a scheduled billing run is
@@ -15,10 +15,10 @@ use Illuminate\Support\Facades\File;
  *    invisible from the call site and from the code — the document renders, in a language, and only
  *    the recipient can tell it is the wrong one.
  *
- * 2. **`App\Support\Pdf\PdfDocument` is the only thing that constructs mpdf.** All thirteen services
+ * 2. **`App\Support\Pdf\PdfDocument` is the only thing that constructs mpdf.** All fourteen services
  *    ended in the same twenty lines and had already drifted apart — two used 14mm margins where
  *    eleven used 12, two set 10pt where eleven set 10.5 — so "how these documents are typeset" was a
- *    thirteen-file edit nobody would make. A fourteenth copy re-opens that.
+ *    fourteen-file edit nobody would make. A fifteenth copy re-opens that.
  *
  * Discovered from disk rather than from a list, so a new service is covered the day it ships. Both
  * sweeps assert they found something first: this codebase has shipped a gate that swept zero models
@@ -47,7 +47,7 @@ function pdfServiceClasses(): array
 }
 
 it('discovers the PDF services it is meant to be sweeping', function () {
-    expect(pdfServiceClasses())->toHaveCount(13);
+    expect(pdfServiceClasses())->toHaveCount(14);
 });
 
 it('lets every document be asked for a language', function () {
@@ -109,7 +109,7 @@ it('constructs mpdf in exactly one place', function () {
     }
 
     expect($offenders)->toBe([], 'These construct mpdf themselves instead of going through '
-        .'App\Support\Pdf\PdfDocument, which is how thirteen copies of one config drifted apart: '
+        .'App\Support\Pdf\PdfDocument, which is how fourteen copies of one config drifted apart: '
         .implode(', ', $offenders));
 });
 

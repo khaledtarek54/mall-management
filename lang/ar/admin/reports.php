@@ -356,6 +356,14 @@ return [
         // the one document every tenant files. Flagged independently twice before it was changed.
         // Only the DOCUMENT string moved; `admin.fields.billed_to` and `admin.reports.billed_to`
         // label a form field and a report column, where the literal reading is right.
+        'lease_agreement' => 'عقد إيجار',
+        'landlord' => 'المؤجِّر',
+        'tenant' => 'المستأجر',
+        'premises' => 'العين المؤجَّرة',
+        'rent_and_charges' => 'الأجرة والرسوم',
+        'clauses' => 'الشروط',
+        'trn' => 'التسجيل الضريبي',
+        'no_charge_schedule' => 'لم يُحدَّد جدول رسوم على هذا العقد، فلن تصدر عنه أي فاتورة حتى يُضاف.',
         'billed_to' => 'السادة',
         'document_details' => 'بيانات المستند',
         'language' => 'اللغة',

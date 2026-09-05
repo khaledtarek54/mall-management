@@ -7,11 +7,13 @@ use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Models\Lease;
+use App\Services\LeaseAgreementPdfService;
 use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use App\Support\BillingRefusal;
 use App\Support\BillingWindow;
 use App\Support\Filament\MonthPicker;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -147,6 +149,15 @@ class EditLease extends EditRecord
         // App\Filament\Admin\Actions\LeaseActions, which is now the single definition both
         // surfaces compose from, so they cannot drift the way they already had.
         return [
+            // The AGREEMENT itself. Ungrouped and beside the acts rather than inside one of the
+            // three dropdowns, because it is not a verb on the tenancy — it hands back a file and
+            // changes nothing, which is the same distinction `RowActionPolicy` draws when it
+            // declines to count a download as a write.
+            PdfDownloadAction::make('downloadAgreement')
+                ->label(__('admin.pdf.lease_agreement'))
+                ->icon('heroicon-o-document-text')
+                ->service(LeaseAgreementPdfService::class)
+                ->recipient(fn (Lease $record) => $record->tenant),
             $this->generateInvoiceAction(),
             ...LeaseActions::grouped(),
             DeleteAction::make(),

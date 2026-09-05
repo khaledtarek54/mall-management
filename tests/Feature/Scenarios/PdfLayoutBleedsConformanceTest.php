@@ -62,9 +62,11 @@ it('discovers the documents built on the shared shell', function () {
     // sweeping zero models.
     // Six on 2026-08-27 (the counterparty documents), nine on 2026-08-28 when the payslip, the CAM
     // reconciliation and the owner statement joined them — the three remaining documents that leave
-    // the building. An exact count rather than a floor: this number falling is a template quietly
-    // dropping off the shared shell, which is the drift the shell exists to prevent.
-    expect(bleedingDocumentServices())->toHaveCount(9);
+    // the building. TEN on 2026-09-05, when the lease agreement became the first document this
+    // system GENERATES rather than files (gap O1). An exact count rather than a floor: this number
+    // falling is a template quietly dropping off the shared shell, which is the drift the shell
+    // exists to prevent.
+    expect(bleedingDocumentServices())->toHaveCount(10);
 });
 
 it('bleeds every document whose template extends the shared shell', function () {

@@ -58,6 +58,7 @@ final class DocumentText
         'invoice.footer',
         'invoice.payment_instructions',
         'invoice.terms',
+        'lease.agreement_terms',
         'dunning.overdue_reminder',
         'dunning.final_notice',
         'dunning.late_fee_applied',
@@ -83,6 +84,12 @@ final class DocumentText
 
         // NEW. Late-payment terms, disputes window, whatever the lease says in general.
         'invoice.terms' => ['floor' => null, 'tokens' => []],
+
+        // The standing wording on the LEASE AGREEMENT — governing law, notices, whatever the
+        // operator's lawyer settled. No floor, and that is deliberate: this system does not know
+        // what these parties agreed, and printing a heading over a gap on a CONTRACT reads as a
+        // missing term rather than an absent one. An install that has not written it gets no block.
+        'lease.agreement_terms' => ['floor' => null, 'tokens' => []],
 
         // SLICE 2 (EG-15). The dunning notice — the one message where the WORDING is the whole
         // artefact. A chasing email that reads as a system alert gets ignored; an operator wants
