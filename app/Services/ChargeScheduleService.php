@@ -264,13 +264,40 @@ class ChargeScheduleService
                 break;
             }
 
-            $rent = $byAmount
-                ? round($rent + $step, 2)
-                : round($rent * (1 + $rate / 100), 2);
+            // The base for THIS step is the rent in force on the EVE of the anniversary — read
+            // from the schedule the walk itself is writing, exactly as the sweep sizes its step
+            // from the rung billing into the anniversary. A carried accumulator was identical
+            // while the projection was the ladder's only writer; it stops being identical the
+            // moment a rung mid-ladder is a STATED figure (a future-dated Change Rent amends a
+            // rung in place and marks it `manual`), and compounding past one from the pre-stated
+            // base is how a negotiated step's successors came out wrong. Falls back to the
+            // carried figure when nothing covers the eve (a lease with no rent row yet).
+            $eveRent = $this->rowCovering($lease, 'base_rent', $effective->subDay());
+            $rentBase = $eveRent !== null ? (float) $eveRent->amount : $rent;
 
-            // `$rent > 0` guards the service-only shape: a zero rent must not mint zero rent and
-            // levy rows just because the service-charge ladder earned the walk.
-            if ($rent > 0 && $this->setAmount($lease, 'base_rent', $rent, $effective, [
+            $rent = $byAmount
+                ? round($rentBase + $step, 2)
+                : round($rentBase * (1 + $rate / 100), 2);
+
+            // A rung the operator STATED outranks the derivation. A future-dated Change Rent
+            // amended this anniversary's rung in place and flipped it `manual` — a negotiated
+            // term, which re-truing the ladder must not overwrite with arithmetic. Its figure is
+            // ADOPTED instead: the levy below follows it, and the next step compounds from it
+            // through the eve read above, which is the contract's own reading (escalation applies
+            // to the rent in force). `start >= effective` is what makes it a stated STEP — a
+            // manual row that began in the past is simply the current rent, and the ladder steps
+            // it normally.
+            $standing = $this->rowCovering($lease, 'base_rent', $effective);
+            $statedStep = $standing !== null
+                && $standing->origin === Charge::ORIGIN_MANUAL
+                && $standing->start_date !== null
+                && CarbonImmutable::instance($standing->start_date)->gte($effective);
+
+            if ($statedStep) {
+                $rent = (float) $standing->amount;
+            } elseif ($rent > 0 && $this->setAmount($lease, 'base_rent', $rent, $effective, [
+                // `$rent > 0` guards the service-only shape: a zero rent must not mint zero rent
+                // and levy rows just because the service-charge ladder earned the walk.
                 'name' => 'Base Rent',
             ], Charge::ORIGIN_ESCALATION)) {
                 $created++;
@@ -283,33 +310,44 @@ class ChargeScheduleService
                 $created++;
             }
 
-            // Compounded step-by-step with the same per-rung rounding the sweep applies, so a
-            // projected lease and a swept one converge — with the rent ladder's own standing
-            // caveat: the projection states the RAW rate while the sweep collars it, so under a
-            // collar that actually binds, each rung is corrected in place the night its
-            // anniversary is swept (`setAmount`'s not-yet-billed branch) and the projected TAIL
-            // beyond it stays at the stated rate until reached. No attributes beyond the name:
-            // the successor row inherits VAT, billing timing and proration from the row in
-            // force, which is the seeded service-charge row this lease actually bills under.
+            // Same per-rung rounding as the sweep, so a projected lease and a swept one
+            // converge — with the rent ladder's own standing caveat: the projection states the
+            // RAW rate while the sweep collars it, so under a collar that actually binds, each
+            // rung is corrected in place the night its anniversary is swept (`setAmount`'s
+            // not-yet-billed branch) and the projected TAIL beyond it stays at the stated rate
+            // until reached. No attributes beyond the name: the successor row inherits VAT,
+            // billing timing and proration from the row in force, which is the seeded
+            // service-charge row this lease actually bills under.
             //
             // Guarded per step: a service charge bounded to end mid-term stops its ladder where
             // it stops billing — past its end no row covers the step, and `setAmount`'s
             // latest-active fallback would otherwise stretch the ended row and build an inverted
-            // range out of its inherited end date.
+            // range out of its inherited end date. An estimate on EITHER side of the boundary
+            // stops it too (the sweep's own two-sided rule): an estimate is no base for a step,
+            // and an estimate-governed step would overwrite the reconciliation's answer. And a
+            // STATED service rung is adopted exactly as a stated rent rung is.
             if ($projectService) {
-                $service = round($service * (1 + $rate / 100), 2);
+                $eveService = $this->rowCovering($lease, 'service_charge', $effective->subDay());
 
-                // An estimate-governed step is skipped too: from the day a CAM re-estimate takes
-                // over, the contractual ladder no longer owns the schedule and writing onto the
-                // estimate's rung would overwrite the reconciliation's own answer.
-                $covering = $this->rowCovering($lease, 'service_charge', $effective);
+                if ($eveService?->origin !== Charge::ORIGIN_CAM_ESTIMATE) {
+                    $serviceBase = $eveService !== null ? (float) $eveService->amount : $service;
+                    $service = round($serviceBase * (1 + $rate / 100), 2);
 
-                if ($covering !== null
-                    && $covering->origin !== Charge::ORIGIN_CAM_ESTIMATE
-                    && $this->setAmount($lease, 'service_charge', $service, $effective, [
-                        'name' => 'Service Charge',
-                    ], Charge::ORIGIN_ESCALATION)) {
-                    $created++;
+                    $covering = $this->rowCovering($lease, 'service_charge', $effective);
+                    $statedService = $covering !== null
+                        && $covering->origin === Charge::ORIGIN_MANUAL
+                        && $covering->start_date !== null
+                        && CarbonImmutable::instance($covering->start_date)->gte($effective);
+
+                    if ($statedService) {
+                        $service = (float) $covering->amount;
+                    } elseif ($covering !== null
+                        && $covering->origin !== Charge::ORIGIN_CAM_ESTIMATE
+                        && $this->setAmount($lease, 'service_charge', $service, $effective, [
+                            'name' => 'Service Charge',
+                        ], Charge::ORIGIN_ESCALATION)) {
+                        $created++;
+                    }
                 }
             }
 

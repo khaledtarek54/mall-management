@@ -240,6 +240,15 @@ class LeaseSpaceChangeService
             app(MarketingLevyService::class)->createLevyCharge($lease->fresh(), $effectiveFrom);
         }
 
+        // The ladder follows the change, exactly as it does for Change Rent: the rung opened
+        // above inherits its end from the row it closed — the eve of the next anniversary — and
+        // the projected rungs beyond it still compound the PRE-AMENDMENT rent, so an expansion's
+        // new rent would visibly die at the next anniversary on every forecast. Re-truing
+        // re-derives each future escalation rung from the rent in force on its own eve; no-ops
+        // where nothing moved and on a lease with no clause. (On a holdover the term has run out,
+        // so the walk finds no anniversary inside it and writes nothing.)
+        $this->schedule->projectTermEscalations($lease->fresh());
+
         return ['from' => $current, 'to' => $newTotal];
     }
 }

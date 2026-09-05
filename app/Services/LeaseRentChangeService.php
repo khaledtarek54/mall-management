@@ -164,6 +164,27 @@ class LeaseRentChangeService
                 app(MarketingLevyService::class)->createLevyCharge($lease->fresh(), $effectiveFrom);
             }
 
+            // THE LADDER FOLLOWS THE CHANGE (reported from the panel 2026-09-05). On a lease with
+            // a projected escalation ladder the rung opened above inherits its end from the row it
+            // closed — the eve of the next anniversary — and every rung beyond was computed from
+            // the OLD rent at signing. Left alone, the operator's change visibly dies after one
+            // year: the schedule, the billing forecast and the rent roll all revert to old-rent
+            // figures, and only the sweep's night-of-the-anniversary amend quietly corrects each
+            // rung as it arrives (or fails to, if the sweep is ever down). Re-truing walks the
+            // same projection: each future escalation rung is re-derived from the rent in force
+            // on its own eve, a rung the operator STATED survives and resets the compounding, and
+            // everything already right is a `sameMoney` no-op.
+            //
+            // NOT when the SWEEP is the caller. The sweep's contract is one step per run — on an
+            // unprojected lease it appends one rung a year (pinned behaviour), and re-projecting
+            // here would write the whole remaining ladder at the RAW rate the night a COLLARED
+            // step applied, putting uncollared figures on every future rung of exactly the lease
+            // whose collar just proved it binds. An operator's change re-trues; the sweep
+            // converges rung by rung, as it always has.
+            if ($origin !== Charge::ORIGIN_ESCALATION) {
+                $this->schedule->projectTermEscalations($lease->fresh());
+            }
+
             // The history entry (story LE-01) — written INSIDE this transaction, so a change and
             // its record commit or fail together. Until now this was a sentence appended to
             // `leases.notes`: unqueryable, unreportable, unattributable, and it polluted a field

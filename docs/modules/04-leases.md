@@ -1101,6 +1101,26 @@
 > billing entirely at the next anniversary — worse than the escalated amount).
 > (`AClearedEscalationClauseTakesItsProjectedFutureWithItTest`, mutation-proved three ways.)
 >
+> **A CHANGED RENT REACHES THE END OF THE LEASE — the ladder follows the change (2026-09-05,
+> reported from the panel).** On a lease with a projected ladder — every fixed-percent lease —
+> Change Rent's new row inherits its end from the row it closes (the eve of the next anniversary)
+> and every rung beyond was computed from the OLD rent at signing, so the operator's change
+> visibly died after one year: the schedule, the billing forecast and the rent roll all reverted
+> to old-rent figures, with only the sweep's night-of-the-anniversary amend to quietly correct
+> each rung as it arrived. `LeaseRentChangeService::apply()` and `LeaseSpaceChangeService` now
+> re-true the ladder through the same `projectTermEscalations()` walk, whose base is **the rent in
+> force on each step's own EVE, read from the schedule the walk is writing** (a carried
+> accumulator was identical while the projection was the ladder's only writer, and stops being the
+> moment a rung mid-ladder is stated). **A rung the operator STATED outranks the derivation**: a
+> future-dated Change Rent amends its anniversary's rung in place and marks it `manual`, so the
+> re-true adopts its figure instead of overwriting it, and the step after it compounds from the
+> stated amount — the contract's own reading. **The SWEEP deliberately does not re-true**
+> (`origin === ORIGIN_ESCALATION` skips it): its contract is one step per run — on an unprojected
+> lease it appends one rung a year, pinned behaviour — and re-projecting on the night a COLLARED
+> step applied would write the whole remaining ladder at the raw rate for exactly the lease whose
+> collar just proved it binds. (`AChangedRentReachesTheEndOfTheLeaseTest`, eight cases, three
+> mutations proved — the re-true, the stated-rung adoption, and the space-change wiring.)
+>
 > **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
 > `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to
 > write); it anchors on each lease's own `next_escalation_date`, so a mid-term lease gets its steps
