@@ -575,3 +575,63 @@ it('J: a dashboard deep link still wins over a stored filter', function () {
             ->not->toContain($pending->id);
     });
 })->group('conformance');
+
+/*
+|--------------------------------------------------------------------------
+| `tenant` is Filament's TENANCY parameter, never a query key
+|--------------------------------------------------------------------------
+| `getUrl('create', ['tenant' => $id])` does not add `?tenant=`: Filament substitutes it into the
+| PATH, where the mall's slug belongs, so the link becomes `/admin/2/violations/create` and 404s.
+|
+| This has now shipped TWICE — `CreatePayment` in August, where the prefill it exists for could
+| never fire, and the tenant 360's compliance tab on 2026-09-05, whose Record-violation button was
+| dead from the moment it landed. Both times the code carried a comment warning about it (the
+| second was written by someone who had read the first), which is how a trap earns a gate instead
+| of a third paragraph. The convention is `for_tenant`, read back in the page's `fillForm()`.
+*/
+it('never passes a `tenant` query key to getUrl — that is the tenancy route parameter', function () {
+    $offenders = [];
+
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('app/Filament')));
+
+    foreach ($files as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $source = file_get_contents($file->getPathname());
+
+        // Comments stripped first, or the two files DOCUMENTING this trap are reported as
+        // committing it — the prose-false-positive shape this codebase has hit three times.
+        $stripped = $source;
+        foreach (token_get_all($source) as $token) {
+            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                $at = strpos($stripped, $token[1]);
+                if ($at !== false) {
+                    $stripped = substr_replace($stripped, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
+                }
+            }
+        }
+
+        // A `getUrl(` call whose parameter array names `tenant`, within the call's own window.
+        preg_match_all('/getUrl\(/', $stripped, $calls, PREG_OFFSET_CAPTURE);
+
+        foreach ($calls[0] as [, $at]) {
+            if (preg_match("/'tenant'\s*=>/", substr($stripped, $at, 220))) {
+                $offenders[] = ltrim(str_replace(base_path(), '', $file->getPathname()), '/');
+            }
+        }
+    }
+
+    expect(array_values(array_unique($offenders)))->toBe([],
+        'these build a link with `tenant` as a query key, which Filament puts in the PATH — use `for_tenant`');
+});
+
+it('proves that sweep can see a real offender', function () {
+    // Without this the check above passes just as happily on a sweep that reads nothing — the
+    // vacuous-gate shape recorded three times in CLAUDE.md.
+    $probe = "<?php ViolationResource::getUrl('create', ['tenant' => \$id]);";
+
+    expect(preg_match("/getUrl\(/", $probe))->toBe(1)
+        ->and(preg_match("/'tenant'\s*=>/", $probe))->toBe(1);
+});

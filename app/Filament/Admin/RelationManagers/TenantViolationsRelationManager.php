@@ -85,8 +85,14 @@ class TenantViolationsRelationManager extends RelationManager
                     ->label(__('admin.actions.record_violation'))
                     ->icon('heroicon-o-plus')
                     ->visible(fn (): bool => ViolationResource::canCreate())
+                    // **`for_tenant`, NOT `tenant`.** `tenant` is Filament's own TENANCY route
+                    // parameter, so `getUrl('create', ['tenant' => $id])` puts the tenant's id in
+                    // the path where the mall's slug belongs — `/admin/2/violations/create` — and
+                    // the page 404s. CLAUDE.md records this exact trap from `CreatePayment`, and
+                    // this walked into it anyway, which is why the test below now drives the URL
+                    // through the real route rather than asserting the action exists.
                     ->url(fn (RelationManager $livewire): string => ViolationResource::getUrl('create', [
-                        'tenant' => $livewire->getOwnerRecord()->getKey(),
+                        'for_tenant' => $livewire->getOwnerRecord()->getKey(),
                     ])),
             ])
             ->recordActions([

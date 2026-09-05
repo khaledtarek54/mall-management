@@ -78,3 +78,53 @@ it('offers the turnover tab only to a tenant who actually owes a declaration', f
     $this->lease->update(['requires_sales_reporting' => true]);
     expect(TenantSalesDeclarationsRelationManager::canViewForRecord($this->tenant->fresh(), EditTenant::class))->toBeTrue();
 });
+
+it('links "Record violation" at a URL that actually resolves', function () {
+    // **The bug this file shipped and did not catch.** The header action was built with
+    // `getUrl('create', ['tenant' => $id])`, and `tenant` is Filament's own TENANCY route
+    // parameter — so the tenant's id went into the path where the mall's slug belongs
+    // (`/admin/2/violations/create`) and the page 404'd. CLAUDE.md records this exact trap from
+    // `CreatePayment`; the first version of this test asserted the tab rendered and the rows were
+    // visible, which is true of a tab whose only button is broken.
+    //
+    // So: take the URL the action really produces and FOLLOW it.
+    $this->actingAs(makeUser('super_admin', [$this->asset->id]));
+
+    $url = asTenant($this->asset, function () {
+        $manager = Livewire::test(TenantViolationsRelationManager::class, [
+            'ownerRecord' => $this->tenant->fresh(),
+            'pageClass' => EditTenant::class,
+        ])->instance();
+
+        $actions = $manager->getTable()->getHeaderActions();
+        $record = collect($actions)->first(fn ($a) => $a->getName() === 'record');
+
+        expect($record)->not->toBeNull('the tab offers no "Record violation" action at all');
+
+        return $record->getUrl();
+    });
+
+    // The tenant id belongs in the QUERY, never in the tenancy segment of the path — that
+    // substitution is precisely what produced `/admin/2/violations/create`.
+    $path = parse_url($url, PHP_URL_PATH);
+
+    expect($path)->not->toBe('/admin/'.$this->tenant->getKey().'/violations/create')
+        ->and($url)->toContain('for_tenant='.$this->tenant->getKey());
+
+    // And the answer that settles it whatever the slug happens to be: the link opens.
+    $this->get($url)->assertSuccessful();
+});
+
+it('opens that form with the tenant already chosen', function () {
+    // The prefill is the whole reason the link carries an id; a link that resolves and fills
+    // nothing would pass the test above and still leave the operator searching for the tenant
+    // they just came from.
+    $this->actingAs(makeUser('super_admin', [$this->asset->id]));
+
+    asTenant($this->asset, function () {
+        Livewire::withQueryParams(['for_tenant' => $this->tenant->getKey()]);
+
+        Livewire::test(\App\Filament\Admin\Resources\Violations\Pages\CreateViolation::class)
+            ->assertFormSet(['tenant_id' => $this->tenant->getKey()]);
+    });
+});
