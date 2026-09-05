@@ -78,20 +78,46 @@ class TableView extends Model
     }
 
     /**
-     * Make this the user's default for its list, clearing whatever held the flag before.
+     * Make this the ACTOR's default for its list, clearing whatever held the flag before.
      *
      * On the MODEL rather than in the action, because "at most one default per user per resource"
      * is a fact about these rows and there is no partial unique index to enforce it — see the
      * migration. Two callers writing the flag directly is how a user ends up with two defaults and
      * a list that opens on whichever one the database returns first.
+     *
+     * **THE ACTOR, NOT THE ROW'S OWNER (D3-04).** This cleared `where('user_id', $this->user_id)`
+     * — the id on the ROW, which is the actor only when somebody marks their own view. A colleague
+     * adopting a SHARED view therefore cleared the OWNER's flags: the author's list silently
+     * stopped opening where they had set it, and nothing on either screen said so. It also left
+     * the actor's OWN personal default standing, and a personal default WINS — so the button the
+     * colleague had just pressed appeared to do nothing at all.
+     *
+     * Two clearings, because `is_default` answers at two tiers (see {@see defaultFor()}):
+     *
+     *  - always the ACTOR's own views, so their previous personal default gives way — this is what
+     *    makes adopting a shared view actually land them on it;
+     *  - and, when the view being marked is SHARED, any other shared default for this list,
+     *    because "where the team starts" is one view and two of them resolve by row id.
+     *
+     * A view belonging to somebody else and never shared is unreachable here: the action resolves
+     * through `visibleTo` before calling this.
      */
-    public function makeDefault(): void
+    public function makeDefault(?int $actorId = null): void
     {
-        DB::transaction(function (): void {
+        $actorId ??= $this->user_id;
+
+        DB::transaction(function () use ($actorId): void {
             static::query()
                 ->where('resource', $this->resource)
-                ->where('user_id', $this->user_id)
                 ->whereKeyNot($this->getKey())
+                ->where(function (Builder $q) use ($actorId): void {
+                    $q->where('user_id', $actorId);
+
+                    if ($this->is_shared) {
+                        $q->orWhere('is_shared', true);
+                    }
+
+                })
                 ->update(['is_default' => false]);
 
             $this->forceFill(['is_default' => true])->save();

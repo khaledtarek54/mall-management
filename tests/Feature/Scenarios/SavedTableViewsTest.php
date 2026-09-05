@@ -646,3 +646,78 @@ it('will not make a view somebody never shared into your default', function () {
     expect($private->fresh()->is_default)->toBeFalse()
         ->and($shared->fresh()->is_default)->toBeTrue();
 });
+
+/*
+|--------------------------------------------------------------------------
+| D3-04 — the clearing is scoped to the ACTOR, not to the row's owner
+|--------------------------------------------------------------------------
+| `makeDefault()` cleared `where('user_id', $this->user_id)` — the id on the ROW, which is the
+| actor only when somebody marks their OWN view. Adopting a colleague's SHARED view (the case
+| UX-11 exists for, pinned by the test above) therefore cleared the OWNER's flags while leaving
+| the actor's own personal default standing — and a personal default WINS, so the button
+| appeared to do nothing while quietly breaking somebody else's landing screen.
+*/
+it('adopting a shared view clears MY default, never the author\'s', function () {
+    $author = makeUser('manager', [$this->asset->id]);
+
+    $authorsOwn = TableView::create([
+        'resource' => 'leases', 'name' => 'Author personal', 'state' => [],
+        'user_id' => $author->id, 'is_default' => true,
+    ]);
+    $authorsShared = TableView::create([
+        'resource' => 'leases', 'name' => 'Author shared', 'state' => [],
+        'user_id' => $author->id, 'is_shared' => true,
+    ]);
+    $mineWasDefault = TableView::create([
+        'resource' => 'leases', 'name' => 'Mine', 'state' => [],
+        'user_id' => $this->user->id, 'is_default' => true,
+    ]);
+
+    // `?tableView=none`, or the page's own mount-time redirect to the existing default fires and
+    // Livewire::test() hands back a redirect instead of a component.
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () use ($authorsShared) {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $authorsShared->id]);
+    });
+
+    // The author's own landing screen is untouched — the half that was silently destructive.
+    expect($authorsOwn->fresh()->is_default)->toBeTrue()
+        ->and(TableView::defaultFor('leases', $author->id)?->getKey())->toBe($authorsOwn->getKey());
+
+    // …and mine gave way, so the view I just adopted is the one I actually land on. Without this
+    // the personal tier still wins and the button reads as broken.
+    expect($mineWasDefault->fresh()->is_default)->toBeFalse()
+        ->and($authorsShared->fresh()->is_default)->toBeTrue()
+        ->and(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($authorsShared->getKey());
+});
+
+it('leaves one team default standing, not two', function () {
+    $author = makeUser('manager', [$this->asset->id]);
+
+    $firstTeam = TableView::create([
+        'resource' => 'leases', 'name' => 'Team A', 'state' => [],
+        'user_id' => $author->id, 'is_shared' => true, 'is_default' => true,
+    ]);
+    $secondTeam = TableView::create([
+        'resource' => 'leases', 'name' => 'Team B', 'state' => [],
+        'user_id' => $this->user->id, 'is_shared' => true,
+    ]);
+
+    // `?tableView=none`, or the page's own mount-time redirect to the existing default fires and
+    // Livewire::test() hands back a redirect instead of a component.
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () use ($secondTeam) {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $secondTeam->id]);
+    });
+
+    // "Where the team starts" is ONE view; two resolve by row id, which is not a decision anybody
+    // made. A colleague with no view of their own follows the new one.
+    expect($firstTeam->fresh()->is_default)->toBeFalse()
+        ->and($secondTeam->fresh()->is_default)->toBeTrue()
+        ->and(TableView::defaultFor('leases', makeUser('manager', [$this->asset->id])->id)?->getKey())
+        ->toBe($secondTeam->getKey());
+});

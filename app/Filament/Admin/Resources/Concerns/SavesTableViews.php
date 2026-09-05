@@ -193,6 +193,9 @@ trait SavesTableViews
                 // Re-resolved through `visibleTo`, not trusted from the payload: the option list is
                 // a UI convenience and this is the gate. A view someone unshared between the modal
                 // opening and its submit must not become anybody's landing screen.
+                // Re-resolved through `visibleTo`, not trusted from the payload: the option list is
+                // a UI convenience and this is the gate. A view someone unshared between the modal
+                // opening and its submit must not become anybody's landing screen.
                 $view = TableView::query()
                     ->whereKey($data['view_id'])
                     ->where('resource', $this->savedViewResourceKey())
@@ -201,7 +204,8 @@ trait SavesTableViews
 
                 abort_unless($view !== null, 403);
 
-                $view->makeDefault();
+                // The ACTOR, not the row's owner — see TableView::makeDefault() (D3-04).
+                $view->makeDefault(Auth::id());
 
                 Notification::make()
                     ->title(__('admin.saved_views.default_set', ['name' => $view->name]))
