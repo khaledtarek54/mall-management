@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\Filament\SavedColumnLayout;
+use App\Support\Filament\TableViewDefaultMemo;
 use Filament\Tables\Concerns\HasColumnManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,28 @@ use Illuminate\Support\Facades\DB;
 #[PortfolioShared]
 class TableView extends Model
 {
+    /** Request-scoped memo for {@see defaultFor()}. */
+    private const DEFAULT_MEMO = TableViewDefaultMemo::class;
+
+    /**
+     * Forget this request's resolved defaults.
+     *
+     * Called from both tables' write hooks: sharing, unsharing, deleting a view or moving the team
+     * flag all change the answer for people who never touched anything.
+     */
+    public static function flushDefaultMemo(): void
+    {
+        app(self::DEFAULT_MEMO)->answers = [];
+    }
+
+    protected static function booted(): void
+    {
+        $flush = fn () => static::flushDefaultMemo();
+
+        static::saved($flush);
+        static::deleted($flush);
+    }
+
     protected $fillable = ['resource', 'name', 'state', 'user_id', 'is_shared', 'is_default'];
 
     protected $casts = [
@@ -54,14 +77,28 @@ class TableView extends Model
     /**
      * The view this list should OPEN on for `$userId`, or null when they have not chosen one.
      *
-     * **A personal default beats a team one.** An unshared default is a preference its owner stated
-     * about their own screen; a shared one is a manager saying "this is where the team starts". If
-     * the two disagree the person's own choice must win, or marking a team view would silently
-     * overrule every colleague who had already set theirs.
+     * Two tiers, and they answer two different questions:
      *
-     * Ordered by key within each tier so the answer is deterministic — the write path allows only
-     * one default per user per resource, but a restored backup or a hand-edited row must still
-     * resolve to the same view on every request rather than whichever the database offers first.
+     *  1. **This person's own answer**, a row in `table_view_defaults`. A `table_view_id` is where
+     *     they start; a NULL one is the explicit "no default for me", which is why the table
+     *     exists — somebody with no view of their own previously had nowhere to record that and
+     *     could not escape a team default at all.
+     *  2. **The team's starting point** — a SHARED view its owner marked. Reached only when this
+     *     person has stated nothing.
+     *
+     * A personal answer beats the team's, which is what stops a manager marking a team view from
+     * silently overruling every colleague who had already chosen. It reads through `visibleTo`,
+     * so a view that was later unshared quietly demotes its followers to the team default rather
+     * than opening a list they may no longer see. A DELETED view takes the follower's row with it
+     * (`cascadeOnDelete`), which reads as "has not chosen" — deliberately not as the stored NULL
+     * that means "no default for me", or deleting a shared view would opt all of its followers out
+     * of the team default as well.
+     *
+     * Ordered by key within the team tier so the answer is deterministic. `makeTeamDefault()`
+     * keeps that tier to one view, which is safe now in a way it never was before — the flag no
+     * longer doubles as anybody's personal preference, so there is nothing of somebody else's to
+     * destroy — but a restored backup or a hand-edited row must still resolve the same way on
+     * every request.
      */
     public static function defaultFor(string $resource, ?int $userId): ?self
     {
@@ -69,55 +106,125 @@ class TableView extends Model
             return null;
         }
 
-        $base = static fn (): Builder => static::query()
-            ->where('resource', $resource)
-            ->where('is_default', true);
+        // Memoised for the request: every admin list asks this twice — once in the mount hook that
+        // may redirect, once while building the saved-views menu — and this codebase treats
+        // per-page panel cost as a standing concern. Keyed by list AND person so nothing can leak
+        // between users in a queue worker or a test that swaps `actingAs`.
+        $memo = app(self::DEFAULT_MEMO);
+        $key = $resource.'|'.$userId;
 
-        return $base()->where('user_id', $userId)->orderBy('id')->first()
-            ?? $base()->where('is_shared', true)->orderBy('id')->first();
+        if (array_key_exists($key, $memo->answers)) {
+            return $memo->answers[$key];
+        }
+
+        $stated = TableViewDefault::query()
+            ->where('user_id', $userId)
+            ->where('resource', $resource)
+            ->first();
+
+        if ($stated !== null) {
+            // NULL is an ANSWER: they asked for the plain list.
+            if ($stated->table_view_id === null) {
+                return $memo->answers[$key] = null;
+            }
+
+            $view = static::query()
+                ->whereKey($stated->table_view_id)
+                ->where('resource', $resource)
+                ->visibleTo($userId)
+                ->first();
+
+            if ($view !== null) {
+                return $memo->answers[$key] = $view;
+            }
+        }
+
+        return $memo->answers[$key] = static::query()
+            ->where('resource', $resource)
+            ->where('is_shared', true)
+            ->where('is_default', true)
+            ->orderBy('id')
+            ->first();
     }
 
     /**
-     * Make this the ACTOR's default for its list, clearing whatever held the flag before.
+     * Make this the ACTOR's own landing view for this list.
      *
-     * On the MODEL rather than in the action, because "at most one default per user per resource"
-     * is a fact about these rows and there is no partial unique index to enforce it — see the
-     * migration. Two callers writing the flag directly is how a user ends up with two defaults and
-     * a list that opens on whichever one the database returns first.
+     * It writes THEIR row and touches nothing else — not this view, not its owner's preference,
+     * not anyone else's. That is the whole point of the pivot: adopting a colleague's shared view
+     * used to set a flag on their row, which made it the team's default for everybody and, on the
+     * way past, cleared flags that were somebody's stated preference.
      *
-     * **THE ACTOR, NOT THE ROW'S OWNER (D3-04).** This cleared `where('user_id', $this->user_id)`
-     * — the id on the ROW, which is the actor only when somebody marks their own view. A colleague
-     * adopting a SHARED view therefore cleared the OWNER's flags: the author's list silently
-     * stopped opening where they had set it, and nothing on either screen said so. It also left
-     * the actor's OWN personal default standing, and a personal default WINS — so the button the
-     * colleague had just pressed appeared to do nothing at all.
-     *
-     * It clears the ACTOR's own views and NOTHING ELSE. A first version also cleared other SHARED
-     * defaults, on the reasoning that "where the team starts" is one view — and that reintroduced
-     * the very bug above through a different door, because `defaultFor()`'s personal tier does not
-     * exclude shared rows: a view somebody OWNS and has SHARED is simultaneously their personal
-     * default and the team's. Measured — B marks their own shared pack as their default, an
-     * unrelated A adopts C's shared view, and B's landing screen silently becomes C's. Clearing one
-     * meaning of the column destroys the other, and no query can tell the two apart.
-     *
-     * So two shared views may both carry the flag, and `defaultFor()` resolves that by `orderBy(id)`
-     * — arbitrary, deterministic and harmless, which is the right trade against wiping a preference
-     * somebody stated. **The real fix is a per-user pivot** (`ReportPreference` is the model for
-     * it): "which view do I land on" is a fact about a PERSON, and keeping it in a column on a
-     * SHARED row is the design error underneath both of these. Recorded on D3-04.
-     *
-     * A view belonging to somebody else and never shared is unreachable here: the action resolves
-     * through `visibleTo` before calling this.
+     * Marking the TEAM's starting point is a different act with a different gate — see
+     * {@see makeTeamDefault()} — because it is a decision about everyone's screen and belongs to
+     * whoever published the view.
      */
     public function makeDefault(?int $actorId = null): void
     {
         $actorId ??= $this->user_id;
 
-        DB::transaction(function () use ($actorId): void {
+        TableViewDefault::query()->updateOrCreate(
+            ['user_id' => $actorId, 'resource' => $this->resource],
+            ['table_view_id' => $this->getKey()],
+        );
+    }
+
+    /**
+     * Put this operator back to following whatever the team does.
+     *
+     * DELETES the row, because absence is exactly that state — `defaultFor()` falls through to the
+     * team tier when nobody has stated an answer. Distinct from {@see forgetDefaultFor()}, which
+     * stores a NULL meaning "the plain list, whatever the team says"; two different answers, and
+     * conflating them is the fault this table was created to end.
+     *
+     * Through the MODEL, never a query-builder `delete()`: a mass delete fires no model events, so
+     * the request memo behind `defaultFor()` would keep answering with the row just removed — and
+     * in Livewire the write and the re-render are one request, so the operator would see their old
+     * answer immediately after changing it.
+     */
+    public static function followTeamDefaultFor(string $resource, int $userId): void
+    {
+        TableViewDefault::query()
+            ->where('user_id', $userId)
+            ->where('resource', $resource)
+            ->get()
+            ->each
+            ->delete();
+    }
+
+    /**
+     * Record that this operator wants NO default for this list.
+     *
+     * A stored NULL rather than a deleted row, deliberately: absence means "they have not chosen"
+     * and falls through to the team's starting point, which is exactly what somebody pressing
+     * "no default" is trying to get away from. This is the escape that did not exist.
+     */
+    public static function forgetDefaultFor(string $resource, int $userId): void
+    {
+        TableViewDefault::query()->updateOrCreate(
+            ['user_id' => $userId, 'resource' => $resource],
+            ['table_view_id' => null],
+        );
+    }
+
+    /**
+     * Make this shared view where the TEAM starts — the owner's decision, not a reader's.
+     *
+     * Only meaningful on a shared view: `defaultFor()` reads this tier for people who have stated
+     * nothing, and an unshared row would be a default nobody but its owner could ever see, which
+     * their own preference row already says better.
+     *
+     * Clears the flag from the list's other shared views, which is safe HERE in a way it never was
+     * before: `is_default` no longer doubles as anybody's personal preference, so there is nothing
+     * of somebody else's to destroy.
+     */
+    public function makeTeamDefault(): void
+    {
+        DB::transaction(function (): void {
             static::query()
                 ->where('resource', $this->resource)
+                ->where('is_shared', true)
                 ->whereKeyNot($this->getKey())
-                ->where('user_id', $actorId)
                 ->update(['is_default' => false]);
 
             $this->forceFill(['is_default' => true])->save();

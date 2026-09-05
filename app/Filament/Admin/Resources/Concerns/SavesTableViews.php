@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Concerns;
 
 use App\Models\TableView;
+use App\Models\TableViewDefault;
 use App\Support\Filament\SavedColumnLayout;
 use App\Support\ResourceLink;
 use Filament\Actions\Action;
@@ -11,6 +12,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
@@ -151,16 +154,15 @@ trait SavesTableViews
      * shared arrears pack as your landing screen is the case the row is about, and refusing it
      * would be the half-capability this codebase keeps finding.
      *
-     * **Two things this does NOT do, stated because an earlier version of this docblock claimed
-     * the opposite and was wrong.** Marking a SHARED view writes the flag on somebody else's row,
-     * so it also sets the TEAM default for every colleague who has not stated one — one person's
-     * click, everyone's landing screen. And a colleague's own personal default does NOT reliably
-     * win: `defaultFor()`'s personal tier does not exclude shared rows, so a view its owner shared
-     * AND marked is both tiers at once. Neither can be fixed from here, because `is_default` is one
-     * column answering two questions; the fix is the per-user pivot recorded on D3-04.
+     * **Three answers, because the model now holds three.** Blank means "follow whatever the team
+     * does" and deletes this operator's row; the explicit "no default" stores a NULL, which means
+     * "the plain list, whatever the team says"; a view is a personal choice. Two of those rendered
+     * identically as blank until the pivot shipped, so a follower could not tell which state they
+     * were in and pressing submit picked one for them.
      *
-     * Blank clears it — but only over views this operator OWNS, so an adopted team default cannot
-     * be escaped this way either (same root cause, same row).
+     * Adopting writes only this operator's own row — never a flag on somebody else's view, which
+     * is what used to move every colleague's landing screen. Publishing the TEAM's starting point
+     * is the separate, owner-only toggle below; see {@see TableView::makeTeamDefault()}.
      */
     protected function chooseDefaultViewAction(): Action
     {
@@ -170,26 +172,80 @@ trait SavesTableViews
             ->modalHeading(__('admin.saved_views.set_default'))
             ->modalDescription(__('admin.saved_views.set_default_description'))
             ->modalSubmitActionLabel(__('admin.saved_views.set_default'))
-            ->fillForm(fn (): array => [
-                'view_id' => TableView::defaultFor($this->savedViewResourceKey(), Auth::id())?->getKey(),
-            ])
+            // **Filled from what this operator has actually STATED, never from `defaultFor()`.**
+            // That resolver answers the TEAM's view for somebody who has stated nothing, so
+            // prefilling from it made a plain confirm write a personal row pinned to today's team
+            // view — quietly opting a follower out of ever following the team again.
+            //
+            // And `is_team_default` is filled HERE rather than by `->default()`, because a
+            // component default is only applied when the form is filled with NULL: with an array
+            // it fills that array and nulls the rest. Measured — the toggle rendered OFF on a view
+            // that WAS the team default, so re-opening the modal and pressing submit unchanged
+            // unpublished it under a success toast. Same root cause as the create-form prefill bug
+            // (`PrefillsCreateForm`), reached from the other direction.
+            ->fillForm(function (): array {
+                $stated = $this->statedDefault();
+
+                return [
+                    'view_id' => $stated?->table_view_id === null
+                        ? ($stated === null ? null : self::SAVED_VIEW_NONE)
+                        : $stated->table_view_id,
+                    'is_team_default' => (bool) $this->ownedSharedView($stated?->table_view_id)?->is_default,
+                ];
+            })
             ->schema([
+                // THREE answers, all reachable, because the model now holds three: follow whatever
+                // the team does (no row), open on a view of my choosing (a pointer), or open the
+                // plain list whatever anyone else says (a stored NULL). Two of those rendered
+                // identically as "blank" before, so a follower could not tell which they were and
+                // submitting picked one for them.
                 Select::make('view_id')
                     ->label(__('admin.saved_views.menu'))
-                    ->placeholder(__('admin.saved_views.no_default'))
-                    ->options(fn (): array => $this->savedViewsForThisList()->pluck('name', 'id')->all()),
+                    ->placeholder(__('admin.saved_views.follow_team'))
+                    ->live()
+                    ->options(fn (): array => $this->savedViewsForThisList()->pluck('name', 'id')
+                        ->put(self::SAVED_VIEW_NONE, __('admin.saved_views.no_default'))
+                        ->all())
+                    // The toggle must follow the PICKED view, not the one the modal opened on —
+                    // `->default()` never re-runs, and a stale tick is how the team default gets
+                    // unpublished by somebody who was only changing their own.
+                    ->afterStateUpdated(fn ($state, Set $set) => $set(
+                        'is_team_default',
+                        (bool) $this->ownedSharedView($state)?->is_default,
+                    )),
+
+                // WHERE THE TEAM STARTS is a second question, asked only of somebody who can
+                // answer it. It appears when the picked view is one this operator OWNS and has
+                // SHARED — on anyone else's view it would be a reader deciding every colleague's
+                // landing screen, and on an unshared one it would be a default nobody else could
+                // ever see, which their own preference row already says better.
+                Toggle::make('is_team_default')
+                    ->label(__('admin.saved_views.team_default'))
+                    ->helperText(__('admin.saved_views.team_default_hint'))
+                    ->visible(fn (Get $get): bool => $this->ownedSharedView($get('view_id')) !== null),
             ])
             ->visible(fn (): bool => Auth::check())
             ->authorize(fn (): bool => Auth::check())
             ->action(function (array $data): void {
                 abort_unless(Auth::check(), 403);
 
-                // Clearing is the blank case and must not require a view to exist.
+                // BLANK — "follow whatever the team does". Deletes the row rather than storing
+                // anything, because absence is precisely that state: `defaultFor()` falls through
+                // to the team tier when nobody has stated an answer.
                 if (blank($data['view_id'] ?? null)) {
-                    TableView::query()
-                        ->where('resource', $this->savedViewResourceKey())
-                        ->ownedBy(Auth::id())
-                        ->update(['is_default' => false]);
+                    TableView::followTeamDefaultFor($this->savedViewResourceKey(), Auth::id());
+
+                    Notification::make()->title(__('admin.saved_views.following_team'))->success()->send();
+
+                    return;
+                }
+
+                // THE EXPLICIT NONE — "open the plain list, whatever the team says". A stored
+                // NULL, which is a different fact from the deleted row above and the reason this
+                // table exists: before it there was nowhere to record this, so a reader following
+                // a team default could not escape it at all.
+                if ($data['view_id'] === self::SAVED_VIEW_NONE) {
+                    TableView::forgetDefaultFor($this->savedViewResourceKey(), Auth::id());
 
                     Notification::make()->title(__('admin.saved_views.default_cleared'))->success()->send();
 
@@ -207,14 +263,66 @@ trait SavesTableViews
 
                 abort_unless($view !== null, 403);
 
-                // The ACTOR, not the row's owner — see TableView::makeDefault() (D3-04).
+                // Writes the ACTOR's own row and nothing else — see TableView::makeDefault().
                 $view->makeDefault(Auth::id());
+
+                // …and the team tier only if they own the shared view, asked again HERE rather
+                // than trusted: a hidden Toggle still arrives in the Livewire payload.
+                if ($this->ownedSharedView($view->getKey()) !== null) {
+                    if ($data['is_team_default'] ?? false) {
+                        $view->makeTeamDefault();
+                    } elseif ($view->is_default) {
+                        $view->forceFill(['is_default' => false])->save();
+                    }
+                }
 
                 Notification::make()
                     ->title(__('admin.saved_views.default_set', ['name' => $view->name]))
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * The Select's sentinel for "no default for me", told apart from a blank "follow the team".
+     *
+     * A string, so it cannot collide with a view id.
+     */
+    protected const SAVED_VIEW_NONE = 'none';
+
+    /** This operator's own stated answer for this list — the row, so a NULL pointer is readable. */
+    protected function statedDefault(): ?TableViewDefault
+    {
+        return Auth::check()
+            ? TableViewDefault::query()
+                ->where('user_id', Auth::id())
+                ->where('resource', $this->savedViewResourceKey())
+                ->first()
+            : null;
+    }
+
+    /**
+     * The picked view, but only when this operator owns it AND has shared it.
+     *
+     * One predicate, named once, read by the toggle's `visible()`, its `default()` and the write —
+     * so what the operator is shown and what the action accepts cannot drift.
+     *
+     * Public so a test can ask it directly. Filament's own `getMountedActionSchema()` is protected,
+     * so a modal field's `visible()` cannot be read from outside without reflection, and asserting
+     * three call sites agree is worth more than asserting one of them renders.
+     */
+    public function ownedSharedView(mixed $viewId): ?TableView
+    {
+        if (blank($viewId) || ! Auth::check()) {
+            return null;
+        }
+
+        return TableView::query()
+            ->whereKey($viewId)
+            ->where('resource', $this->savedViewResourceKey())
+            ->ownedBy(Auth::id())
+            ->where('is_shared', true)
+            ->first();
     }
 
     /**

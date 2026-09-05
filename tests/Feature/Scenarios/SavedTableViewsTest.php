@@ -511,8 +511,8 @@ it('opens the list on the default view, as a redirect to its own URL', function 
         'name' => 'Draft leases',
         'state' => ['filters' => ['status' => ['value' => 'draft']]],
         'user_id' => $this->user->id,
-        'is_default' => true,
     ]);
+    $view->makeDefault($view->user_id);
 
     asTenant($this->asset, function () use ($view) {
         // A redirect, never a state mutation — this trait's stated rule is that a view IS a URL,
@@ -531,8 +531,8 @@ it('does not redirect when the request already asked for something', function ()
     TableView::create([
         'resource' => 'leases', 'name' => 'Draft leases',
         'state' => ['filters' => ['status' => ['value' => 'draft']]],
-        'user_id' => $this->user->id, 'is_default' => true,
-    ]);
+        'user_id' => $this->user->id,
+    ])->makeDefault($this->user->id);
 
     // **`assertNoRedirect()` cannot fail here and must not be used.** It asserts only on
     // `$effects['redirect']`, which Livewire populates on an UPDATE request; a redirect issued from
@@ -569,12 +569,14 @@ it('lets a personal default beat the team’s', function () {
 
     $team = TableView::create([
         'resource' => 'leases', 'name' => 'Team pack', 'state' => [],
-        'user_id' => $manager->id, 'is_shared' => true, 'is_default' => true,
+        'user_id' => $manager->id, 'is_shared' => true,
     ]);
+    $team->makeDefault($team->user_id);
     $mine = TableView::create([
         'resource' => 'leases', 'name' => 'Mine', 'state' => [],
-        'user_id' => $this->user->id, 'is_default' => true,
+        'user_id' => $this->user->id,
     ]);
+    $mine->makeDefault($mine->user_id);
 
     expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($mine->getKey())
         // …and a colleague with no preference of their own still lands on the team's.
@@ -586,16 +588,18 @@ it('lets a personal default beat the team’s', function () {
 it('keeps at most one default per user per list, and clears on a blank', function () {
     $first = TableView::create([
         'resource' => 'leases', 'name' => 'First', 'state' => [],
-        'user_id' => $this->user->id, 'is_default' => true,
+        'user_id' => $this->user->id,
     ]);
+    $first->makeDefault($first->user_id);
     $second = TableView::create([
         'resource' => 'leases', 'name' => 'Second', 'state' => [], 'user_id' => $this->user->id,
     ]);
     // A view on ANOTHER list must not be disturbed — the flag is per resource, not per user.
     $elsewhere = TableView::create([
         'resource' => 'invoices', 'name' => 'Elsewhere', 'state' => [],
-        'user_id' => $this->user->id, 'is_default' => true,
+        'user_id' => $this->user->id,
     ]);
+    $elsewhere->makeDefault($elsewhere->user_id);
 
     Livewire::withQueryParams(['tableView' => 'none']);
 
@@ -604,18 +608,22 @@ it('keeps at most one default per user per list, and clears on a blank', functio
             ->callAction('chooseDefaultView', ['view_id' => $second->id]);
     });
 
-    expect($second->fresh()->is_default)->toBeTrue()
-        ->and($first->fresh()->is_default)->toBeFalse()
-        ->and($elsewhere->fresh()->is_default)->toBeTrue();
+    // Asserted through the RESOLVER, not the storage. These used to read `is_default` off the
+    // row, which is why they all went red when where-a-list-opens moved to a per-person row —
+    // they were pinned to the mechanism rather than to the claim.
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($second->getKey())
+        ->and(TableView::defaultFor('invoices', $this->user->id)?->getKey())->toBe($elsewhere->getKey());
 
-    // Blank clears it — the way back for an operator who changed their mind.
+    // The explicit "no default" — the way back for an operator who changed their mind. A BLANK
+    // pick is a different answer ("follow the team"), which is why the Select offers both.
     asTenant($this->asset, function () {
         Livewire::test(ListLeases::class)
-            ->callAction('chooseDefaultView', ['view_id' => null]);
+            ->callAction('chooseDefaultView', ['view_id' => 'none']);
     });
 
     expect(TableView::defaultFor('leases', $this->user->id))->toBeNull()
-        ->and($elsewhere->fresh()->is_default)->toBeTrue();
+        // …and the OTHER list is untouched: the answer is per (person, list).
+        ->and(TableView::defaultFor('invoices', $this->user->id)?->getKey())->toBe($elsewhere->getKey());
 });
 
 it('will not make a view somebody never shared into your default', function () {
@@ -643,8 +651,9 @@ it('will not make a view somebody never shared into your default', function () {
             ->callAction('chooseDefaultView', ['view_id' => $shared->id]);
     });
 
-    expect($private->fresh()->is_default)->toBeFalse()
-        ->and($shared->fresh()->is_default)->toBeTrue();
+    // The private view was refused; the SHARED one really was adopted — which is the case UX-11
+    // is about, and it now records in the adopter's own row rather than on the author's.
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($shared->getKey());
 });
 
 /*
@@ -662,16 +671,18 @@ it('adopting a shared view clears MY default, never the author\'s', function () 
 
     $authorsOwn = TableView::create([
         'resource' => 'leases', 'name' => 'Author personal', 'state' => [],
-        'user_id' => $author->id, 'is_default' => true,
+        'user_id' => $author->id,
     ]);
+    $authorsOwn->makeDefault($authorsOwn->user_id);
     $authorsShared = TableView::create([
         'resource' => 'leases', 'name' => 'Author shared', 'state' => [],
         'user_id' => $author->id, 'is_shared' => true,
     ]);
     $mineWasDefault = TableView::create([
         'resource' => 'leases', 'name' => 'Mine', 'state' => [],
-        'user_id' => $this->user->id, 'is_default' => true,
+        'user_id' => $this->user->id,
     ]);
+    $mineWasDefault->makeDefault($mineWasDefault->user_id);
 
     // `?tableView=none`, or the page's own mount-time redirect to the existing default fires and
     // Livewire::test() hands back a redirect instead of a component.
@@ -683,14 +694,14 @@ it('adopting a shared view clears MY default, never the author\'s', function () 
     });
 
     // The author's own landing screen is untouched — the half that was silently destructive.
-    expect($authorsOwn->fresh()->is_default)->toBeTrue()
-        ->and(TableView::defaultFor('leases', $author->id)?->getKey())->toBe($authorsOwn->getKey());
+    expect(TableView::defaultFor('leases', $author->id)?->getKey())->toBe($authorsOwn->getKey());
 
     // …and mine gave way, so the view I just adopted is the one I actually land on. Without this
     // the personal tier still wins and the button reads as broken.
-    expect($mineWasDefault->fresh()->is_default)->toBeFalse()
-        ->and($authorsShared->fresh()->is_default)->toBeTrue()
-        ->and(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($authorsShared->getKey());
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($authorsShared->getKey())
+        // …and adopting wrote nothing onto the author's row: the team's starting point is a
+        // separate act with a separate gate.
+        ->and($authorsShared->fresh()->is_default)->toBeFalse();
 });
 
 it('touches no other person\'s row — including a shared view that is its owner\'s own default', function () {
@@ -703,8 +714,9 @@ it('touches no other person\'s row — including a shared view that is its owner
 
     $authorsSharedDefault = TableView::create([
         'resource' => 'leases', 'name' => 'Author shared AND default', 'state' => [],
-        'user_id' => $author->id, 'is_shared' => true, 'is_default' => true,
+        'user_id' => $author->id, 'is_shared' => true,
     ]);
+    $authorsSharedDefault->makeDefault($authorsSharedDefault->user_id);
 
     $colleague = makeUser('manager', [$this->asset->id]);
     $colleaguesShared = TableView::create([
@@ -721,6 +733,182 @@ it('touches no other person\'s row — including a shared view that is its owner
     });
 
     // The author never touched anything and must still land where they set it.
-    expect($authorsSharedDefault->fresh()->is_default)->toBeTrue()
-        ->and(TableView::defaultFor('leases', $author->id)?->getKey())->toBe($authorsSharedDefault->getKey());
+    expect(TableView::defaultFor('leases', $author->id)?->getKey())->toBe($authorsSharedDefault->getKey());
+});
+
+/*
+|--------------------------------------------------------------------------
+| D3-04 — where a list opens is a fact about a PERSON
+|--------------------------------------------------------------------------
+| `is_default` answered two questions at once, and a view its owner had shared AND marked was both
+| at the same time. A row per (person, list) separates them: a `table_view_id` is where I start,
+| a NULL one is the explicit "no default for me", and the flag keeps only the team's meaning.
+*/
+it('lets somebody with no view of their own escape a team default', function () {
+    // THE CASE THE PIVOT EXISTS FOR. There was nowhere to record "not for me" — the clear button
+    // only unset the actor's OWN views, so a reader following somebody else's shared default was
+    // returned to it on every page load, for ever, and the button reported success each time.
+    $manager = makeUser('manager', [$this->asset->id]);
+
+    $team = TableView::create([
+        'resource' => 'leases', 'name' => 'Team arrears', 'state' => [],
+        'user_id' => $manager->id, 'is_shared' => true,
+    ]);
+    $team->makeTeamDefault();
+
+    // I own no view at all and I follow the team's.
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($team->getKey());
+
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => 'none']);
+    });
+
+    expect(TableView::defaultFor('leases', $this->user->id))->toBeNull()
+        // …and the team's own starting point is untouched for everybody else.
+        ->and(TableView::defaultFor('leases', $manager->id)?->getKey())->toBe($team->getKey());
+
+    // …and BLANK is the third answer, not a synonym for either: it puts them back to following
+    // whatever the team does. Two states rendered identically before this, so a follower could
+    // not tell which they were in and submitting picked one for them.
+    asTenant($this->asset, function () {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => null]);
+    });
+
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($team->getKey());
+});
+
+it('treats a deleted or unshared view as no answer, not as a broken one', function () {
+    // A stored pointer can outlive what it points at. Falling through to the team default is the
+    // safe reading; opening a list on a view the reader may no longer see is not.
+    $manager = makeUser('manager', [$this->asset->id]);
+
+    $team = TableView::create([
+        'resource' => 'leases', 'name' => 'Team', 'state' => [],
+        'user_id' => $manager->id, 'is_shared' => true,
+    ]);
+    $team->makeTeamDefault();
+
+    $adopted = TableView::create([
+        'resource' => 'leases', 'name' => 'Their other view', 'state' => [],
+        'user_id' => $manager->id, 'is_shared' => true,
+    ]);
+    $adopted->makeDefault($this->user->id);
+
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($adopted->getKey());
+
+    // Unshared out from under me — I can no longer see it, so I follow the team again.
+    $adopted->forceFill(['is_shared' => false])->save();
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($team->getKey());
+
+    // Deleted outright — the FK CASCADES, taking the follower's row with it, which reads as "has
+    // not chosen" and NOT as the stored NULL that means "no default for me". Nulling here is
+    // exactly what must not happen: it would opt every follower of a deleted shared view out of
+    // the team default too.
+    $adopted->delete();
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($team->getKey());
+});
+
+it('offers the team toggle only to the owner of a shared view', function () {
+    // Where the TEAM starts is a decision about everyone's screen. Asked of the predicate the
+    // toggle's visibility, its default and the write all read, so the three cannot drift.
+    $mineShared = TableView::create([
+        'resource' => 'leases', 'name' => 'Mine, shared', 'state' => [],
+        'user_id' => $this->user->id, 'is_shared' => true,
+    ]);
+    $minePrivate = TableView::create([
+        'resource' => 'leases', 'name' => 'Mine, private', 'state' => [],
+        'user_id' => $this->user->id,
+    ]);
+    $theirsShared = TableView::create([
+        'resource' => 'leases', 'name' => 'Theirs, shared', 'state' => [],
+        'user_id' => makeUser('manager', [$this->asset->id])->id, 'is_shared' => true,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    // The predicate all three sites read — the toggle's `visible()`, its `default()` and the
+    // write. Filament's `getMountedActionSchema()` is protected, so a modal field's visibility
+    // cannot be read from outside without reflection; the end-to-end proof that the WRITE honours
+    // this lives in the smuggling case below, which drives the real action.
+    asTenant($this->asset, function () use ($mineShared, $minePrivate, $theirsShared) {
+        $page = Livewire::test(ListLeases::class)->instance();
+
+        expect($page->ownedSharedView($mineShared->getKey()))->not->toBeNull()
+            // A view I own but never shared: a "team default" nobody else could see.
+            ->and($page->ownedSharedView($minePrivate->getKey()))->toBeNull()
+            // Somebody else's shared view: adopting it is mine to do, publishing it is not.
+            ->and($page->ownedSharedView($theirsShared->getKey()))->toBeNull();
+    });
+});
+
+it('does not let a reader set the team default by smuggling the toggle', function () {
+    // A hidden Toggle still arrives in the Livewire payload, so the write re-asks rather than
+    // trusting it — the rule this codebase states for every pinned or hidden control.
+    $author = makeUser('manager', [$this->asset->id]);
+    $theirs = TableView::create([
+        'resource' => 'leases', 'name' => 'Theirs', 'state' => [],
+        'user_id' => $author->id, 'is_shared' => true,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () use ($theirs) {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $theirs->id, 'is_team_default' => true]);
+    });
+
+    // Adopted for me…
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($theirs->getKey())
+        // …and NOT published as the team's.
+        ->and($theirs->fresh()->is_default)->toBeFalse();
+});
+
+it('cannot UNPUBLISH somebody else\'s team default by adopting it', function () {
+    // **The half the smuggling test above cannot reach, and the one that proves the guard.**
+    // Filament does not dehydrate a hidden component, so an extra payload key never arrives and
+    // the refusal comes from upstream — measured: deleting the ownership check left all 34 cases
+    // green. What the check actually protects is the OTHER branch: a submit with the toggle off
+    // clears `is_default`, and without the guard a reader adopting a shared view would strip the
+    // team's starting point on their way past.
+    $author = makeUser('manager', [$this->asset->id]);
+    $theirs = TableView::create([
+        'resource' => 'leases', 'name' => 'Team pack', 'state' => [],
+        'user_id' => $author->id, 'is_shared' => true,
+    ]);
+    $theirs->makeTeamDefault();
+
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () use ($theirs) {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $theirs->id, 'is_team_default' => false]);
+    });
+
+    expect($theirs->fresh()->is_default)->toBeTrue()
+        // …and a colleague who has stated nothing still follows it.
+        ->and(TableView::defaultFor('leases', makeUser('manager', [$this->asset->id])->id)?->getKey())
+        ->toBe($theirs->getKey());
+});
+
+it('lets the OWNER unpublish their own team default — the control', function () {
+    // Without this, the refusal above passes just as happily on a write that can never clear the
+    // flag at all, and "the team default survived" would prove nothing.
+    $mine = TableView::create([
+        'resource' => 'leases', 'name' => 'Mine, shared', 'state' => [],
+        'user_id' => $this->user->id, 'is_shared' => true,
+    ]);
+    $mine->makeTeamDefault();
+
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () use ($mine) {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $mine->id, 'is_team_default' => false]);
+    });
+
+    expect($mine->fresh()->is_default)->toBeFalse();
 });

@@ -2,17 +2,17 @@
 
 namespace App\Providers;
 
+use App\Contracts\AssistantModel;
 use App\Listeners\LogBackupFailures;
 use App\Models\Lease;
 use App\Notifications\Channels\BellChannel;
 use App\Notifications\Channels\PushChannel;
 use App\Observers\LeaseObserver;
-use App\Services\Eta\Signing\EtaDocumentSigner;
-use App\Services\Eta\Signing\UnsignedEtaSigner;
-use App\Contracts\AssistantModel;
 use App\Services\Assistant\Models\ClaudeAssistantModel;
 use App\Services\Assistant\Models\NullAssistantModel;
 use App\Services\Assistant\Models\OpenAiCompatibleAssistantModel;
+use App\Services\Eta\Signing\EtaDocumentSigner;
+use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Services\Paymob\PaymobClient;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\NullPushSender;
@@ -30,14 +30,14 @@ use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\CatalogueAwareSelect;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\Filament\NavigationItemMemo;
-use App\Support\TenantBalances;
+use App\Support\Filament\TableViewDefaultMemo;
 use App\Support\LedgerRealtimeSync;
 use App\Support\MorphMap;
 use App\Support\SealedPeriod;
 use App\Support\TableDefaults;
+use App\Support\TenantBalances;
 use App\Support\ValueSets;
 use Filament\Actions\Action as FilamentAction;
-use Filament\Forms\Components\Select as FilamentSelect;
 use Filament\Actions\AttachAction as FilamentAttachAction;
 use Filament\Actions\CreateAction as FilamentCreateAction;
 use Filament\Actions\DeleteAction as FilamentDeleteAction;
@@ -47,6 +47,7 @@ use Filament\Actions\EditAction as FilamentEditAction;
 use Filament\Actions\ForceDeleteAction as FilamentForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction as FilamentRestoreAction;
+use Filament\Forms\Components\Select as FilamentSelect;
 use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -109,6 +110,11 @@ class AppServiceProvider extends ServiceProvider
         // time). `scoped`, never `singleton`: a queue worker outlives the request, and a badge
         // count memoised across one would be answered from whenever that worker booted.
         $this->app->scoped(NavigationItemMemo::class);
+
+        // Same reasoning, different question: `TableView::defaultFor()` is asked twice per admin
+        // list. `scoped`, never `singleton` — a queue worker outlives the request and an answer
+        // keyed to a person must not survive into somebody else's.
+        $this->app->scoped(TableViewDefaultMemo::class);
         // Per REQUEST, never a singleton: a queue worker outlives the request, and a stale
         // arrears figure held across jobs reads as current. Same rule as the memo above.
         $this->app->scoped(TenantBalances::class);

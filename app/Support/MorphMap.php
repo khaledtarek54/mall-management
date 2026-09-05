@@ -5,13 +5,13 @@ namespace App\Support;
 use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\Announcement;
-use App\Models\AssistantDocChunk;
-use App\Models\AssistantQuestion;
 use App\Models\AnnouncementRecipient;
 use App\Models\ApprovalRule;
 use App\Models\Area;
 use App\Models\Asset;
 use App\Models\AssetOwner;
+use App\Models\AssistantDocChunk;
+use App\Models\AssistantQuestion;
 use App\Models\BankAccount;
 use App\Models\BankMatch;
 use App\Models\BankStatement;
@@ -98,6 +98,7 @@ use App\Models\StockMovement;
 use App\Models\StraightLineRentAdjustment;
 use App\Models\SystemSetting;
 use App\Models\TableView;
+use App\Models\TableViewDefault;
 use App\Models\TaxCode;
 use App\Models\TaxRate;
 use App\Models\Tenant;
@@ -265,6 +266,7 @@ class MorphMap
         'straight_line_rent_adjustment' => StraightLineRentAdjustment::class,
         'system_setting' => SystemSetting::class,
         'table_view' => TableView::class,
+        'table_view_default' => TableViewDefault::class,
         'tax_code' => TaxCode::class,
         'tax_rate' => TaxRate::class,
         'work_order_proposal' => WorkOrderProposal::class,
