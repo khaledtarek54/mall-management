@@ -151,8 +151,16 @@ class PaymentForm
 
                                 return $opts->all();
                             })
-                            ->disabled(fn (?Payment $record): bool => $record !== null
-                                && $record->isReversed())
+                            // **A display everywhere except the create form (SW-240).** The narrowed
+                            // options above had left exactly one manual transition — `initiated` →
+                            // `captured` — and that one POSTS CASH TO THE GL (`PaymentJournalizer`
+                            // posts on the received set), so it was the last place in the panel
+                            // where a bare dropdown moved the books: no confirmation, no act, no
+                            // reason to pause. It is the **Capture** header action now, with a
+                            // confirmation that states the consequence, through
+                            // `CapturePaymentService`. The create-time initiated/captured choice is
+                            // the born state and stays.
+                            ->disabled(fn (?Payment $record): bool => $record !== null)
                             ->default('captured')
                             ->required()
                             ->native(false),
@@ -403,17 +411,43 @@ class PaymentForm
                         // varchar width, so the bound has to be on the FORM to exist in a test at
                         // all. The sibling `PostDatedChequeForm` had it right the whole time (100 and
                         // 200, matching its own narrower columns).
+                        // **All four lock the moment the payment exists (SW-240), and the gateway
+                        // pair is the one that matters.** `ChangeImpact` classifies them NEUTRAL,
+                        // which is true of the LEDGER and not of the money: the Paymob callback
+                        // FINDS its payment by `gateway_transaction_id` and DEDUPES a replayed
+                        // callback on the `:txn:{id}:` marker inside it (`CallbackController`) —
+                        // so retyping it on a live gateway payment can orphan the capture (money
+                        // taken at the gateway, never recorded here) or strip the marker so the
+                        // same callback captures TWICE, the double-charge class `ConcurrencyPolicy`
+                        // exists to prevent. The cheque pair is the paper instrument's identity;
+                        // an uncleared cheque's home is the PDC register, so a captured cheque
+                        // payment is cleared money and its particulars are evidence, not a work in
+                        // progress. No PANEL path fills the gateway pair after creation — the
+                        // Paymob callback rewrites `gateway_transaction_id` on capture and retry,
+                        // and a model write does not pass through a form lock, which is exactly
+                        // where those rewrites belong. (The review corrected this sentence: its
+                        // first version claimed nothing in `app/` writes them at all.)
                         TextInput::make('gateway')
                             ->label(__('admin.fields.gateway'))
+                            ->disabled($locked)
                             ->maxLength(255),
                         TextInput::make('gateway_transaction_id')
                             ->label(__('admin.fields.gateway_transaction_id'))
+                            ->disabled($locked)
                             ->maxLength(255),
                         TextInput::make('cheque_number')
                             ->label(__('admin.fields.cheque_number'))
+                            ->disabled($locked)
                             ->maxLength(255),
+                        // The one of the four that is NOT identity but a fact that ARRIVES: an
+                        // INITIATED cheque payment — reachable from this same form's create-time
+                        // status choice — clears later, and locking this at exists left no way to
+                        // ever record when (the review's dead-end finding). So it stays open until
+                        // the money is received or reversed: type the clearance date, then Capture.
                         DatePicker::make('cheque_clearance_date')
                             ->label(__('admin.fields.cheque_clearance_date'))
+                            ->disabled(fn (?Payment $record): bool => $record !== null
+                                && ($record->isReceived() || $record->isReversed()))
                             ->native(false),
                     ])->columns(2),
                     FormTab::make('admin.sections.notes', [

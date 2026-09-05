@@ -1014,3 +1014,21 @@ payment settles — and a record already carrying one still renders and still sa
 reconciliation screen is given a status to write, this is the list it re-joins. Full reasoning in
 [CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
 regression test `APostedDocumentsStatusIsNotAPickerTest`.
+
+### SW-240
+
+**Capturing is an ACT, and the receipt's evidence is locked.** `initiated → captured` — the
+transition that posts cash to the GL and starts the four settlement channels counting — was the last
+place in the panel where a bare dropdown moved the books. It is the **Capture** header act now
+(`CapturePaymentService`: refuses a non-initiated payment, asserts the posting date, saves
+un-quietly so the sync and `recomputeTotals()` fire), with a confirmation that says what capturing
+does; the audience is the gateway session that died mid-flight whose money the bank confirms
+arrived. The status Select is a display on any existing payment — create keeps the born-state
+choice. **The four evidence fields lock the moment the payment exists**: `gateway_transaction_id`
+is the Paymob callback's LOOKUP key and its replay-dedupe marker (`CallbackController`), so
+retyping it could orphan a capture or let a replayed callback capture twice; the cheque pair is the
+paper's identity, and an uncleared cheque's home is the PDC register. GL-NEUTRAL all four, and the
+§16.4 lesson is why that was not enough. See
+[CHANGE-IMPACT-PLAN §17](../accounting/CHANGE-IMPACT-PLAN.md);
+`AMoneyStateMovesThroughAnActTest` drives the act sweep-before/sweep-after so the books are proved
+to move with the act and only then.

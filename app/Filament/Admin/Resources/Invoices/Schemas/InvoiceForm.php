@@ -231,11 +231,16 @@ class InvoiceForm
                             // from the panel on INV-VP-0002, and the previous pass fixed which
                             // VALUES it offered without asking whether it should still be a field.
                             //
-                            // Raising a draft is the one status decision a person makes here, and
-                            // `$locked` is false on create and on a draft, so that door is untouched.
+                            // `$record !== null`, not `$locked`, since SW-240 D-A: a SAVED draft's
+                            // door is the **Issue** act on its own page — with a confirmation that
+                            // states the GL consequence, through `IssueInvoiceService::raise()` —
+                            // so the Select is a display everywhere except the create form, where
+                            // draft-vs-issued is the born state and the one choice a person makes
+                            // here. That is the same one-door rule the credit note follows, and it
+                            // retires the last bare-dropdown route onto the books this form had.
                             // Not dehydrated, mirroring `issue_date` directly below: a disabled
                             // field is not submitted, so the stored value simply stands.
-                            ->disabled($locked)
+                            ->disabled(fn (?Invoice $record): bool => $record !== null)
                             ->native(false),
                         DatePicker::make('issue_date')
                             ->label(__('admin.fields.issue_date'))

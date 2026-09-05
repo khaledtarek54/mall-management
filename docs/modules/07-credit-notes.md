@@ -573,3 +573,16 @@ other one. Without it an Arabic document renders an English sentence as `.Issued
 
 See [OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference) for the
 whole rule, and `ADocumentIsWrittenInItsReadersLanguageTest` for what is pinned.
+
+### SW-240
+
+**One door to `issued`, and the reason locks with the document.** The draft status Select offered
+`issued` beside the Issue act — two doors, unequal: the act gates on `credit_notes.issue`, confirms,
+and runs `CreditNoteService::issue()`; the dropdown needed only `credit_notes.edit`, so an operator
+without the issue right could issue by picking a value (the posting-date guard was NOT bypassed —
+`CreditNote::updating` re-asserts it — an authz gap, not a books gap). Measured before closing: the
+only role granted edit also holds issue, so nothing lost reach. The Select is a display on any
+SAVED note now; create keeps the born-state choice. `reason` locks once issued (§17.7 D-C — a
+classification on a delivered document; Yardi's line is memo open, classification closed), while
+`reason_notes` and `notes` stay open because they are the memo. See
+[CHANGE-IMPACT-PLAN §17](../accounting/CHANGE-IMPACT-PLAN.md); `AMoneyStateMovesThroughAnActTest`.

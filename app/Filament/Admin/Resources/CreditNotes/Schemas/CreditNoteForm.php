@@ -140,6 +140,13 @@ class CreditNoteForm
                             ->options(fn () => __('admin.enums.credit_note_reason'))
                             ->required()
                             ->default('adjustment')
+                            // Locked once issued (SW-240 D-C): the reason is a CLASSIFICATION on a
+                            // delivered document — it renders on the note the tenant files — and
+                            // Yardi's line is memo open, classification closed. `reason_notes` and
+                            // `notes` beside it stay open, because they are the memo. Found OPEN by
+                            // the runtime audit while a static read said otherwise, which is the
+                            // whole reason the audit mounts pages instead of grepping them.
+                            ->disabled($locked)
                             ->native(false),
 
                         DatePicker::make('issue_date')
@@ -151,12 +158,23 @@ class CreditNoteForm
 
                         Select::make('status')
                             ->label(__('admin.tables.common.status'))
-                            // **A status is the outcome of an ACT, so it is only pickable while the
-                            // note is a DRAFT** — the one state where the choice means anything.
-                            // `issued` comes from the Issue button (`credit_notes.issue`),
-                            // `applied` is derived from the remaining balance by
-                            // `applyToInvoice()`, and `void` from the Void button
-                            // (`credit_notes.void`); this form needs only `credit_notes.edit`.
+                            // **A status is the outcome of an ACT, and on the EDIT page it is no
+                            // longer pickable at all (SW-240)** — the create-time draft/issued
+                            // choice below is the one decision a person makes here. The paragraph
+                            // this replaces claimed `issued` "comes from the Issue button" while
+                            // the draft branch of these options offered it from the dropdown too:
+                            // TWO DOORS, and unequal — the act gates on `credit_notes.issue`,
+                            // confirms, and runs `CreditNoteService::issue()`; the dropdown needed
+                            // only `credit_notes.edit`, so an operator without the issue right
+                            // could issue by picking a value. (The posting-date guard was NOT
+                            // bypassed — `CreditNote::updating` re-asserts it — so this was an
+                            // authz gap, not a books gap.) Measured before closing: FOUR roles hold
+                            // `credit_notes.edit` — `accounting` explicitly, plus `manager`,
+                            // `mall_admin` and `super_admin` through the blanket grant — and all
+                            // four hold `credit_notes.issue` too, so no role loses the act (the
+                            // RowActionPolicy reachability check; the review corrected the count).
+                            // `applied` is derived by `applyToInvoice()`, `void` comes from the
+                            // Void button (`credit_notes.void`).
                             //
                             // **The full vocabulary is kept for a non-draft note even though the
                             // field is disabled, and that is not cosmetic.** Filament derives an
@@ -189,7 +207,10 @@ class CreditNoteForm
                             // Disabled rather than narrowed: not validated, not submitted, and the
                             // record's own status still renders as its translated label instead of
                             // the raw `void` token the Arabic panel was showing.
-                            ->disabled(fn (?CreditNote $record): bool => $record !== null && $record->status !== 'draft')
+                            // `$record !== null`, not `!== 'draft'`: a saved draft's door is the
+                            // Issue act on its own page, so the Select is a display everywhere but
+                            // the create form.
+                            ->disabled(fn (?CreditNote $record): bool => $record !== null)
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.credit_note_status'))
                             ->required()
                             ->default('draft')

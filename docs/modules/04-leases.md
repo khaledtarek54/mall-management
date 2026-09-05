@@ -2384,3 +2384,16 @@ expiry sweep.
 final bill. A lease nobody ever ran billing for still has those months uninvoiced; that is a
 different problem with a different answer. `ATerminatedLeaseStillBillsTheMonthItConsumedTest`,
 9 cases, 6 mutations.
+
+### SW-240
+
+**`is_opening_balance` joined both deposit freezes.** The receipt freeze's dirty-list named every
+column that changes what the pot is MADE OF (amount, parties, date, type, status) and missed the one
+that changes whether the pot was ever BOOKED: the opening flag suppresses the receipt's
+`Dr Cash / Cr Deposits Held`, so flipping it on a drawn-on receipt voided the posted credit while
+the applications' debits stood — the pot negative by the receipt's full value, the amount-edit hole
+worn as a checkbox. In the receipt freeze AND the settled-account freeze now, and on the form's
+`$frozen`; an UNDRAWN receipt's flag stays correctable, which is the model's own
+fixable-until-drawn-on design and the over-lock control in the test. See
+[CHANGE-IMPACT-PLAN §17](../accounting/CHANGE-IMPACT-PLAN.md); `AMoneyStateMovesThroughAnActTest`,
+mutation-proved.

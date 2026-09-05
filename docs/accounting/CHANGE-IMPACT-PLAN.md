@@ -1104,3 +1104,62 @@ doing correctly anyway.
 
 **Order: 2 → 3 → 4 → 1 → D-decisions.** The gate lands first so every later phase is proved by the
 gate going green rather than by hand; Payment last because of the concurrent session.
+
+### 17.8 — What shipped, 2026-09-05, same day
+
+All four phases plus D-A and D-C, in the planned order (gate first, so the later phases were proved
+by the gate rather than by hand). D-B stands as the recorded decision it was.
+
+| | Delivered | Proof |
+|---|---|---|
+| **P2** ✅ | `Tests\Support\CommittedMoneyFixtures` — the refusal fixtures moved out of `ChangeImpactConformanceTest`'s file scope (contract unchanged, its completeness tooth still green) plus a `uiFixtures()` set built under ONE property, because a committed fixture and a MOUNTABLE one are different constraints: the refusal set's bare captured payment is committed and invisible to its own Edit page, which scopes through allocated invoices. `App\Support\MoneyFormPolicy::OPEN_WHILE_DERIVED` is the exemption register — eleven entries, each pointing at the decision it restates. `AMoneyFormIsClosedOnceCommittedTest` enforces §17.2's three clauses on every mounted Edit page, derived from `LedgerPoster::sources()` × the panel's resource registry | five mutations, each red with the message naming the defect |
+| **P3** ✅ | `is_opening_balance` joined BOTH deposit freezes' dirty-lists — the receipt freeze and the settled-account freeze — and the form's `$frozen`. The flag decides whether the pot was ever BOOKED, so flipping it on a drawn-on receipt was the amount-edit hole worn as a checkbox | refusal + the undrawn over-lock control, mutation-proved |
+| **P4** ✅ | One door to an issued credit note: the Select is a display on any SAVED note (create keeps the born-state choice), and the `issue` act — its own permission, confirmation, service — is the door. The dropdown had let a `credit_notes.edit` holder issue without `credit_notes.issue`; measured first: the only role granted edit also holds issue, so nothing lost reach | driven through the real page |
+| **P1** ✅ | Payment: the status Select is a display on any existing payment; `initiated → captured` — the transition that POSTS CASH — is the **Capture** header act through `CapturePaymentService` (posting-date asserted in the service, confirmation states the consequence). The four evidence fields lock on exists: the gateway pair is the Paymob callback's lookup + idempotency key, the cheque pair is the paper's identity (an uncleared cheque's home is the PDC register) | act driven; sweep-before/act/sweep-after proves the books move with the act and only then |
+| **D-A** ✅ | Issuing a draft invoice is the **Issue** act (`IssueInvoiceService::raise()` — refuses a non-draft and a no-line draft, asserts the posting date, saves un-quietly so the ladder and the sync fire). Gated on `invoices.edit`, deliberately: exactly what the Select door required, so no role's reach moved; an `invoices.issue` permission split is a roles-matrix decision left open. This REVERSES part of SW-215's "the panel's Select is the other door" — the Select remains the door only at CREATE, where draft-vs-issued is the born state | act → sweep → AR entry exists; the empty-draft and non-draft refusals in the reader's words |
+| **D-C** ✅ | `credit_notes.reason` locks once issued — a classification on a delivered document; `reason_notes` and `notes` stay open, because they are the memo | paired with the memo control |
+
+**Two test corrections worth recording.** The acts' GL assertions first read `postedEntryFor()`
+straight after `callAction()` and got null — the realtime sync rides the queue and a test
+transaction never commits, so the sweep is the honest reader (`accounting:sync-ledger --all` before
+as the control, after as the proof; the idiom `AMoneyDocumentSaysWhatItDidToTheBooksTest` already
+uses). And the older regression's "a draft is entirely open" control deliberately CHANGED under
+D-A: period and due date stay typeable on a draft, `status` does not — its door is the act.
+
+### 17.9 — The adversarial review, and what it caught (the loop earning its keep again)
+
+A review agent was told to read the change set and break it. It found **one FATAL, three
+needs-change and five factual corrections** — every one past a fully green targeted suite, which is
+the same lesson the 2026-09-01 sweep recorded: *the review is worth more than the hunt.*
+
+- **FATAL — `CapturePaymentService` was a bare status flip.** An initiated allocation is invisible
+  to every settlement sum (`RECEIVED_STATUSES` filters it out), so between the gateway session
+  dying and the operator capturing, the invoice can be settled by any other channel — and the flip
+  then relieved AR a second time, `paid_amount` doubled, negative AR buried: the four-channel
+  invariant, verbatim, plus the checked-at-lodging-never-at-clearing shape. The service now takes
+  the canonical invoices-then-self locks, re-checks `initiated` UNDER the lock (it also races the
+  callback committing `failed`), and runs BOTH payment guards — with a three-step save whose order
+  is load-bearing: quiet flip (so the guards' sums see this payment), guards (a refusal rolls back
+  with nothing fired), clean save (hooks — recompute, receipt notification, ledger sync — fire
+  once, only on success). Refuses rather than clamps, because unlike the gateway no money is in
+  hand yet.
+- **The tree held THREE standing test files still asserting the removed contract**
+  (`FinalizedDocumentLockTest`, `AVoidIsAnActNotACreditNoteStatusTest`,
+  `ACreditedIsAnOutcomeNotAStatusYouPickTest`) — two of them red against main since the SW-238
+  commits, missed because the neighbour sweep ran the files the fixes named rather than the files
+  that named the fixes. All three updated to the acts they now document.
+- **The deposit form half was proved by nothing** — reverting `$frozen` left every test green,
+  because the model regression drives `update()` and the gate's deposit fixture is deliberately
+  undrawn. A form-mount case on a drawn-on receipt closes it.
+- **The cheque dead end**: an initiated cheque payment could never record its clearance date. The
+  date is the one instrument field that is a fact that ARRIVES rather than identity — open until
+  received or reversed now (type the date, then Capture), locked after.
+- **`raise()`'s comment claimed a ladder nothing called** — it now calls `recomputeTotals()`, and
+  the regression asserts a past-due draft issues straight to `overdue`, which is what proves it.
+- Plus: the miscounted roles sentence (four roles hold `credit_notes.edit`, not one — the
+  conclusion survived), the "nothing writes the gateway pair" overclaim, the settled-list flag
+  honestly labelled unprovable belt-and-braces, and the gate's whole-sweep field floor made
+  per-model (109 fields across nine forms clears a global floor with one form gone).
+
+All nine findings fixed and the four behavioural ones mutation-proved (R1–R4). Every suite the
+review ran red is green.

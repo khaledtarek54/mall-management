@@ -68,10 +68,14 @@ it('does not offer credited on the invoice form', function () {
         ->and($options)->not->toHaveKey('paid')
         ->and($options)->not->toHaveKey('partially_paid')
         ->and($options)->not->toHaveKey('overdue')
-        // CONTROL: the form is still usable. Without this, deleting every option
-        // would satisfy every assertion above.
-        ->and($options)->toHaveKey('issued')
-        ->and($options)->toHaveKey('disputed');
+        // `disputed` was this control's second half until SW-238 removed it too — the last
+        // status with no act behind it (nothing in app/ ever wrote it, and the per-LINE dispute
+        // act carries the reason). See APostedDocumentsStatusIsNotAPickerTest.
+        ->and($options)->not->toHaveKey('disputed')
+        // CONTROL: the option list is not simply empty. Without this, deleting every option
+        // would satisfy every assertion above. (The FIELD is a display on a saved invoice since
+        // SW-240 — the options still label the record's own state.)
+        ->and($options)->toHaveKey('issued');
 });
 
 /*

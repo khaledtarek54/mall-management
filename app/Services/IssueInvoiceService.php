@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\BillableAgreement;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Support\PostingDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
@@ -115,5 +116,50 @@ class IssueInvoiceService
         return CarbonImmutable::parse(
             $issueDate instanceof \DateTimeInterface ? Carbon::instance($issueDate) : $issueDate
         )->addDays($agreement->paymentTermsDays());
+    }
+
+    /**
+     * Issue an EXISTING draft — the panel's door, since SW-240 made issuing an ACT.
+     *
+     * `issue()` above is where a generated invoice is BORN issued; this is where a hand-raised
+     * draft becomes one. It used to happen by picking `issued` in the form's status Select, which
+     * meant the most consequential transition an invoice has — the one that puts it in front of
+     * the tenant, on the books and in the GL — rode on an ordinary field save with no
+     * confirmation, while the credit note beside it had an Issue button, a permission and a
+     * service. One rule across both AR documents now.
+     *
+     * The posting-date assert is belt over the model's braces, deliberately: `GuardsPostingDate`
+     * is `isDirty(issue_date)`-only and `SealedPeriod` catches the no-entry-yet status flip, but
+     * the house rule is that the SERVICE guards, and this is the sentence the operator reads on
+     * the field rather than a toast after the fact.
+     */
+    public function raise(Invoice $invoice): Invoice
+    {
+        if ($invoice->status !== 'draft') {
+            throw new \DomainException(__('admin.errors.issue_invoice_not_draft'));
+        }
+
+        // The docblock on issue() says it: an invoice with no lines is a bug, not a document. A
+        // draft is precisely an invoice WITH lines that has not been raised (SW-215) — one with
+        // none has nothing to post and nothing to bill.
+        if (! $invoice->items()->exists()) {
+            throw new \DomainException(__('admin.errors.issue_invoice_no_lines'));
+        }
+
+        PostingDate::assertOpen($invoice->issue_date, __('admin.fields.issue_date'));
+
+        // A plain save, never quiet — `LedgerRealtimeSync` posts the entry from the `saved`
+        // event — and then `recomputeTotals()` EXPLICITLY, because the save alone does not run it:
+        // the adversarial review caught this service's first comment claiming the ladder ran when
+        // nothing here called it. The old Select door reached the ladder as a side effect (a full
+        // form save re-saves the items repeater → `InvoiceItem::saved` → `syncTotalsFromItems()`),
+        // so without this call a past-due draft issued to `issued` and sat there until the nightly
+        // overdue scan — a status the operator reads as current for up to a day. With it, a
+        // past-due draft issues straight to `overdue`, which is the truth.
+        $invoice->status = 'issued';
+        $invoice->save();
+        $invoice->recomputeTotals();
+
+        return $invoice->refresh();
     }
 }

@@ -357,9 +357,18 @@ class DepositTransaction extends Model
             // already depends on it.
             $wasOrIsReceipt = $deposit->getOriginal('type') === 'receipt' || $deposit->type === 'receipt';
 
+            // **`is_opening_balance` is in the list (SW-240), and its absence was a hole of exactly
+            // the class this freeze exists for.** The flag decides whether the receipt POSTS at all
+            // — an opening item is sub-ledger only, its `Dr Cash / Cr Deposits Held` suppressed
+            // because the previous system already booked it. Flipping it ON on a drawn-on receipt
+            // therefore voids the posted `Cr Deposits Held` while the applications' debits stand:
+            // the GL pot goes negative by the receipt's full value, which is the same arithmetic as
+            // editing the amount to zero — the very example the comment above walks through — worn
+            // as a checkbox. The dirty-list named every column that changes what the pot is made
+            // of and missed the one that changes whether the pot was ever booked.
             if ($deposit->exists
                 && $wasOrIsReceipt
-                && $deposit->isDirty(['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type', 'status'])
+                && $deposit->isDirty(['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type', 'status', 'is_opening_balance'])
                 && $deposit->hasBeenDrawnOn()) {
                 throw new \DomainException(__('admin.deposits.errors.receipt_in_use'));
             }
@@ -386,7 +395,15 @@ class DepositTransaction extends Model
             // lets the corrected movement be recorded — and it dirties exactly those two columns
             // (measured). A freeze with no way out is worse than the bug, and correcting through a
             // named act is the same discipline every money document here follows.
-            $settledColumns = ['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type'];
+            // `is_opening_balance` joined this list with the receipt freeze above (SW-240) and for
+            // the same reason read the other way: a settled final account is evidence, and the flag
+            // decides whether the movement it settled over was ever on the books at all. Belt over
+            // braces here, stated honestly: on every reachable path the RECEIPT freeze fires first
+            // (a settled account implies a recorded refund or forfeit, which makes
+            // `hasBeenDrawnOn()` true for every receipt on the lease, and the flag is refused
+            // outright on non-receipts) — so no test can isolate this entry, and no claim rests on
+            // it. It is here so the two lists answer the same question the same way.
+            $settledColumns = ['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type', 'is_opening_balance'];
 
             if ($deposit->exists
                 && $deposit->isDirty($settledColumns)

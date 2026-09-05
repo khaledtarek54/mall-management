@@ -42,8 +42,9 @@ class DepositTransactionForm
         // layers, so the operator sees a disabled field and the reason instead of a refusal after
         // the fact — and a rule stated twice is stated once.
         //
-        // The column sets are the model's, not a stricter guess: `bank_account_id`, `method`,
-        // `is_opening_balance` and `notes` are in neither freeze, so they stay on `$locked` alone.
+        // The column sets are the model's, not a stricter guess: `bank_account_id`, `method` and
+        // `notes` are in neither freeze, so they stay on `$locked` alone. (`is_opening_balance`
+        // WAS in that sentence until SW-240 put it in both freezes — see the field itself.)
         // `status` is frozen by the receipt guard and has no field here — `cancel_deposit` on this
         // page is the escape, which is why the settled guard deliberately leaves `status` out.
         // Memoised per record: both predicates are queries, four fields ask, and Filament evaluates
@@ -144,11 +145,18 @@ class DepositTransactionForm
                     // The cutover switch. Visible only on a RECEIPT, because that is the only
                     // movement that can predate this system: a refund or forfeit of an old deposit
                     // is our own cash moving and must post (the model refuses the combination).
+                    // `$frozen`, not `$locked`, since SW-240: the flag joined the model's receipt
+                    // freeze, because it decides whether the receipt POSTS at all — flipping it on
+                    // a drawn-on receipt voids the posted `Cr Deposits Held` while the
+                    // applications' debits stand, the amount-edit hole worn as a checkbox. The
+                    // comment atop this file said the money-lock column sets were "the model's,
+                    // not a stricter guess" and named this field as outside both; the model moved,
+                    // so the form moves with it — same predicate on both layers.
                     Toggle::make('is_opening_balance')
                         ->label(__('admin.fields.is_opening_balance'))
                         ->helperText(__('admin.helpers.is_opening_deposit'))
                         ->visible(fn (Get $get) => $get('type') === 'receipt')
-                        ->disabled($locked)
+                        ->disabled($frozen)
                         ->columnSpanFull(),
 
                     Textarea::make('notes')

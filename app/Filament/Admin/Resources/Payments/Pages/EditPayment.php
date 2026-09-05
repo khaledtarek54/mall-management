@@ -7,6 +7,7 @@ use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Services\CapturePaymentService;
 use App\Services\VoidPaymentService;
 use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\RefreshesRecordState;
@@ -60,6 +61,38 @@ class EditPayment extends EditRecord
             // where you audit, not where you act. An operator about to retype a figure could not
             // see what the document had already done to the books without leaving the page.
             LedgerEntryAction::make(),
+            // **Capture** — the one manual transition the status field had left, made an act
+            // (SW-240). `initiated` → `captured` posts the cash to the GL, and it rode on the
+            // form's status dropdown with no confirmation. The audience is the gateway session
+            // that died mid-flight whose money genuinely arrived, confirmed against the bank —
+            // rare, which is exactly why it deserves a sentence to read before it moves the books.
+            // Gated on `payments.edit`, what the Select door required, so no role's reach changes.
+            Action::make('capture')
+                ->label(__('admin.actions.capture_payment'))
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->visible(fn () => $this->record->status === 'initiated'
+                    && (Auth::user()?->can('payments.edit') ?? false))
+                ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.capture_payment_confirm'))
+                ->action(function (): void {
+                    try {
+                        app(CapturePaymentService::class)->capture($this->record);
+                    } catch (\DomainException $e) {
+                        // Not initiated any more, or a payment date in a closed period — the
+                        // reason as a toast, never a Livewire 500.
+                        Notification::make()->title($e->getMessage())->danger()->send();
+
+                        return;
+                    }
+                    $this->refreshFormData(['status']);
+                    Notification::make()
+                        ->title(__('admin.notifications.payment_captured'))
+                        ->body($this->record->reference)
+                        ->success()
+                        ->send();
+                }),
             // Void / refund a captured payment — the supported reversal now that the receipt's
             // money fields are locked. Re-opens the allocated invoices' AR + voids the GL leg.
             Action::make('void_payment')

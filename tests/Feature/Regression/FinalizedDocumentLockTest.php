@@ -35,7 +35,11 @@ it('locks an issued invoice\'s money fields but keeps status editable', function
         ->assertFormFieldIsDisabled('tenant_id')
         ->assertFormFieldIsDisabled('issue_date')
         ->assertFormFieldIsDisabled('items')
-        ->assertFormFieldIsEnabled('status'); // dispute/cancel transitions still allowed
+        // SW-240: the status is a DISPLAY on any saved invoice. This line asserted it enabled
+        // ("dispute/cancel transitions still allowed") — but cancel had already moved to the Void
+        // act, disputing moved to the per-LINE act, and issuing a draft is the Issue act now, so
+        // nothing was left for the control to do except offer mistakes.
+        ->assertFormFieldIsDisabled('status');
 });
 
 it('leaves a draft invoice fully editable', function () {
@@ -62,7 +66,11 @@ it('locks a captured payment\'s money fields but keeps allocations editable', fu
         ->assertFormFieldIsDisabled('method')
         ->assertFormFieldIsDisabled('tenant_id')
         ->assertFormFieldIsEnabled('allocations') // re-allocation is a legitimate op
-        ->assertFormFieldIsEnabled('status');     // captured→failed chargeback
+        // SW-240: this asserted status enabled for the "captured→failed chargeback" — a reversal
+        // that has gone through the reason-gated Void act since 2026-08-28, so the comment was
+        // already describing a door the panel had closed. The one transition the dropdown still
+        // performed (initiated→captured, which posts cash) is the Capture act now.
+        ->assertFormFieldIsDisabled('status');
 });
 
 it('locks an issued credit note but leaves a draft one editable', function () {

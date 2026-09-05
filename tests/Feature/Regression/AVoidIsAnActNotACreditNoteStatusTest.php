@@ -148,9 +148,12 @@ it('does not offer void or applied on the one note where a status can be picked'
         ->and(__('admin.statuses.credit_note'))->toHaveKey('void')
         ->and($offered)->not->toHaveKey('void')
         ->and($offered)->not->toHaveKey('applied')
-        // …and the control still does its real job.
-        ->and($offered)->toHaveKey('issued')
-        ->and(creditNoteStatusIsEditable($note))->toBeTrue();
+        // SW-240 closed the rest of this control: the draft Select had been the SECOND door to
+        // `issued`, needing only `credit_notes.edit` where the Issue act demands
+        // `credit_notes.issue` — so the final line here flipped from asserting the picker works
+        // to asserting it is a display. Issuing a saved draft is the act, and
+        // `AMoneyStateMovesThroughAnActTest` drives it.
+        ->and(creditNoteStatusIsEditable($note))->toBeFalse();
 });
 
 it('closes the picker once the note stops being a draft', function () {

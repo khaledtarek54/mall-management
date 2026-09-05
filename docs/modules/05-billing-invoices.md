@@ -2387,3 +2387,22 @@ while the receivable is live and closes once money lands **or** the document lea
 and a `paid_amount` test alone would leave it open. Full reasoning in
 [CHANGE-IMPACT-PLAN §16.4](../accounting/CHANGE-IMPACT-PLAN.md); regression test
 `APostedDocumentsStatusIsNotAPickerTest`, mutation-proved four ways including the over-lock.
+
+### SW-240
+
+**Issuing is an ACT (D-A), and the money-form gate keeps every form closed.** A draft invoice used
+to become a live AR + GL document by picking `issued` in the form's status Select — the most
+consequential transition an invoice has, on an ordinary field save — while the credit note beside it
+had an Issue button, a permission and a service. `EditInvoice` now carries **Issue** (confirmation
+stating the GL consequence, `IssueInvoiceService::raise()` — refuses a non-draft and a no-line
+draft, asserts the posting date in the service). Gated on `invoices.edit`, exactly what the Select
+door required, so no role's reach moved; an `invoices.issue` split is an open roles-matrix decision.
+The Select keeps the draft/issued choice ONLY at create, where it is the born state — this narrows
+SW-215's "the panel's Select is the other door" to the create form. The systemic piece is
+`AMoneyFormIsClosedOnceCommittedTest` + `App\Support\MoneyFormPolicy`: every GL source's Edit page
+is mounted on a committed fixture and REFUSED fields must render disabled, `status` is never an
+enabled control, and a DERIVED field is disabled unless registered with a reason on an announcing
+page. Full record in
+[CHANGE-IMPACT-PLAN §17](../accounting/CHANGE-IMPACT-PLAN.md); tests
+`AMoneyStateMovesThroughAnActTest`, `AMoneyFormIsClosedOnceCommittedTest` — nine mutations across
+the two, each killing its own tooth.

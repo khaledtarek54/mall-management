@@ -213,16 +213,22 @@ it('freezes the service period on a raised invoice, because CAM and move-out cre
         ->and(invoiceFieldIsDisabled($issued->id, 'period_end'))->toBeTrue();
 });
 
-it('leaves a draft entirely open, which is where those decisions are actually made', function () {
-    // THE CONTROL, and the half that stops this becoming an over-lock. Raising a draft is the one
-    // status decision a person makes on this form, and a draft's period and due date are still
-    // being settled. A fix that froze these on a draft would satisfy every refusal above and break
-    // the only workflow the fields exist for.
+it('leaves a draft open where drafting happens, and moves issuing to the act', function () {
+    // THE CONTROL, and the half that stops this becoming an over-lock: a draft's period, dates and
+    // lines are still being settled, so those stay typeable. `status` is the one deliberate
+    // EXCEPTION since SW-240 D-A — a saved draft's door is the **Issue** header act (confirmation,
+    // `IssueInvoiceService::raise()`), one rule with the credit note, so the Select is a display
+    // here too. The create form keeps the draft/issued choice: that is the born state, and
+    // `ADraftInvoiceStaysADraftTest` drives it through the real create page.
     $draft = makeInvoice($this->lease, ['status' => 'draft']);
 
-    foreach (['status', 'period_start', 'period_end', 'due_date'] as $field) {
+    foreach (['period_start', 'period_end', 'due_date'] as $field) {
         expect(invoiceFieldIsDisabled($draft->id, $field))->toBeFalse("draft {$field} was frozen");
     }
+
+    expect(invoiceFieldIsDisabled($draft->id, 'status'))->toBeTrue()
+        ->and(Livewire::test(EditInvoice::class, ['record' => $draft->id])->instance()->headerActs())
+        ->toHaveKey('issue');
 });
 
 it('keeps the due date editable while the receivable is live, and closes it once money lands', function () {

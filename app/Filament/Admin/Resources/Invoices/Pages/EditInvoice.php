@@ -16,6 +16,7 @@ use App\Services\Accounting\LedgerPoster;
 use App\Services\ApplyDepositToInvoiceService;
 use App\Services\ApplyTenantCreditService;
 use App\Services\InvoicePdfService;
+use App\Services\IssueInvoiceService;
 use App\Services\SendInvoiceToTenantService;
 use App\Services\VoidInvoiceService;
 use App\Services\WriteOffInvoiceService;
@@ -96,8 +97,10 @@ class EditInvoice extends EditRecord
      * @var array<string, array<int, string>>
      */
     public const HEADER_GROUPS = [
-        // What you SEND: the document itself and the ways a tenant reaches it.
-        'document' => ['downloadPdf', 'sendToTenant', 'paymentLink', 'regeneratePaymentLink', 'submitToEta'],
+        // What you SEND: the document itself and the ways a tenant reaches it. `issue` leads,
+        // because raising the draft is what MAKES it a document — and because a group whose
+        // every other member hides on a draft would otherwise hide the one act a draft needs.
+        'document' => ['issue', 'downloadPdf', 'sendToTenant', 'paymentLink', 'regeneratePaymentLink', 'submitToEta'],
         // What SETTLES it — and the undo for each channel that can.
         'settlement' => ['apply_credit', 'allocateToLines', 'reverse_credit', 'reverse_deposit_application', 'reverse_write_off'],
         // What CORRECTS it, once it is no longer a draft. `postToMonth` corrects the PERIOD rather
@@ -170,6 +173,39 @@ class EditInvoice extends EditRecord
     public function ownActions(): array
     {
         return [
+            // **Issuing is an ACT now (SW-240 D-A), with one rule across both AR documents.** It
+            // happened by picking `issued` in the form's status Select — the most consequential
+            // transition an invoice has, riding on an ordinary save with no confirmation — while
+            // the credit note beside it had an Issue button and a service. Gated on
+            // `invoices.edit`, deliberately: that is exactly what the Select door required, so no
+            // role gains or loses the act (the RowActionPolicy reachability rule); an
+            // `invoices.issue` permission split is a separate decision for the roles matrix.
+            Action::make('issue')
+                ->label(__('admin.actions.issue_invoice'))
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->visible(fn () => $this->record->status === 'draft'
+                    && Auth::user()?->can('invoices.edit'))
+                ->authorize(fn () => Auth::user()?->can('invoices.edit') ?? false)
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.issue_invoice_confirm'))
+                ->action(function (): void {
+                    try {
+                        app(IssueInvoiceService::class)->raise($this->record);
+                    } catch (\DomainException $e) {
+                        // A no-line draft, or an issue date in a closed period — the reason as a
+                        // toast, not a Livewire 500. Same shape as the credit note's issue.
+                        Notification::make()->title($e->getMessage())->danger()->send();
+
+                        return;
+                    }
+                    $this->refreshFormData(['status', 'balance']);
+                    Notification::make()
+                        ->title(__('admin.notifications.invoice_issued'))
+                        ->body($this->record->number)
+                        ->success()
+                        ->send();
+                }),
             PdfDownloadAction::make('downloadPdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->service(InvoicePdfService::class)
