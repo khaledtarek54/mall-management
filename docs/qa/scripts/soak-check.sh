@@ -31,9 +31,11 @@ OUT="storage/logs/soak-${TODAY}.md"
 STAMP="storage/logs/.soak-last-run"
 if [[ -f "$STAMP" ]]; then SINCE="$(cat "$STAMP")"; else SINCE="$(date -d '24 hours ago' '+%Y-%m-%dT%H:%M:%S' 2>/dev/null || date -v-24H '+%Y-%m-%dT%H:%M:%S')"; fi
 EXPECTED="${SOAK_EXPECTED_HEALTH_FAILS:-backup_capability,two_factor,demo_accounts}"
-# Blocking configuration gaps that are KNOWN and the operator's to close (a demo box has no seller
-# TRN; the soak doc records it). A NEW blocking row is still a problem.
-EXPECTED_CFG="${SOAK_EXPECTED_CONFIG_GAPS:-seller_tax_identity}"
+# Blocking configuration gaps that are KNOWN and the operator's to close. EMPTY by default, because
+# the staging box has none: it carries a seller TRN, a complete posting map and an open period, so
+# any blocking row is a regression and must be reported. Name one here only while it is genuinely
+# expected — an ignore-list with a row in it that has since been fixed is how a real gap goes quiet.
+EXPECTED_CFG="${SOAK_EXPECTED_CONFIG_GAPS:-}"
 
 problems=()
 note() { problems+=("$1"); }

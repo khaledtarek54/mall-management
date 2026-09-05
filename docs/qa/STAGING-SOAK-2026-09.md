@@ -125,10 +125,11 @@ and noted here with the hash.
 `demo_accounts` are red on this box BY DESIGN (STAGING.md §5); the script ignores exactly those three.
 Anything else red is real.
 
-**Known configuration gap going in:** the box has no seller tax registration (`seller_tax_identity`,
-BLOCKING in `atriom:config-health`), because Val Plaza's seeder deliberately does not invent one.
-The script treats exactly that row as expected (`SOAK_EXPECTED_CONFIG_GAPS`); setting the TRN under
-Settings → Tax closes it and is on the operator.
+**No configuration gap going in.** Measured on the box after the 5 Sep deploy: every BLOCKING row of
+`atriom:config-health` is green — the seller TRN is set, the posting map is complete, the period is
+open. So the daily check expects NONE (`SOAK_EXPECTED_CONFIG_GAPS` is empty) and any blocking row
+during the month is a regression. The one advisory red is `payroll_rates_configured`, which is the
+operator act below: the statutory rates are still zero.
 
 **Known environment gap going in:** the MailerSend token on the box lacks the SEND scope, so every
 e-mail notification fails with `403 Forbidden` (a WARNING in the ops log, not a failed job — the
