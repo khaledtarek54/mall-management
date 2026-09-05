@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Assets;
 
-use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\AssetActivitiesRelationManager;
 use App\Filament\Admin\RelationManagers\AssetFloorsRelationManager;
 use App\Filament\Admin\RelationManagers\AssetOwnersRelationManager;
 use App\Filament\Admin\RelationManagers\AssetRentableItemsRelationManager;
@@ -78,7 +78,8 @@ class AssetResource extends Resource
             // `asset_owner` writable only by DemoSeeder and owner statements with nothing to
             // apportion by on a real install.
             AssetOwnersRelationManager::class,
-            ActivitiesRelationManager::class,
+            // The property's own history PLUS its units, floors and rentable items — see the class.
+            AssetActivitiesRelationManager::class,
         ];
     }
 

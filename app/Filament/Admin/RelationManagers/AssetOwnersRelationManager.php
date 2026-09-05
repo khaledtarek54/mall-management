@@ -5,6 +5,7 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Support\Filament\AttachedOnce;
 use App\Support\Filament\TenureRange;
+use App\Support\PropertyRoster;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
 use Filament\Actions\EditAction;
@@ -156,6 +157,12 @@ class AssetOwnersRelationManager extends RelationManager
                             ->label(__('admin.fields.owner'))
                             ->helperText(__('admin.fields.owner_helper')),
                     )
+                    // Attaching GRANTS access to this property, so it is recorded — Laravel's
+                    // attach() writes through the query builder and fires no model event, which is
+                    // why the roster had no audit trail at all until 2026-09-05.
+                    ->after(fn (Model $record) => PropertyRoster::forRecord(
+                        $this->getOwnerRecord(), PropertyRoster::OWNER, $record, 'attached',
+                    ))
                     // The list is not the gate — the id still arrives in the payload.
                     ->before(fn (array $data) => AttachedOnce::assert(
                         $this->getOwnerRecord(),
@@ -180,9 +187,15 @@ class AssetOwnersRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()
+                    ->after(fn (Model $record) => PropertyRoster::forRecord(
+                        $this->getOwnerRecord(), PropertyRoster::OWNER, $record, 'updated',
+                    ))
                     ->visible(fn () => self::canManage())
                     ->authorize(fn () => self::canManage()),
                 DetachAction::make()
+                    ->after(fn (Model $record) => PropertyRoster::forRecord(
+                        $this->getOwnerRecord(), PropertyRoster::OWNER, $record, 'detached',
+                    ))
                     ->visible(fn () => self::canManage())
                     ->authorize(fn () => self::canManage())
                     // Detaching erases the tenure, and with it the basis of every statement that

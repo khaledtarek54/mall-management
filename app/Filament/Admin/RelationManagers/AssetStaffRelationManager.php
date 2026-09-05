@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\User;
 use App\Support\Filament\AttachedOnce;
 use App\Support\Filament\TenureRange;
+use App\Support\PropertyRoster;
 use App\Support\PermissionVocabulary;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
@@ -153,6 +154,12 @@ class AssetStaffRelationManager extends RelationManager
                         fn (Select $select) => $select
                             ->label(__('admin.fields.user')),
                     )
+                    // Attaching GRANTS access to this property, so it is recorded — Laravel's
+                    // attach() writes through the query builder and fires no model event, which is
+                    // why the roster had no audit trail at all until 2026-09-05.
+                    ->after(fn (Model $record) => PropertyRoster::forRecord(
+                        $this->getOwnerRecord(), PropertyRoster::STAFF, $record, 'attached',
+                    ))
                     // The list is not the gate — the id still arrives in the payload.
                     ->before(fn (array $data) => AttachedOnce::assert(
                         $this->getOwnerRecord(),
@@ -176,9 +183,15 @@ class AssetStaffRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()
+                    ->after(fn (Model $record) => PropertyRoster::forRecord(
+                        $this->getOwnerRecord(), PropertyRoster::STAFF, $record, 'updated',
+                    ))
                     ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false),
                 DetachAction::make()
+                    ->after(fn (Model $record) => PropertyRoster::forRecord(
+                        $this->getOwnerRecord(), PropertyRoster::STAFF, $record, 'detached',
+                    ))
                     // Detaching REVOKES the user's access to this property — same
                     // role-management gate as attaching. `authorize()` beside `visible()` because a
                     // relation manager has no resource for the seam to ask, so the call site IS the gate.

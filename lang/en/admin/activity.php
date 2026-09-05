@@ -48,6 +48,7 @@ return [
             'tenant_document' => 'Tenant document',
             'account_mapping' => 'Posting map row',
             'floor' => 'Floor',
+            'unit' => 'Unit',
             'rentable_item' => 'Rentable item',
             'marketing_post' => 'Marketing post',
             'lease' => 'Lease',
@@ -127,6 +128,8 @@ return [
             // Raised by AcceptWorkOrderService when a contractor (or an operator on their
             // behalf) acknowledges a dispatched job — the act the response SLA is measured to.
             'accepted' => 'Accepted',
+            'attached' => 'Added',
+            'detached' => 'Removed',
         ],
 
         // What a row's stored `description` means. **Descriptions are KEYS, not sentences** —

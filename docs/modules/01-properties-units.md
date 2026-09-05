@@ -210,6 +210,31 @@ Companion accessors: `occupiedAreaSqm()`, `totalUnitAreaSqm()`. Guarding test: `
 - `AssetResource::canCreate()` returns false when inside a specific property context; true only when tenant is the ALL pseudo-asset or unset.
 - `AssignedAssets::idsForCurrentUser()` scopes to user's assigned assets (both `asset_user` and `asset_owner` relationships), but always hides the ALL pseudo-asset from the restricted user's visible set.
 
+### The property's Activity Log covers the property AND its make-up
+
+A property's Activity tab is `AssetActivitiesRelationManager`. The stock one reads
+`activitiesAsSubject` — rows whose subject is the Asset ROW — so adding a unit, a floor, a parking
+bay, a staff member or an owner appeared nowhere on it. One symptom, THREE causes:
+
+1. **Staff and owner attaches logged nothing at all, anywhere.** `attach()`/`detach()` write through
+   the query builder and fire no model event, even with a pivot model bound via `->using()`.
+   `App\Support\PropertyRoster` records them against the ASSET — which is where an operator asking
+   "what changed about this mall" looks, and it means they need no query widening. This is the
+   sharpest of the three: **attaching a staff member GRANTS access to the property**
+   (`AssignedAssets::idsFor()` reads that pivot), so an unrecorded attach was an unrecorded grant.
+2. **`Unit` was audited nowhere in the system.** Creating, re-homing or re-categorising a shop
+   recorded nothing, on the record every lease and every CAM apportionment hangs off. It has an
+   `ActivityLogging::for()` hook and a `COVERAGE_FLOOR` entry now.
+3. **The tab never asked about children.** Floors and rentable items were already audited and simply
+   filed under their own subject.
+
+**`AssetActivitiesRelationManager::CHILDREN` is a short explicit list and must stay one.** Almost
+every model here is `#[PropertyOwned]`, so deriving it from `PropertyIsolation` would put the mall's
+entire operational history — leases, invoices, payments, work orders — on one tab. These three are
+the property's SPATIAL make-up. The query states both sides inside one closure rather than composing
+an `orWhere` onto the relation's existing constraint, which would bind AND-before-OR and let the
+child branch escape the property scope entirely. (`APropertysActivityLogShowsWhatChangedAboutItTest`.)
+
 ### Assigned Staff: tenure, and where a person's email lives
 
 `asset_user` has a pivot model (`App\Models\AssetUser`) as of 2026-09-05 — the twin of

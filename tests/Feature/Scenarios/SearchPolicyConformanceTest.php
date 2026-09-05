@@ -373,15 +373,35 @@ it('renders no search box on a table that could never answer it', function () {
     // must opt out explicitly with ->searchable(false).
     $dead = [];
 
-    $check = function (string $model, string $file, string $label) use (&$dead): void {
+    $check = function (string $model, string $file, string $label, ?string $class = null) use (&$dead): void {
         if (searchPolicyUsesBlob($model)) {
             return;
         }
 
-        $source = file_get_contents($file);
+        // Read the class's own source AND its ancestors'. A relation manager that inherits its whole
+        // `table()` inherits the opt-out with it, and a file-by-file read cannot see that — it
+        // reported `AssetActivitiesRelationManager` (which overrides only the QUERY) as rendering a
+        // dead search box its parent had explicitly disabled. Re-stating `->searchable(false)` in
+        // the subclass to satisfy the gate would have been a second copy of one decision, free to
+        // drift from the parent it was copied from.
+        $sources = [file_get_contents($file)];
 
-        if (str_contains($source, '->searchable(')) {
-            return; // either a searchable column, or an explicit ->searchable(false)
+        if ($class !== null) {
+            for ($parent = get_parent_class($class); $parent !== false; $parent = get_parent_class($parent)) {
+                $parentFile = (new ReflectionClass($parent))->getFileName();
+
+                if ($parentFile === false || ! str_starts_with($parentFile, base_path('app'))) {
+                    break; // stop at the framework — Filament's own base classes are not ours to read
+                }
+
+                $sources[] = file_get_contents($parentFile);
+            }
+        }
+
+        foreach ($sources as $source) {
+            if (str_contains($source, '->searchable(')) {
+                return; // either a searchable column, or an explicit ->searchable(false)
+            }
         }
 
         $dead[] = $label;
@@ -413,7 +433,7 @@ it('renders no search box on a table that could never answer it', function () {
                 continue;
             }
 
-            $check($related, (new ReflectionClass($relation))->getFileName(), class_basename($relation));
+            $check($related, (new ReflectionClass($relation))->getFileName(), class_basename($relation), $relation);
         }
     }
 

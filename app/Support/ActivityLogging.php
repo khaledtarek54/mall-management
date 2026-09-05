@@ -224,6 +224,13 @@ final class ActivityLogging
         'TenantRequestSubcategory' => ['code', 'is_active', 'name_ar', 'name_en', 'request_type', 'sort_order', 'trade_id'],
         'TenantSalesDeclaration' => ['audit_notes', 'calculated_percentage_rent', 'declared_sales', 'gross_sales', 'locked_at', 'status'],
         'Trade' => ['code', 'default_nte', 'is_active', 'name_ar', 'name_en', 'sort_order', 'standard_hourly_rate'],
+        // A unit was audited NOWHERE until 2026-09-05 — the tester's card about the property's
+        // Activity Log is what surfaced it, and the gap was far wider than that tab: creating,
+        // re-homing, re-categorising or describing a shop recorded nothing at all, anywhere.
+        // `area_sqm` is included even though `RemeasureUnitService` is the only thing that may
+        // move it: the dated `unit_areas` register records WHAT it became, and the trail records
+        // that the current-measurement column moved with it.
+        'Unit' => ['area_id', 'area_sqm', 'asset_id', 'category', 'code', 'description', 'floor_id', 'status'],
         'UnitOwnership' => ['assessment_basis', 'ended_at', 'fee_basis', 'management_fee_pct', 'management_mode', 'ownership_share_pct', 'participation_pct', 'reference', 'started_at', 'status', 'tenant_id', 'tenure_type', 'unit_id'],
         'User' => ['email', 'email_verified_at', 'name', 'status', 'suspended_reason'],
         'UtilityTariff' => ['code', 'is_active', 'name_ar', 'name_en', 'provider', 'unit_of_measurement', 'utility_type'],

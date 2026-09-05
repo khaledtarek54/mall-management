@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
@@ -15,13 +16,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 #[DeletableWhenUnused(blockedBy: ['allLeases', 'tenantRequests', 'utilityMeters'], instead: 'set the unit to maintenance if it is out of service — a unit that has been leased is part of the property record')]
 #[PropertyOwned]
 class Unit extends Model
 {
     use HasCustomFields;
-    use HasFactory, HasSearchText, RefusesDeletionWhenReferenced, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     protected $fillable = [
         // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
@@ -447,6 +450,19 @@ class Unit extends Model
     public function currentTenant(): ?Tenant
     {
         return $this->activeLease?->tenant;
+    }
+
+    /**
+     * Every column an operator can change on a unit, recorded.
+     *
+     * A unit was audited nowhere at all until 2026-09-05: creating one, re-homing it to another
+     * property, re-categorising it or changing its description left no trace, on a record that
+     * every lease, every CAM apportionment and every occupancy figure hangs off. Found from the
+     * tester's card about the property's Activity Log, which was the smaller half of it.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return ActivityLogging::for($this, 'unit');
     }
 
     /**

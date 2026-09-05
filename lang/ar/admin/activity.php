@@ -48,6 +48,7 @@ return [
             'tenant_document' => 'مستند مستأجر',
             'account_mapping' => 'سطر خريطة الترحيل',
             'floor' => 'طابق',
+            'unit' => 'وحدة',
             'rentable_item' => 'عنصر مؤجَّر',
             'marketing_post' => 'منشور تسويقي',
             'lease' => 'عقد إيجار',
@@ -127,6 +128,8 @@ return [
             // Raised by AcceptWorkOrderService when a contractor (or an operator on their
             // behalf) acknowledges a dispatched job — the act the response SLA is measured to.
             'accepted' => 'مقبول',
+            'attached' => 'إضافة',
+            'detached' => 'إزالة',
         ],
 
         // معنى الوصف المخزَّن في السجل. **الأوصاف مفاتيح لا جُمَل** — السجل يخزّن بيانات وهذا
