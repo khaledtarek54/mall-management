@@ -149,7 +149,7 @@ it('nets a partial write-off out of the disputed figure too', function () {
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 20000,
-        'reason' => 'Goodwill on the contested portion.',
+        'reason' => 'settled_short',
         'write_off_date' => '2030-11-20',
     ]);
 
@@ -165,7 +165,7 @@ it('leaves a FULLY written-off invoice out, not merely netted to zero', function
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 50000,
-        'reason' => 'Uncollectable.',
+        'reason' => 'legally_unrecoverable',
         'write_off_date' => '2030-11-20',
     ]);
 

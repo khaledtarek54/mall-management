@@ -5,6 +5,7 @@ namespace App\Services\Accounting\Journalizers;
 use App\Models\CreditNote;
 use App\Models\TaxCode;
 use App\Services\Accounting\AccountResolver;
+use App\Support\DepositBilling;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -61,12 +62,39 @@ class CreditNoteJournalizer implements Journalizer
         }
 
         $lines = [];
-        // Guard net > 0 — a pure-VAT credit note (net 0) would otherwise emit a
-        // debit-0/credit-0 line that the posting engine rejects.
-        if ($netReturn > 0) {
+
+        // ── A CREDITED DEPOSIT LINE RELIEVES THE OBLIGATION, NOT REVENUE (SW-238) ─────────────
+        // The write-off twin of SW-210, through the credit door: a `security_deposit` line credited
+        // `deposits_held` — a LIABILITY — at issue, so debiting `sales_returns` for it reversed
+        // revenue never recognised and left the obligation standing. A fully credited 100,000
+        // deposit left the GL saying 100,000 held where the truth is 0, and `deposits_tie_out` red
+        // with no write-off anywhere near it.
+        //
+        // `deposit_amount` is FROZEN on the note, maintained from its own lines while they are
+        // written — never re-derived here, so a posted entry cannot drift (the SW-236 hazard SW-210
+        // was reworked for). Legacy rows carry 0.00 and post exactly what they always posted:
+        // PROSPECTIVE, because SW-216's backfill typed historical lines and keying on the type
+        // would restate closed periods. Clamped so a hand-edited column can never unbalance the
+        // entry, and the role is resolved as the issue resolved it — a reversal never re-classifies
+        // what it reverses.
+        $deposit = min(max(round((float) $note->deposit_amount, 2), 0.0), $netReturn);
+        $return = round($netReturn - $deposit, 2);
+
+        // Guard > 0 on each — a zero line is rejected by the posting engine, and an all-deposit
+        // note has no revenue half at all.
+        if ($return > 0) {
             $lines[] = [
                 'ledger_account_id' => $this->accounts->id('sales_returns', $assetId),
-                'debit' => $netReturn,
+                'debit' => $return,
+                'credit' => 0,
+                'tenant_id' => $note->tenant_id,
+            ];
+        }
+
+        if ($deposit > 0) {
+            $lines[] = [
+                'ledger_account_id' => $this->accounts->id(DepositBilling::depositPostingRole(), $assetId),
+                'debit' => $deposit,
                 'credit' => 0,
                 'tenant_id' => $note->tenant_id,
             ];

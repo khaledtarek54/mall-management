@@ -157,7 +157,7 @@ it('refuses an invoice whose remaining balance is entirely written off', functio
     // a GL entry, and a fixture that invents the row is testing a state the app cannot produce.
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 10000,
-        'reason' => 'Bad debt',
+        'reason' => 'tenant_insolvent',
         'write_off_date' => now()->toDateString(),
     ]);
 

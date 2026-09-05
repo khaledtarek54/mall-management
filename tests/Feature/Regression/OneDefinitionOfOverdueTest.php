@@ -51,7 +51,7 @@ it('quotes a partially written-off invoice at what is still owed', function () {
         'tenant_id' => $this->overdue->tenant_id,
         'entry_date' => '2026-02-01',
         'amount' => 4000,
-        'reason' => 'Goodwill.',
+        'reason' => 'settled_short',
     ]);
 
     $owed = Invoice::query()->stillOwed()->where('due_date', '<', now())
@@ -69,7 +69,7 @@ it('drops one that was written off in full', function () {
         'tenant_id' => $this->overdue->tenant_id,
         'entry_date' => '2026-02-01',
         'amount' => 10000,
-        'reason' => 'Uncollectable.',
+        'reason' => 'legally_unrecoverable',
     ]);
 
     expect(Invoice::query()->stillOwed()->where('due_date', '<', now())->count())->toBe(0);

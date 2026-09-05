@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\ChargeCode;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
+use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -160,6 +162,19 @@ class DepositBilling
      *
      * @return array{deposit: float, bad_debt: float}
      */
+    /**
+     * Where a security-deposit line's credit went at ISSUE — resolved exactly as
+     * `InvoiceJournalizer` resolves it, with the same shipped floor. Shared by the write-off
+     * journalizer (SW-210) and the credit-note journalizer (SW-238), because a reversal never
+     * re-classifies what it reverses, and two copies of the resolution is how the two reversal
+     * doors come to debit different accounts for one obligation.
+     */
+    public static function depositPostingRole(): string
+    {
+        return ChargeCode::roleFor('security_deposit')
+            ?? InvoiceJournalizer::REVENUE_ROLE['security_deposit'];
+    }
+
     public static function writeOffSplit(InvoiceWriteOff $writeOff): array
     {
         $amount = round((float) $writeOff->amount, 2);

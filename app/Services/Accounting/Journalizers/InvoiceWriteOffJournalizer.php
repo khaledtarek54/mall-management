@@ -2,7 +2,6 @@
 
 namespace App\Services\Accounting\Journalizers;
 
-use App\Models\ChargeCode;
 use App\Models\InvoiceWriteOff;
 use App\Services\Accounting\AccountResolver;
 use App\Support\DepositBilling;
@@ -56,8 +55,8 @@ class InvoiceWriteOffJournalizer implements Journalizer
      */
     private function depositRole(): string
     {
-        return ChargeCode::roleFor('security_deposit')
-            ?? InvoiceJournalizer::REVENUE_ROLE['security_deposit'];
+        // Shared with the credit-note journalizer (SW-238) — one resolution for one obligation.
+        return DepositBilling::depositPostingRole();
     }
 
     public function payload(Model $source): ?array

@@ -76,7 +76,7 @@ it('keeps the paid portion in the pot after the rest is written off', function (
 
     app(WriteOffInvoiceService::class)->write($this->invoice->fresh(), [
         'amount' => 40000,
-        'reason' => 'bad_debt',
+        'reason' => 'tenant_insolvent',
         'entry_date' => now()->toDateString(),
     ]);
 
@@ -99,7 +99,7 @@ it('stops counting the forgiven part as already asked for', function () {
     // must be able to raise a fresh deposit invoice for it. Both paths, loaded and not.
     app(WriteOffInvoiceService::class)->write($this->invoice->fresh(), [
         'amount' => 40000,
-        'reason' => 'bad_debt',
+        'reason' => 'tenant_insolvent',
         'entry_date' => now()->toDateString(),
     ]);
 
@@ -142,7 +142,7 @@ it('keeps the portfolio register in step with the lease page', function () {
     // stat, while the lease page beside it said 60,000. Both read one seam now, and this is the
     // assertion that says so.
     app(WriteOffInvoiceService::class)->write($this->invoice->fresh(), [
-        'amount' => 40000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 40000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     $lease = Lease::query()->findOrFail($this->lease->id);
@@ -201,7 +201,7 @@ it('lets a PARTIALLY written-off deposit be asked for again', function () {
     // *Bill deposit* button stayed hidden and the service refused with "already billed 10,000.00",
     // quoting money the operator themselves had forgiven. No path existed to ask for it again.
     app(WriteOffInvoiceService::class)->write($this->invoice->fresh(), [
-        'amount' => 10000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 10000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     $payment = Payment::create([

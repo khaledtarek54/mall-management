@@ -79,7 +79,7 @@ it('does not chase a debt the operator has written off', function () {
     expect(statementSummary()['outstanding'])->toEqual(10000.0);
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
-        'amount' => 10000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 10000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     $summary = statementSummary();
@@ -103,7 +103,7 @@ it('reports only the UNFORGIVEN part of a partially written-off debt', function 
     ]);
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
-        'amount' => 4000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 4000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     expect($invoice->fresh()->status)->not->toBe('written_off')   // still live
@@ -133,7 +133,7 @@ it('drops a tenant off the arrears list once their debt is fully relieved', func
     $partly->fresh()->recomputeTotals();
 
     app(WriteOffInvoiceService::class)->write($partly->fresh(), [
-        'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 5000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     $data = app(AssetStatementPdfService::class)->data($this->asset);
@@ -152,7 +152,7 @@ it('prints the collectable figure on the page, not the raw balance', function ()
     ]);
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
-        'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 5000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     $html = view('assets.statement', app(AssetStatementPdfService::class)->data($this->asset))->render();

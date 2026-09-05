@@ -166,7 +166,7 @@ it('prints the collectable figure on the tenant s own document', function () {
     ]);
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
-        'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 5000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     $html = view('tenants.statement', app(TenantStatementPdfService::class)->data($this->tenant->fresh()))->render();

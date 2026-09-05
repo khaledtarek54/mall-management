@@ -45,6 +45,13 @@ class CreditNoteItem extends Model
 
     protected static function booted(): void
     {
+        // The parent note's frozen deposit share follows its own lines (SW-238). Lines are written
+        // at creation and are evidence afterwards, so this settles immediately and never moves
+        // again — which is what lets the journalizer read a stable figure instead of re-deriving
+        // one that could restate a posted entry.
+        static::saved(fn (self $item) => $item->creditNote?->refreshDepositAmount());
+        static::deleted(fn (self $item) => $item->creditNote?->refreshDepositAmount());
+
         // **This model had no hooks at all** until 2026-08-12 — no `booted`, no `saved`, nothing —
         // while its sibling `InvoiceItem` has carried the equivalent for as long as it has existed.
         //

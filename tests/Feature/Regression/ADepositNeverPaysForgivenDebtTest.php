@@ -41,7 +41,7 @@ function forgive(float $amount): void
         'tenant_id' => test()->invoice->tenant_id,
         'amount' => $amount,
         'entry_date' => '2030-11-20',
-        'reason' => 'Goodwill on the disputed portion.',
+        'reason' => 'settled_short',
     ]);
 }
 

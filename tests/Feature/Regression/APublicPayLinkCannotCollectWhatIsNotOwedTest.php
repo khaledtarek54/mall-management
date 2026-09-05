@@ -113,7 +113,7 @@ it('asks only for what is still collectable after a partial write-off', function
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 6000,
-        'reason' => 'Settlement agreed at 40%',
+        'reason' => 'settled_short',
         'write_off_date' => CarbonImmutable::now()->toDateString(),
     ]);
 
@@ -135,7 +135,7 @@ it('collects the forgiven money from nobody, even when the tenant presses pay', 
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 6000,
-        'reason' => 'Settlement agreed at 40%',
+        'reason' => 'settled_short',
         'write_off_date' => CarbonImmutable::now()->toDateString(),
     ]);
 
@@ -166,7 +166,7 @@ it('refuses a written-off invoice outright, on the door the demo button already 
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 10000,
-        'reason' => 'Bad debt',
+        'reason' => 'tenant_insolvent',
         'write_off_date' => CarbonImmutable::now()->toDateString(),
     ]);
 
@@ -210,7 +210,7 @@ it('charges the cardholder the same figure it records — never a penny more', f
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 6000,
-        'reason' => 'Settlement agreed at 40%',
+        'reason' => 'settled_short',
         'write_off_date' => CarbonImmutable::now()->toDateString(),
     ]);
 
@@ -269,7 +269,7 @@ it('never tells a written-off debtor that their payment succeeded', function () 
 
     app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
         'amount' => 10000,
-        'reason' => 'Bad debt',
+        'reason' => 'tenant_insolvent',
         'write_off_date' => CarbonImmutable::now()->toDateString(),
     ]);
 

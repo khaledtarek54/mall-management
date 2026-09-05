@@ -1975,3 +1975,29 @@ Livewire-update door, which also clears a WELL-FORMED month from another fiscal 
 pickers-disagree state no shape test can see. `ReportParameters::apply()` writes the property
 directly on scheduled delivery and passes through neither hook, which is why the read-side floor
 exists.
+
+### SW-238
+
+**A CREDITED DEPOSIT RELIEVES THE OBLIGATION, NOT REVENUE (SW-238, fixed 2026-09-05).** SW-210's
+twin through the credit door, found by SW-210's own adversarial review: `CreditNoteJournalizer`
+debited `sales_returns` — contra-REVENUE — whatever the line was, so crediting a deposit invoice
+reversed revenue never recognised and left `deposits_held` standing. A fully credited 100,000
+deposit left the GL saying 100,000 held where the truth is 0, and `deposits_tie_out` red with no
+write-off anywhere near it.
+
+**Frozen on `credit_notes.deposit_amount`, maintained from the note's own lines, and PROSPECTIVE.**
+Keying on `credit_note_items.type` was the obvious fix and would have restated history: SW-216's
+backfill typed historical lines, so the next sweep would void-and-repost posted entries into
+possibly-closed periods — SW-236's unclearable drift, the exact hazard SW-210 was reworked for.
+Legacy rows carry 0.00 and post what they always posted. The column is REFUSED past draft (the
+note's own immutability hook), while the model's `refreshDepositAmount()` maintains it via
+`saveQuietly()`, which that hook never sees — so the figure follows the lines while they are
+written and can never be retyped once the note is evidence. An untyped line is NOT STATED
+(SW-216's rule) and takes the `sales_returns` floor. `DepositBilling::depositPostingRole()` is now
+the ONE resolution of where a deposit line's credit went, shared with the write-off journalizer —
+two reversal doors, one obligation, one account.
+
+**The SW-239 registration proved itself during this fix**: enforcing `invoice_write_offs.reason`
+exposed TEN test files writing prose or invented codes into a Select-backed column — unreachable
+inputs, green over dead fixtures — all repaired against the form's real option set.
+`ACreditedDepositRelievesTheObligationNotRevenueTest`, 7 cases, 3 mutations.

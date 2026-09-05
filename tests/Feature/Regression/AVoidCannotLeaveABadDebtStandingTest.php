@@ -200,7 +200,7 @@ it('does not let LEASE TERMINATION cancel a written-off invoice either', functio
 
     app(LeaseTerminationService::class)->terminate($this->lease->fresh(), [
         'termination_date' => now()->toDateString(),
-        'reason' => 'Tenant vacated.',
+        'reason' => 'tenant_absconded',
         'cancel_open_invoices' => true,
     ]);
 

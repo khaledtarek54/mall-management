@@ -64,6 +64,7 @@ class CreditNote extends Model
         'subtotal',
         'vat_amount',
         'total',
+        'deposit_amount',
         'applied_amount',
         'balance',
         'currency',
@@ -235,6 +236,27 @@ class CreditNote extends Model
     }
 
     /** The row-level twin of {@see scopeOnTheBooks()}. */
+    /**
+     * Re-freeze how much of this note relieves the DEPOSIT obligation (SW-238) — the net (ex-VAT)
+     * sum of its `security_deposit`-typed lines, maintained from the items' own hooks.
+     *
+     * `saveQuietly()`, because this fires from a CHILD's `saved` and a loud save would re-enter the
+     * realtime sync for a figure the sync itself reads. NULL type is NOT STATED (SW-216's rule) and
+     * contributes nothing — apportioning an untyped line is a decision, not a derivation.
+     */
+    public function refreshDepositAmount(): void
+    {
+        $deposit = round((float) $this->items()
+            ->where('type', 'security_deposit')
+            ->get()
+            ->sum(fn (CreditNoteItem $item) => (float) $item->total - (float) $item->vat_amount), 2);
+
+        if (round((float) $this->deposit_amount, 2) !== $deposit) {
+            $this->deposit_amount = $deposit;
+            $this->saveQuietly();
+        }
+    }
+
     public function isOnTheBooks(): bool
     {
         return ! array_key_exists((string) $this->status, self::NOT_ON_THE_BOOKS);
@@ -407,7 +429,11 @@ class CreditNote extends Model
             if ($note->status === 'draft') {
                 throw new \DomainException(__('admin.refusals.credit_note_no_return_to_draft'));
             }
-            foreach (['issue_date', 'tenant_id', 'invoice_id'] as $field) {
+            // `deposit_amount` (SW-238): frozen from the note's own lines and read by the
+            // journalizer to split the debit — a loud edit past draft would restate a posted
+            // entry, possibly into a closed period. The model's own refresh uses `saveQuietly()`,
+            // which this hook never sees, so maintaining the figure while lines land stays free.
+            foreach (['issue_date', 'tenant_id', 'invoice_id', 'deposit_amount'] as $field) {
                 if ($note->isDirty($field)) {
                     throw new \DomainException(__('admin.refusals.immutable_credit_note', ['field' => Translate::orHumanized("admin.fields.{$field}", $field)]));
                 }

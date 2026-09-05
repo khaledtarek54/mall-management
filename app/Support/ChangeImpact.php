@@ -176,6 +176,10 @@ class ChangeImpact
                 'invoice_id' => 'the receivable being reversed',
                 'asset_id' => 'THE property dimension of the credit leg (denormalized 2026-08-15). Bound ONCE from null when a standalone note adopts the property of the invoice it settles; re-homing a scoped note books the reversal into another mall\'s P&L',
                 'lease_id' => 'which lease the note relates to. It no longer carries the property (see asset_id above) and is NULL for a note against a unit-owner assessment, but re-homing a scoped note stays refused',
+                // Frozen at write from the note's own lines (SW-238) and read by the journalizer
+                // to split the debit between deposits_held and sales_returns. Moving it moves the
+                // books — and it must never be re-derived at read time, or a posted entry restates.
+                'deposit_amount' => 'how much of the note relieves deposits_held instead of contra-revenue',
             ],
             self::DERIVED => [
                 'status' => 'draft and void have no GL effect',

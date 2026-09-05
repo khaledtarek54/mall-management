@@ -106,7 +106,7 @@ it('gives a write-off against an owner invoice the invoice property', function (
     app(WriteOffInvoiceService::class)->write($this->invoice, [
         'amount' => 500,
         'entry_date' => '2026-03-20',
-        'reason' => 'uncollectible',
+        'reason' => 'legally_unrecoverable',
     ]);
 
     $writeOff = InvoiceWriteOff::query()->where('invoice_id', $this->invoice->id)->firstOrFail();
