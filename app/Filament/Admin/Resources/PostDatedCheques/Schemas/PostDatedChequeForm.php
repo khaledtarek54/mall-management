@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -57,7 +58,22 @@ class PostDatedChequeForm
                         // (now 'paid') drops out; resolve any stored invoice to its number so the
                         // edit page never renders the raw id. After `->entity()`, which installs its
                         // own resolver.
-                        ->getOptionLabelUsing(fn ($value): ?string => Invoice::find($value)?->number)
+                        //
+                        // SCOPED BY PROPERTY, never a bare `find()` (SW-014). Filament validates a
+                        // Select by asking it to LABEL the submitted value and refuses what it
+                        // cannot — so the label resolver IS the write guard, and an unscoped one
+                        // silently accepts a crafted payload naming another mall's invoice. The
+                        // payment form's identical picker states the same rule; this was the door
+                        // that kept the old shape. Scoped by property ONLY, not by status or
+                        // balance: a cleared cheque's invoice is legitimately absent from the
+                        // OPTIONS and must still label on the edit page.
+                        ->getOptionLabelUsing(function ($value): ?string {
+                            $visible = TenantScope::visibleAssetIds();
+
+                            return Invoice::query()
+                                ->when($visible !== null, fn ($q) => $q->whereIn('asset_id', $visible))
+                                ->find($value)?->number;
+                        })
                         ->helperText(__('admin.post_dated_cheques.fields.invoice_hint')),
                     TextInput::make('cheque_number')
                         ->label(__('admin.post_dated_cheques.fields.cheque_number'))
