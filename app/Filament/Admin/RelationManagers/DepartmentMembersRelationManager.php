@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Models\User;
+use App\Support\Filament\AttachedOnce;
 use App\Support\PermissionVocabulary;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
@@ -15,6 +15,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -56,6 +57,10 @@ class DepartmentMembersRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // Filament guesses the inverse from the PARENT model — `departments` — which User does
+            // have, so this is belt-and-braces; naming it keeps the exclusion working if that
+            // relation is ever renamed, which would otherwise fail as a fatal inside the picker.
+            ->inverseRelationship('departments')
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')
@@ -86,16 +91,26 @@ class DepartmentMembersRelationManager extends RelationManager
                     ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->preloadRecordSelect()
+                    // NARROW, never REPLACE — the third door onto this defect, found by grepping
+                    // for the shape rather than from the diff that fixed the other two. Filament's
+                    // record select already excludes existing members; a bare `->options(...)` swaps
+                    // that builder out, so the picker re-offers someone already in the department
+                    // and `unique(user_id, department_id)` turns Attach into a 500.
+                    ->recordSelectOptionsQuery(
+                        // Admin-panel staff only — exclude owner-only users.
+                        fn (Builder $query) => $query->whereHas('roles', fn ($q) => $q->where('name', '!=', 'owner')),
+                    )
                     ->recordSelect(
                         fn (Select $select) => $select
-                            ->label(__('admin.fields.user'))
-                            ->options(fn () => User::query()
-                                // Admin-panel staff only — exclude owner-only users.
-                                ->whereHas('roles', fn ($q) => $q->where('name', '!=', 'owner'))
-                                ->orderBy('name')
-                                ->pluck('name', 'id'))
-                            ->searchable(),
+                            ->label(__('admin.fields.user')),
                     )
+                    // The list is not the gate — the id still arrives in the payload.
+                    ->before(fn (array $data) => AttachedOnce::assert(
+                        $this->getOwnerRecord(),
+                        'members',
+                        $data['recordId'] ?? null,
+                        'admin.refusals.department_member_already_attached',
+                    ))
                     ->schema(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         TextInput::make('role')

@@ -140,5 +140,9 @@ return [
         // ── Added 2026-09-04 (SW-068) ───────────────────────────────────────────────────
         'recurring_schedule_contract_ended' => 'This schedule names the contract ":contract", which has ended (:ends), so it would never book again. Link a contract that is still running, or clear the contract and give the schedule its own end date.',
         'recurring_schedule_never_books' => 'This schedule would never book a single cost: its first booking falls on :first, which is after the end date :ends — so the nightly run would skip it for ever and nothing on any screen would say so. Move the end date past :first, bring the start date forward, change the day of the month, or clear the end date so it runs until you switch it off.',
+        // ── Added 2026-09-05 (tester's board) ──────────────────────────────────────────
+        'asset_owner_already_attached' => ':name already owns a share of this property, and one person holds one share here — two rows would be two answers to "how much of it is theirs", and the owner statement divides by exactly that number. Open the row that exists and change the percentage or the dates, or record the sale by setting an end date on it.',
+        'asset_staff_already_attached' => ':name is already assigned to this property. Open the row that exists to change their title or their dates — a second assignment would say two different things about one person\'s tenure, and the access this grants is decided by whether ANY live row exists.',
+        'department_member_already_attached' => ':name is already a member of this department. Open the row that exists to change their role or their dates — a second membership would say two different things about one person, and it is membership that grants the department\'s role.',
     ],
 ];

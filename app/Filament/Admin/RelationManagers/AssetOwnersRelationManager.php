@@ -3,7 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
-use App\Models\User;
+use App\Support\Filament\AttachedOnce;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
 use Filament\Actions\EditAction;
@@ -14,6 +14,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -104,6 +105,9 @@ class AssetOwnersRelationManager extends RelationManager
     {
         return $table
             ->description(fn (): ?string => $this->ownershipTotalNotice())
+            // Filament guesses the inverse from the PARENT model — `assets` — which User does not
+            // have, so the duplicate-exclusion in AttachAction would fatal rather than filter.
+            ->inverseRelationship('ownedAssets')
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')
@@ -134,18 +138,27 @@ class AssetOwnersRelationManager extends RelationManager
                     ->visible(fn () => self::canManage())
                     ->authorize(fn () => self::canManage())
                     ->preloadRecordSelect()
+                    // NARROW, never REPLACE. Filament's own record select already excludes whoever
+                    // is attached; a bare `->options(User::query()...)` here swapped that builder
+                    // out and took the exclusion with it, so the picker re-offered the owner
+                    // already on the property and the attach died on the unique index as a 500.
+                    ->recordSelectOptionsQuery(
+                        // Owners are admin-panel RBAC users holding the `owner` role — the
+                        // /owner panel was removed 2026-07-27 and is not coming back.
+                        fn (Builder $query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'owner')),
+                    )
                     ->recordSelect(
                         fn (Select $select) => $select
                             ->label(__('admin.fields.owner'))
-                            // Owners are admin-panel RBAC users holding the `owner` role — the
-                            // /owner panel was removed 2026-07-27 and is not coming back.
-                            ->options(fn () => User::query()
-                                ->whereHas('roles', fn ($q) => $q->where('name', 'owner'))
-                                ->orderBy('name')
-                                ->pluck('name', 'id'))
-                            ->searchable()
                             ->helperText(__('admin.fields.owner_helper')),
                     )
+                    // The list is not the gate — the id still arrives in the payload.
+                    ->before(fn (array $data) => AttachedOnce::assert(
+                        $this->getOwnerRecord(),
+                        'propertyOwners',
+                        $data['recordId'] ?? null,
+                        'admin.refusals.asset_owner_already_attached',
+                    ))
                     ->schema(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         TextInput::make('ownership_percentage')

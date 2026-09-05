@@ -3,7 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
-use App\Models\User;
+use App\Support\Filament\AttachedOnce;
 use App\Support\PermissionVocabulary;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
@@ -16,6 +16,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -59,6 +60,9 @@ class AssetStaffRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // Filament guesses the inverse from the PARENT model — `assets` — which User does not
+            // have, so AttachAction's duplicate-exclusion would fatal rather than filter.
+            ->inverseRelationship('assignedAssets')
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')
@@ -90,16 +94,25 @@ class AssetStaffRelationManager extends RelationManager
                     ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->preloadRecordSelect()
+                    // NARROW, never REPLACE — see AssetOwnersRelationManager for the crash this
+                    // caused there. Filament's record select already excludes whoever is attached;
+                    // a bare `->options(...)` swapped that builder out and took the exclusion with
+                    // it, leaving the unique index to refuse the second attach as a 500.
+                    ->recordSelectOptionsQuery(
+                        // Exclude owners — admin panel users only.
+                        fn (Builder $query) => $query->whereHas('roles', fn ($q) => $q->where('name', '!=', 'owner')),
+                    )
                     ->recordSelect(
                         fn (Select $select) => $select
-                            ->label(__('admin.fields.user'))
-                            ->options(fn () => User::query()
-                                // Exclude tenants/owners-only — admin panel users only
-                                ->whereHas('roles', fn ($q) => $q->where('name', '!=', 'owner'))
-                                ->orderBy('name')
-                                ->pluck('name', 'id'))
-                            ->searchable(),
+                            ->label(__('admin.fields.user')),
                     )
+                    // The list is not the gate — the id still arrives in the payload.
+                    ->before(fn (array $data) => AttachedOnce::assert(
+                        $this->getOwnerRecord(),
+                        'staff',
+                        $data['recordId'] ?? null,
+                        'admin.refusals.asset_staff_already_attached',
+                    ))
                     ->schema(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         TextInput::make('title')

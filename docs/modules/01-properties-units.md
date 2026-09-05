@@ -391,10 +391,29 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 **Manages:** Asset → Staff (via `asset_user` pivot).
 
 **Form fields** (for AttachAction and EditAction):
-- role (TextInput, max 100, helper: "e.g., Property Manager, Site Engineer")
+- title (TextInput, max 100, helper: "e.g., Property Manager, Site Engineer") — the pivot column is
+  `title`, and it must stay listed in `Asset::staff()->withPivot()` or the modal reads blank and
+  writes nothing under a "Saved" toast
 - assigned_at (DatePicker, default=now())
 - ended_at (DatePicker)
 - notes (Textarea, 2 rows)
+
+**A party is attached ONCE, and that is enforced twice.** `asset_user` and `asset_owner` both carry
+`unique(user_id, asset_id)`, so a second attach of the same person is a duplicate-key crash rather
+than a refusal. Two layers keep it from being one:
+
+1. **The picker does not offer them.** Filament's `AttachAction` excludes already-attached records
+   itself, via `whereDoesntHave($table->getInverseRelationship(), …)` — so narrow the option list
+   with `->recordSelectOptionsQuery()`, **never** by overriding `->options()`, which replaces that
+   builder and takes the exclusion with it. Both managers here (and
+   `DepartmentMembersRelationManager`) had done exactly that, which is what made the crash
+   reachable. The inverse relationship must also be NAMED (`->inverseRelationship('assignedAssets')`
+   / `'ownedAssets'`): Filament guesses it from the parent model — `assets` — and `User` has no such
+   relation, so the exclusion would have fataled had it ever run.
+2. **The write refuses them**, through `App\Support\Filament\AttachedOnce`. A narrowed option list
+   is not a gate — the chosen id arrives in the Livewire payload — so the question is asked again at
+   the write and answered as a `DomainException`, which renders as a toast in the operator's own
+   language instead of "Error while loading page".
 
 **Table columns:**
 - name (weight bold, searchable)
