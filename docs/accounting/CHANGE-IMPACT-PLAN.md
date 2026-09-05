@@ -962,3 +962,43 @@ header's map is defined and rendered **nowhere**.
   this codebase keeps recording.
 
 (`AnActOnAPostedDocumentIsWhereItCanBeSeenTest`, six mutations, each killing its own tooth.)
+
+### 16.4 — The follow-up, reported from the panel: which VALUES vs whether it is a FIELD
+
+§16.1 removed the two statuses with no act behind them and stopped there. **It did not ask whether
+the status should still be a control**, and on a PAID invoice (INV-VP-0002) it still rendered as an
+open dropdown with a clear button — so an operator could take a settled invoice back to `issued`, or
+blank a required field. With the six derived and act-owned values gone, a raised invoice's list is
+down to the one it is already in, so the control offered nothing and risked something. It is
+`disabled($locked)` now, mirroring `issue_date` beside it; raising a draft is untouched, and that is
+the one status decision a person makes on this form.
+
+The same pass left three date fields typeable on a posted, paid document, and **`ChangeImpact`
+marking them NEUTRAL is precisely why they were missed.** NEUTRAL is a statement about the LEDGER —
+*"never reaches a journalizer payload and never decides a period"* — and it is correct. It is not a
+statement about money:
+
+| Field | What reads it | Consequence of re-dating a paid invoice |
+|---|---|---|
+| `period_start` | `SyncCamPoolFromLedgerService` narrows the pool's billed side **and** its credited-back twin on it | The invoice moves into or out of a CAM pool, changing the annual true-up billed to **every participant** |
+| `period_start` + `period_end` | `CreditUnearnedBillingService` both SELECTS the invoices a move-out credits and APPORTIONS the credit from them | Outbound cash on a move-out |
+| both | `Invoice::periodLabel()` on the PDF, `TenantLedger` on the statement, `InvoiceResource` on the API | The tenant's filed document disagrees with the register |
+
+Both are `disabled($locked)` — a wrong period on an issued invoice is a wrong document, and the
+remedy is the void or credit that every other money form here already points at. **The registry was
+not changed**: NEUTRAL answers the GL question and answers it right. What was wrong was a form
+reading "no ledger consequence" as "no consequence".
+
+`due_date` is deliberately the exception and gets its own predicate. Extending a due date as a
+one-off concession is an ordinary AR act on an open charge — Yardi allows it, and the field's own
+helper says *"override only for a one-off arrangement"* — so it stays editable while the receivable
+is live and closes once money has landed **or the document has left the books**, where all it can do
+is rewrite the ageing history the owner reads. `$settled` reads `paid_amount > 0` **or**
+`! InvoiceSettlement::accepts()`, because a cancelled or written-off invoice has taken no money and a
+`paid_amount` test alone would leave it open; the relieved half comes from the register that already
+answers it rather than a second list of statuses. Mutation-proved four ways **including the
+over-lock** — a draft must stay entirely open, or the fix breaks the only workflow these fields exist
+for. (`APostedDocumentsStatusIsNotAPickerTest`.)
+
+**The lesson for the next sweep of this kind:** *which values a control offers* and *whether it
+should be a control* are two questions, and answering the first reads as finishing the job.

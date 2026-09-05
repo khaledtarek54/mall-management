@@ -2360,3 +2360,30 @@ month** moved off the row onto this record's header at the same time — see
 [modules/23 → SW-238](23-fixed-assets.md) for why the gate could not see it. Full reasoning in
 [CHANGE-IMPACT-PLAN §16](../accounting/CHANGE-IMPACT-PLAN.md#16-the-ui-sweep-2026-09-05--a-status-is-the-outcome-of-an-act-and-an-act-is-on-the-record);
 regression test `APostedDocumentsStatusIsNotAPickerTest`.
+
+### SW-239
+
+**A raised invoice's status is not a FIELD, and its service period is evidence.** The follow-up to
+SW-238, reported from the panel on a PAID invoice: that pass fixed which VALUES the status picker
+offered and never asked whether it should still be a control. With the six derived and act-owned
+statuses gone, a raised invoice's list is down to the one it is already in — so the dropdown offered
+nothing and still let an operator take a settled invoice back to `issued` or blank a required field.
+Disabled past draft now, mirroring `issue_date`; raising a draft is untouched.
+
+**`period_start` / `period_end` were the only fields left open on a posted, paid document**, and
+`ChangeImpact` classifying them NEUTRAL is why: NEUTRAL is a statement about the LEDGER (they never
+reach a journalizer payload) and it is correct — but `SyncCamPoolFromLedgerService` narrows the CAM
+pool's billed side on `invoices.period_start`, so re-dating one paid invoice moves it into or out of
+a pool and changes the annual true-up billed to **every participant**; `CreditUnearnedBillingService`
+both selects and apportions a **move-out credit** from the pair, which is outbound cash; and both
+print on the tenant's PDF and statement. A wrong period on an issued invoice is a wrong document —
+void or credit it and raise the right one. The registry was not changed: it answers the GL question
+correctly, and what was wrong was a form reading *"no ledger consequence"* as *"no consequence"*.
+
+**`due_date` is deliberately the exception.** Extending it as a one-off concession is an ordinary AR
+act on an open charge (Yardi allows it, and the field's own helper says so), so it stays editable
+while the receivable is live and closes once money lands **or** the document leaves the books —
+`paid_amount > 0 || ! InvoiceSettlement::accepts()`, because a written-off invoice has taken no money
+and a `paid_amount` test alone would leave it open. Full reasoning in
+[CHANGE-IMPACT-PLAN §16.4](../accounting/CHANGE-IMPACT-PLAN.md); regression test
+`APostedDocumentsStatusIsNotAPickerTest`, mutation-proved four ways including the over-lock.

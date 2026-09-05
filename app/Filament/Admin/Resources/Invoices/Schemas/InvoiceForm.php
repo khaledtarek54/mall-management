@@ -12,6 +12,7 @@ use App\Services\ChargeScheduleService;
 use App\Support\CatalogueTaxRate;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
+use App\Support\InvoiceSettlement;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Filament\Forms\Components\DatePicker;
@@ -41,6 +42,17 @@ class InvoiceForm
         // an issued invoice — every state past `issued` is the outcome of an act, and the
         // Select below is down to raising a draft. (GL integrity hardening — Phase 1.)
         $locked = fn (?Invoice $record) => $record !== null && $record->status !== 'draft';
+
+        // **SETTLED — the document has taken money or left the books.** A narrower question than
+        // `$locked`, for the one field where the answer differs: extending a DUE DATE as a one-off
+        // concession is an ordinary AR act on a live receivable (Yardi allows it on an open charge,
+        // and this field's own helper says "override only for a one-off arrangement"), and it is
+        // meaningless on an invoice that is already paid — where all it can do is distort the
+        // ageing history the owner reads. `$locked($record)` first, so a draft short-circuits out:
+        // `InvoiceSettlement::RELIEVED` counts `draft` as unsettleable, for a different reason.
+        $settled = fn (?Invoice $record) => $locked($record) && (
+            (float) $record->paid_amount > 0 || ! InvoiceSettlement::accepts($record)
+        );
 
         // Tabs, one per concern, through App\Support\FormTab so each carries a badge counting the
         // validation errors INSIDE it (UX-13). Filament v4 ships no error indicator on Tabs, so a
@@ -211,6 +223,19 @@ class InvoiceForm
                                 return $options;
                             })
                             ->required()
+                            // **SHOWN, NOT CHOSEN, once the invoice is raised.** With the six
+                            // derived and act-owned statuses removed above, a non-draft invoice's
+                            // list is down to the one it is already in — so the control was a
+                            // dropdown with a clear button offering an operator the chance to take a
+                            // PAID invoice back to `issued`, or to blank a required field. Reported
+                            // from the panel on INV-VP-0002, and the previous pass fixed which
+                            // VALUES it offered without asking whether it should still be a field.
+                            //
+                            // Raising a draft is the one status decision a person makes here, and
+                            // `$locked` is false on create and on a draft, so that door is untouched.
+                            // Not dehydrated, mirroring `issue_date` directly below: a disabled
+                            // field is not submitted, so the stored value simply stands.
+                            ->disabled($locked)
                             ->native(false),
                         DatePicker::make('issue_date')
                             ->label(__('admin.fields.issue_date'))
@@ -236,10 +261,36 @@ class InvoiceForm
                             ->validationMessages([
                                 'after' => __('admin.validation.invoice_due_after_issue'),
                             ])
+                            // Open while the receivable is live — the concession above is real work
+                            // — and closed once money has landed or the document has left the books,
+                            // where moving it changes nothing an operator wants and rewrites the AR
+                            // ageing the owner reads.
+                            ->disabled($settled)
                             ->native(false),
+                        // **THE SERVICE PERIOD IS EVIDENCE, AND IT MOVES MONEY THROUGH TWO OTHER
+                        // MODULES.** These say WHAT the tenant was billed for. They were the only
+                        // fields on this form left open on a posted, paid document, on the reasoning
+                        // that `ChangeImpact` classifies them NEUTRAL — which is true and is a
+                        // statement about the LEDGER only: they never reach a journalizer payload,
+                        // so no journal entry re-derives. "No GL consequence" is not "no
+                        // consequence":
+                        //
+                        //   • `SyncCamPoolFromLedgerService` narrows the pool's BILLED side (and its
+                        //     credited-back twin) on `invoices.period_start`, so re-dating one paid
+                        //     invoice moves it into or out of a CAM pool and changes the annual
+                        //     true-up billed to EVERY participant in it;
+                        //   • `CreditUnearnedBillingService` selects the invoices a move-out credits
+                        //     on this pair AND apportions the credit from them — outbound cash;
+                        //   • `Invoice::periodLabel()` prints them on the PDF the tenant files with
+                        //     their own accountant, and `TenantLedger` on the statement of account.
+                        //
+                        // A wrong period on an issued invoice is a wrong document: void or credit it
+                        // and raise the right one, which is what every other money form here already
+                        // says about its own committed fields.
                         DatePicker::make('period_start')
                             ->label(__('admin.fields.period_start'))
                             ->required()
+                            ->disabled($locked)
                             ->native(false),
                         DatePicker::make('period_end')
                             ->label(__('admin.fields.period_end'))
@@ -247,6 +298,7 @@ class InvoiceForm
                             // The billing period must move forward in time; a period
                             // ending on/before its start is meaningless for proration.
                             ->after('period_start')
+                            ->disabled($locked)
                             ->native(false),
                     ])->columns(3),
 

@@ -169,3 +169,81 @@ it('records who disputed a line and why, which the header status never did', fun
         // …and the header is deliberately untouched, which is the distinction the whole fix rests on.
         ->and($invoice->refresh()->status)->not->toBe('disputed');
 });
+
+/*
+|--------------------------------------------------------------------------
+| …and once it is raised, the status is not a FIELD either
+|--------------------------------------------------------------------------
+|
+| Reported from the panel on INV-VP-0002, a PAID invoice: the Status control still
+| rendered as an open dropdown with a clear button, and `due_date`, `period_start` and
+| `period_end` were still typeable. The pass above fixed which VALUES the picker offered
+| without asking whether it should still be a control on a settled document — so an
+| operator could take a paid invoice back to `issued`, blank a required field, or re-date
+| the service period of a document the tenant has already paid and filed.
+|
+| The service period is the one that is not cosmetic, and `ChangeImpact` marking it NEUTRAL
+| is exactly why it was missed: NEUTRAL is a statement about the LEDGER — it never reaches a
+| journalizer payload — and these two columns move money through two other modules without
+| ever touching a journal entry. `SyncCamPoolFromLedgerService` narrows the CAM pool's billed
+| side on `invoices.period_start`, and `CreditUnearnedBillingService` both selects and
+| apportions a move-out credit from the pair.
+*/
+
+/** Is this field disabled on the real mounted Edit page? */
+function invoiceFieldIsDisabled(int $invoiceId, string $field): bool
+{
+    return Livewire::test(EditInvoice::class, ['record' => $invoiceId])
+        ->instance()
+        ->form
+        ->getComponent($field)
+        ->isDisabled();
+}
+
+it('does not offer the status as a control at all once the invoice is raised', function () {
+    $issued = makeInvoice($this->lease);
+
+    expect(invoiceFieldIsDisabled($issued->id, 'status'))->toBeTrue();
+});
+
+it('freezes the service period on a raised invoice, because CAM and move-out credits read it', function () {
+    $issued = makeInvoice($this->lease);
+
+    expect(invoiceFieldIsDisabled($issued->id, 'period_start'))->toBeTrue()
+        ->and(invoiceFieldIsDisabled($issued->id, 'period_end'))->toBeTrue();
+});
+
+it('leaves a draft entirely open, which is where those decisions are actually made', function () {
+    // THE CONTROL, and the half that stops this becoming an over-lock. Raising a draft is the one
+    // status decision a person makes on this form, and a draft's period and due date are still
+    // being settled. A fix that froze these on a draft would satisfy every refusal above and break
+    // the only workflow the fields exist for.
+    $draft = makeInvoice($this->lease, ['status' => 'draft']);
+
+    foreach (['status', 'period_start', 'period_end', 'due_date'] as $field) {
+        expect(invoiceFieldIsDisabled($draft->id, $field))->toBeFalse("draft {$field} was frozen");
+    }
+});
+
+it('keeps the due date editable while the receivable is live, and closes it once money lands', function () {
+    // Deliberately NOT locked with the rest: extending a due date as a one-off concession is an
+    // ordinary AR act on an open charge — Yardi allows it, and this field's own helper text says
+    // "override only for a one-off arrangement". It is meaningless on a settled invoice, where all
+    // it can do is rewrite the ageing history the owner reads.
+    $live = makeInvoice($this->lease);
+
+    expect(invoiceFieldIsDisabled($live->id, 'due_date'))->toBeFalse();
+
+    settleInvoiceInFull($live);
+
+    expect(invoiceFieldIsDisabled($live->fresh()->id, 'due_date'))->toBeTrue();
+});
+
+it('freezes the due date on an invoice that left the books without ever being paid', function () {
+    // The other half of `$settled`: a cancelled or written-off invoice has taken no money, so a
+    // `paid_amount > 0` test alone would leave it editable. `InvoiceSettlement::RELIEVED` is the
+    // register that already answers this, rather than a second list of statuses here.
+    $writtenOff = makeInvoice($this->lease, ['status' => 'written_off']);
+
+    expect(invoiceFieldIsDisabled($writtenOff->id, 'due_date'))->toBeTrue();
+});
