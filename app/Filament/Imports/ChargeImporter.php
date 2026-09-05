@@ -81,7 +81,10 @@ class ChargeImporter extends Importer
             $inputOnly(ImportColumn::make('type')
                 ->label(__('admin.imports.columns.charge_type'))
                 ->requiredMapping()
-                ->rules(['required', 'string', 'max:64'])),
+                // 32 because `charges.type` IS varchar(32). It read 64, which validates a row the
+                // INSERT then refuses — a raw "Data too long" in `failed_import_rows` instead of a
+                // field-level message, or silent truncation on a connection that is not strict.
+                ->rules(['required', 'string', 'max:32'])),
 
             $inputOnly(ImportColumn::make('name')
                 ->label(__('admin.imports.columns.line_description'))

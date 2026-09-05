@@ -28,7 +28,7 @@ class ContactsRelationManager extends RelationManager
         return $schema->columns(2)->components([
             TextInput::make('name')->label(__('admin.fields.contact_person'))->required()->maxLength(200),
             TextInput::make('role')->label(__('admin.fields.role') ?: 'Role')->maxLength(100),
-            TextInput::make('email')->label(__('admin.fields.email'))->email()->maxLength(200),
+            TextInput::make('email')->label(__('admin.fields.email'))->email()->maxLength(255),
             TextInput::make('phone')->label(__('admin.fields.phone'))->tel()->maxLength(50),
             Toggle::make('is_primary')->label(__('admin.fields.primary_contact') ?: 'Primary contact')->columnSpanFull(),
             // THE ONLY WRITE PATH TO THE CONTRACTOR PORTAL, and until 2026-09-01 there was none.

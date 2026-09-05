@@ -142,21 +142,33 @@ round changed the reading.
   run since the jobs were repaired.
 - ~~**OPS-05**~~ — **CLOSED 2026-09-05**: `atriom:health` reports `0 queued, 0 failed`. Was: reseed this workstation (`migrate:fresh --seed`) once the activity-log session lands:
   716 stale queued jobs and 5 E2E rows from 2026-08-23 are what turn the local health queue row red.
-- **SW-243** — gate the field-width rule, and fix the phone-FORMAT half of it. `ad651fb4` gave
-  tenant field widths one source (`Tenant::FIELD_MAX`) after finding the register's form stricter
-  than the importer — an imported tenant was un-saveable from its own Edit page. Two pieces are
-  deliberately left: **(a)** the rule is not on `ARuleIsOnEveryDoorConformanceTest`, because the door
-  set is not cleanly derivable by that gate's technique — `->createOptionForm(` appears on five forms
-  and only one of them creates a tenant, so the obvious derivation fires on noise, and a gate that
-  fires on noise gets weakened rather than fixed. The derivation that *would* work is the
-  column-aware one the review built by hand: tokenise every `TextInput`/`Textarea` chain, terminate
-  it at the sibling comma rather than at the next component, resolve the file's model, and require
-  a `maxLength` that is present and no greater than the column. That found four fields both of my
-  own regex passes missed. **(b)** The same importer-vs-form divergence exists on phone FORMAT: the
-  importer accepts any string up to 50, the form applies Filament's `tel()` regex, so a real number
-  written `+20 (2) 2735-1234 ext 402` imports cleanly and is then refused on its own Edit page —
-  the identical lockout, one rule along. Fixing it is a decision about which phone formats an
-  Egyptian operator's data actually contains, not a width, so it wants the operator's real file.
+- ~~**SW-243(a)**~~ — **CLOSED 2026-09-05.** Gated, and the gate found four more of the same
+  defect. The derivation this row proposed (tokenise the chains, resolve the file's model, compare
+  against the column) is what shipped, in `Tests\Support\FieldWidths`, split across two tiers
+  because **sqlite cannot see half of it**: Laravel's sqlite grammar emits a bare `varchar` with no
+  length, so a 32-character national ID validated into a `varchar(20)` is perfectly green in the
+  ordinary suite. The *form-vs-importer divergence* needs no schema and runs on every push
+  (`ADoorNeverRefusesWhatAnotherDoorAcceptedConformanceTest`); the *wider-than-the-column* half is
+  `tests/Mysql/FieldWidthsOnMysqlTest`, beside the `ValueSets` width check that exists for exactly
+  the same reason. Found and fixed: `ChargeImporter.type` `max:64` into a `varchar(32)`,
+  `EmployeeImporter.national_id` 32 into 20, `EmployeeImporter.phone` 32 into 30 — each validating
+  a row the INSERT then refuses, so the operator reads a raw *"Data too long for column"* in
+  `failed_import_rows`, or on a non-strict connection gets a silently truncated national ID — plus
+  `LedgerAccountForm.code` capped at 20 while its own importer deliberately allows 32, which is the
+  SW-243 lockout **on the chart of accounts**, the one register a migrating operator is certain to
+  import. `VendorImporter.email` was the door that was RIGHT (255 is this application's convention
+  everywhere else, and RFC 5321 caps a path at 254), so the two supplier columns widened instead.
+  The relation-manager attribution is the noise this row predicted and the gate refuses to make it:
+  `ContactsRelationManager` resolves through the relationship to `VendorContact`, not to its parent
+  resource's `Vendor`. Seven mutations, each killing its own tooth. **Still open: the phone-FORMAT
+  half**, below.
+- **SW-243(b)** — fix the phone-FORMAT half. The same importer-vs-form divergence exists on
+  phone FORMAT rather than length: the importer accepts any string up to its cap, the form applies
+  Filament's `tel()` regex, so a real number written `+20 (2) 2735-1234 ext 402` imports cleanly and
+  is then refused on its own Edit page — the identical lockout, one rule along, and invisible to the
+  width gate because both doors agree about the LENGTH. Fixing it is a decision about which phone
+  formats an Egyptian operator's data actually contains, not a width, so it wants the operator's
+  real file.
 - **D2-13 / H3** — measure the leading-wildcard `LIKE` search on a posture-B staging box before
   optimising anything. H3's own instruction, and staging is the first place it can be measured.
 - **OPS-06** — `vendor/bin/pint --test` fails on **30 files** and has for a long time: files nobody

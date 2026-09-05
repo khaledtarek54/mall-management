@@ -23,6 +23,7 @@ return [
         'import' => [
             'charge' => 'Your charge-schedule import has completed.',
             'employee' => 'Your employee import has completed.',
+            'equipment' => 'Your equipment import has completed.',
             'fixed_asset' => 'Your fixed-asset import has completed.',
             'lease' => 'Your lease import has completed.',
             'ledger_account' => 'Your chart of accounts import has completed.',
@@ -30,6 +31,7 @@ return [
             'opening_invoice' => 'Your opening-balance import has completed.',
             'tenant' => 'Your tenant import has completed.',
             'unit' => 'Your unit import has completed.',
+            'unit_ownership' => 'Your unit-ownership import has completed.',
             'vendor' => 'Your vendor import has completed.',
         ],
 

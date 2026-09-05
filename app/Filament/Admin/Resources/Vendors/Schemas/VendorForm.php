@@ -90,7 +90,9 @@ class VendorForm
                     TextInput::make('email')
                         ->label(__('admin.fields.email'))
                         ->email()
-                        ->maxLength(200),
+                        // 255, with the column — the length every other party table in this
+                        // application holds, and one over RFC 5321's cap on a path.
+                        ->maxLength(255),
                     TextInput::make('phone')
                         ->label(__('admin.fields.phone'))
                         ->tel()

@@ -208,7 +208,20 @@ it('compiles and runs the repeat-visit subquery on the real driver', function ()
 
         // …and the one-query answer matches the per-row definition on THIS driver too, which is
         // the property a SQLite run cannot establish.
+        //
+        // Against `priorVisitCount()`, NOT `repeatsOf()`. They are two different questions and this
+        // compared the wrong pair for its whole life: `repeatsOf()` answers "what counts as a PRIOR
+        // visit" and deliberately says nothing about the SUBJECT, while both the model method and
+        // the subquery return 0 for a preventive job — a PPM visit recurring at the frequency
+        // somebody planned is the programme working, not a fault coming back. So a preventive row
+        // with a corrective prior on the same trade and machine made the two sides disagree by
+        // construction. It only ever passed because no such row was among the first 25, which a
+        // reseed changed (2026-09-05, work order 22: subquery 0, `repeatsOf` 1, both correct).
+        //
+        // Re-read, because `$row` already carries `prior_visit_count` and `priorVisitCount()`
+        // returns it verbatim when it is set — comparing against that would be the value comparing
+        // with itself.
         expect((int) $row->prior_visit_count)
-            ->toBe(FacilityWorkOrder::query()->repeatsOf($row)->count(), "work order {$row->id}");
+            ->toBe(FacilityWorkOrder::findOrFail($row->id)->priorVisitCount(), "work order {$row->id}");
     }
 });

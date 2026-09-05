@@ -25,7 +25,13 @@ class LedgerAccountForm
                     TextInput::make('code')
                         ->label(__('admin.fields.account_code'))
                         ->required()
-                        ->maxLength(20)
+                        // 32, matching `LedgerAccountImporter`, whose own comment says the length
+                        // is deliberately not constrained to the shipped chart's width while the
+                        // 8-vs-10-digit question is open with the accountant. At 20 this form
+                        // contradicted that: an imported chart account with a longer code could
+                        // never be saved again from its own Edit page, on the one register a
+                        // migrating operator is certain to import.
+                        ->maxLength(32)
                         ->unique(ignoreRecord: true)
                         ->rule('regex:/^[0-9]+$/')
                         ->rule(fn (Get $get) => new AccountCodeMatchesType($get('type')))

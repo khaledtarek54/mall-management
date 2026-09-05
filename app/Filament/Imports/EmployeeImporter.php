@@ -70,7 +70,10 @@ class EmployeeImporter extends Importer
 
             ImportColumn::make('national_id')
                 ->label(__('admin.imports.columns.national_id'))
-                ->rules(['nullable', 'string', 'max:32']),
+                // 20 because the COLUMN is varchar(20) and `EmployeeForm` already says 20. An
+                // Egyptian national ID is 14 digits; 32 was a copied default that validated a row
+                // the insert would refuse.
+                ->rules(['nullable', 'string', 'max:20']),
 
             ImportColumn::make('department')
                 ->label(__('admin.imports.columns.department_name'))
@@ -110,7 +113,8 @@ class EmployeeImporter extends Importer
                 ->rules(['nullable', 'string', 'max:32']),
 
             ImportColumn::make('phone')
-                ->rules(['nullable', 'string', 'max:32']),
+                // The column is varchar(30) and the form says 30.
+                ->rules(['nullable', 'string', 'max:30']),
 
             // Which language this party's documents are issued in. An operator migrating from
             // another system knows this per record and would otherwise set it by hand afterwards.
