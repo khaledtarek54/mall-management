@@ -225,6 +225,12 @@ final class ConcurrencyPolicy
         'app/Services/AcceptWorkOrderService.php' => 1,
         'app/Services/CreditNoteService.php' => 11,
         'app/Services/MonthlyBillingService.php' => 2,
+        // The final-period bill (SW-050) contends on the SAME 'billing:run:{month}' cache lock the
+        // scheduled and manual runs hold — a termination racing a catch-up run for that month would
+        // otherwise read `lastCoveredEndFor` before the run's invoice lands, find no clamp, and
+        // raise the period twice. The lock IS the idempotency guard, exactly as
+        // `generateForLease()`'s own comment says of the twin it copies.
+        'app/Services/BillFinalPeriodService.php' => 1,
         'app/Services/Paymob/PaymobPaymentInitiator.php' => 1,
         // 6 since 2026-08-25: clearing a cheque that names no invoice now takes a LOCKING read of
         // the tenant's open invoices before allocating oldest-first — a plain read there would be
