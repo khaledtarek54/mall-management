@@ -127,8 +127,8 @@ it('demonstrates two banks in one mall on a fresh demo', function () {
     // ── Every register with demo rows says something ─────────────────────────────────────────────
     // Receipts and expenses were the two the first cut covered; payroll and deposit movements are
     // the other two with demo rows, and they were empty, so four of the six new columns said
-    // nothing. (Disbursements have no demo rows; vendor-bill payments do, and name CIB.
-    //     // gap in the seeder, not this feature's.)
+    // nothing. (Disbursements still have no demo rows — a gap in the seeder, not in this feature;
+    // vendor-bill payments do have them and name CIB.)
     expect(Payment::whereNotNull('bank_account_id')->count())->toBeGreaterThan(50);
     expect(Expense::whereNotNull('bank_account_id')->count())->toBeGreaterThan(0);
     expect(Payroll::whereNotNull('bank_account_id')->count())->toBeGreaterThan(0);
