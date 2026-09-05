@@ -261,6 +261,7 @@ return [
         'message_sent' => 'تم إرسال الرسالة إلى :count عضو',
         'lock_declaration' => 'تثبيت',
         'declare_sales' => 'إقرار مبيعات',
+        'record_violation' => 'تسجيل مخالفة',
         'add_tier' => 'إضافة شريحة',
         'add_cam_term' => 'إضافة شرط سقف',
         'add_clause' => 'إضافة بند',

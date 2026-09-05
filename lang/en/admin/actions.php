@@ -262,6 +262,7 @@ return [
         'message_sent' => 'Message sent to :count member(s)',
         'lock_declaration' => 'Lock',
         'declare_sales' => 'Declare sales',
+        'record_violation' => 'Record violation',
         'add_tier' => 'Add band',
         'add_cam_term' => 'Add cap term',
         'add_clause' => 'Add clause',

@@ -867,4 +867,11 @@ return [
         'save' => 'Save the form you are on',
         'save_and_new' => 'Save and start another',
     ],
+
+    // The tenant 360's compliance tab (UX5-08).
+    'tenant_violations' => [
+        'empty_heading' => 'No violations recorded',
+        'empty_description' => 'Nothing has been raised against this tenant. Breaches recorded on the Violations screen appear here.',
+    ],
+
 ];

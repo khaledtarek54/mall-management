@@ -10,6 +10,8 @@ use App\Filament\Admin\RelationManagers\TenantLedgerRelationManager;
 use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
 use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
+use App\Filament\Admin\RelationManagers\TenantSalesDeclarationsRelationManager;
+use App\Filament\Admin\RelationManagers\TenantViolationsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
@@ -137,6 +139,11 @@ class TenantResource extends Resource
             TenantInvoicesRelationManager::class,
             TenantPaymentsRelationManager::class,
             TenantRequestsRelationManager::class,
+            // Compliance and turnover — the two questions the 360 could not answer (UX5-08).
+            // Both are conditional on the reader's own rights (and sales on the tenant actually
+            // owing a declaration), so a role holding neither module sees neither tab.
+            TenantViolationsRelationManager::class,
+            TenantSalesDeclarationsRelationManager::class,
             TenantNotesRelationManager::class,
             ActivitiesRelationManager::class,
         ];
