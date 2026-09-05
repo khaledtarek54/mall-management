@@ -3,10 +3,12 @@
 namespace App\Support;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Filament\RowClickTarget;
 use App\Support\Search\SearchText;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Panel-wide defaults for EVERY Filament table (admin + portal + relation
@@ -41,6 +43,13 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * - defaultPaginationPageOption(25) — 10 is too few for a monthly invoice run.
  *
+ * - recordUrl(RowClickTarget) — clicking a row opens the record's EDIT page, and
+ *   only falls back to View where this record cannot be edited. Filament's own
+ *   default is the reverse, which made the click mean "read this" on the four
+ *   resources that happen to register a `view` page and "work on this" on the
+ *   other sixty-two. See App\Support\Filament\RowClickTarget for why the order
+ *   is what it is and why it has to be set here rather than table by table.
+ *
  * Deliberately NOT set here: deferFilters (already true in Filament 4),
  * emptyState (per-resource copy), poll (a global poll would hammer MySQL).
  */
@@ -61,6 +70,7 @@ class TableDefaults
                 ->filtersLayout(FiltersLayout::Dropdown)
                 ->filtersFormColumns(2)
                 ->striped()
+                ->recordUrl(fn (Model | array $record, Table $table): ?string => RowClickTarget::for($record, $table))
                 ->defaultPaginationPageOption(25)
                 ->paginationPageOptions([10, 25, 50, 100]);
         });

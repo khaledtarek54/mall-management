@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\RentableItems\Tables;
 
-use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Models\Floor;
 use App\Models\RentableItem;
 use App\Support\Filament\EntitySelectFilter;
@@ -87,13 +86,12 @@ class RentableItemsTable
                     ->relationship('floor')
                     ->entity(Floor::class),
             ])
-            // Clicking the row EDITS. Letting a bay is the reason an operator opens this screen, so
-            // the read-only view would be a stop on the way to the thing they came to do. It stays
-            // reachable from the row action, and it is where a viewer lands — `canEdit()` decides,
-            // so a read-only role is never sent to a form it cannot submit.
-            ->recordUrl(fn (RentableItem $record): string => RentableItemResource::canEdit($record)
-                ? RentableItemResource::getUrl('edit', ['record' => $record])
-                : RentableItemResource::getUrl('view', ['record' => $record]))
+            // Clicking the row EDITS — and that is now the rule for EVERY list in the panel, not a
+            // local decision here: App\Support\Filament\RowClickTarget, applied from TableDefaults.
+            // The read-only view stays reachable from the row action, and is still where a viewer
+            // lands — the seam reaches that through the EditAction's own visibility rather than by
+            // calling `canEdit()` directly, which is the same answer on this table and a strictly
+            // different predicate, so it is worth saying rather than glossing.
             ->recordActions([ViewAction::make(), EditAction::make()])
             ->emptyStateIcon('heroicon-o-squares-2x2')
             ->emptyStateHeading(__('admin.empty.rentable_items.heading'))
