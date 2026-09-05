@@ -693,31 +693,34 @@ it('adopting a shared view clears MY default, never the author\'s', function () 
         ->and(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($authorsShared->getKey());
 });
 
-it('leaves one team default standing, not two', function () {
+it('touches no other person\'s row — including a shared view that is its owner\'s own default', function () {
+    // The trap a first version of this fix fell into. `defaultFor()`'s PERSONAL tier does not
+    // exclude shared rows, so a view somebody owns AND has shared is simultaneously their personal
+    // default and the team's. Clearing "other shared defaults" — which reads as tidy — therefore
+    // wipes a preference its owner stated, which is the exact bug D3-04 is about, through a
+    // different door. Two team defaults resolving by row id is the better trade.
     $author = makeUser('manager', [$this->asset->id]);
 
-    $firstTeam = TableView::create([
-        'resource' => 'leases', 'name' => 'Team A', 'state' => [],
+    $authorsSharedDefault = TableView::create([
+        'resource' => 'leases', 'name' => 'Author shared AND default', 'state' => [],
         'user_id' => $author->id, 'is_shared' => true, 'is_default' => true,
     ]);
-    $secondTeam = TableView::create([
-        'resource' => 'leases', 'name' => 'Team B', 'state' => [],
-        'user_id' => $this->user->id, 'is_shared' => true,
+
+    $colleague = makeUser('manager', [$this->asset->id]);
+    $colleaguesShared = TableView::create([
+        'resource' => 'leases', 'name' => 'Colleague shared', 'state' => [],
+        'user_id' => $colleague->id, 'is_shared' => true,
     ]);
 
-    // `?tableView=none`, or the page's own mount-time redirect to the existing default fires and
-    // Livewire::test() hands back a redirect instead of a component.
     Livewire::withQueryParams(['tableView' => 'none']);
 
-    asTenant($this->asset, function () use ($secondTeam) {
+    // An unrelated third person adopts the colleague's view.
+    asTenant($this->asset, function () use ($colleaguesShared) {
         Livewire::test(ListLeases::class)
-            ->callAction('chooseDefaultView', ['view_id' => $secondTeam->id]);
+            ->callAction('chooseDefaultView', ['view_id' => $colleaguesShared->id]);
     });
 
-    // "Where the team starts" is ONE view; two resolve by row id, which is not a decision anybody
-    // made. A colleague with no view of their own follows the new one.
-    expect($firstTeam->fresh()->is_default)->toBeFalse()
-        ->and($secondTeam->fresh()->is_default)->toBeTrue()
-        ->and(TableView::defaultFor('leases', makeUser('manager', [$this->asset->id])->id)?->getKey())
-        ->toBe($secondTeam->getKey());
+    // The author never touched anything and must still land where they set it.
+    expect($authorsSharedDefault->fresh()->is_default)->toBeTrue()
+        ->and(TableView::defaultFor('leases', $author->id)?->getKey())->toBe($authorsSharedDefault->getKey());
 });

@@ -53,19 +53,26 @@ it('gives a super_admin somewhere to go from every card', function () {
 });
 
 it('offers no link a role cannot follow', function () {
-    // `marketing` holds no units, payments, requests or reports rights — every destination in this
-    // widget is closed to them, so every link must be absent rather than a 403 waiting to happen.
-    $urls = statUrls('marketing', $this->asset);
+    // `leasing`, NOT `marketing`. Marketing can open NONE of these destinations, so every URL is
+    // null and the reachability loop below never executes — the assertion that actually matters
+    // is dead code. Leasing holds units and not payments, so this role exercises both branches:
+    // at least one link suppressed, at least one link followed.
+    $urls = statUrls('leasing', $this->asset);
 
     // The premise first: this role IS shown cards. Without it the assertions below are satisfied
     // by an empty widget and the gate goes unproven — the vacuous-sweep shape this codebase has
     // been bitten by three times.
     expect($urls)->not->toBeEmpty();
 
-    // `marketing` holds none of units / payments / requests / reports, so the gate must actually
-    // fire somewhere rather than merely not crashing.
+    // The gate must actually FIRE...
     expect(collect($urls)->contains(fn ($url) => $url === null))->toBeTrue(
-        'no link was suppressed for a role that can open none of these destinations — the gate is not firing'
+        'no link was suppressed for a partially-privileged role — the gate is not firing'
+    );
+
+    // ...and must not fire on everything, or the loop below is dead code and the one assertion
+    // that resolves a destination never runs.
+    expect(collect($urls)->contains(fn ($url) => $url !== null))->toBeTrue(
+        'every link was suppressed, so nothing below is actually checked'
     );
 
     foreach ($urls as $label => $url) {

@@ -80,3 +80,57 @@ it('never offers more than the ceiling, however broad the query', function () {
 
     expect(count($titles))->toBeLessThanOrEqual(AtriomGlobalSearchProvider::MAX_SCREEN_RESULTS);
 });
+
+/*
+|--------------------------------------------------------------------------
+| What an adversarial review found the day this shipped
+|--------------------------------------------------------------------------
+*/
+
+it('still answers when the operator types naturally', function () {
+    // STOP WORDS come off the corpus at INDEX time, so leaving them on the query made the
+    // all-words rule reject everything: "vat return" worked and "the vat return" found NOTHING.
+    // Folding one side and not the other, in a different coat.
+    // Stop words only. A word the corpus has no vocabulary for at all — "open", a verb no screen
+    // title or synonym carries — still filters, and that is deliberate for a PALETTE: someone
+    // typing a sentence is asking the assistant, and precision is what makes five results useful.
+    foreach (['the vat return', 'show me the vat return', 'a rent roll'] as $query) {
+        expect(paletteScreens($query, 'super_admin', $this->asset))
+            ->not->toBeEmpty("«{$query}» found no screen");
+    }
+});
+
+it('lists one row per destination, not the same page twice', function () {
+    // The corpus emits a `screen` entry AND a `report` entry for a page that is both — right for
+    // the assistant, wrong here: "rent roll" filled the category with the same page twice at the
+    // same URL, burning slots the operator could have used.
+    $titles = paletteScreens('rent roll', 'super_admin', $this->asset);
+
+    expect($titles)->not->toBeEmpty()
+        ->and(count($titles))->toBe(count(array_unique($titles)));
+});
+
+it('offers no admin screen to the tenant portal', function () {
+    // This provider serves BOTH panels and the corpus is admin-only by construction, so every
+    // entry a portal reader could be scored against is a screen written for an operator. The only
+    // thing that kept it from mattering was a TenantUser failing `can()` — an accident of the
+    // guard, not a gate.
+    $tenant = makeTenant();
+    $portalUser = \App\Models\TenantUser::create([
+        'tenant_id' => $tenant->id,
+        'name' => 'Portal reader',
+        'email' => 'palette-portal-'.uniqid().'@test.local',
+        'password' => bcrypt('password'),
+        'is_admin' => true,
+    ]);
+
+    Filament::setCurrentPanel(Filament::getPanel('portal'));
+    $this->actingAs($portalUser, 'portal');
+
+    $results = app(AtriomGlobalSearchProvider::class)->getResults('dashboard');
+    $label = (string) __('admin.search.screens');
+
+    expect(collect($results?->getCategories() ?? [])->keys()->all())->not->toContain($label);
+
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+});

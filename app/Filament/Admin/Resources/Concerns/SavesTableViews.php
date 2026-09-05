@@ -149,12 +149,18 @@ trait SavesTableViews
      *
      * Offered over the views this user may SEE, not only the ones they own: adopting the team's
      * shared arrears pack as your landing screen is the case the row is about, and refusing it
-     * would be the half-capability this codebase keeps finding. Marking a shared view sets the
-     * TEAM default, and a colleague's own personal default still wins over it
-     * ({@see TableView::defaultFor()}), so this can never overrule a preference someone stated.
+     * would be the half-capability this codebase keeps finding.
      *
-     * Blank clears it. A `Select` with no `required()` is the whole of that — an operator who has
-     * changed their mind about landing on a filtered list needs one obvious way back to none.
+     * **Two things this does NOT do, stated because an earlier version of this docblock claimed
+     * the opposite and was wrong.** Marking a SHARED view writes the flag on somebody else's row,
+     * so it also sets the TEAM default for every colleague who has not stated one — one person's
+     * click, everyone's landing screen. And a colleague's own personal default does NOT reliably
+     * win: `defaultFor()`'s personal tier does not exclude shared rows, so a view its owner shared
+     * AND marked is both tiers at once. Neither can be fixed from here, because `is_default` is one
+     * column answering two questions; the fix is the per-user pivot recorded on D3-04.
+     *
+     * Blank clears it — but only over views this operator OWNS, so an adopted team default cannot
+     * be escaped this way either (same root cause, same row).
      */
     protected function chooseDefaultViewAction(): Action
     {
@@ -190,9 +196,6 @@ trait SavesTableViews
                     return;
                 }
 
-                // Re-resolved through `visibleTo`, not trusted from the payload: the option list is
-                // a UI convenience and this is the gate. A view someone unshared between the modal
-                // opening and its submit must not become anybody's landing screen.
                 // Re-resolved through `visibleTo`, not trusted from the payload: the option list is
                 // a UI convenience and this is the gate. A view someone unshared between the modal
                 // opening and its submit must not become anybody's landing screen.

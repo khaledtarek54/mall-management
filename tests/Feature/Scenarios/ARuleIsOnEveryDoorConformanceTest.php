@@ -30,7 +30,17 @@ const RULE_DOORS = [
     'deposit-pot' => [
         'app/Services/SettleMoveOutService.php' => ['tests/Feature/Regression/AMoveOutCannotDisburseTheDepositTwiceTest.php', 'SettleMoveOutService'],
         'app/Filament/Admin/Actions/LeaseActions.php' => ['tests/Feature/Scenarios/EveryDoorOntoAMoneyDocumentAsksWhereItBankedTest.php', 'recordDeposit'],
-        'app/Filament/Admin/Resources/DepositTransactions/DepositTransactionResource.php' => ['tests/Feature/Resources/DepositTransactionResourceTest.php', 'DepositTransaction'],
+        // The register's own Create/Edit pages — the door CLAUDE.md records as having had no cap
+        // at all, where a 500,000 refund on a 100,000 pot saved without a word. It is driven by
+        // the MODEL guard, which is where the cap lives precisely so a sixth door is covered by
+        // existing rather than by being remembered — so the driving test is the one that proves
+        // that guard, not the resource's own render smoke test.
+        //
+        // It was first registered against `DepositTransactionResourceTest` with the proof token
+        // `DepositTransaction` — the class the file is NAMED after, so the token could never fail,
+        // pointing at a 58-line file containing no cap, no refusal and no DomainException. A
+        // registry row that cannot be wrong is a row that documents nothing.
+        'app/Filament/Admin/Resources/DepositTransactions/DepositTransactionResource.php' => ['tests/Feature/Regression/AMoveOutCannotDisburseTheDepositTwiceTest.php', 'refuses a refund larger than the pot'],
     ],
 
     // ── Invoice settlement: every writer of any of the four channels (payment pivot, tenant
@@ -43,6 +53,13 @@ const RULE_DOORS = [
         'app/Services/ApplyTenantCreditService.php' => ['tests/Feature/Regression/ARelievedInvoiceAcceptsNoMoreMoneyTest.php', 'ApplyTenantCreditService'],
         'app/Services/ApplyDepositToInvoiceService.php' => ['tests/Feature/Regression/ADepositNeverPaysForgivenDebtTest.php', 'ApplyDepositToInvoiceService'],
         'app/Services/CreditNoteService.php' => ['tests/Feature/Regression/ARelievedInvoiceAcceptsNoMoreMoneyTest.php', 'CreditNoteService'],
+        // The model itself. `refitAllocationsToBalance()` rewrites the pivot with
+        // `updateExistingPivot`, a spelling the first derivation could not see — so `Payment.php`,
+        // which contains neither `attach(` nor `sync(`, sat outside the door set entirely. It only
+        // ever REDUCES an allocation (to the settleable amount, net of write-offs), so it is not a
+        // way to over-settle; it is registered because a door nobody is asked about is how the
+        // next one ships unguarded.
+        'app/Models/Payment.php' => ['tests/Feature/Regression/ARelievedInvoiceAcceptsNoMoreMoneyTest.php', 'assertInvoicesNotOverAllocated'],
         // The two gateway doors are driven through the ROUTES they serve — `/pay/{token}` and the
         // portal buttons — which is the honest door for an unauthenticated surface.
         'app/Services/Paymob/PaymobPaymentInitiator.php' => ['tests/Feature/Regression/APublicPayLinkCannotCollectWhatIsNotOwedTest.php', 'integrations.paymob.enabled'],
@@ -106,15 +123,30 @@ function deriveDoors(string $invariant): array
             // (a Filament page never names the model in a ::create call, so the resource's own
             // $model declaration is the door's signature).
             'deposit-pot' => str_contains($src, 'DepositTransaction::create(')
-                || str_contains($src, 'new DepositTransaction(')
+                || str_contains($src, 'DepositTransaction::updateOrCreate(')
+                || str_contains($src, 'DepositTransaction::firstOrCreate(')
+                || preg_match('/new DepositTransaction\b/', $src) === 1
+                || preg_match('/->deposit(?:s|Transactions)\(\)->(?:create|updateOrCreate|firstOrCreate)\(/', $src) === 1
                 || preg_match('/\$model\s*=\s*DepositTransaction::class/', $src) === 1,
             // A writer of any settlement channel. The credit-note channel's signature is the
             // ADDITION to credit_applied_amount — releases subtract and are not settlements.
+            // Every spelling this codebase uses on these pivots, not the handful the first draft
+            // happened to think of: `Payment::refitAllocationsToBalance()` already writes
+            // `invoices()->updateExistingPivot(...)` and `Payment.php` contains neither `attach(`
+            // nor `sync(`, so that file was outside the derived set and nobody was ever asked to
+            // register it. (That call only ever REDUCES an allocation, so it was not itself a
+            // hole — the point is that the sweep demonstrably could not see a spelling in use on
+            // the very pivot it guards.)
             'invoice-settlement' => str_contains($src, 'invoices()->attach(')
                 || str_contains($src, 'invoices()->sync(')
+                || str_contains($src, 'invoices()->syncWithoutDetaching(')
+                || str_contains($src, 'invoices()->updateExistingPivot(')
                 || str_contains($src, 'TenantCreditApplication::create(')
+                || str_contains($src, 'TenantCreditApplication::updateOrCreate(')
                 || str_contains($src, 'DepositApplication::create(')
-                || preg_match('/credit_applied_amount\s*=\s*[^;=]*\+/', $src) === 1,
+                || str_contains($src, 'DepositApplication::updateOrCreate(')
+                || preg_match('/credit_applied_amount\s*=\s*[^;=]*\+/', $src) === 1
+                || preg_match('/increment\(\s*.credit_applied_amount./', $src) === 1,
             default => false,
         };
         if ($hit) {

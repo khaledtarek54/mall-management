@@ -52,11 +52,8 @@ const STATUS_TERMINAL = [
     ],
     'payments.status' => [
         'voided' => 'a keying error undone; the receipt never happened',
-        'refunded' => 'money returned — the reversal is the final fact',
-        'bounced' => 'an NSF outcome; re-presenting lodges a NEW receipt',
         'failed' => 'a gateway outcome; retrying initiates a new payment',
-        'settled' => 'reconciled and closed against the statement',
-        'reconciled' => 'matched to the bank statement — un-matching is MatchBankStatementLineService reversing, which restores captured and is detected as a writer',
+
     ],
     'leases.status' => [
         'terminated' => 'the final account settles it; a new tenancy is a new lease',
@@ -118,6 +115,61 @@ const STATUS_EXEMPT = [
     // The gateway callback maps provider states through a variable.
     'payments.status.initiated' => ['PaymobPaymentInitiator seeds the pending receipt', 'app/Services/Paymob/PaymobPaymentInitiator.php', 'Payment::create'],
     'payments.status.authorized' => ['the gateway callback maps provider states', 'app/Http/Controllers/Paymob/CallbackController.php', 'status'],
+
+    // ── VOCABULARY WITH NO LIVE WRITER, ON PURPOSE ────────────────────────────────────────────
+    //
+    // Found by this gate once its form escape stopped answering with a superset. Nothing in `app/`
+    // writes any of these and no picker offers them; they stay in `ValueSets` and both lang files
+    // because legacy and IMPORTED rows carry them and `RECEIVED_STATUSES` must go on counting a
+    // `reconciled` receipt as money in. `PaymentForm` states the reasoning in full: bank
+    // reconciliation writes a `BankMatch` row and never touches this column, so offering
+    // `reconciled` would let an operator claim a reconciliation that did not happen. `voided` is
+    // the live reversal status — `refunded` and `bounced` are what `VoidPaymentService` wrote
+    // before 2026-08-28, when a mis-keyed receipt was recorded as money returned to somebody who
+    // never received any.
+    //
+    // Registered rather than deleted, and NOT marked terminal: terminal would say a record reaches
+    // this state and stays: these say a record never reaches it at all any more.
+    'payments.status.reconciled' => ['deliberately not offered and not written; kept for legacy/imported rows', 'app/Filament/Admin/Resources/Payments/Schemas/PaymentForm.php', 'are NOT offered'],
+    'payments.status.settled' => ['deliberately not offered and not written; kept for legacy/imported rows', 'app/Filament/Admin/Resources/Payments/Schemas/PaymentForm.php', 'are NOT offered'],
+    'payments.status.refunded' => ['a reversal is `voided` since 2026-08-28; this value survives only on rows written before that', 'app/Models/Payment.php', 'REVERSED_STATUSES'],
+    'payments.status.bounced' => ['written on the CHEQUE, never on the receipt; the payment is voided', 'app/Models/Payment.php', 'REVERSED_STATUSES'],
+
+    // An OUTCOME the picker does not offer and `recomputeTotals()` explicitly declines to set
+    // ("NOT 'credited': that is the terminal…"), retained so an imported row still classifies.
+    'invoices.status.credited' => ['an outcome, never a pick; no writer by design', 'app/Support/InvoiceSettlement.php', 'credited'],
+
+    // Offered by LeaseForm's status Select, whose options are the lang group with two values
+    // rejected — a multi-line closure this file's exact-shape reader deliberately cannot parse
+    // (reading it loosely is what made the escape a superset).
+    'leases.status.pending_approval' => ['offered by the lease form\'s status Select', 'app/Filament/Admin/Resources/Leases/Schemas/LeaseForm.php', 'admin.statuses.lease'],
+
+    // ── AMBIGUOUS BY FILE, WRITTEN IN FACT ────────────────────────────────────────────────────
+    //
+    // One file, several models that all allow the value, and a literal that carries no type — so
+    // the sweep declines to guess (see the write loop). Each is named here with the file that
+    // really writes it. `PeriodService` closes BOTH a period and its year and mentions both
+    // models, which is precisely the shape no static read can resolve.
+    'accounting_periods.status.closed' => ['PeriodService::close()', 'app/Services/Accounting/PeriodService.php', "'status' => 'closed'"],
+    'accounting_periods.status.open' => ['a period is born open (column default) and reopened by PeriodService', 'app/Services/Accounting/PeriodService.php', 'reopen'],
+    'fiscal_years.status.closed' => ['PeriodService closes the year with its periods', 'app/Services/Accounting/PeriodService.php', "periods()->update(['status' => 'closed'])"],
+    'fiscal_years.status.open' => ['a year is born open; the year-end close is the only other writer', 'app/Services/Accounting/PeriodService.php', 'fiscalYear'],
+    'cam_allocations.status.closed' => ['the CAM true-up closes an allocation once the year is settled', 'app/Services/CamReconciliationService.php', 'closed'],
+    'credit_notes.status.issued' => ['CreditNoteService — issue, and un-apply restoring it', 'app/Services/CreditNoteService.php', "\$note->status = 'issued'"],
+
+    // ── THE ORPHAN THIS GATE EXISTS TO FIND ──────────────────────────────────────────────────
+    //
+    // `invoices.status = 'disputed'` has NO writer and no picker. SW-238 took it off the header
+    // form on 2026-09-05: it put the invoice in `NOT_CHASEABLE` — skipped by the overdue scan, the
+    // dunning sweep and the late-fee sweep — with no reason and no audit event, and
+    // `DisputeInvoiceItemService` had already said the header is the wrong tool because an invoice
+    // is rarely disputed in full. The per-LINE act, which requires a reason, is the door.
+    //
+    // Registered rather than deleted for the reason SW-238 gives: `NOT_CHASEABLE` must go on
+    // honouring a legacy row that carries it. This entry is the standing record that the value is
+    // deliberately unreachable — and the gate's first version credited it to a service that writes
+    // a SALES DECLARATION, which is why the attribution rule is now one-column-or-none.
+    'invoices.status.disputed' => ['deliberately unreachable since SW-238; the per-line dispute act is the door', 'app/Support/InvoiceSettlement.php', 'disputed'],
 
     // A transition matrix: the service writes `$next`, the ACT names the value.
     'facility_work_orders.status.done' => ['FacilityWorkOrderService::transition($record, \'done\') from the work-order table', 'app/Filament/Admin/Resources/FacilityWorkOrders/Tables/FacilityWorkOrdersTable.php', "transition(\$record, 'done')"],
@@ -238,15 +290,30 @@ function statusGateDerive(): array
             // Literals in the window.
             preg_match_all("/'([a-z_]+)'/", $window, $lits);
             foreach (array_unique($lits[1]) as $lit) {
-                // Attribute to every in-scope column whose model context this file carries and
-                // whose set allows the value. Multi-attribution is deliberate — a wrong single
-                // pick would hide a writer; the allowed-set filter keeps it from becoming noise.
+                // ONE column, or none. A literal write carries no type, so the only evidence of
+                // WHICH status column it sets is the file's model context — and when a file names
+                // several models that all allow the value, that evidence is worthless.
+                //
+                // Multi-attribution was the first version and it answered WRONGLY on the exact
+                // defect this gate is named for: `PercentageRentCalculationService` writes
+                // `'status' => 'disputed'` on a SALES DECLARATION, mentions `Invoice`, and was
+                // therefore credited as the writer of `invoices.status = 'disputed'` — a value
+                // SW-238 had recorded the day before as having no writer at all, its dropdown
+                // being the only door. A gate that reports the orphan it exists to find as covered
+                // is worse than no gate. Ambiguous now means UNATTRIBUTED, which pushes the value
+                // into the registry where a human has to say what writes it.
+                $candidates = [];
+
                 foreach (statusGateColumns() as $table => $model) {
                     $hint = class_basename($model);
                     if ((str_contains($src, $hint) || str_contains($rel, $hint) || str_contains($src, "'$table'"))
                         && in_array($lit, ValueSets::allowed($table, 'status'), true)) {
-                        $result[$table]['written'][$lit][] = $rel;
+                        $candidates[] = $table;
                     }
+                }
+
+                if (count($candidates) === 1) {
+                    $result[$candidates[0]]['written'][$lit][] = $rel;
                 }
             }
 
@@ -315,30 +382,54 @@ function statusGateDerive(): array
     return $result;
 }
 
-/** Values an editable status Select on the model's own forms offers, via its lang enum. */
+/**
+ * Values an editable status Select on the model's own forms offers — EXACTLY, or nothing.
+ *
+ * A first version read every `admin.enums.*` / `admin.statuses.*` key mentioned in the file and
+ * took every key of those arrays. That is a SUPERSET of what the form offers and it made both
+ * teeth inert for 18 of 41 columns: `invoices` reported 61 "offered" values against an allowed set
+ * of 9, and `payments` reported `reconciled` and `settled` as offered by a form whose own source
+ * says in writing that it does not offer them because nothing produces them. A gate that answers
+ * "covered" for the value it was built to catch is worse than no gate.
+ *
+ * So only two shapes count, both exact: options built from the model's own constant list
+ * (`Violation::STATUSES`) or from its enum (`UnitOwnershipStatus::options()`). Both genuinely
+ * offer every allowed value. Anything else — a hand-written array, a lang group, a conditional
+ * `unset()` — is unreadable from here and returns nothing, which pushes the value into the
+ * registry where a human states why.
+ */
 function statusGateFormOffered(string $table, string $model): array
 {
+    $hint = class_basename($model);
+    $enum = Illuminate\Support\Str::studly(Illuminate\Support\Str::singular($table)).'Status';
     $offered = [];
+
     foreach (statusGateSources() as $rel => $src) {
         if (! str_contains($src, "Select::make('status')") && ! str_contains($src, "ToggleButtons::make('status')")) {
             continue;
         }
-        $hint = class_basename($model);
         if (! str_contains($src, $hint) && ! str_contains($rel, $hint)) {
             continue;
         }
-        // Options built from the model's own constant list or enum offer EVERY allowed value —
-        // `collect(Violation::STATUSES)->mapWithKeys(...)`, `UnitOwnershipStatus::options()`.
-        // Their lang keys are INTERPOLATED ("admin.statuses.violation.{$s}"), so no static read of
-        // the key can enumerate them; the constant is the honest source.
-        $hint = class_basename($model);
-        if (preg_match("/(?:$hint::STATUSES|".Illuminate\Support\Str::studly(Illuminate\Support\Str::singular($table))."Status::options\(\))/", $src)) {
+        if (preg_match("/(?:$hint::STATUSES|$enum::options\\(\\))/", $src)) {
             return ValueSets::allowed($table, 'status');
         }
 
-        if (preg_match_all("/admin\.(enums|statuses)\.([a-z_.]+)/", $src, $m, PREG_SET_ORDER)) {
-            foreach (array_unique(array_map(fn ($x) => "admin.{$x[1]}.{$x[2]}", $m)) as $key) {
+        // A Select whose options ARE a lang group verbatim — `->options(fn () => __('admin.
+        // statuses.tenant'))`, a single-expression closure with nothing else in it. That group's
+        // keys are exactly what the operator is offered.
+        //
+        // The single-expression shape is the whole distinction, and it is what tells this apart
+        // from `PaymentForm`, which builds a RESTRICTED set in code and documents at length why
+        // `reconciled` and `settled` are deliberately not among it. Matching the lang group
+        // wherever it is merely MENTIONED is what made this escape a superset.
+        if (preg_match_all(
+            "/->options\\(fn \\(\\)(?:\\s*:\\s*array)?\\s*=>\\s*__\\('(admin\\.(?:enums|statuses)\\.[a-z_.]+)'\\)\\)/",
+            $src, $matches
+        )) {
+            foreach ($matches[1] as $key) {
                 $options = __($key);
+
                 if (is_array($options)) {
                     $offered = array_merge($offered, array_keys($options));
                 }
@@ -346,7 +437,12 @@ function statusGateFormOffered(string $table, string $model): array
         }
     }
 
-    return array_values(array_unique($offered));
+    // Intersected with what the column may actually hold: a lang group can carry vocabulary for
+    // more than one column, and an offered value outside the set is not offered at all.
+    return array_values(array_intersect(
+        array_unique($offered),
+        ValueSets::allowed($table, 'status'),
+    ));
 }
 
 it('derives writers for most of the vocabulary — the sweep collects something', function () {

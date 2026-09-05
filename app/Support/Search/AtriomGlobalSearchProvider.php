@@ -136,7 +136,27 @@ class AtriomGlobalSearchProvider implements GlobalSearchProvider
      */
     protected function screenResults(string $query): array
     {
-        $words = AssistantCorpus::tokenise($query);
+        // ADMIN ONLY. `AssistantCorpus::screenEntries()` deliberately excludes portal screens —
+        // its own docblock says an operator must never be offered a guide "in words aimed at
+        // somebody else" — so every entry in it is an admin screen, and this provider serves the
+        // tenant portal too. Today the harm is limited to admin TITLES appearing where an admin
+        // and a portal page share a slug; the reason it goes no further is that a `TenantUser`
+        // fails `can()`, which is an accident of the guard rather than a gate. Ask the panel.
+        if (Filament::getCurrentPanel()?->getId() !== 'admin') {
+            return [];
+        }
+
+        // STOP WORDS COME OFF THE QUERY, because the corpus already dropped them when INDEXING
+        // (`AssistantCorpus::addTerms`). Leaving them on made the all-words rule below reject
+        // everything the moment anyone typed naturally: measured, "vat return" found the VAT
+        // return and "the vat return", "show me the vat return" and "open the rent roll" all
+        // found NOTHING. `AnswerQuestionService::meaningfulWords()` strips them for exactly this
+        // reason — folding one side and not the other is the trap CLAUDE.md states for search
+        // generally, and it applies to stop-word removal just as much as to the fold.
+        $words = array_values(array_filter(
+            AssistantCorpus::tokenise($query),
+            fn (string $word): bool => ! in_array($word, AssistantCorpus::STOP_WORDS, true),
+        ));
 
         if ($words === []) {
             return [];
@@ -164,7 +184,7 @@ class AtriomGlobalSearchProvider implements GlobalSearchProvider
                 continue;
             }
 
-            $scored[] = ['score' => $score, 'title' => $entry->title, 'url' => $url, 'kind' => $entry->kind];
+            $scored[] = ['score' => $score, 'title' => $entry->title, 'url' => $url];
         }
 
         if ($scored === []) {
@@ -173,13 +193,27 @@ class AtriomGlobalSearchProvider implements GlobalSearchProvider
 
         usort($scored, fn (array $a, array $b): int => [$b['score'], $a['title']] <=> [$a['score'], $b['title']]);
 
+        // ONE ROW PER DESTINATION. The corpus deliberately emits a `screen` entry AND a `report`
+        // entry for a page that is both, which is right for the assistant (they carry different
+        // vocabulary) and wrong here: measured, "rent roll" filled the whole category with the
+        // same page twice at the same URL, and "vat return" burned two of five slots on it. Keyed
+        // by URL rather than title, because two screens may share a title and mean different
+        // pages — the destination is what a click actually resolves to.
         $results = [];
 
-        foreach (array_slice($scored, 0, self::MAX_SCREEN_RESULTS) as $row) {
-            $results[] = new GlobalSearchResult(title: $row['title'], url: $row['url']);
+        foreach ($scored as $row) {
+            if (isset($results[$row['url']])) {
+                continue;
+            }
+
+            $results[$row['url']] = new GlobalSearchResult(title: $row['title'], url: $row['url']);
+
+            if (count($results) >= self::MAX_SCREEN_RESULTS) {
+                break;
+            }
         }
 
-        return [(string) __('admin.search.screens') => $results];
+        return [(string) __('admin.search.screens') => array_values($results)];
     }
 
     /**

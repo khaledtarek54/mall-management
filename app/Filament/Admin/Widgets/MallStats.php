@@ -139,11 +139,14 @@ class MallStats extends StatsOverviewWidget
         // Each link is gated on the destination's own `canAccess()`, because this widget is shown
         // to roles with very different reach and a card that lands on a 403 is worse than a card
         // that does not link: it reads as the system being broken rather than as not-for-you.
+        // `rescue()` wraps ONLY the access question, never the URL builder. A gate that cannot be
+        // established reads as "no"; a URL that THROWS is a bug, and swallowing it would make every
+        // drill-down vanish with nothing in the log.
         $linkTo = fn (string $screen, callable $url): ?string => rescue(
-            fn (): ?string => $screen::canAccess() ? $url() : null,
-            null,
+            fn (): bool => (bool) $screen::canAccess(),
+            false,
             report: false,
-        );
+        ) ? $url() : null;
 
         $stats = [
             Stat::make(__('admin.widgets.mall_stats.occupancy'), $occupancy.'%')
@@ -157,7 +160,7 @@ class MallStats extends StatsOverviewWidget
                 ->chart($occupancySeries)
                 // The unit register, not the floor plan: this figure counts UNITS, and the list is
                 // where the vacant ones can be filtered, sorted and acted on.
-                ->url($linkTo(UnitResource::class, fn () => ResourceLink::index(UnitResource::class))),
+                ->url($linkTo(UnitResource::class, fn () => ResourceLink::index(UnitResource::class, tableView: 'none'))),
 
             // Economic occupancy sits next to the unit-count one so the two are read together:
             // a wide gap between them means the vacant space is disproportionately large (or small)
@@ -169,7 +172,7 @@ class MallStats extends StatsOverviewWidget
                 ]))
                 ->descriptionIcon('heroicon-m-squares-2x2')
                 ->color($areaOccupancyColor)
-                ->url($linkTo(UnitResource::class, fn () => ResourceLink::index(UnitResource::class))),
+                ->url($linkTo(UnitResource::class, fn () => ResourceLink::index(UnitResource::class, tableView: 'none'))),
 
             // No sparkline on MRR — contractual rent is a stable number; a
             // billed-in-month sparkline would dip in the partial current month
@@ -188,7 +191,7 @@ class MallStats extends StatsOverviewWidget
                     : __('admin.widgets.mall_stats.satisfaction_none'))
                 ->descriptionIcon('heroicon-m-face-smile')
                 ->color($avgCsat === null ? 'gray' : ($avgCsat >= 4 ? 'success' : ($avgCsat >= 3 ? 'warning' : 'danger')))
-                ->url($linkTo(TenantRequestResource::class, fn () => ResourceLink::index(TenantRequestResource::class))),
+                ->url($linkTo(TenantRequestResource::class, fn () => ResourceLink::index(TenantRequestResource::class, tableView: 'none'))),
         ];
 
         if ($seesMoney) {
@@ -197,7 +200,7 @@ class MallStats extends StatsOverviewWidget
                 ->descriptionIcon($collectedDelta >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
                 ->color($collectionRate >= 75 ? 'success' : ($collectionRate >= 40 ? 'warning' : 'danger'))
                 ->chart($collectedSeries)
-                ->url($linkTo(PaymentResource::class, fn () => ResourceLink::index(PaymentResource::class)));
+                ->url($linkTo(PaymentResource::class, fn () => ResourceLink::index(PaymentResource::class, tableView: 'none')));
 
             $stats[] = Stat::make(__('admin.widgets.mall_stats.outstanding_ar'), 'EGP '.number_format($outstandingAR, 0))
                 ->description(__('admin.widgets.mall_stats.outstanding_ar_desc', [

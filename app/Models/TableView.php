@@ -92,12 +92,19 @@ class TableView extends Model
      * the actor's OWN personal default standing, and a personal default WINS — so the button the
      * colleague had just pressed appeared to do nothing at all.
      *
-     * Two clearings, because `is_default` answers at two tiers (see {@see defaultFor()}):
+     * It clears the ACTOR's own views and NOTHING ELSE. A first version also cleared other SHARED
+     * defaults, on the reasoning that "where the team starts" is one view — and that reintroduced
+     * the very bug above through a different door, because `defaultFor()`'s personal tier does not
+     * exclude shared rows: a view somebody OWNS and has SHARED is simultaneously their personal
+     * default and the team's. Measured — B marks their own shared pack as their default, an
+     * unrelated A adopts C's shared view, and B's landing screen silently becomes C's. Clearing one
+     * meaning of the column destroys the other, and no query can tell the two apart.
      *
-     *  - always the ACTOR's own views, so their previous personal default gives way — this is what
-     *    makes adopting a shared view actually land them on it;
-     *  - and, when the view being marked is SHARED, any other shared default for this list,
-     *    because "where the team starts" is one view and two of them resolve by row id.
+     * So two shared views may both carry the flag, and `defaultFor()` resolves that by `orderBy(id)`
+     * — arbitrary, deterministic and harmless, which is the right trade against wiping a preference
+     * somebody stated. **The real fix is a per-user pivot** (`ReportPreference` is the model for
+     * it): "which view do I land on" is a fact about a PERSON, and keeping it in a column on a
+     * SHARED row is the design error underneath both of these. Recorded on D3-04.
      *
      * A view belonging to somebody else and never shared is unreachable here: the action resolves
      * through `visibleTo` before calling this.
@@ -110,14 +117,7 @@ class TableView extends Model
             static::query()
                 ->where('resource', $this->resource)
                 ->whereKeyNot($this->getKey())
-                ->where(function (Builder $q) use ($actorId): void {
-                    $q->where('user_id', $actorId);
-
-                    if ($this->is_shared) {
-                        $q->orWhere('is_shared', true);
-                    }
-
-                })
+                ->where('user_id', $actorId)
                 ->update(['is_default' => false]);
 
             $this->forceFill(['is_default' => true])->save();
