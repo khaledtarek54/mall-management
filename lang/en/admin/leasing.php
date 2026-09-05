@@ -418,6 +418,7 @@ return [
     ],
 
     'unit_ownerships' => [
+        'import_charges_next' => 'The register alone bills nothing — import each owner\'s assessment schedule next, on the Charges tab.',
         'rentable_items_empty' => 'This owner holds no parking bays, storage or signage yet. Assign one and its charge joins the monthly assessment.',
         'charges' => [
             'title' => 'Assessment schedule',
