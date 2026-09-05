@@ -2,8 +2,10 @@
 
 use App\Filament\Admin\RelationManagers\AssetStaffRelationManager;
 use App\Filament\Admin\Resources\Assets\Pages\EditAsset;
+use App\Models\Asset;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -28,7 +30,7 @@ beforeEach(function () {
     $this->actingAs(makeUser('super_admin'));
 });
 
-function staffRm(\App\Models\Asset $asset): \Livewire\Features\SupportTesting\Testable
+function staffRm(Asset $asset): Testable
 {
     return Livewire::test(AssetStaffRelationManager::class, [
         'ownerRecord' => $asset,
