@@ -788,6 +788,8 @@ return [
         'note_body' => 'Notes',
         'note_author' => 'Logged By',
         'contacted_at' => 'When',
+        'total_area_sqm_helper' => 'Gross building area, including common areas and back of house.',
+        'leasable_area_sqm_helper' => 'The lettable part only. Occupancy and area-based recoveries are measured against it.',
     ],
 
 ];

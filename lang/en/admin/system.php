@@ -600,7 +600,8 @@ return [
         'import_asset_out_of_scope' => 'This property code is not found or is outside the properties you can manage.',
         'lease_terminal_immutable' => 'This lease is terminated/expired/cancelled and can no longer be edited. Reverse or renew it instead.',
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
-        'leasable_area_exceeds_gross' => 'The leasable area (:leasable m²) is larger than the gross building area (:gross m²), so this property would let more space than it has. Correct whichever of the two is wrong — or leave the gross area blank if the building has not been measured.',
+        'leasable_area_exceeds_gross' => 'The leasable area (:leasable m²) is larger than the gross building area (:gross m²), so this property would let more space than it has. Correct whichever of the two is wrong.',
+        'area_must_be_positive' => 'A property cannot be zero square metres. Zero is not "not measured yet" — occupancy, GLA, rent per m² and every charge apportioned by area are all computed from this figure, and they read a zero as a real size. Enter the building\'s actual area.',
         'rent_index_period_taken' => 'This index already has a reading for this month. A revised figure is an EDIT to that reading, not a second one — open the existing row and correct its value, so a lease that already escalated on the old figure can still show which figure it used and when it changed.',
     ],
 

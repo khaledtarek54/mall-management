@@ -77,17 +77,36 @@ class AssetForm
                     // The pair is a LOAD FACTOR, not two independent numbers — see
                     // areasMustFitInsideTheBuilding() below. The rule is on BOTH fields, because
                     // either one can be the one that moves.
+                    // ZERO IS NOT "NOT MEASURED YET" — it is a positive claim that the mall has no
+                    // size, and every figure derived from area reads it as one: occupancy %, GLA,
+                    // rent per m² and any charge apportioned by area. A zero is silent (no error, a
+                    // division yielding 0 or ∞, and a report that looks filled in), which is why it
+                    // is refused at the point of entry on BOTH fields. The tester found Plaza Mall
+                    // saved at 0/0 with no warning at all.
+                    //
+                    // BLANK, though, is only refused on the LEASABLE area, and the asymmetry is
+                    // deliberate: the GLA is the number an operator has first and the one the money
+                    // reads (`CamReconciliationService` uses it as the recovery denominator), while
+                    // the gross figure may genuinely not be known yet — `leasableEfficiencyPct()`
+                    // answers null rather than 0% for exactly that case, and
+                    // `APropertyCannotLetMoreThanItHasTest` pins it. Requiring both would refuse a
+                    // mall that has only ever recorded its lettable area.
                     TextInput::make('total_area_sqm')
                         ->label(__('admin.fields.total_area_sqm'))
                         ->numeric()
-                        ->minValue(0)
+                        ->minValue(0.01)
                         ->rules([self::areasMustFitInsideTheBuilding()])
+                        ->validationMessages(['min' => __('admin.validation.area_must_be_positive')])
+                        ->helperText(__('admin.fields.total_area_sqm_helper'))
                         ->suffix('m²'),
                     TextInput::make('leasable_area_sqm')
                         ->label(__('admin.fields.leasable_area_sqm'))
                         ->numeric()
-                        ->minValue(0)
+                        ->required()
+                        ->minValue(0.01)
                         ->rules([self::areasMustFitInsideTheBuilding()])
+                        ->validationMessages(['min' => __('admin.validation.area_must_be_positive')])
+                        ->helperText(__('admin.fields.leasable_area_sqm_helper'))
                         ->suffix('m²'),
                 ]),
             Section::make(__('admin.sections.status'))

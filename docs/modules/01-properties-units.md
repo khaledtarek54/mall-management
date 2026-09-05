@@ -210,6 +210,23 @@ Companion accessors: `occupiedAreaSqm()`, `totalUnitAreaSqm()`. Guarding test: `
 - `AssetResource::canCreate()` returns false when inside a specific property context; true only when tenant is the ALL pseudo-asset or unset.
 - `AssignedAssets::idsForCurrentUser()` scopes to user's assigned assets (both `asset_user` and `asset_owner` relationships), but always hides the ALL pseudo-asset from the restricted user's visible set.
 
+### Area: zero is refused, blank is not
+
+`total_area_sqm` and `leasable_area_sqm` are both nullable columns and both refuse **0** on the
+property form — zero is not "not measured yet", it is a claim that the mall has no size, and
+occupancy %, GLA, rent per m² and every area-apportioned charge read it as a real measurement. The
+failure is silent: no error, a division that yields 0 or ∞, and a report that looks filled in.
+
+**Blank is treated differently on the two fields, and the asymmetry is deliberate.** The LEASABLE
+area is required — it is the number the money reads (`CamReconciliationService` uses it as the
+recovery denominator). The GROSS area is optional, because a mall may legitimately know its lettable
+area before anyone has measured the whole building; `leasableEfficiencyPct()` answers null rather
+than 0% for exactly that case. Requiring both would refuse a property that has only ever recorded
+its GLA. (`APropertyCannotBeZeroSquareMetresTest`, `APropertyCannotLetMoreThanItHasTest`.)
+
+The columns stay nullable so an importer or a seeder can still stage a property — the rule is on the
+form, which is where an operator states a measurement.
+
 ### Staff vs. Owners
 
 - **Staff** (`asset_user` pivot): Admin panel users assigned to *operate* this property (Property Manager, Leasing Lead, etc.). `title` is a free-form label per asset, separate from global RBAC roles — the panel labels it "Title at this property".
