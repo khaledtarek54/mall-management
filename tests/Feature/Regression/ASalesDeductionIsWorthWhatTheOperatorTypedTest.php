@@ -28,11 +28,12 @@
 | the same column and this is the one seam all of them cross.
 */
 
+use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
 use App\Models\TenantSalesDeclaration;
 use App\Support\SalesExclusions;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
-use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -78,8 +79,6 @@ function declarationWith(array $exclusions, float $gross = 1000000): TenantSales
 {
     return TenantSalesDeclaration::create([
         'lease_id' => test()->lease->id,
-        'tenant_id' => test()->lease->tenant_id,
-        'asset_id' => test()->asset->id,
         'period_start' => '2026-08-01',
         'period_end' => '2026-08-31',
         'gross_sales' => $gross,
@@ -152,7 +151,7 @@ it('re-derives the VAT deduction when the gross is CORRECTED (SW-163)', function
     // a `->live()` callback and a service-level test cannot see it.
     // A declaration whose gross INCLUDES VAT — the state the toggle leaves behind, set here
     // directly so the case under test is the gross being corrected and not the toggle itself.
-    $page = Livewire::test(App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration::class)
+    $page = Livewire::test(CreateTenantSalesDeclaration::class)
         ->fillForm([
             'lease_id' => $this->lease->id,
             'period_start' => '2026-08-01',
@@ -175,7 +174,7 @@ it('re-derives the VAT deduction when the gross is CORRECTED (SW-163)', function
 it('does NOT invent a VAT deduction the operator never asked for', function () {
     // The other direction, and the reason the re-derivation is conditional: correcting the gross on
     // a declaration whose gross is stated NET must not silently start deducting VAT from it.
-    $page = Livewire::test(App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration::class)
+    $page = Livewire::test(CreateTenantSalesDeclaration::class)
         ->fillForm([
             'lease_id' => $this->lease->id,
             'period_start' => '2026-08-01',

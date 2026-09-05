@@ -130,6 +130,10 @@ class DerivedFields
             'verdict' => 'INDEPENDENT',
             'note' => 'started_at + ended_at on a unit ownership. The end of a tenure is a fact recorded when the unit is resold, never a projection from the purchase — a freehold has no term at all, and deriving an end date would invent one. Same verdict, and the same reasoning, as the property-ownership tenure next door.',
         ],
+        'app/Filament/Imports/UnitOwnershipImporter.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'The bulk path for the same tenure, and the same verdict as the form: `started_at` opens it, `ended_at` records the resale that closed it, and there is no term between them to derive either from. A migrating operator loading history has both dates as FACTS off the deeds, which is precisely the case where projecting one from the other would overwrite what the file says.',
+        ],
         'app/Filament/Admin/RelationManagers/AssetOwnersRelationManager.php' => [
             'verdict' => 'INDEPENDENT',
             'note' => 'An ownership tenure starts when it starts and ends when it ends — a sale is not scheduled from the purchase. There is no duration field and there should not be one.',

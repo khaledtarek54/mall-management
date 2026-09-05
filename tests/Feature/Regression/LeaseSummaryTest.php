@@ -124,7 +124,15 @@ it('counts what is owed ON THIS LEASE', function () {
     $lease = summaryLease($this);
 
     makeInvoice($lease, ['status' => 'overdue', 'total' => 50000, 'balance' => 50000]);
-    makeInvoice($lease, ['status' => 'issued', 'total' => 30000, 'balance' => 30000]);
+    // Its DUE DATE is what makes this one merely open, not its status stamp. `makeInvoice` dates
+    // every fixture invoice into the past, so leaving the default here described a state it never
+    // created: the widget counts `isOverdue()` rather than the stamp — deliberately, because a
+    // freshly-lapsed invoice keeps `issued` until the nightly scan — and read 2 where the
+    // assertion says 1, which is the widget being right about a fixture that was not.
+    makeInvoice($lease, [
+        'status' => 'issued', 'total' => 30000, 'balance' => 30000,
+        'due_date' => now()->addMonth()->toDateString(),
+    ]);
     makeInvoice($lease, ['status' => 'paid', 'total' => 90000, 'balance' => 0]);
 
     $ar = summaryStats($lease->fresh())[__('admin.lease_summary.outstanding')];

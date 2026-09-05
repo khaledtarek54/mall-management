@@ -226,6 +226,12 @@ final class ConcurrencyPolicy
         // INSIDE the transaction after the lock — a value read before the wait answers from a
         // pre-commit snapshot under MySQL REPEATABLE READ.
         'app/Services/AcceptWorkOrderService.php' => 1,
+        // ONE here plus the set `Payment::lockInvoicesThenSelf()` takes (counted on the model).
+        // `initiated` → `captured` is the flip that posts CASH, and an initiated allocation is
+        // invisible to every settlement sum — so between initiation and this act the invoice can be
+        // credited, written off or voided, and a check-then-act on the pre-mount row would relieve
+        // AR a second time. The status is re-read UNDER the lock, not carried in (SW-240).
+        'app/Services/CapturePaymentService.php' => 1,
         'app/Services/CreditNoteService.php' => 12,   // +1: reverseAllApplications locks its invoices ascending, up front (SW-009d canon)
         'app/Services/MonthlyBillingService.php' => 2,
         // The final-period bill (SW-050) contends on the SAME 'billing:run:{month}' cache lock the

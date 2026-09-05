@@ -631,6 +631,7 @@ return [
         'cost_nature' => 'طبيعة التكلفة',
         'transaction_date' => 'التاريخ',
         'deposit_number' => 'رقم التأمين',
+        'deposit_amount' => 'الجزء الخاص بالتأمين',
         'payroll_number' => 'رقم المسير',
         'payroll_month' => 'الشهر',
         'gross_salaries' => 'إجمالي الرواتب',

@@ -87,9 +87,9 @@ final class PortalApiParity
      */
     public const FIELD_EXEMPT = [
         // The API answers the same question under a better name, or in a better shape.
+        'CamAllocations::unit_code' => 'the shop the share was calculated for. The API sends the `unit` OBJECT — id, code and floor — because a client needs the id to link through, where the portal is already on the page and needs only the label. Both resolve through EITHER parent (a unit owner\'s allocation has no lease): `CamAllocation::unitCode()` on the portal, `unitPayload()` on the resource.',
         'Payments::invoices' => 'the API sends the same rows as `allocations[]`, which names what they are (an allocated amount per invoice) rather than naming the relation',
         'Payments::number' => 'the invoice number inside that repeater — the API sends it as `allocations[].invoice_number`, flattened because a client does not need the invoice object to render a receipt',
-        'TenantSalesDeclarations::report_status' => 'a portal badge counting the uploaded reports; the API sends `has_report` plus the `attachments[]` array itself, from which the count is exact',
         'TenantSalesDeclarations::period_info' => 'help text on the portal CREATE form explaining the period being declared, not a stored value — the API sends `period_start`/`period_end`/`period_label`',
     ];
 

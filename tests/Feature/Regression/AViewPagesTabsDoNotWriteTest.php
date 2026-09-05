@@ -1,15 +1,24 @@
 <?php
 
+use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
+use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
+use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
+use App\Filament\Admin\Resources\Tenants\TenantResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Models\AccountingPeriod;
 use App\Models\Announcement;
 use App\Models\FiscalYear;
 use App\Models\OwnerStatementRun;
+use App\Models\TenantRequest;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\RelationManagers\RelationManager;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 
@@ -60,7 +69,7 @@ beforeEach(function () {
  * gate with "no fixture" rather than being skipped, because a sweep that quietly reports on two of
  * three is the shape this codebase has been bitten by repeatedly.
  *
- * @return array<class-string, \Illuminate\Database\Eloquent\Model>
+ * @return array<class-string, Model>
  */
 function viewPageOwnerRecords($asset): array
 {
@@ -73,14 +82,14 @@ function viewPageOwnerRecords($asset): array
     ]);
 
     return [
-        \App\Filament\Admin\Resources\Tenants\TenantResource::class => makeTenant(),
-        \App\Filament\Admin\Resources\Announcements\AnnouncementResource::class => Announcement::create([
+        TenantResource::class => makeTenant(),
+        AnnouncementResource::class => Announcement::create([
             'asset_id' => $asset->id, 'title' => 'Lift maintenance', 'body' => 'Sunday 06:00-10:00',
-            'audience' => 'all', 'status' => 'sent', 'sent_at' => now(),
+            'status' => 'sent', 'sent_at' => now(),
         ]),
         // The portal's request thread — read by a retailer's staff, and swept for the same reason.
-        \App\Filament\Portal\Resources\TenantRequests\TenantRequestResource::class => makeTenantRequest(),
-        \App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource::class => OwnerStatementRun::create([
+        TenantRequestResource::class => makeTenantRequest(),
+        OwnerStatementRunResource::class => OwnerStatementRun::create([
             'accounting_period_id' => $period->id, 'posting_date' => '2026-06-30', 'reference' => 'OSR-1',
             'asset_id' => $asset->id, 'basis' => 'accrual', 'period_start' => '2026-06-01',
             'period_end' => '2026-06-30', 'status' => 'draft',
@@ -103,7 +112,7 @@ function routeNameOf(?string $url): ?string
     }
 
     try {
-        return Route::getRoutes()->match(Illuminate\Http\Request::create($url, 'GET'))?->getName();
+        return Route::getRoutes()->match(Request::create($url, 'GET'))?->getName();
     } catch (Throwable) {
         return null;
     }
@@ -263,16 +272,16 @@ it('still lets a view page tab LINK to a record, which is navigation and not a w
     // (which is what `makeTenantRequest()` does) yields an empty table and the sweep below would
     // report "no offending links" having examined none.
     $tenant = makeTenant();
-    \App\Models\TenantRequest::create([
+    TenantRequest::create([
         'reference' => 'MR-'.uniqid(), 'unit_id' => makeUnit($this->asset)->id, 'tenant_id' => $tenant->id,
         'title' => 'Lift stuck', 'description' => 'North lift stopped between 2 and 3.',
         'status' => 'submitted', 'priority' => 'medium', 'category' => 'electrical', 'submitted_at' => now(),
     ]);
 
     $urls = asTenant($this->asset, function () use ($tenant): array {
-        $manager = Livewire::test(\App\Filament\Admin\RelationManagers\TenantRequestsRelationManager::class, [
+        $manager = Livewire::test(TenantRequestsRelationManager::class, [
             'ownerRecord' => $tenant,
-            'pageClass' => \App\Filament\Admin\Resources\Tenants\Pages\ViewTenant::class,
+            'pageClass' => ViewTenant::class,
         ])->instance();
 
         $record = $manager->getTableRecords()->first();
@@ -319,7 +328,7 @@ it('keeps the notes tab writable on the edit page', function () {
     $tenant = makeTenant();
 
     $visible = asTenant($this->asset, function () use ($tenant): array {
-        $manager = Livewire::test(\App\Filament\Admin\RelationManagers\TenantNotesRelationManager::class, [
+        $manager = Livewire::test(TenantNotesRelationManager::class, [
             'ownerRecord' => $tenant,
             'pageClass' => EditTenant::class,
         ])->instance();
@@ -348,10 +357,8 @@ it('registers every tab that still links into a create form, with a reason', fun
     // rendered NOWHERE, passing every visibility and authorisation check while never appearing.
     // That is a change worth doing deliberately, not as a rider on this one.
     $registered = [
-        'app/Filament/Admin/RelationManagers/LeaseInvoicesRelationManager.php' =>
-            'LeaseResource has no View page, so no read-only surface; EditLease has a grouped header and moving this needs the group map.',
-        'app/Filament/Admin/RelationManagers/LeaseSalesDeclarationsRelationManager.php' =>
-            'Same as LeaseInvoicesRelationManager.',
+        'app/Filament/Admin/RelationManagers/LeaseInvoicesRelationManager.php' => 'LeaseResource has no View page, so no read-only surface; EditLease has a grouped header and moving this needs the group map.',
+        'app/Filament/Admin/RelationManagers/LeaseSalesDeclarationsRelationManager.php' => 'Same as LeaseInvoicesRelationManager.',
     ];
 
     $managers = collect(glob(app_path('Filament/*/RelationManagers/*.php')))

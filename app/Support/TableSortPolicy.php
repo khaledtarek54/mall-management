@@ -86,6 +86,8 @@ final class TableSortPolicy
         'Admin/RelationManagers/TenantNotesRelationManager' => self::LEDGER,
         'Admin/RelationManagers/TenantPaymentsRelationManager' => self::LEDGER,
         'Admin/RelationManagers/TenantRequestsRelationManager' => self::LEDGER,
+        'Admin/RelationManagers/TenantSalesDeclarationsRelationManager' => self::LEDGER,
+        'Admin/RelationManagers/TenantViolationsRelationManager' => self::LEDGER,
         'Admin/RelationManagers/UnitLeasesRelationManager' => self::LEDGER,
         'Admin/RelationManagers/UnitOwnershipRentableItemsRelationManager' => self::LEDGER,
         'Admin/RelationManagers/WorkOrderLabourRelationManager' => self::LEDGER,

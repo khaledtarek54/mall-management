@@ -152,15 +152,15 @@ it('gates the retailer API behind the module flag, not just the operator screens
     makeLease(makeUnit($asset), $tenant, ['status' => 'active']);
 
     // Control: it works while the module is on.
-    $this->actingAs($tenant, 'tenant-api')->getJson('/api/v1/me/marketing-posts')->assertOk();
+    $this->actingAs(tenantLogin($tenant), 'tenant-api')->getJson('/api/v1/me/marketing-posts')->assertOk();
 
     $settings = app(ModulesSettings::class);
     $settings->marketing_posts = false;
     $settings->save();
 
-    $this->actingAs($tenant, 'tenant-api')->getJson('/api/v1/me/marketing-posts')->assertNotFound();
-    $this->actingAs($tenant, 'tenant-api')->getJson('/api/v1/me/feed')->assertNotFound();
-    $this->actingAs($tenant, 'tenant-api')->postJson('/api/v1/me/marketing-posts', [
+    $this->actingAs(tenantLogin($tenant), 'tenant-api')->getJson('/api/v1/me/marketing-posts')->assertNotFound();
+    $this->actingAs(tenantLogin($tenant), 'tenant-api')->getJson('/api/v1/me/feed')->assertNotFound();
+    $this->actingAs(tenantLogin($tenant), 'tenant-api')->postJson('/api/v1/me/marketing-posts', [
         'asset_id' => $asset->id, 'title' => 'Sneaking one in',
     ])->assertNotFound();
 });
@@ -225,7 +225,7 @@ it('returns a refusal as a usable 422, never an opaque 500', function () {
     $tenant = makeTenant();
     makeLease(makeUnit($home), $tenant, ['status' => 'active']);
 
-    $response = $this->actingAs($tenant, 'tenant-api')
+    $response = $this->actingAs(tenantLogin($tenant), 'tenant-api')
         ->postJson('/api/v1/me/marketing-posts', [
             'asset_id' => $elsewhere->id,
             'title' => 'Posting into a mall I do not trade in',

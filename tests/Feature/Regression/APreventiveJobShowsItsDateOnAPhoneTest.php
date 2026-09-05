@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
+use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -64,13 +65,13 @@ it('still shows the SLA clock on a corrective job — the control', function () 
 });
 
 it('names the equipment under the title, where a phone can read it', function () {
-    $equipment = \App\Models\Equipment::create([
+    $equipment = Equipment::create([
         'asset_id' => $this->asset->id,
         'code' => 'LIFT-07',
         'name_en' => 'Passenger lift 7',
         'name_ar' => 'مصعد ركاب ٧',
         'trade_id' => tradeId('hvac'),
-        'status' => 'active',
+        'is_active' => true,
     ]);
 
     $pm = correctiveOrder([

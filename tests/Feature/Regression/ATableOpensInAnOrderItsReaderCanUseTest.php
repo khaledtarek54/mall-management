@@ -244,12 +244,12 @@ describe('the tenant portal', function () {
         // The featured post keyed FIRST, so insertion order would bury it.
         $featured = MarketingPost::create([
             'asset_id' => $this->asset->id, 'tenant_id' => $tenant->id, 'type' => 'offer',
-            'status' => 'published', 'audience' => 'shoppers', 'title' => 'Featured',
+            'status' => 'published', 'audience' => MarketingPost::AUDIENCE_VISITORS, 'title' => 'Featured',
             'is_featured' => true, 'published_at' => now()->subDay(),
         ]);
         MarketingPost::create([
             'asset_id' => $this->asset->id, 'tenant_id' => $tenant->id, 'type' => 'offer',
-            'status' => 'published', 'audience' => 'shoppers', 'title' => 'Ordinary',
+            'status' => 'published', 'audience' => MarketingPost::AUDIENCE_VISITORS, 'title' => 'Ordinary',
             'is_featured' => false, 'published_at' => now(),
         ]);
 

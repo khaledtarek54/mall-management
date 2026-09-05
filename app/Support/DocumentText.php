@@ -203,6 +203,28 @@ final class DocumentText
     ];
 
     /**
+     * Blocks a document simply OMITS when nobody has written one — each with why that is safe.
+     *
+     * **The floor rule turns on what an EMPTY answer DOES, not on the key's prefix.** A message
+     * line with nothing behind it sends a blank sentence in an email, which is the failure the
+     * floor exists to prevent. A document BLOCK with nothing behind it renders no heading and no
+     * gap, so the page is indistinguishable from one that never carried the block at all.
+     *
+     * It was read off the prefix until 2026-09-05 — `invoice.*` were the blocks and everything
+     * else was mail — and `lease.agreement_terms` is the key that broke it: a block on the lease
+     * AGREEMENT, swept into the mail rule by the `lease.` its two expiry-NOTICE siblings already
+     * owned. Registered rather than derived, because "would a blank line be visible here?" is a
+     * fact about the template and no naming convention can answer it.
+     *
+     * @var array<string, string>
+     */
+    public const MAY_RENDER_NOTHING = [
+        'invoice.payment_instructions' => 'a NEW block. There was nowhere on an invoice to say where to pay, so there is no historical sentence to fall back to — and a heading over a gap reads as missing bank details rather than as an unconfigured block.',
+        'invoice.terms' => 'a NEW block, same reasoning: this system does not know what these parties agreed about late payment or disputes, and inventing a term on a tax document is worse than printing none.',
+        'lease.agreement_terms' => 'the standing wording on the lease AGREEMENT — governing law, notices, whatever the operator\'s lawyer settled. Printing a heading over a gap on a CONTRACT reads as a missing term rather than an absent one.',
+    ];
+
+    /**
      * The text for `$key` on `$assetId`'s documents, or null when there is nothing to render.
      *
      * @param  array<string, string|int|float>  $tokens

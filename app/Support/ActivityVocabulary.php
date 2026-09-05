@@ -207,6 +207,10 @@ class ActivityVocabulary
         // (`admin.enums.*`), not under `admin.statuses`, so the audit trail and the form read the
         // SAME words rather than two catalogues that drift.
         'unit_ownership.status' => 'admin.enums.unit_ownership_status',
+        // The RETAIL category the unit is let as — the very group the comment below names as
+        // the trap for `expense.category`, and the one `UnitForm`'s own Select renders from.
+        // Without it an Arabic diff of a re-classified shop prints `food_beverage`.
+        'unit.category' => 'admin.enums.category',
         'user.status' => 'admin.users.statuses',
 
         // Everything else, keyed by the catalogue the FORM for that field reads from — checked

@@ -133,11 +133,11 @@ it('answers per RECORD: a sent announcement opens its view page, an unsent one o
 
     $draft = Announcement::create([
         'asset_id' => $this->asset->id, 'title' => 'Draft notice',
-        'body' => 'Body', 'audience' => 'all', 'status' => 'draft',
+        'body' => 'Body', 'status' => 'draft',
     ]);
     $sent = Announcement::create([
         'asset_id' => $this->asset->id, 'title' => 'Sent notice',
-        'body' => 'Body', 'audience' => 'all', 'status' => 'sent', 'sent_at' => now(),
+        'body' => 'Body', 'status' => 'sent', 'sent_at' => now(),
     ]);
 
     $draftTargets = rowClickTargets(ListAnnouncements::class, AnnouncementResource::class, $draft, $this->asset);

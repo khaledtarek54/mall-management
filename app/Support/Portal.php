@@ -20,7 +20,15 @@ class Portal
         // through a session guard, the mobile app through a Sanctum token. Asking only the portal
         // guard answered NULL on every API request, so the two controllers that record who acted on
         // a request stored nobody whenever the act came from the phone.
-        return Auth::guard('portal')->user() ?? Auth::guard('tenant-api')->user();
+        //
+        // The `instanceof` is load-bearing, not defensive typing: Sanctum's guard FALLS BACK to
+        // `config('sanctum.guard')` — `web` by default — when the request carries no token, so on
+        // any admin-panel request this line hands back the signed-in `User`. That is a TypeError on
+        // the way out and, worse, a `User` reaching `->tenant`/`->is_admin` if the return type ever
+        // loosened. The portal context is a TenantUser or it is nobody.
+        $user = Auth::guard('portal')->user() ?? Auth::guard('tenant-api')->user();
+
+        return $user instanceof TenantUser ? $user : null;
     }
 
     /** The company (Tenant) the current portal user belongs to. */

@@ -120,7 +120,7 @@ it('never serves a tenants-only post to a shopper, but does serve it to a retail
     // The control — the same row IS visible on the authenticated tenant feed, so its absence
     // above is the audience filter and not a broken fixture.
     $tenant = listedStore($asset);
-    $feed = collect($this->actingAs($tenant, 'tenant-api')
+    $feed = collect($this->actingAs(tenantLogin($tenant), 'tenant-api')
         ->getJson('/api/v1/me/feed')->assertOk()->json('data'))->pluck('title');
 
     expect($feed)->toContain('STAFF 20%')->toContain('PUBLIC OFFER')

@@ -244,6 +244,11 @@
                     "name": "dispose",
                     "label": "Dispose",
                     "opensModal": true
+                },
+                {
+                    "name": "reverse_document",
+                    "label": "Reverse acquisition",
+                    "opensModal": true
                 }
             ]
         },
@@ -675,7 +680,23 @@
             "hasCreate": true,
             "hasEdit": true,
             "hasView": true,
-            "recordActions": []
+            "recordActions": [
+                {
+                    "name": "logCommunication",
+                    "label": "Log Communication",
+                    "opensModal": false
+                },
+                {
+                    "name": "recordPayment",
+                    "label": "Record payment",
+                    "opensModal": false
+                },
+                {
+                    "name": "recordViolation",
+                    "label": "Record violation",
+                    "opensModal": false
+                }
+            ]
         },
         {
             "class": "TradeResource",

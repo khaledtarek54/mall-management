@@ -66,6 +66,7 @@ class DerivedMoney
             'total' => 'subtotal + vat_amount, and what the journalizer reverses out of revenue.',
             'balance' => 'total − applied_amount.',
             'number' => 'allocated once, like an invoice\'s.',
+            'deposit_amount' => 'how much of the note relieves deposits_held (a LIABILITY) instead of contra-revenue — the net sum of its `security_deposit` lines, re-frozen by refreshDepositAmount() from the CreditNoteItem hooks. CreditNoteJournalizer splits the debit on it, so a payload raising it books a credit note against the deposit pot that its own lines never touched, and DepositHoldings then reads the tenant\'s holding down by money nobody returned. `CreditNote::updating` refuses it past draft; the model\'s own refresh is saveQuietly() and never reaches that hook.',
         ],
     ];
 

@@ -47,7 +47,7 @@ it('lists a purchase request and a supplier bill that are waiting', function () 
 
     VendorBill::create([
         'asset_id' => $this->asset->id,
-        'vendor_id' => Vendor::create(['name' => 'Acme', 'status' => 'active', 'asset_id' => $this->asset->id])->id,
+        'vendor_id' => Vendor::create(['name' => 'Acme', 'status' => 'active'])->id,
         'reference' => 'BILL-TEST-1',
         'bill_date' => now()->subDays(9)->toDateString(),
         'due_date' => now()->addDays(21)->toDateString(),

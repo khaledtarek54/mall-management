@@ -84,7 +84,7 @@ it('actually stops the mobile session endpoint — not just the config value', f
     ]);
     $lease = makeLease(makeUnit(makeAsset()), $tenant);
     $invoice = makeInvoice($lease, ['total' => 900, 'balance' => 900]);
-    $token = $tenant->createToken('test-device', ['tenant:*'])->plainTextToken;
+    $token = tenantLogin($tenant)->createToken('test-device', ['tenant:*'])->plainTextToken;
 
     // Control first: with the switch ON the endpoint is genuinely reachable, so the
     // refusal below can't pass for the wrong reason (a 409 from some other guard).

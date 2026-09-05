@@ -25,7 +25,7 @@ it('blocks a blacklisted company\'s portal user from the portal', function () {
 it('cuts off a tenant blacklisted mid-session on its next authenticated API request', function () {
     $tenant = makeTenant(['status' => 'active']);
     makeLease(makeUnit(makeAsset()), $tenant);
-    $token = $tenant->createToken('test-device', ['tenant:*'])->plainTextToken;
+    $token = tenantLogin($tenant)->createToken('test-device', ['tenant:*'])->plainTextToken;
 
     // Active → authenticated request works.
     $this->withToken($token)->getJson('/api/v1/me/balance')->assertOk();

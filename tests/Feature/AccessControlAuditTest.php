@@ -323,7 +323,14 @@ it('audits dept membership grant + revoke through the relation-manager attach/de
     $this->actingAs(acAdmin());
     acTenant();
     $dept = Department::create(['name' => 'Leasing']); // slug = leasing
+    // ADMIN-PANEL STAFF, because that is who the picker offers. `AttachAction`'s
+    // `recordSelectOptionsQuery` narrows to users holding a non-`owner` role, and Filament derives
+    // the Select's `Rule::in` from that query — so a role-less `User::factory()` row is refused as
+    // *"The selected user is invalid"*, nothing is attached, and no exception is thrown. The
+    // sibling test above passes because it calls `registerMember()` on the MODEL and never touches
+    // the picker; this one is here precisely to drive the relation manager.
     $target = User::factory()->create();
+    $target->assignRole('viewer');
 
     // Attach action -> ->after assignRolesToMembers grants the dept role + audits.
     Livewire::test(DepartmentMembersRelationManager::class, [

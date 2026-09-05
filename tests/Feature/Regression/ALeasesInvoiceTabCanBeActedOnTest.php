@@ -140,6 +140,31 @@ it('opens the payment form on the invoice, with the allocation filled', function
         ->and(round((float) $allocation['allocated_amount'], 2))->toBe(round((float) $invoice->balance, 2));
 });
 
+it('records the receipt against the invoice the link named', function (): void {
+    // ASSERTING THE FORM STATE PROVES THE PREFILL, NOT THE RECEIPT. `PrefillsCreateForm` writes
+    // into a REPEATER, and the two ways that goes wrong both leave a plausible-looking state:
+    // `fillPartially()`'s dotted `only()` drops the row values (measured — `invoice_id => null`
+    // under a `minItems(1)` blank row), and writing the dotted leaves instead appends the real row
+    // BESIDE that blank one, so the form opens with an empty required allocation. Both end here,
+    // in what was actually banked.
+    [$lease, $invoice] = leaseWithAnOpenInvoice();
+
+    $balance = round((float) $invoice->balance, 2);
+
+    Livewire::withQueryParams(['invoice' => $invoice->getKey()])
+        ->test(CreatePayment::class)
+        ->fillForm(['payment_date' => now()->toDateString(), 'method' => 'cash'])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $payment = Payment::query()->where('tenant_id', $invoice->tenant_id)->latest('id')->firstOrFail();
+
+    expect($payment->invoices()->count())->toBe(1)
+        ->and((int) $payment->invoices()->first()->getKey())->toBe($invoice->getKey())
+        ->and(round((float) $payment->invoices()->first()->pivot->allocated_amount, 2))->toBe($balance)
+        ->and(round((float) $invoice->fresh()->balance, 2))->toBe(0.0);
+});
+
 it('ignores an invoice the reader cannot see', function (): void {
     [$lease, $invoice] = leaseWithAnOpenInvoice();
 

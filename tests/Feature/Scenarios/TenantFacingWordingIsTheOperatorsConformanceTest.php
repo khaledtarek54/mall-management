@@ -125,8 +125,13 @@ it('registers a floor for every key, so nothing ships blank', function () {
     // to it. A key with no floor would send an EMPTY mail line on an install that has written
     // nothing — the deployability rule slice 1 set, checked rather than trusted.
     foreach (DocumentText::KEYS as $key => $spec) {
-        if (! str_starts_with($key, 'dunning.') && ! str_starts_with($key, 'receipt.') && ! str_starts_with($key, 'lease.')) {
-            continue;   // the invoice BLOCKS are allowed a null floor; they render nothing at all
+        // A block that legitimately renders NOTHING is registered as such, with a reason. It used
+        // to be read off the key's prefix — `invoice.*` were the blocks — which held until
+        // `lease.agreement_terms` shipped and was swept into the mail rule by the `lease.` its two
+        // expiry-NOTICE siblings already owned. The question is what an empty answer DOES, and no
+        // naming convention can answer that. Sweeping EVERY key now, not just three prefixes.
+        if (array_key_exists($key, DocumentText::MAY_RENDER_NOTHING)) {
+            continue;
         }
 
         // A block may stand in for ANOTHER block instead of for a lang key — the final demand has no
@@ -149,6 +154,20 @@ it('registers a floor for every key, so nothing ships blank', function () {
         expect($spec['floor'])->not->toBeNull("{$key} would send an empty line on a fresh install.");
         expect(Lang::has($spec['floor']))->toBeTrue("{$key}'s floor names a translation key that does not exist.");
     }
+});
+
+it('keeps the render-nothing register honest', function () {
+    // An entry here waives the floor rule, so it must be a key that (a) still exists and (b) really
+    // has no floor — otherwise it is a waiver over a block that is already safe, which reads as a
+    // considered decision and quietly stops the sweep asking about the next one.
+    foreach (DocumentText::MAY_RENDER_NOTHING as $key => $reason) {
+        expect(array_key_exists($key, DocumentText::KEYS))->toBeTrue("{$key} may render nothing and is no longer a registered block.");
+        expect(DocumentText::KEYS[$key]['floor'])->toBeNull("{$key} has a floor now — drop the exemption rather than carrying a waiver over a block that cannot ship blank.");
+        expect(str_word_count($reason))->toBeGreaterThan(8, "{$key}'s reason is too thin to review.");
+    }
+
+    // The premise: an empty register would satisfy every loop above.
+    expect(count(DocumentText::MAY_RENDER_NOTHING))->toBeGreaterThan(0);
 });
 
 it('gives every registered block a picker label, in both languages', function () {

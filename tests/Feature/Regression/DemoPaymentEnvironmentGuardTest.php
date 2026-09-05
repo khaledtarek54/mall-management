@@ -71,7 +71,7 @@ it('allows the demo payment in testing, so the control below is meaningful', fun
 it('does not create a payment through the API when the environment refuses it', function () {
     inEnvironment('production');
 
-    Sanctum::actingAs($this->tenant, ['*'], 'tenant-api');
+    Sanctum::actingAs(tenantLogin($this->tenant), ['*'], 'tenant-api');
 
     $this->postJson("/api/v1/me/invoices/{$this->invoice->id}/pay-demo")
         ->assertStatus(409);
@@ -82,7 +82,7 @@ it('does not create a payment through the API when the environment refuses it', 
 });
 
 it('DOES create a payment through the API when the environment allows it — the paired control', function () {
-    Sanctum::actingAs($this->tenant, ['*'], 'tenant-api');
+    Sanctum::actingAs(tenantLogin($this->tenant), ['*'], 'tenant-api');
 
     $this->postJson("/api/v1/me/invoices/{$this->invoice->id}/pay-demo")
         ->assertStatus(201);

@@ -183,6 +183,41 @@ describe('the derived columns resist tampering', function () {
             ->and((float) $note->fresh()->balance)->toBe(0.0);
     });
 
+    it("holds a credit note's deposit_amount to its own lines", function () {
+        // Written out rather than swept, for the same reason as `applied_amount` above: CreditNote's
+        // cases are not data-driven, so classifying the column in the registry buys it no test.
+        //
+        // The exploit is concrete. `CreditNoteJournalizer` splits its debit on this figure —
+        // `deposits_held` (a LIABILITY) up to it, contra-revenue for the rest — so a payload raising
+        // it books a credit note against a deposit pot the note's own lines never touched, and
+        // `DepositHoldings` then reads the tenant's holding down by money nobody returned.
+        $note = CreditNote::create([
+            'invoice_id' => $this->invoice->id,
+            'tenant_id' => $this->invoice->tenant_id,
+            'status' => 'issued',
+            'issue_date' => now()->toDateString(),
+            'reason' => 'adjustment',
+            'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000,
+            'applied_amount' => 0, 'balance' => 1000,
+        ]);
+
+        // The lines say NOTHING is a deposit, which is what the frozen figure has to keep saying.
+        CreditNoteItem::create([
+            'credit_note_id' => $note->id, 'type' => 'service_charge', 'description' => 'Correction',
+            'amount' => 1000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 1000,
+        ]);
+
+        expect((float) $note->fresh()->deposit_amount)->toBe(0.0);
+
+        try {
+            $note->update(['deposit_amount' => 1000]);
+        } catch (DomainException) {
+            // refused past draft — the stronger of the two answers
+        }
+
+        expect((float) $note->fresh()->deposit_amount)->toBe(0.0);
+    });
+
     it('leaves an operator-entered column alone — the paired control', function () {
         // The gate must refuse the CLIENT, not the mechanism. If a line's own amount stopped being
         // writable, nobody could raise an invoice at all, and every test above would still pass.

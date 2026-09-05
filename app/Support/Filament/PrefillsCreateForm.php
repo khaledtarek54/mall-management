@@ -50,6 +50,28 @@ trait PrefillsCreateForm
         //
         // Filament has the targeted API for exactly this, so use it: only the paths the link
         // named are touched, and everything else keeps the default it was just given.
+        //
+        // **THE RAW WRITE IS OURS, BECAUSE `fillPartially()` CANNOT CARRY A NESTED VALUE.** It
+        // writes state as `collect($state)->dot()->only($statePaths)`, so anything under a repeater
+        // arrives dotted (`allocations.0.invoice_id`) while the path we can name is the repeater's
+        // own (`allocations`) — `only()` matches neither against the other and the raw write is
+        // EMPTY. Measured on `CreatePayment`: `?invoice=` filled the tenant and the amount (both
+        // scalars, which `dot()` leaves alone) and the allocation came back
+        // `invoice_id => null, allocated_amount => null` — one blank row, manufactured by
+        // `minItems(1)`. That is the exact half `?invoice=` exists for: `suggestAllocations()`
+        // spreads a receipt oldest-first, so a receipt raised to settle THIS invoice quietly lands
+        // on another, and the form reads as merely un-prefilled rather than as wrong.
+        //
+        // WHOLE VALUES, not dotted leaves, and that is the second half of it: `partialRawState()`
+        // `data_set`s each top-level key entire, so a repeater's rows REPLACE the blank default
+        // row. Writing the leaves instead appends `allocations.0.*` BESIDE the default's uuid key
+        // and the form opens with two rows, one of them empty and required.
+        $this->form->partialRawState($state);
+
+        // …and `fillPartially` still owns the hydration and the null-fill. Its own raw write is
+        // now a no-op for the arrays and a rewrite of the same value for the scalars; what it is
+        // here for is `hydrateStatePartially()`, which matches each component's state path against
+        // these names — so the repeater hydrates from the rows just written.
         $this->form->fillPartially($state, array_keys($state));
     }
 }

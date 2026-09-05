@@ -89,8 +89,16 @@ it('compiles inside a self-relation instead of throwing', function () {
 
     $sql = Invoice::query()->whereHas('lateFeeInvoice', fn ($q) => $q->stillOwed())->toSql();
 
-    expect($sql)->toContain('laravel_reserved_0.balance')
-        ->not->toContain('invoices as laravel_reserved_0.balance');
+    // READ the alias, never hardcode `laravel_reserved_0`. Laravel numbers these from a
+    // PROCESS-WIDE counter, so the index is a statement about how many self-relations the worker
+    // happened to compile before this file — 0 when the file runs alone and `laravel_reserved_12841`
+    // in the parallel suite. That is a test that passes when you check it and fails on the run
+    // that matters, which is worse than one that fails honestly.
+    preg_match('/"invoices" as "(laravel_reserved_\d+)"/', $sql, $alias);
+
+    expect($alias[1] ?? null)->not->toBeNull('the self-relation did not alias the inner table at all — the premise is gone')
+        ->and($sql)->toContain($alias[1].'.balance')
+        ->not->toContain('invoices as '.$alias[1].'.balance');
 
     expect(Invoice::query()->whereHas('lateFeeInvoice', fn ($q) => $q->stillOwed())->pluck('id'))
         ->toContain($this->overdue->id);

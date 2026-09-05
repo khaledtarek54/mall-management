@@ -279,13 +279,11 @@ function makeTenantRequest(array $attrs = []): TenantRequest
 }
 
 /**
- * Authorization header carrying a fresh Sanctum token for a tenant — the
- * mobile API auth path. Keeps /api/v1 tests a single call away from "as this
- * tenant".
- *
- * @return array<string,string>
+ * THE PERSON both tenant-facing surfaces authenticate — resolve-or-create, so a fixture need not
+ * care. Since 2026-09-05 the mobile API authenticates this row and not the COMPANY, so a test that
+ * acts as the Tenant on `tenant-api` asserts against a shape the app no longer has: it passes the
+ * guard and then 403s in `EnsureTenantActive`, which reads `$request->user()->tenant`.
  */
-/** The person a company signs in as — resolve-or-create, so a fixture need not care. */
 function tenantLogin(Tenant $tenant, ?string $password = null): TenantUser
 {
     $user = $tenant->users()->first();
@@ -302,14 +300,18 @@ function tenantLogin(Tenant $tenant, ?string $password = null): TenantUser
     return $user;
 }
 
+/**
+ * Authorization header carrying a fresh Sanctum token for a tenant — the
+ * mobile API auth path. Keeps /api/v1 tests a single call away from "as this
+ * tenant".
+ *
+ * @return array<string,string>
+ */
 function apiHeaders(Tenant $tenant, string $device = 'test-device'): array
 {
     // The mobile API authenticates a PERSON since 2026-09-05, so the token belongs to a TenantUser
-    // and no longer to the company row. Taking the tenant's existing login when there is one keeps
-    // every caller that also drives the portal talking about the same person.
-    $user = $tenant->users()->first() ?? makeTenantUser($tenant);
-
-    return ['Authorization' => 'Bearer '.$user->createToken($device, ['tenant:*'])->plainTextToken];
+    // and no longer to the company row.
+    return ['Authorization' => 'Bearer '.tenantLogin($tenant)->createToken($device, ['tenant:*'])->plainTextToken];
 }
 
 function makeUser(string $role = 'manager', array $assetIds = []): User

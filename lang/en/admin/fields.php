@@ -633,6 +633,9 @@ return [
         'cost_nature' => 'Cost nature',
         'transaction_date' => 'Date',
         'deposit_number' => 'Deposit no.',
+        // How much of a credit note or a write-off relieves the DEPOSIT obligation rather than
+        // revenue — frozen on the document and read by its journalizer to split the debit.
+        'deposit_amount' => 'Deposit portion',
         'payroll_number' => 'Payroll no.',
         'payroll_month' => 'Month',
         'gross_salaries' => 'Gross salaries',

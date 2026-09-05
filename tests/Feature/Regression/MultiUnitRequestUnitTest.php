@@ -53,7 +53,7 @@ function postRequest(int $unitId): TestResponse
 
 it('accepts a request against an additional unit of the tenants own lease', function () {
     [$tenant, $master, $extra] = multiUnitTenant();
-    Sanctum::actingAs($tenant, ['*'], 'tenant-api');
+    Sanctum::actingAs(tenantLogin($tenant), ['*'], 'tenant-api');
 
     expect(postRequest($master->id)->status())->toBe(201)
         ->and(postRequest($extra->id)->status())->toBe(201, 'a tenant must be able to report a fault in their own second unit');
@@ -82,7 +82,7 @@ it('still refuses another tenants unit over the API', function () {
     [$tenant] = multiUnitTenant();
     [, $otherMaster, $otherExtra] = multiUnitTenant();
 
-    Sanctum::actingAs($tenant, ['*'], 'tenant-api');
+    Sanctum::actingAs(tenantLogin($tenant), ['*'], 'tenant-api');
 
     expect(postRequest($otherMaster->id)->status())->toBe(422)
         ->and(postRequest($otherExtra->id)->status())->toBe(422, 'another tenant\'s ADDITIONAL unit must be refused too');

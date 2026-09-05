@@ -142,7 +142,7 @@ it('offers the post month on the invoice record page — once something is poste
 });
 
 it('hides the post month on a vendor bill that has posted nothing', function () {
-    $vendor = Vendor::create(['name' => 'Contractor', 'status' => 'active', 'asset_id' => $this->asset->id]);
+    $vendor = Vendor::create(['name' => 'Contractor', 'status' => 'active']);
     $bill = VendorBill::create([
         'asset_id' => $this->asset->id,
         'vendor_id' => $vendor->id,
@@ -273,7 +273,6 @@ it('tells the operator the books moved when a posted marketing spend is edited',
     ]);
     $spend = MarketingSpend::create([
         'marketing_budget_id' => $budget->id,
-        'asset_id' => $this->asset->id,
         'category' => 'other',
         'description' => 'Ramadan banners',
         'amount' => 1000,

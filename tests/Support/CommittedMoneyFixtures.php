@@ -302,7 +302,7 @@ class CommittedMoneyFixtures
             ]),
 
             VendorBill::class => function () use ($asset) {
-                $vendor = Vendor::create(['name' => 'Closed Form Co '.uniqid(), 'status' => Vendor::STATUS_ACTIVE, 'asset_id' => $asset->id]);
+                $vendor = Vendor::create(['name' => 'Closed Form Co '.uniqid(), 'status' => Vendor::STATUS_ACTIVE]);
 
                 return VendorBill::create([
                     'vendor_id' => $vendor->id,

@@ -23,6 +23,7 @@
 
 use App\Filament\Admin\Pages\IncomeStatement;
 use App\Models\ReportPreference;
+use App\Services\Reports\ComparativeStatementService;
 use App\Support\ReportParameters;
 use App\Support\ReportPreferences;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -175,18 +176,33 @@ it('remembers the property when the operator actually changes it on the page', f
     expect($stored)->toBe(['assetId' => $asset->id]);
 });
 
-it('opens the next visit on the property it remembered', function () {
-    $asset = makeAsset(['code' => 'PRIME']);
+it('opens the next visit on the slice it remembered, and lets the switcher have the property', function () {
+    // TWO parameters, two answers, and the difference is the point.
+    //
+    // `comparison` is a slice of the BUSINESS QUESTION — am I reading this month against budget or
+    // against last year — so it comes back, which is the whole of RP-02.
+    //
+    // `assetId` does NOT, on a financial statement, and that is deliberate rather than a gap:
+    // `hydrateLedgerScopeFromQuery()` pins it to the mall the operator is standing in as the LAST
+    // word, because `TenantScope::reportAssetIds()` clamps the figures to that mall regardless.
+    // Left unpinned, the disabled picker names the mall this operator worked yesterday while the
+    // rows underneath come from the one they are in — a statement headed with the wrong mall, which
+    // is the single failure mode a financial statement must not have.
+    $elsewhere = makeAsset(['code' => 'PRIME']);
+    $selected = Filament::getTenant();
 
     ReportPreference::create([
         'user_id' => $this->user->id,
         'report' => IncomeStatement::class,
-        'parameters' => ['assetId' => $asset->id],
+        'parameters' => ['assetId' => $elsewhere->id, 'comparison' => ComparativeStatementService::BASES[0]],
     ]);
 
     // A fresh mount, exactly as opening the report from the menu.
     Livewire::test(IncomeStatement::class)
-        ->assertSet('assetId', $asset->id);
+        ->assertSet('comparison', ComparativeStatementService::BASES[0])
+        ->assertSet('assetId', $selected->id);
+
+    expect($elsewhere->id)->not->toBe($selected->id);
 });
 
 it('opens at today even though the operator last looked at an old period', function () {
