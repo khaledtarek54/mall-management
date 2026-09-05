@@ -10,8 +10,10 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\LeaseOption;
 use App\Models\PostDatedCheque;
+use App\Models\PurchaseRequest;
 use App\Models\TenantRequest;
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Models\VendorDocument;
 use App\Support\ResourceLink;
@@ -169,6 +171,27 @@ beforeEach(function () {
         'start_date' => now()->subYear(),
         'end_date' => now()->addDays(30),
         'notice_period_days' => 60,   // → notice_deadline = end_date − 60d = 30 days ago
+    ]);
+
+    // awaiting_purchase_approval — a request stopped until somebody decides.
+    PurchaseRequest::create([
+        'asset_id' => $this->asset->id,
+        'reference' => 'PR-'.uniqid(),
+        'status' => PurchaseRequest::STATUS_REQUESTED,
+        'justification' => 'Replacement filters',
+    ]);
+
+    // awaiting_bill_approval — a DRAFT supplier bill: a claim nobody has accepted, and no
+    // liability in the books until they do.
+    VendorBill::create([
+        'asset_id' => $this->asset->id,
+        'vendor_id' => $vendor->id,
+        'reference' => 'BILL-'.uniqid(),
+        'bill_date' => now()->subDays(9)->toDateString(),
+        'due_date' => now()->addDays(21)->toDateString(),
+        'status' => 'draft',
+        'category' => 'maintenance',
+        'subtotal' => 1000, 'vat_amount' => 140, 'total' => 1140, 'balance' => 1140,
     ]);
 
     // matured_cheques — a held cheque whose date has passed and which has not cleared.
@@ -721,5 +744,3 @@ it('never passes a `tenant` query key to getUrl — that is the tenancy route pa
     expect(array_values(array_unique($offenders)))->toBe([],
         'these build a link with `tenant` as a query key, which Filament puts in the PATH — use `for_tenant`');
 });
-
-

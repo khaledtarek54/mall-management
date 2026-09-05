@@ -8,17 +8,21 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
+use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
+use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\FacilityWorkOrder;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\PostDatedCheque;
+use App\Models\PurchaseRequest;
 use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Support\Modules;
 use App\Support\ResourceLink;
@@ -63,6 +67,11 @@ class ActionRequired extends Widget
         // Repointed to the Leases list (the declarations register cannot show a MISSING
         // declaration), so it gates on the permission that list needs.
         'missing_sales' => 'leases.view',
+        // WORK WAITING ON A DECISION (UX5-10). Gated on the register's own view right like every
+        // other card — `approve` is not the question here: whoever may SEE the queue is who should
+        // be told it has grown, and the act itself is gated on the page they land on.
+        'awaiting_purchase_approval' => 'procurement.view',
+        'awaiting_bill_approval' => 'vendor_bills.view',
     ];
 
     protected string $view = 'filament.admin.widgets.action-required';
@@ -221,6 +230,26 @@ class ActionRequired extends Widget
         // tenant hasn't reported, so their overage can't be billed (a silent revenue leak). Only
         // leases actually billable that month (commenced, past fit-out grace).
         $prevMonthStart = (clone $now)->subMonthNoOverflow()->startOfMonth();
+        // **WHAT IS WAITING ON SOMEBODY (UX5-10).** There was no consolidated approvals inbox: a
+        // purchase request sitting at `requested` and a supplier bill sitting at `draft` are both
+        // work stopped until a person decides, and each was visible only to whoever thought to
+        // open that register. They belong on the panel that already answers "what needs doing" —
+        // the per-module badges and tabs the backlog notes already exist, and a second place to
+        // look is exactly what this widget exists to prevent.
+        $awaitingPurchaseApproval = ($assetIds !== null
+            ? PurchaseRequest::whereIn('asset_id', $assetIds)
+            : PurchaseRequest::query())
+            ->where('status', PurchaseRequest::STATUS_REQUESTED)
+            ->count();
+
+        // A DRAFT vendor bill is the same shape: nothing posts until it is approved, so an
+        // unapproved bill is a supplier's claim nobody has accepted and no liability in the books.
+        $awaitingBillApproval = ($assetIds !== null
+            ? VendorBill::whereIn('asset_id', $assetIds)
+            : VendorBill::query())
+            ->where('status', 'draft')
+            ->count();
+
         $missingSalesCount = $leaseBase()->where('status', 'active')
             ->where('has_percentage_rent', true)
             ->whereNotNull('commencement_date')
@@ -426,6 +455,30 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.unbilled_leases', $unbilledLeasesCount, ['count' => $unbilledLeasesCount]),
                 'body' => __('admin.widgets.action_required.unbilled_leases_body'),
                 'url' => ResourceLink::indexSelect(LeaseResource::class, 'status', 'active', 'commencement_date:desc'),
+            ];
+        }
+
+        if ($awaitingPurchaseApproval > 0) {
+            $items[] = [
+                'key' => 'awaiting_purchase_approval',
+                'icon' => 'heroicon-o-clipboard-document-check',
+                'color' => 'warning',
+                'title' => trans_choice('admin.widgets.action_required.awaiting_purchase_approval', $awaitingPurchaseApproval, ['count' => $awaitingPurchaseApproval]),
+                'body' => __('admin.widgets.action_required.awaiting_purchase_approval_body'),
+                // OLDEST FIRST on both: an approval queue is worked from the front, and the one
+                // that has waited longest is the one holding somebody up.
+                'url' => ResourceLink::indexSelect(PurchaseRequestResource::class, 'status', PurchaseRequest::STATUS_REQUESTED, 'created_at:asc'),
+            ];
+        }
+
+        if ($awaitingBillApproval > 0) {
+            $items[] = [
+                'key' => 'awaiting_bill_approval',
+                'icon' => 'heroicon-o-banknotes',
+                'color' => 'warning',
+                'title' => trans_choice('admin.widgets.action_required.awaiting_bill_approval', $awaitingBillApproval, ['count' => $awaitingBillApproval]),
+                'body' => __('admin.widgets.action_required.awaiting_bill_approval_body'),
+                'url' => ResourceLink::indexSelect(VendorBillResource::class, 'status', 'draft', 'bill_date:asc'),
             ];
         }
 
