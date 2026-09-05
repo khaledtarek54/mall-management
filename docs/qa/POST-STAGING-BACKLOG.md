@@ -133,10 +133,13 @@ round changed the reading.
 
 ## 3 · Ops hygiene (XS each)
 
-- **OPS-03** — add `EXPORT_QUEUE_CONNECTION` to STAGING.md's §2 delta block (a staging box built from
-  the docs keeps `sync`, so exports run inline and the prod topology is never rehearsed).
-- **D2-14** — add `composer test:mysql` to STAGING-CUTOVER.md step 5. The tier exists *for* the first
-  real-MySQL box and skips silently everywhere else, so it has never run outside a developer laptop.
+- ~~**OPS-03**~~ — **DONE 2026-09-05.** The §2 delta block now carries `IMPORT_QUEUE_CONNECTION`
+  as well as `EXPORT_QUEUE_CONNECTION` — the row named only the export half and both default to
+  `sync`, so a box built from the docs ran every transfer INLINE and the topology production uses
+  was never rehearsed.
+- ~~**D2-14**~~ — **DONE 2026-09-05.** `composer qa:baseline && composer test:mysql` is step 5 of
+  the cutover, with what it covers and why it has never run: it skips silently on any other driver,
+  so the first real-MySQL box is the first place it means anything.
 - **D2-04** — run `gh workflow run ci.yml` once before the cutover commit. CI stays off by the
   owner's standing decision; this is the documented manual substitute, and the CVE audit has never
   run since the jobs were repaired.

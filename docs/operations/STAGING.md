@@ -87,6 +87,11 @@ REDIS_CACHE_DB=3
 CACHE_STORE=redis                # all three on Redis, same as production — see §3
 SESSION_DRIVER=redis
 QUEUE_CONNECTION=redis
+IMPORT_QUEUE_CONNECTION=redis    # both default to `sync` — a box built from this file without
+EXPORT_QUEUE_CONNECTION=redis    # these runs every import and export INLINE, so the topology
+                                 # production actually uses is never rehearsed here. A big import
+                                 # then blocks the request instead of the worker, which is a
+                                 # different failure from the one staging exists to find.
 
 BACKUP_DISKS=backups             # staging is disposable on posture A; on posture B, treat as prod
 ```

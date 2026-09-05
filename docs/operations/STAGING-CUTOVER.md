@@ -93,6 +93,18 @@ Expected failures on a correct staging box are listed in [STAGING.md §5](STAGIN
 `atriom:health` rows are **supposed** to be red on posture A, and treating them as blockers is how a
 cutover stalls on nothing.
 
+Then run the MySQL-only tier once, from a checkout pointed at this box's database:
+
+```bash
+composer qa:baseline && composer test:mysql
+```
+
+It covers the handful of properties sqlite cannot tell the truth about — a lock compiling to real
+SQL, no DB-level enum left, every `ValueSets` value and every form and importer limit fitting its
+column, and every globally-searchable resource query EXECUTING. **It skips silently on any other
+driver**, which is exactly why it has never run outside a developer laptop: this is the first box
+where it means anything.
+
 ## 6. Prove the backup
 
 ```bash
