@@ -6,11 +6,14 @@ use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Unit;
 use App\Services\RemeasureUnitService;
 use App\Support\RowActionPolicy;
+use Carbon\CarbonImmutable;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -59,7 +62,34 @@ class UnitActions
                         ->numeric()
                         ->minValue(0.01)
                         ->suffix('m²')
-                        ->required(),
+                        ->required()
+                        // A RE-MEASUREMENT HAS TO MEASURE SOMETHING DIFFERENT. Reported by the
+                        // tester: the modal accepted the area the unit already has, and the
+                        // operator was told "re-measured to 1,000.00 m²" while nothing was
+                        // recorded — `RemeasureUnitService` returns the row in force unchanged
+                        // rather than opening a second one saying the same thing on the same day,
+                        // which is deliberate and tested (a retry or a re-run must be safe).
+                        //
+                        // So the refusal belongs HERE, not in the service: idempotent for a caller,
+                        // and a clear "that is what it already measures" for a person, instead of a
+                        // success message about a change that did not happen.
+                        ->rules([
+                            fn (Unit $record, Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record, $get): void {
+                                $on = $get('effective_from');
+                                // Compared on the CHOSEN date, which is what the service compares:
+                                // re-stating today's area is a no-op, but re-stating it as of a
+                                // date when a DIFFERENT area was in force is a real correction.
+                                $current = filled($on)
+                                    ? $record->areaOn(CarbonImmutable::parse($on))
+                                    : (float) $record->area_sqm;
+
+                                if ($current !== null && round((float) $value, 2) === round((float) $current, 2)) {
+                                    $fail(__('admin.refusals.remeasure_no_change', [
+                                        'area' => number_format((float) $current, 2),
+                                    ]));
+                                }
+                            },
+                        ]),
                     DatePicker::make('effective_from')
                         ->label(__('admin.actions.remeasure_effective_from'))
                         ->default(now())

@@ -145,5 +145,6 @@ return [
         'asset_staff_already_attached' => ':name is already assigned to this property. Open the row that exists to change their title or their dates — a second assignment would say two different things about one person\'s tenure, and the access this grants is decided by whether ANY live row exists.',
         'department_member_already_attached' => ':name is already a member of this department. Open the row that exists to change their role or their dates — a second membership would say two different things about one person, and it is membership that grants the department\'s role.',
         'unit_area_exceeds_property' => 'A unit of :area m² will not fit in :property, which states :leasable m² of leasable area in total. Correct the unit\'s area, or correct the property\'s leasable area if the building is bigger than recorded — a unit larger than the mall takes more than a 100% share of every recovery apportioned by area, and under-charges every other tenant.',
+        'remeasure_no_change' => 'This unit already measures :area m² on that date, so there is nothing to record. Type the new measurement, or change the effective date if you are correcting an earlier one.',
     ],
 ];
