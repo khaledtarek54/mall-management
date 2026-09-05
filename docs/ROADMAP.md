@@ -864,9 +864,18 @@ sweep like this does not have to be repeated by hand.
    that test's source; three new door cases went into `ARelievedInvoiceAcceptsNoMoreMoneyTest` first —
    the credit-note channel and both payment PAGES had never been driven against a relieved invoice.
    Evidence-append already had its own door-derivation test and is deliberately not re-listed.)*
-3. **Every status must be reachable and leaveable** — sweep each `ValueSets` classification column
+3. ✅ **Every status must be reachable and leaveable** — sweep each `ValueSets` classification column
    and require, per value, an act that writes it and an act that leaves it, or a registered reason.
    This is Tranche C made permanent. **M.**
+   *(`EveryStatusIsReachableAndLeaveableConformanceTest`, 2026-09-05 — 40 status columns, ~150 values.
+   Writers derived from write SITES with an 800-char window (literals, `Class::CONST`, `self::CONST`,
+   PHP enum cases, `$data['status'] =`, and the column DEFAULT); leavers from a TRANSITIONS matrix or
+   a mention-plus-write followed ONE hop through the call graph. Nine values are variable-written and
+   exempt WITH A PROOF TOKEN — the file naming the act must still contain it, so an exemption cannot
+   outlive its act. **Its own docblock records what it does not catch**: mutation showed it goes red
+   for an orphaned value and a stale exemption, and NOT for the `expired` defect itself, which is a
+   question about whether every act refuses a state — answered by `ProjectedState` and the
+   lease-action reachability test, not by a write sweep.)*
 4. **A nullable foreign key must be honoured by everything that reads it** — the `invoices.lease_id`
    class. Static: for each nullable FK, find the dereferences that assume it is set. **M.**
 
