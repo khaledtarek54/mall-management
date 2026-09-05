@@ -52,6 +52,15 @@ which is the same failure this repo gates for generated doc blocks.
 > `lockForUpdate()` to nothing — they need `tests/Mysql/` and two connections, and one was already
 > found unsafe as designed. The other fourteen are ordinary and unblocked.
 >
+> **FINAL REVIEW COMPLETE (2026-09-05, `cdf2f473`).** Two closing adversarial passes over the whole
+> sweep — one on the money/ledger slice, one on the panels — plus the 23 conformance gates. The
+> panel pass found no fatal and three needs-change (a seventh spelling of *overdue* on the mobile
+> contract, the lease hub reading the raw status stamp, and the month gate sweeping roots that
+> excluded the blades); the money pass found ONE FATAL — SW-238's own fix re-creating the
+> deploy-blocking tie-out it was justified by, for an issued-but-unapplied deposit credit note —
+> and five needs-change. All fixed, mutation-proved, and the tie-out that both deposit rows were
+> justified by is now asserted at both ends of its window by their own regression tests.
+>
 > **The adversarial review is what this sweep is really evidence for.** A second agent told to read
 > the code and break the change found something real in substantially every fix it was pointed at,
 > and several of those findings were that the FIX was worse than the defect: a deposit split that
