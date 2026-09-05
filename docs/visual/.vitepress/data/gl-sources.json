@@ -11,7 +11,7 @@
             "instead": "cancel the note — it un-applies against the original invoice"
         },
         "change_impact": {
-            "refused": 5,
+            "refused": 6,
             "derived": 3,
             "descriptive": 1,
             "neutral": 10
@@ -233,7 +233,7 @@
             "instead": null
         },
         "change_impact": {
-            "derived": 5,
+            "derived": 6,
             "neutral": 3
         }
     },
