@@ -165,6 +165,7 @@ return [
         'security_deposit' => 'One-time deposit, typically 3× monthly rent. Refundable at lease termination if no damages.',
         'escalation_rate' => 'Annual rent increase percentage. Applied on the lease anniversary.',
         'escalation_type' => 'Fixed % = same rate yearly. Fixed amount = same EGP step. CPI = pegged to a published index.',
+        'escalation_applies_to_service_charge' => 'The service charge steps by the same percentage on the same anniversary.',
         'percentage_rent_calculation_type' => 'How the sales-based rent is worked out.',
         'percentage_rent_frequency' => 'How often the breakpoint resets.',
         'percentage_rent_threshold' => 'Monthly sales level above which percentage rent applies. Tenant declares sales each month; below threshold = no extra rent.',

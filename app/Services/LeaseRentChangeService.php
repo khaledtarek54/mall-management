@@ -142,8 +142,10 @@ class LeaseRentChangeService
                 'vat_rate' => null,
             ], $origin);
 
+            $openedService = null;
+
             if ($hasServiceUpdate) {
-                $this->schedule->setAmount($lease, 'service_charge', $newService, $effectiveFrom, [
+                $openedService = $this->schedule->setAmount($lease, 'service_charge', $newService, $effectiveFrom, [
                     'name' => 'Service Charge',
                     // null = the catalogue answers at billing time (Charge::resolvedVatRate);
                     // a value is an override.
@@ -185,7 +187,9 @@ class LeaseRentChangeService
                     'base_rent',
                     $previousRent,
                     $newRent,
-                    [$opened],
+                    // The service-charge rung rides along when one was opened — the payload's
+                    // builder drops nulls, so a rent-only change records exactly what it did.
+                    [$opened, $openedService],
                     // A caller that composed its own sentence names the narrative instead; the
                     // escalation sweep is the one that does, and it runs unattended, so there is no
                     // reader's language to compose in at the moment it writes.

@@ -1031,6 +1031,55 @@
 > lease; `base_rent`, `marketing` and `parking` are excluded there because their own services derive
 > them.
 >
+> **An escalation clause can cover the SERVICE CHARGE too (2026-09-05).**
+> `leases.escalation_applies_to_service_charge` (default **false** — nothing an install bills moved
+> on deploy) is the clause as a row: Egyptian mall leases routinely state one escalation for both
+> (*"the rent and service charge shall increase by 7% annually"*), and Yardi models this as
+> per-charge escalation. `Lease::escalatesServiceCharge()` is the **one predicate** both writers
+> read — the sweep steps the service charge by the **same collared percentage on the same
+> anniversary** through the same `LeaseRentChangeService::apply()` call (one transaction, one lease
+> event, the new `rent_escalated_with_service` narratives naming both figures), and
+> `projectTermEscalations()` writes the service-charge ladder up front beside the rent ladder, so
+> the forecast and the budget show a recorded term instead of under-stating it. Three deliberate
+> bounds: **percent-derived clause types only** (`fixed_percent`/`cpi` — a step stated in pounds is
+> a statement about the rent, the same reasoning that keeps the collar off `fixed_amount`; the flag
+> survives a type switch *inert*, like the collar, and is cleared only by `none` with the rest of
+> the clause); **no second rate** (the common clause is "the same percentage", and a separate
+> service-charge percentage is a term nobody has stated); and **keep it OFF where the service
+> charge is a reconciled CAM estimate** — the annual true-up already re-prices an estimate, and
+> escalating what the reconciliation corrects would double-adjust it. CPI stays unprojected for
+> the service charge exactly as for rent (no index feed), and the sweep lands both steps the day
+> the statistic does.
+>
+> **The step is sized from the SCHEDULE, never from `leases.service_charge_monthly`** — the
+> adversarial review's two blocking finds, and the reason is a tab asymmetry: `base_rent` is barred
+> from the schedule tab (`DERIVED_TYPES`) precisely so its column cannot drift, and
+> `service_charge` is not — the tab can **end** or **restate** it without touching the column. A
+> column-sized step would have *resurrected an ended charge* (`setAmount` finds no active row and
+> mints an open-ended rung dated to the COMMENCEMENT, at 107%, by an unattended nightly job) and
+> *cut a tab-restated amount back* to a stale figure while the lease event quoted money that never
+> billed. `ChargeScheduleService::rowCovering()` — `pickInForce()` **without its fallback**, one
+> shared covering predicate — answers both guards: the rung covering the **eve** of the
+> anniversary is the base (on a projected lease the anniversary itself is covered by the NEW rung,
+> and sizing from that steps the step), and a rung covering the **anniversary itself** proves the
+> charge is still live — a charge bounded to end at the boundary, or a future-dated stop's
+> active-with-past-end residue (`close()`'s own documented leftover), produces **no step**, because
+> `setAmount`'s latest-active fallback would inherit the past end date, build an inverted range,
+> and the refusal would roll back the RENT step in the same transaction and repeat every night
+> with `next_escalation_date` never advancing. The projection guards each rung the same way, so a
+> bounded service charge stops its ladder where it stops billing; the column heals to the stepped
+> figure as a side effect of `apply()`. **Flipping the toggle on mid-term projects the ladder**
+> (`Lease::updated` — the backfill command skips any lease already carrying `ORIGIN_ESCALATION`
+> rows, so without the hook a flagged existing lease had no remedy path); flipping it **off**
+> leaves already-projected future rungs standing, the same shape as switching `escalation_type` to
+> `none` with a projected rent ladder — correct them through the schedule tab. A service-only
+> lease (rent 0) projects its service ladder without minting zero rent or levy rows. Standing
+> caveat, now stated instead of implied: the projection writes the **raw** rate while the sweep
+> **collars** it, so under a collar that actually binds each rung is corrected in place the night
+> its anniversary is swept and the projected tail beyond it stays at the stated rate — pre-existing
+> on the rent ladder, identical here. (`ServiceChargeEscalatesWithRentTest`, seventeen cases, six
+> mutations proved — including the resurrection, the residue rollback and the inverted range.)
+>
 > **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
 > `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to
 > write); it anchors on each lease's own `next_escalation_date`, so a mid-term lease gets its steps

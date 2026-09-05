@@ -696,6 +696,15 @@ class LeaseForm
                             ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
                             ->helperText(__('admin.helpers.escalation_ceiling_rate'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_ceiling_rate')),
+                        // Percent clauses only, like the collar and for the collar's own reason: a
+                        // step stated in pounds is a statement about the rent, so there is no
+                        // percentage to carry onto the service charge. Hidden ≠ cleared — the flag
+                        // survives a type switch the way the collar does, inert until the type can
+                        // read it again (`Lease::escalatesServiceCharge()` gates on the type).
+                        Toggle::make('escalation_applies_to_service_charge')
+                            ->label(__('admin.fields.escalation_applies_to_service_charge'))
+                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
+                            ->helperText(__('admin.helpers.escalation_applies_to_service_charge')),
                         TextInput::make('payment_terms_days')
                             ->label(__('admin.fields.payment_terms_days'))
                             ->numeric()

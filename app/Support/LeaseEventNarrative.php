@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\LeaseEvent;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Lang;
 
@@ -51,6 +52,13 @@ class LeaseEventNarrative
         'rent_escalated',
         'rent_escalated_collared',
         'rent_escalated_amount',
+        // The `_with_service` pair exists because a clause can step the service charge alongside
+        // the rent (2026-09-05), and rendering the rent-only sentence over a two-charge step would
+        // under-tell the timeline. NEW keys rather than optional placeholders on the old ones: a
+        // template placeholder with no data renders an em dash, so widening `rent_escalated`
+        // itself would print one mid-sentence on every rent-only row already written.
+        'rent_escalated_with_service',
+        'rent_escalated_collared_with_service',
         'rent_changed',
         'relief_granted',
         'term_extended',
@@ -138,7 +146,7 @@ class LeaseEventNarrative
 
         foreach (['notice_given_at', 'effective_from', 'contracted_expiry'] as $name) {
             if (isset($tokens[$name]) && $tokens[$name] !== '—') {
-                $tokens[$name] = \Carbon\CarbonImmutable::parse($tokens[$name])->format('d/m/Y');
+                $tokens[$name] = CarbonImmutable::parse($tokens[$name])->format('d/m/Y');
             }
         }
 

@@ -58,6 +58,11 @@ return [
             // 3% step in a year the index fell needs to see that the floor did that, not a mistake.
             'rent_escalated_collared' => 'Contractual rent escalation +:step_pct% (index :index_pct%, collared) — :amount_from to :amount_to.',
             'rent_escalated_amount' => 'Contractual rent escalation +:step_amount — :amount_from to :amount_to.',
+            // Written when the clause steps the service charge alongside the rent. Their own keys,
+            // not placeholders added to the pair above: a placeholder with no data renders an em
+            // dash, which would land mid-sentence on every rent-only row already stored.
+            'rent_escalated_with_service' => 'Contractual escalation +:step_pct% — rent :amount_from to :amount_to; service charge :service_amount_from to :service_amount_to.',
+            'rent_escalated_collared_with_service' => 'Contractual escalation +:step_pct% (index :index_pct%, collared) — rent :amount_from to :amount_to; service charge :service_amount_from to :service_amount_to.',
             'rent_changed' => 'Rent changed from :amount_from to :amount_to.',
             'relief_granted' => 'Rent relief granted — :amount_from reduced to :amount_to.',
             'term_extended' => 'Term extended to :expiry_date.',

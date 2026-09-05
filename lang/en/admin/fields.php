@@ -572,6 +572,7 @@ return [
         'security_deposit_received' => 'Security deposit received',
         'escalation_rate' => 'Annual Escalation',
         'escalation_type' => 'Escalation Type',
+        'escalation_applies_to_service_charge' => 'Service charge escalates too',
         'payment_terms_days' => 'Payment Terms',
         'service_charge_helper' => '14% VAT will be applied automatically.',
         'security_deposit_helper' => 'Defaults to 3× rent if blank.',

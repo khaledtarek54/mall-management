@@ -14,6 +14,7 @@ use App\Models\Concerns\Lease\HasLeasePremises;
 use App\Models\Concerns\Lease\HasLeaseTermState;
 use App\Models\Concerns\Lease\HasRenewalLineage;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Services\ChargeScheduleService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
@@ -145,6 +146,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 $lease->escalation_amount = null;
                 $lease->escalation_floor_rate = null;
                 $lease->escalation_ceiling_rate = null;
+                $lease->escalation_applies_to_service_charge = false;
                 $lease->next_escalation_date = null;
 
                 return;
@@ -161,6 +163,23 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 $lease->next_escalation_date = $lease
                     ->escalationDateAfter(CarbonImmutable::parse($lease->commencement_date))
                     ->format('Y-m-d');
+            }
+        });
+
+        // ── Flipping the clause to cover the service charge projects ITS ladder ────────────────
+        // The rent side never needed this hook: every creation door projects, and a pre-projection
+        // lease is the backfill command's job. The toggle is different — it is flipped on EXISTING
+        // leases whose rent ladder is already projected, which `atriom:project-lease-schedules`
+        // deliberately skips (it treats any ORIGIN_ESCALATION row as "already projected"), so
+        // without this the forecast would show a stepping rent beside a flat service charge for
+        // the rest of the term, with no remedy path at all. On the MODEL for the standing reason:
+        // the API and services write leases without rendering a field. `updated`, not `saved` —
+        // on CREATE the charge rows are not seeded yet, and every creation door projects itself
+        // after seeding them. Idempotent: projection no-ops on amounts already in force, so a
+        // re-save that happens to include the flag rewrites nothing.
+        static::updated(function (self $lease) {
+            if ($lease->wasChanged('escalation_applies_to_service_charge') && $lease->escalatesServiceCharge()) {
+                app(ChargeScheduleService::class)->projectTermEscalations($lease);
             }
         });
 
@@ -525,6 +544,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_index_lag_months',
         'escalation_type',
         'escalation_interval_months',
+        'escalation_applies_to_service_charge',
         'next_escalation_date',
         'has_percentage_rent',
         'requires_sales_reporting',
@@ -556,6 +576,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // migration. See the migration and docs/gap-analysis/README.md Q2.
         'fit_out_scope' => self::FIT_OUT_RENT_ONLY,
         'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
+        'escalation_applies_to_service_charge' => false, // the clause steps the rent alone unless it says otherwise
         'percentage_rent_frequency' => 'monthly', // fresh monthly breakpoint unless set to annual (cumulative)
         'percentage_rent_billing_frequency' => 'monthly', // WHEN the overage is charged — a separate term from the basis above
     ];
@@ -592,6 +613,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_index_base_value' => 'decimal:4',
         'escalation_index_lag_months' => 'integer',
         'escalation_interval_months' => 'integer',
+        'escalation_applies_to_service_charge' => 'boolean',
         'percentage_rent_threshold' => 'decimal:2',
         'percentage_rent_rate' => 'decimal:2',
         'has_percentage_rent' => 'boolean',
@@ -680,6 +702,23 @@ class Lease extends Model implements BillableAgreement, HasMedia
             'fixed_amount' => (float) $this->escalation_amount > 0,
             default => false,
         };
+    }
+
+    /**
+     * Does this lease's escalation clause step the SERVICE CHARGE alongside the rent?
+     *
+     * The one predicate the sweep and the ladder projection both read, so they cannot disagree
+     * about what a lease's clause covers. Percent-derived clause types only: a step stated in
+     * POUNDS is a statement about the rent, and adding the same figure to a service charge a
+     * fraction of its size charges nobody what they agreed — the same reasoning that keeps the
+     * collar off `fixed_amount`. The type test is here rather than only on the form, because the
+     * flag survives a `fixed_percent` → `fixed_amount` switch on purpose (like the collar, it is
+     * inert rather than cleared, so switching back does not silently drop a recorded term).
+     */
+    public function escalatesServiceCharge(): bool
+    {
+        return (bool) $this->escalation_applies_to_service_charge
+            && in_array((string) $this->escalation_type, ['fixed_percent', 'cpi'], true);
     }
 
     /** @return BelongsTo<Tenant, $this> */

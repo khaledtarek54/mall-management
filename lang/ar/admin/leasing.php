@@ -56,6 +56,8 @@ return [
             'rent_escalated' => 'تصعيد تعاقدي للإيجار بنسبة :step_pct% — من :amount_from إلى :amount_to.',
             'rent_escalated_collared' => 'تصعيد تعاقدي للإيجار بنسبة :step_pct% (المؤشر :index_pct%، مُقيَّد بالحد) — من :amount_from إلى :amount_to.',
             'rent_escalated_amount' => 'تصعيد تعاقدي للإيجار بمقدار :step_amount — من :amount_from إلى :amount_to.',
+            'rent_escalated_with_service' => 'تصعيد تعاقدي بنسبة :step_pct% — الإيجار من :amount_from إلى :amount_to؛ ورسوم الخدمة من :service_amount_from إلى :service_amount_to.',
+            'rent_escalated_collared_with_service' => 'تصعيد تعاقدي بنسبة :step_pct% (المؤشر :index_pct%، مُقيَّد بالحد) — الإيجار من :amount_from إلى :amount_to؛ ورسوم الخدمة من :service_amount_from إلى :service_amount_to.',
             'rent_changed' => 'تغيّر الإيجار من :amount_from إلى :amount_to.',
             'relief_granted' => 'مُنح إعفاء من الإيجار — خُفِّض من :amount_from إلى :amount_to.',
             'term_extended' => 'مُدّت المدة حتى :expiry_date.',

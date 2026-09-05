@@ -207,7 +207,28 @@ class ChargeScheduleService
             ? CarbonImmutable::instance($lease->next_escalation_date)
             : $lease->escalationDateAfter(CarbonImmutable::instance($lease->commencement_date));
 
-        if ($rent <= 0) {
+        // A clause covering the service charge projects ITS ladder too — otherwise the forecast
+        // shows the rent stepping beside a service charge the sweep will in fact raise every
+        // anniversary, and the budget under-states a recorded term. Percent clauses only, by the
+        // predicate's own rule (`fixed_amount` is a statement about the rent), which also means
+        // an amount-stepped lease projects exactly what it projected before.
+        //
+        // The BASE is the schedule's row covering the eve of the first step, never
+        // `service_charge_monthly`: the schedule tab can end or restate a service charge without
+        // touching the lease column (only `base_rent` is barred there), and a ladder compounded
+        // from a stale figure would fight the schedule it is being written into. No covering
+        // row = no ladder — the safe reading of a charge that was ended or never scheduled.
+        $serviceBase = $lease->escalatesServiceCharge()
+            ? $this->rowCovering($lease, 'service_charge', self::billingBoundary($firstStep)->subDay())
+            : null;
+
+        $service = $serviceBase !== null ? (float) $serviceBase->amount : 0.0;
+        $projectService = $byPercent && $service > 0;
+
+        // A service-only lease (rent 0, a live service charge, the clause covering it) still
+        // deserves its service-charge ladder; everything else with no rent projects nothing,
+        // exactly as before.
+        if ($rent <= 0 && ! $projectService) {
             return 0;
         }
 
@@ -241,17 +262,43 @@ class ChargeScheduleService
                 ? round($rent + $step, 2)
                 : round($rent * (1 + $rate / 100), 2);
 
-            if ($this->setAmount($lease, 'base_rent', $rent, $effective, [
+            // `$rent > 0` guards the service-only shape: a zero rent must not mint zero rent and
+            // levy rows just because the service-charge ladder earned the walk.
+            if ($rent > 0 && $this->setAmount($lease, 'base_rent', $rent, $effective, [
                 'name' => 'Base Rent',
             ], Charge::ORIGIN_ESCALATION)) {
                 $created++;
             }
 
-            if ($levyRate > 0 && $this->setAmount($lease, 'marketing', round($rent * $levyRate / 100, 2), $effective, [
+            if ($rent > 0 && $levyRate > 0 && $this->setAmount($lease, 'marketing', round($rent * $levyRate / 100, 2), $effective, [
                 'name' => 'Marketing Levy',
                 'frequency' => 'monthly',
             ], Charge::ORIGIN_LEVY)) {
                 $created++;
+            }
+
+            // Compounded step-by-step with the same per-rung rounding the sweep applies, so a
+            // projected lease and a swept one converge — with the rent ladder's own standing
+            // caveat: the projection states the RAW rate while the sweep collars it, so under a
+            // collar that actually binds, each rung is corrected in place the night its
+            // anniversary is swept (`setAmount`'s not-yet-billed branch) and the projected TAIL
+            // beyond it stays at the stated rate until reached. No attributes beyond the name:
+            // the successor row inherits VAT, billing timing and proration from the row in
+            // force, which is the seeded service-charge row this lease actually bills under.
+            //
+            // Guarded per step: a service charge bounded to end mid-term stops its ladder where
+            // it stops billing — past its end no row covers the step, and `setAmount`'s
+            // latest-active fallback would otherwise stretch the ended row and build an inverted
+            // range out of its inherited end date.
+            if ($projectService) {
+                $service = round($service * (1 + $rate / 100), 2);
+
+                if ($this->rowCovering($lease, 'service_charge', $effective) !== null
+                    && $this->setAmount($lease, 'service_charge', $service, $effective, [
+                        'name' => 'Service Charge',
+                    ], Charge::ORIGIN_ESCALATION)) {
+                    $created++;
+                }
             }
 
             $stepDate = $lease->escalationDateAfter($stepDate);
@@ -558,27 +605,58 @@ class ChargeScheduleService
      */
     public static function pickInForce(iterable $charges, CarbonImmutable $on): ?Charge
     {
-        $rows = collect($charges)->where('is_active', true);
+        $covering = self::pickCovering($charges, $on);
 
-        $covering = $rows
-            ->filter(fn (Charge $c) => (blank($c->start_date) || CarbonImmutable::instance($c->start_date)->lte($on))
-                && (blank($c->end_date) || CarbonImmutable::instance($c->end_date)->gte($on)))
-            ->sortBy([
-                fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
-                fn (Charge $a, Charge $b) => $a->id <=> $b->id,
-            ]);
-
-        if ($covering->isNotEmpty()) {
-            return $covering->last();
+        if ($covering !== null) {
+            return $covering;
         }
 
         // Nothing covers the date — fall back to the latest active row, which is what keeps a
         // pre-schedule lease (one open-ended row) and a lease whose schedule has run out behaving
         // sensibly instead of reading as "no rent".
-        return $rows->sortBy([
-            fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
-            fn (Charge $a, Charge $b) => $a->id <=> $b->id,
-        ])->last();
+        return collect($charges)
+            ->where('is_active', true)
+            ->sortBy([
+                fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
+                fn (Charge $a, Charge $b) => $a->id <=> $b->id,
+            ])->last();
+    }
+
+    /**
+     * The row ACTIVELY COVERING a date — `pickInForce()` WITHOUT its fallback, and the one
+     * definition of "covers" both share.
+     *
+     * The fallback is right for billing and display — a pre-schedule lease's single open-ended
+     * row, or a schedule that has run out, must still read as "the rent" — and wrong for a
+     * GUARD: the escalation sweep must know whether a service charge is genuinely live on a
+     * date, and "the latest row there ever was" answers yes about a charge the operator ENDED.
+     *
+     * @param  iterable<Charge>  $charges
+     */
+    public static function pickCovering(iterable $charges, CarbonImmutable $on): ?Charge
+    {
+        return collect($charges)
+            ->where('is_active', true)
+            ->filter(fn (Charge $c) => (blank($c->start_date) || CarbonImmutable::instance($c->start_date)->lte($on))
+                && (blank($c->end_date) || CarbonImmutable::instance($c->end_date)->gte($on)))
+            ->sortBy([
+                fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
+                fn (Charge $a, Charge $b) => $a->id <=> $b->id,
+            ])
+            ->last();
+    }
+
+    /**
+     * The query twin of {@see pickCovering()} — a fresh read, because the callers that need a
+     * covering-only answer (the escalation sweep, the ladder projection) run inside transactions
+     * that have just written rows.
+     */
+    public function rowCovering(BillableAgreement $lease, string $type, CarbonImmutable $on): ?Charge
+    {
+        return self::pickCovering(
+            Charge::query()->where(...self::keyFor($lease))->where('type', $type)->get(),
+            $on,
+        );
     }
 
     /**

@@ -38,10 +38,25 @@ use Illuminate\Support\Facades\DB;
  * What is still absent is an automatic FEED — a published statistic is keyed by a person, because
  * inventing an index number is inventing the money a tenant pays. A clause naming no index, or
  * carrying no base, produces no step rather than a guess.
+ *
+ * **A clause may cover the service charge too** (`escalation_applies_to_service_charge`,
+ * 2026-09-05): the SAME collared percentage steps the service charge on the SAME anniversary,
+ * through the same `LeaseRentChangeService` call, so one lease event records both figures.
+ * Percent-derived types only — `Lease::escalatesServiceCharge()` is the predicate this sweep and
+ * `ChargeScheduleService::projectTermEscalations()` both read. The step is SIZED FROM THE
+ * SCHEDULE (the rung billing into the anniversary), never from `service_charge_monthly` — the
+ * schedule tab can end or restate a service charge without touching that column, and only
+ * `base_rent` is barred from the tab — and a charge with no rung live on the anniversary is
+ * skipped rather than resurrected. Where the service charge is a reconciled CAM estimate the
+ * toggle should stay off: the annual true-up already re-prices it, and escalating an estimate the
+ * reconciliation corrects would double-adjust it.
  */
 class RentEscalationService
 {
-    public function __construct(private LeaseRentChangeService $rentChange) {}
+    public function __construct(
+        private LeaseRentChangeService $rentChange,
+        private ChargeScheduleService $schedule,
+    ) {}
 
     /** @return array{considered:int, applied:int, skipped:int, failed:int} */
     public function runForToday(?CarbonImmutable $today = null): array
@@ -244,6 +259,8 @@ class RentEscalationService
                 }
             }
 
+            $newService = null;
+
             if ($type === 'fixed_amount') {
                 $step = round((float) $lease->escalation_amount, 2);
                 $newRent = round($current + $step, 2);
@@ -269,6 +286,56 @@ class RentEscalationService
                     'step_pct' => $rate,
                     'index_pct' => $collared ? number_format($stated, 2) : null,
                 ], fn ($v) => $v !== null);
+
+                // The clause may cover the service charge too — the SAME collared percentage on
+                // the SAME anniversary, which is what "escalates with the rent" means and why
+                // there is no second rate to read. Percent-derived types only, and the predicate
+                // lives on the model so the ladder projection cannot disagree with this sweep
+                // about what one clause covers. Nothing here for `fixed_amount`: a step stated in
+                // pounds is a statement about the rent (the collar's own rule).
+                //
+                // The base comes from the SCHEDULE, never `service_charge_monthly`. `base_rent`
+                // is barred from the schedule tab precisely so its column cannot drift;
+                // `service_charge` is NOT — the tab can end or restate it without touching the
+                // lease column — so a column-sized step would resurrect an ENDED charge
+                // (`setAmount` finds no active row and mints an open-ended one dated to the
+                // COMMENCEMENT) or cut a tab-restated amount back to a stale figure, both by an
+                // unattended nightly job. Two covering reads, both load-bearing:
+                //
+                //  - the row covering the EVE of the anniversary is the outgoing rung, the base
+                //    the step is sized from — on a projected lease the anniversary itself is
+                //    covered by the NEW rung, and sizing from that would step the step;
+                //  - a row covering the anniversary itself proves the charge is still live to
+                //    bill the stepped amount. A charge bounded to end at the boundary — or a
+                //    future-dated stop's active-with-past-end residue — must produce NO step:
+                //    `setAmount` would fall back to the ended row, inherit its past end date and
+                //    build an inverted range, whose refusal rolls back the RENT step beside it
+                //    and repeats every night.
+                if ($lease->escalatesServiceCharge()) {
+                    $anniversary = ChargeScheduleService::billingBoundary(
+                        CarbonImmutable::instance($lease->next_escalation_date)
+                    );
+
+                    $outgoing = $this->schedule->rowCovering($lease, 'service_charge', $anniversary->subDay());
+
+                    if ($outgoing !== null
+                        && (float) $outgoing->amount > 0
+                        && $this->schedule->rowCovering($lease, 'service_charge', $anniversary) !== null) {
+                        $currentService = (float) $outgoing->amount;
+                        $newService = round($currentService * (1 + $rate / 100), 2);
+
+                        // The timeline must say BOTH figures moved — the `_with_service`
+                        // narratives exist because rendering a rent-only sentence over a
+                        // two-charge step would under-tell the one place an operator audits what
+                        // the sweep did. FULL key literals, not a suffix appended to
+                        // `$narrative`: the vocabulary gate proves every key has a writer by
+                        // finding the quoted key in `app/`, and a concatenation is a writer it
+                        // cannot see.
+                        $narrative = $collared ? 'rent_escalated_collared_with_service' : 'rent_escalated_with_service';
+                        $narrativeData['service_amount_from'] = $currentService;
+                        $narrativeData['service_amount_to'] = $newService;
+                    }
+                }
             }
 
             if ($step <= 0) {
@@ -278,7 +345,7 @@ class RentEscalationService
                 return 'skipped';
             }
 
-            $this->rentChange->apply($lease, [
+            $change = [
                 'base_rent_monthly' => $newRent,
                 // No prose: this sweep runs unattended, so there is no reader whose language it
                 // could compose in. The key and its figures are stored and read back in whichever
@@ -290,7 +357,16 @@ class RentEscalationService
                 // increase; now the schedule row starts where the contract says it starts.
                 'effective_from' => $lease->next_escalation_date,
                 'origin' => Charge::ORIGIN_ESCALATION,
-            ]);
+            ];
+
+            // Added only when the clause covers it — `apply()` reads a present key as an
+            // instruction, and a null there means "no service update", so omitting is the
+            // unambiguous way to leave the service charge alone.
+            if ($newService !== null) {
+                $change['service_charge_monthly'] = $newService;
+            }
+
+            $this->rentChange->apply($lease, $change);
 
             // Advance by the clause's interval (the base_rent Charge + marketing levy were synced
             // by apply()), and

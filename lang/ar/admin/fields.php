@@ -570,6 +570,7 @@ return [
         'security_deposit_received' => 'تم استلام مبلغ التأمين',
         'escalation_rate' => 'نسبة الزيادة السنوية',
         'escalation_type' => 'نوع الزيادة',
+        'escalation_applies_to_service_charge' => 'تشمل الزيادة رسوم الخدمة',
         'payment_terms_days' => 'مدة السداد',
         'service_charge_helper' => 'يتم تطبيق ضريبة القيمة المضافة 14% تلقائيًا.',
         'security_deposit_helper' => 'الافتراضي 3 أضعاف الإيجار إذا تُرك فارغًا.',
