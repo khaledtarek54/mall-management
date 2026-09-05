@@ -82,64 +82,113 @@ D0 = **Sat 5 Sep 2026**. Times are Africa/Cairo, from `php artisan schedule:list
 | Fridays 03:00 / 04:00 | `accounting:sync-ledger --all` · `billing:reconcile --deep` | both green |
 | Sundays 03:00 | `atriom:backup-verify` | restore drill green |
 
-## The acts — what a person does during the month
+## The acts ledger — and they are MINE, not the operator's
 
-The scheduler cannot do these, and the month is only a full cycle if somebody does:
+**Standing instruction (2026-09-05, from Khaled): I run this month end to end myself** — the daily
+check, the operator acts below, and any fix a finding needs. He reads the result each day. He is
+away 5–9 Sep; nothing waits for him.
 
-1. **Set the statutory payroll rates** (Settings → Payroll rates) and **approve the August run**,
-   which the seeder left in DRAFT on purpose: the shipped rung carries the insurable band with every
-   rate at zero, and an approved run that withholds nothing is a BLOCKING configuration-health row.
-   Then generate and approve September's run.
-2. **Bank the cheques as they mature** — Koshary on/after 8 Sep (deposit to CIB, then clear against
-   the September invoice), Carrefour's from 10 Sep. Bounce one deliberately and watch the NSF path.
-3. **Approve Delta's draft call-out bill**, and the draft bill the cleaning schedule raises on the 7th
-   (fill in the supplier's invoice number). Pay Guardian's open bill before 15 Sep.
-4. **Answer the three tenant requests**; complete the HVAC work order it raised (costs, checklist).
-5. **Declare August sales** for one of the two (before the 10th to beat the reminder, or after the
-   17th to see the estimate replaced) — leave the other undeclared so the estimate stands.
-6. **Activate Bershka's draft lease before 1 Oct**, bill its deposit, and receive it.
-7. **Decide Cairo Optics** after 1 Oct: convert to holdover or let the unit go and run the move-out
-   (final account, deposit netting, refund).
-8. **Close September** (Month-End Close) after the 1 Oct runs; then try to post something into it.
-9. **Owner statement for September** for Jawad (`owner@atriom.test`) once the month is closed.
+Every act goes through the SERVICE the panel's own button calls, driven on the box with
+`php artisan tinker --execute` as the app user. That proves the service, the guards, the ledger and
+the audit trail — not the Livewire form, which is proved separately by the browser sweep. **Never
+raw SQL, never a status written by hand**: a state reached by assignment is exactly what this system
+refuses, and an act performed that way would test nothing.
 
-Each act is itself a check: the toast, the ledger panel, the tenant's portal and the trial balance
-must all agree afterwards.
+**Update the Status column in the same commit as the act**, with the date and the document it
+produced. A ledger nobody maintains is worse than none — a fresh session reads this table to know
+what is overdue.
 
-## The daily check
+| # | Act | Due | How (the service the panel calls) | Status |
+|---|---|---|---|---|
+| A1 | Set the statutory payroll rates, re-line and approve the August NG run | 5 Sep | `PayrollRate` rung → delete draft lines → `GeneratePayrollService::generate()` → `PayrollService::approve()` | ✅ **5 Sep** — 10% / 11% / 18.75%; PAY-NG-202608-0001 approved, gross 35,300, net 27,887, posted as JE-0147 (Dr wages 35,300 + employer SI 6,618.75 / Cr tax 3,530, insurance 10,501.75, net 27,887) |
+| A2 | Approve the cleaning retainer's draft bill the schedule raises, giving it the supplier's own invoice number | 7 Sep | `VendorBill::reference` then `VendorBillService::approve()` | ⬜ |
+| A3 | Bank Koshary's matured cheque: deposit to CIB on its maturity date, then clear it against the September invoice | 8 Sep | `PostDatedChequeService::deposit()` then `::clear()` | ⬜ |
+| A4 | Answer the three tenant requests; complete the HVAC work order (labour, parts, checklist) | 8–9 Sep | `TenantRequestService::transition()/comment()`, `FacilityWorkOrderService::markItem()/transition()` | ⬜ |
+| A5 | Bank Carrefour's first cheque; **bounce the second deliberately** and watch the NSF path | 10 Sep, 10 Oct | `PostDatedChequeService::deposit()/clear()/bounce()` | ⬜ |
+| A6 | Declare Al Tazaj's August sales (after the 10th reminder, before the 17th estimate); leave Carrefour undeclared so the estimate stands | 11–16 Sep | `TenantSalesDeclaration` + `PercentageRentCalculationService::recalculate()/lock()` | ⬜ |
+| A7 | Pay Guardian's open bill before its due date | by 14 Sep | `VendorBillService::recordPayment()` | ⬜ |
+| A8 | Approve Delta's draft call-out bill | by 15 Sep | `VendorBillService::approve()` | ⬜ |
+| A9 | Exercise or lapse Fit Zone's renewal option before the window closes | by 24 Sep | `ExerciseLeaseOptionService` (or let it lapse, and check the 25th alert) | ⬜ |
+| A10 | Activate Bershka's draft lease, bill its deposit, receive it | by 30 Sep | `Lease` status → `active`, `BillSecurityDepositService::bill()`, receipt | ⬜ |
+| A11 | Decide Cairo Optics after it expires: convert to holdover, or run the move-out (final account, deposit netting, refund) | 1–3 Oct | `ConvertLeaseToHoldoverService` **or** `SettleMoveOutService` | ⬜ |
+| A12 | Close September, then try to post into it and confirm the refusal | after 2 Oct | Month-End Close, then a back-dated expense | ⬜ |
+| A13 | Owner statement for September for Jawad, and a disbursement | after the close | `GenerateOwnerStatementRunService` → `FinaliseOwnerStatementRunService` → `DisbursementService` | ⬜ |
 
-On the box, `docs/qa/scripts/soak-check.sh --post` runs every morning at 08:05 Cairo (cron, app
-user). It writes `storage/logs/soak-YYYY-MM-DD.md` and posts the verdict to the Discord webhook the
-box already uses for health changes. It reads: `atriom:health`, `atriom:config-health`,
-`billing:reconcile --deep`, both data audits, what moved since the previous run
-(`soak-deltas.php`, run inside the app), the ops log since the previous run, and ERROR lines in the
-application log. Exit 0 = green; 1 = a person reads the file.
+Each act is itself a check: the refusal wording, the ledger entry, the tenant's portal and the trial
+balance must all agree afterwards. **An act that is REFUSED is a result, not a blocker** — record the
+refusal and whether it was right.
 
-The person's half, each day: (1) read the report; (2) tick the calendar row(s) for that date — did
-the expected document appear, with the expected figure, on the expected property; (3) open the
-screens the day's events touch, in Arabic once; (4) record below. A defect found goes to
-`DEEP-SWEEP-2026-09-01.md`'s worklist with an SW number, is fixed with a regression test, deployed,
-and noted here with the hash.
+## The daily runbook
 
-**Read the health rows with the staging triage in mind**: `backup_capability`, `two_factor` and
-`demo_accounts` are red on this box BY DESIGN (STAGING.md §5); the script ignores exactly those three.
-Anything else red is real.
+Run every day, in this order. It takes ten minutes when nothing is wrong.
 
-**No configuration gap going in.** Measured on the box after the 5 Sep deploy: every BLOCKING row of
-`atriom:config-health` is green — the seller TRN is set, the posting map is complete, the period is
-open. So the daily check expects NONE (`SOAK_EXPECTED_CONFIG_GAPS` is empty) and any blocking row
-during the month is a regression. The one advisory red is `payroll_rates_configured`, which is the
-operator act below: the statutory rates are still zero.
+**1 · Read the box's own report.**
 
-**Known environment gap going in:** the MailerSend token on the box lacks the SEND scope, so every
-e-mail notification fails with `403 Forbidden` (a WARNING in the ops log, not a failed job — the
-notification's database channel still lands in the bell). The soak proves the bell and the queue;
-it cannot prove e-mail delivery until the token is fixed.
+```bash
+ssh root@144.91.115.90 "cat /var/www/atriom-staging/current/storage/logs/soak-$(date +%F).md"
+```
+
+Missing (the cron did not fire)? Run it by hand and say so in the journal:
+`ssh root@… 'cd /var/www/atriom-staging/current && sudo -u atriom-staging bash docs/qa/scripts/soak-check.sh --post'`
+
+**2 · Check what ran against what should have run.** Take the calendar rows for yesterday and today
+and verify each one by querying the box — the document exists, on the right property, for the right
+figure. A row that produced NOTHING is the interesting case, and it is invisible in a report that
+only lists what happened. The ops log is the record of every scheduled run.
+
+**3 · Perform the acts due today** from the ledger above, and tick them.
+
+**4 · Anything unexpected → the fix loop.** In order, and none of it skipped:
+
+  1. Reproduce it LOCALLY (the scratch database `mall_soak_scratch`, or a Pest test) — never debug
+     by editing staging.
+  2. Read the module doc for the rule before changing the rule.
+  3. Fix it in the service that owns it, one seam, not at the call sites.
+  4. Write the regression test in `tests/Feature/Regression/`, and **mutation-prove it**: undo the
+     fix by hand, watch it go red, put it back. A test that passes either way proves nothing.
+  5. Run the targeted suites — the ones that touch what you CHANGED, not only what you fixed.
+  6. `vendor/bin/pint` on the touched files.
+  7. **Adversarial review before committing** — a subagent told to break the change. On this project
+     it has caught something real in every fix so far, including two that would have shipped a worse
+     bug than the one being fixed.
+  8. Commit with the reason, update the module doc + `DEEP-SWEEP-2026-09-01.md` row + this journal in
+     the SAME commit, push.
+  9. Deploy: `ssh root@… 'cd /var/www/atriom-staging/current && sudo -u atriom-staging bash -c "setsid nohup ./deploy.sh --yes > /tmp/atriom-deploy-$(date +%Y%m%d-%H%M%S).log 2>&1 &"'`, then poll the log.
+  10. **VALIDATE ON THE BOX.** The fix is not done until the behaviour is confirmed against staging's
+      own data — re-run the scan that produced the wrong answer and read the new one. A green test on
+      a laptop is not the same claim.
+
+**5 · Write the journal row** — date, verdict, what ran, what was found, what was done, hashes — and
+commit it with the day's work.
+
+**6 · Report to Khaled**, whether or not he asks: what happened, what was found and fixed, what is
+expected tonight, and anything that genuinely needs him. Plain English and Arabizi, no Arabic script.
+
+### Reading the report correctly
+
+- `atriom:health` is red on three rows BY DESIGN on this box — `backup_capability`, `two_factor`,
+  `demo_accounts` (STAGING.md §5). The script ignores exactly those three. **Anything else is real.**
+- `atriom:config-health` has NO expected gap: every blocking row is green as of 5 Sep, so a blocking
+  row appearing during the month is a regression. `payroll_rates_configured` went green with act A1.
+- `billing:reconcile --deep` must stay 9/9. It is the one line that says the money is still right.
+- **E-mail is known-broken on the box** — the MailerSend token is rate-limited (HTTP 429), so every
+  tenant e-mail fails with a WARNING in the ops log. The database/bell channel still lands, so
+  notifications ARE testable; delivery is not. Do not re-report it daily.
+
+### Standing rules
+
+- **Never reseed or reset staging**, and never touch Val Plaza. Losing the soak's accumulated state
+  loses the month.
+- **Add events by ACTING, not by seeding.** The dataset is finished; anything else that happens on it
+  must happen the way an operator would make it happen.
+- **Record every anomaly in the journal even when it turns out to be correct behaviour** — the
+  explanation is the value, and next month nobody will remember why the 15th looked odd.
 
 ## Journal
 
 | Date | Verdict | What ran / what was seen | Findings |
 |---|---|---|---|
+| 2026-09-05 (evening) | act A1 done | **Standing instruction changed: I run the month myself** — the daily check, the operator acts (new ledger above) and any fix. Khaled away 5–9 Sep. Did A1: set the payroll rates (10% salary tax as a flat placeholder for the bracket table, 11% employee / 18.75% employer NOSI), re-lined the August NG run and approved it — gross 35,300, net 27,887, posted as **JE-0147** (Dr wages 35,300 + employer insurance 6,618.75 / Cr tax 3,530, insurance 10,501.75, net 27,887; balanced). `payroll_rates_configured` went green. Also corrected the daily check's expected-gap default to EMPTY (`416b8656`): the box has no blocking configuration gap, and an ignore-list carrying a row that has since been fixed is how a real gap goes quiet. | Chased one suspected bug to nothing: `payroll_rates.note` is varchar(255) and I hit the limit from tinker — the FORM caps it at 255 correctly. A scan of every `TextInput` writing a bounded column found 7 with no cap; five look real and are queued as a low-severity batch. |
 | 2026-09-05 (late) | reviewed + deployed | Both change batches went through an adversarial review before commit, and both reviews found real things. **On the soak seeder:** the Carrefour +7% step is ALREADY in September's invoice (a mid-month anniversary snaps to its billing month — `ChargeScheduleService::billingBoundary()`), so the calendar's 15 Sep row, the cheque-series reasoning and two hardcoded fallback amounts were all wrong; the seeder now stops loudly rather than inventing a figure, and refuses to continue if a billing run considered nothing (a held period lock answers all-zeros in silence). **On the demo seeder:** the ageing spread could stamp a two-month covered window, and `historyLines()` keyed charges by type alone, which would price every line at the final ladder rung once the ladder is projected. Both fixed. Commits `0faa35f9` (seeders), `39d20a6a` (SW-242), `3e1be764`, deployed to staging. | — |
 | 2026-09-05 | pre-validated | Every scheduled event in the calendar was dry-run on the scratch copy with `--date`/`--period` before staging was seeded: 4 late fees on D+1 and 6 more on the 16th, the cleaning bill drafted on the 7th (28,500 incl. VAT), the waste levy expensed on the 15th (5,130), Guardian's retainer STILL billed on the 20th under a contract that ended on the 12th (68,400 — a question for the operator, see the calendar), 1 + 3 preventive work orders, both August declarations reminded then estimated, Carrefour stepped once on the 15th, September depreciation posted. Books tied out after all of it; every charge schedule unambiguous. | **First finding, from the dry-run:** a recurring cost LINKED to a vendor contract keeps raising draft bills after that contract has ended — `GenerateRecurringExpensesService::raiseVendorBill()` copies `vendor_contract_id` onto the bill and never asks whether the contract is still in force; the schedule reads only its own `ends_on`. Yardi's recurring payable is bounded by the contract term. Fixed the same day as **SW-242** (`39d20a6a` — `RecurringExpense::effectiveEndsOn()`, own end or the contract's, whichever is earlier; the review of the fix closed four more doors: re-linking an ended contract on edit, a terminated contract keeping its original term, a deleted contract lifting the bound, and an N+1 on the register; `ARecurringCostStopsWhenItsContractEndsTest`, 9 cases). On the box the 20 Sep row now reads: Guardian's retainer must NOT bill. |
 | 2026-09-05 | seeded | NG seeded on the scratch database first, then on staging: 66 invoices, 53 receipts, 12 cheques, 5 bills, GL posted. `billing:reconcile --deep` 9/9 green. | Two seeder-side findings fixed before staging: receipts created outside a transaction posted before their allocation (53 void + reversal pairs); a back-dated billing run dates DUE from the run day, by design, so seeded history re-anchors due dates to issue date + terms. |
