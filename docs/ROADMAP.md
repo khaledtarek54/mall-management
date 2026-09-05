@@ -876,8 +876,16 @@ sweep like this does not have to be repeated by hand.
    for an orphaned value and a stale exemption, and NOT for the `expired` defect itself, which is a
    question about whether every act refuses a state — answered by `ProjectedState` and the
    lease-action reachability test, not by a write sweep.)*
-4. **A nullable foreign key must be honoured by everything that reads it** — the `invoices.lease_id`
+4. ✅ **A nullable foreign key must be honoured by everything that reads it** — the `invoices.lease_id`
    class. Static: for each nullable FK, find the dereferences that assume it is set. **M.**
+   *(`ANullableForeignKeyIsHonouredConformanceTest`, 2026-09-05 — 118 nullable FKs derived from the
+   schema, 27 hard `->rel->` dereferences found, and **all 27 already guarded**: this class is closed
+   in the code and the gate is what keeps it closed. Guards recognised as the codebase actually
+   writes them — `whenLoaded()` (Laravel returns before the closure on a null relation), a ternary,
+   or a check on the COLUMN. Its three exclusions are RULES not suppressions — ambiguous receiver,
+   authenticated principal, normalised whitespace — and the docblock states what the first one costs:
+   a file naming two owners of one relation name is skipped, so it cannot catch every case. The named
+   defect shape is mutation-proved caught.)*
 
 ### 9.4 What this cycle deliberately does NOT include
 
