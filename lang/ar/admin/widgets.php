@@ -70,6 +70,8 @@ return [
             'no_asset' => 'لا يوجد عقار للعرض.',
             'occupancy_rate' => 'نسبة الإشغال',
         ],
+        'view_the_invoices' => 'عرض الفواتير',
+        'view_the_meters' => 'عرض العدادات',
         'action_required' => [
             'title' => 'تتطلب إجراءً',
             'description' => 'أمور تحتاج إلى انتباهك الآن.',

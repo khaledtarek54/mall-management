@@ -73,6 +73,8 @@ return [
             'no_asset' => 'No property to display.',
             'occupancy_rate' => 'Occupancy',
         ],
+        'view_the_invoices' => 'View the invoices',
+        'view_the_meters' => 'View the meters',
         'action_required' => [
             'title' => 'Action Required',
             'description' => 'Things that need your attention right now.',

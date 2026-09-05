@@ -3,13 +3,17 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 
 class MonthlyRevenueTrend extends ChartWidget
 {
@@ -20,9 +24,31 @@ class MonthlyRevenueTrend extends ChartWidget
         return __('admin.widgets.monthly_revenue_trend.heading');
     }
 
-    public function getDescription(): ?string
+    /**
+     * The caption, carrying the drill-down (UX5-06's remainder).
+     *
+     * **In the DESCRIPTION because a `ChartWidget` has no header-action slot** — its chrome is
+     * heading, description and filters, and nothing else. Blade's `{{ }}` calls `e()`, which
+     * returns an `Htmlable` unescaped, so this is the supported way to put a link in a chart's
+     * frame without overriding Filament's view.
+     *
+     * The invoice register, because this chart is invoices: it plots what was BILLED against what
+     * was COLLECTED, both derived from `invoices`. A link to a report would answer a question the
+     * bars are not asking.
+     *
+     * Gated on the destination, like every card on `MallStats` — this widget is shown to roles
+     * with different reach, and a caption that links into a 403 reads as the system being broken.
+     */
+    public function getDescription(): string|Htmlable|null
     {
-        return __('admin.widgets.monthly_revenue_trend.description');
+        $text = __('admin.widgets.monthly_revenue_trend.description');
+
+        if (! rescue(fn (): bool => (bool) InvoiceResource::canViewAny(), false, report: false)) {
+            return $text;
+        }
+
+        return new HtmlString(e($text).' <a href="'.e(ResourceLink::index(InvoiceResource::class, tableView: 'none'))
+            .'" class="fi-link fi-size-sm">'.e(__('admin.widgets.view_the_invoices')).'</a>');
     }
 
     protected static ?int $sort = 8;

@@ -3,10 +3,14 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 
 class EnergyConsumptionTrend extends ChartWidget
 {
@@ -22,9 +26,20 @@ class EnergyConsumptionTrend extends ChartWidget
         return __('admin.widgets.energy_consumption.heading');
     }
 
-    public function getDescription(): ?string
+    public function getDescription(): string|Htmlable|null
     {
-        return __('admin.widgets.energy_consumption.description');
+        $text = __('admin.widgets.energy_consumption.description');
+
+        // In the DESCRIPTION because a `ChartWidget` has no header-action slot — see the twin on
+        // `MonthlyRevenueTrend`. The METER register, because this chart is meter readings: it
+        // plots consumption per period, and the readings behind it are where an operator goes to
+        // check a spike. Gated on the destination, so a caption never links into a 403.
+        if (! rescue(fn (): bool => (bool) UtilityMeterResource::canViewAny(), false, report: false)) {
+            return $text;
+        }
+
+        return new HtmlString(e($text).' <a href="'.e(ResourceLink::index(UtilityMeterResource::class, tableView: 'none'))
+            .'" class="fi-link fi-size-sm">'.e(__('admin.widgets.view_the_meters')).'</a>');
     }
 
     protected static ?int $sort = 11;
