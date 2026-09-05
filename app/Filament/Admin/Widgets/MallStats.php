@@ -3,6 +3,11 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Pages\ArAging;
+use App\Filament\Admin\Pages\RentRoll;
+use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
+use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\TenantRequest;
@@ -10,6 +15,7 @@ use App\Models\Unit;
 use App\Services\Reports\ReportService;
 use App\Support\DashboardLayout;
 use App\Support\Occupancy;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
@@ -124,6 +130,21 @@ class MallStats extends StatsOverviewWidget
         // can't drift into disagreeing about who handles money.
         $seesMoney = DashboardLayout::seesMoney();
 
+        // ---- Drill-downs (UX5-06) --------------------------------------
+        //
+        // A KPI that cannot be interrogated is a number the operator has to take on trust: the
+        // dashboard is where every money role LANDS, and until now occupancy, MRR, CSAT, collections
+        // and AR were all dead ends — the figure, and no way to see what it is made of.
+        //
+        // Each link is gated on the destination's own `canAccess()`, because this widget is shown
+        // to roles with very different reach and a card that lands on a 403 is worse than a card
+        // that does not link: it reads as the system being broken rather than as not-for-you.
+        $linkTo = fn (string $screen, callable $url): ?string => rescue(
+            fn (): ?string => $screen::canAccess() ? $url() : null,
+            null,
+            report: false,
+        );
+
         $stats = [
             Stat::make(__('admin.widgets.mall_stats.occupancy'), $occupancy.'%')
                 ->description(__('admin.widgets.mall_stats.occupancy_desc', [
@@ -133,7 +154,10 @@ class MallStats extends StatsOverviewWidget
                 ]))
                 ->descriptionIcon('heroicon-m-building-storefront')
                 ->color($occupancyColor)
-                ->chart($occupancySeries),
+                ->chart($occupancySeries)
+                // The unit register, not the floor plan: this figure counts UNITS, and the list is
+                // where the vacant ones can be filtered, sorted and acted on.
+                ->url($linkTo(UnitResource::class, fn () => ResourceLink::index(UnitResource::class))),
 
             // Economic occupancy sits next to the unit-count one so the two are read together:
             // a wide gap between them means the vacant space is disproportionately large (or small)
@@ -144,7 +168,8 @@ class MallStats extends StatsOverviewWidget
                     'total' => number_format($totalAreaSqm, 0),
                 ]))
                 ->descriptionIcon('heroicon-m-squares-2x2')
-                ->color($areaOccupancyColor),
+                ->color($areaOccupancyColor)
+                ->url($linkTo(UnitResource::class, fn () => ResourceLink::index(UnitResource::class))),
 
             // No sparkline on MRR — contractual rent is a stable number; a
             // billed-in-month sparkline would dip in the partial current month
@@ -152,14 +177,18 @@ class MallStats extends StatsOverviewWidget
             Stat::make(__('admin.widgets.mall_stats.monthly_revenue'), 'EGP '.number_format($monthlyRecurring, 0))
                 ->description(__('admin.widgets.mall_stats.monthly_revenue_desc'))
                 ->descriptionIcon('heroicon-m-banknotes')
-                ->color('primary'),
+                ->color('primary')
+                // The rent roll IS this figure itemised — contractual rent per lease, which is what
+                // MRR sums. Any other destination would answer a different question.
+                ->url($linkTo(RentRoll::class, fn () => RentRoll::getUrl())),
 
             Stat::make(__('admin.widgets.mall_stats.satisfaction'), $avgCsat !== null ? $avgCsat.' / 5' : '—')
                 ->description($avgCsat !== null
                     ? __('admin.widgets.mall_stats.satisfaction_desc', ['count' => $ratedCount])
                     : __('admin.widgets.mall_stats.satisfaction_none'))
                 ->descriptionIcon('heroicon-m-face-smile')
-                ->color($avgCsat === null ? 'gray' : ($avgCsat >= 4 ? 'success' : ($avgCsat >= 3 ? 'warning' : 'danger'))),
+                ->color($avgCsat === null ? 'gray' : ($avgCsat >= 4 ? 'success' : ($avgCsat >= 3 ? 'warning' : 'danger')))
+                ->url($linkTo(TenantRequestResource::class, fn () => ResourceLink::index(TenantRequestResource::class))),
         ];
 
         if ($seesMoney) {
@@ -167,7 +196,8 @@ class MallStats extends StatsOverviewWidget
                 ->description($this->collectedDescription($collectionRate, $collectedDelta))
                 ->descriptionIcon($collectedDelta >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
                 ->color($collectionRate >= 75 ? 'success' : ($collectionRate >= 40 ? 'warning' : 'danger'))
-                ->chart($collectedSeries);
+                ->chart($collectedSeries)
+                ->url($linkTo(PaymentResource::class, fn () => ResourceLink::index(PaymentResource::class)));
 
             $stats[] = Stat::make(__('admin.widgets.mall_stats.outstanding_ar'), 'EGP '.number_format($outstandingAR, 0))
                 ->description(__('admin.widgets.mall_stats.outstanding_ar_desc', [
@@ -175,7 +205,10 @@ class MallStats extends StatsOverviewWidget
                     'count' => $overdueCount,
                 ]))
                 ->descriptionIcon($overdueAR > 0 ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
-                ->color($overdueAR > 0 ? 'danger' : 'success');
+                ->color($overdueAR > 0 ? 'danger' : 'success')
+                // AR ageing, not the invoice list: the question behind this number is always "how
+                // old is it", and the ageing report is the one screen that answers that.
+                ->url($linkTo(ArAging::class, fn () => ArAging::getUrl()));
         }
 
         return $stats;
