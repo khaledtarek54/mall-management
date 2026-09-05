@@ -7,6 +7,7 @@ use App\Models\Floor;
 use App\Models\RentableItem;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\ProjectedState;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -66,13 +67,24 @@ class RentableItemForm
                             TenantScope::clampAssetId($get('asset_id')),
                             fn ($q, $id) => $q->where('asset_id', $id),
                         )),
+                    // Same rule as the unit form, and found the same way — by grepping for the
+                    // shape rather than waiting for it to be reported. `assigned` is what
+                    // `RentableItem::recomputeStatus()` writes from the agreements holding the
+                    // item; only `available` and `out_of_service` are a person's statement.
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
-                        ->options(fn () => __('admin.enums.rentable_item_status'))
+                        ->options(fn (?RentableItem $record) => collect(__('admin.enums.rentable_item_status'))
+                            ->only(ProjectedState::isProjected(RentableItem::class, $record?->status)
+                                ? [$record->status]
+                                : ProjectedState::declarable(RentableItem::class))
+                            ->all())
+                        ->disabled(fn (?RentableItem $record) => ProjectedState::isProjected(RentableItem::class, $record?->status))
                         ->default(RentableItem::STATUS_AVAILABLE)
                         ->required()
                         ->native(false)
-                        ->helperText(__('admin.helpers.item_status')),
+                        ->helperText(fn (?RentableItem $record) => ProjectedState::isProjected(RentableItem::class, $record?->status)
+                            ? __('admin.helpers.item_status_projected')
+                            : __('admin.helpers.item_status')),
                     TextInput::make('monthly_rate')
                         ->label(__('admin.fields.item_monthly_rate'))
                         ->prefix('EGP')

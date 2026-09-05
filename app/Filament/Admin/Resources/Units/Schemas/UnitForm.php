@@ -9,6 +9,7 @@ use App\Models\Unit;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\ProjectedState;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -106,12 +107,33 @@ class UnitForm
                             ? null
                             : __('admin.helpers.unit_area_locked'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.unit_area_locked')),
+                    // A UNIT'S OCCUPANCY IS DERIVED, SO ONLY TWO OF ITS FOUR STATES ARE YOURS TO
+                    // STATE. `occupied` and `reserved` are what `Unit::recomputeStatus()` writes
+                    // from the leases holding the unit, and `EditUnit::afterSave()` re-projects on
+                    // every save — so offering them let an operator pick `Occupied`, be told
+                    // "Saved", and find the row reading `Vacant` a second later, with nothing on
+                    // screen to say the entry had been discarded. Reported by the tester exactly
+                    // that way.
+                    //
+                    // On a unit the projector currently owns, the field is DISABLED rather than
+                    // narrowed: it still has to render the true state, and a Select that cannot
+                    // label its own stored value emits a `Rule::in` that refuses every save of the
+                    // record on a field nobody touched. Disabled also means not dehydrated, so the
+                    // column is left to the projector instead of being written back.
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
-                        ->options(fn () => __('admin.statuses.unit'))
+                        ->options(fn (?Unit $record) => collect(__('admin.statuses.unit'))
+                            ->only(ProjectedState::isProjected(Unit::class, $record?->status)
+                                ? [$record->status]
+                                : ProjectedState::declarable(Unit::class))
+                            ->all())
+                        ->disabled(fn (?Unit $record) => ProjectedState::isProjected(Unit::class, $record?->status))
                         ->required()
                         ->default('vacant')
-                        ->native(false),
+                        ->native(false)
+                        ->helperText(fn (?Unit $record) => ProjectedState::isProjected(Unit::class, $record?->status)
+                            ? __('admin.helpers.unit_status_projected')
+                            : __('admin.helpers.unit_status_declarable')),
                     Textarea::make('description')
                         ->label(__('admin.fields.description'))
                         ->rows(2)

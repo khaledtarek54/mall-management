@@ -48,6 +48,7 @@ final class ProjectedState
      *     projector: string,
      *     sweep: string,
      *     stale_when: string,
+     *     declarable: array<int, string>,
      * }>
      */
     public const PROJECTIONS = [
@@ -60,6 +61,12 @@ final class ProjectedState
             'sweep' => 'leases:expire',
             'stale_when' => 'a future-dated expansion or give-back reaches its effective date, or a '.
                 'lease term ends — none of which is a write, so nothing fires an observer',
+            // `occupied` and `reserved` are the PROJECTION's answers and were offered on the unit
+            // form anyway, so an operator could pick one, be told "Saved", and watch `afterSave()`
+            // put it straight back — reported by the tester exactly that way. Only these two are a
+            // person's statement: `vacant` means "in service, follow the leases", `maintenance` is
+            // the override the projector honours.
+            'declarable' => ['vacant', 'maintenance'],
         ],
 
         'rentable_item.occupancy' => [
@@ -74,6 +81,9 @@ final class ProjectedState
             'stale_when' => 'the lease holding the item reaches its expiry date — nothing closes the '.
                 'holding row and a lease expiring is not a write, so the item kept reading `assigned` '.
                 'and the register under-reported what was free to let',
+            // Same shape as the unit above, found by grepping for it rather than waiting for it to
+            // be reported: `assigned` is the projector's answer and the form offered it.
+            'declarable' => ['available', 'out_of_service'],
         ],
 
         'lease.term' => [
@@ -95,6 +105,10 @@ final class ProjectedState
             'projector' => 'hasExpiredTerm',
             'sweep' => 'leases:expire',
             'stale_when' => 'the expiry date passes with nobody renewing, terminating or holding over',
+            // The lease form already got this right — it never offered `expired`, `terminated` or
+            // `renewed`, for the reason in the comment above. Recorded here so the registry states
+            // the same fact for all three projections rather than leaving one implicit.
+            'declarable' => ['draft', 'pending_approval', 'active'],
         ],
     ];
 
@@ -127,6 +141,40 @@ final class ProjectedState
             'resolved by a person. Auto-lapsing a contractual right on a date would resolve a '.
             'negotiation the system is not party to.',
     ];
+
+    /**
+     * The values an OPERATOR may state on this column, as opposed to the ones the projector writes.
+     *
+     * A form offering a projected value is the defect the tester found on units: pick `Occupied`,
+     * press Save, read "Saved", and the projection puts it back to `Vacant` on the same request.
+     * That silent discard is worse than refusing the choice, because nothing on the screen says the
+     * entry was thrown away. Narrow the options to this list instead.
+     *
+     * **The record's CURRENT value is not added here** and callers must handle it themselves:
+     * Filament derives a Select's `Rule::in` from the options it resolved, so a unit already
+     * `occupied` whose form offers only the declarable pair cannot be labelled and every save of it
+     * is refused on a field nobody touched — the catalogue-lockout trap this codebase has already
+     * shipped once. Render the field DISABLED on a projected value: it then shows the truth, is not
+     * dehydrated, and leaves the column to the projector.
+     *
+     * @return array<int, string>
+     */
+    public static function declarable(string $model, string $column = 'status'): array
+    {
+        foreach (self::PROJECTIONS as $projection) {
+            if ($projection['model'] === $model && $projection['column'] === $column) {
+                return $projection['declarable'];
+            }
+        }
+
+        return [];
+    }
+
+    /** Is this stored value one the PROJECTOR owns rather than one a person stated? */
+    public static function isProjected(string $model, ?string $value, string $column = 'status'): bool
+    {
+        return filled($value) && ! in_array($value, self::declarable($model, $column), true);
+    }
 
     /** @return array<int, string> the distinct sweeps this registry depends on */
     public static function sweeps(): array

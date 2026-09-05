@@ -210,6 +210,31 @@ Companion accessors: `occupiedAreaSqm()`, `totalUnitAreaSqm()`. Guarding test: `
 - `AssetResource::canCreate()` returns false when inside a specific property context; true only when tenant is the ALL pseudo-asset or unset.
 - `AssignedAssets::idsForCurrentUser()` scopes to user's assigned assets (both `asset_user` and `asset_owner` relationships), but always hides the ALL pseudo-asset from the restricted user's visible set.
 
+### Occupancy is DERIVED, so the form offers only what a person may state
+
+`units.status` has four values and only two of them are an operator's. `vacant`, `reserved` and
+`occupied` are written by `Unit::recomputeStatus()` from the leases holding the unit — and
+`EditUnit::afterSave()` re-projects on every save — so the form offering all four let someone pick
+*Occupied*, read "Saved", and find the row back at *Vacant* on the same request. The projection is
+right; offering the choice was the defect, and a control that silently discards what you typed is
+worse than one that does not offer it.
+
+`ProjectedState::declarable()` is the single statement of which values are a person's (`vacant`,
+`maintenance` for a unit; `available`, `out_of_service` for a rentable item, which had the identical
+shape). Two rules for any form bound to a projected column:
+
+- **Narrow the options to the declarable set** — Filament derives the Select's `Rule::in` from them,
+  so a projected value is refused rather than accepted-then-reverted.
+- **Disable the field when the record is currently in a projected state**, showing that state as its
+  only option. Narrowing alone would leave an occupied unit unlabelable, and Filament refuses every
+  save of a record whose stored value it cannot label — the catalogue-lockout trap, through a new
+  door. Disabled also means not dehydrated, so the column is left to the projector.
+
+Marking an occupied unit `maintenance` is deliberately not possible: the projector treats
+`maintenance` as an override it never overwrites, so it would freeze a let unit's occupancy. A shop
+closed for a refit mid-lease is recorded against the lease or a work order, not by misstating whether
+the unit is occupied. (`AUnitsOccupancyIsDerivedNotTypedTest`.)
+
 ### Area: zero is refused, blank is not
 
 `total_area_sqm` and `leasable_area_sqm` are both nullable columns and both refuse **0** on the
