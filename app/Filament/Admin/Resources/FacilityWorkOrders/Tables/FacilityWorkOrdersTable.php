@@ -72,7 +72,18 @@ class FacilityWorkOrdersTable
                 TextColumn::make('title')
                     ->label(__('admin.facility.fields.title'))
                     ->weight('bold')
-                    ->description(fn (FacilityWorkOrder $record) => $record->trade?->label() ?? '—')
+                    // WHICH lift (UX5-05). `equipment.code` is desk-only, so a technician on the
+                    // floor could read "Quarterly service" and not which of eleven units it is
+                    // against. The trade is what this line said before and stays — it is the only
+                    // classification a job with no equipment carries — with the equipment ahead of
+                    // it, because the machine in front of you outranks the craft.
+                    ->description(function (FacilityWorkOrder $record): string {
+                        $trade = $record->trade?->label();
+
+                        return $record->equipment
+                            ? trim($record->equipment->code.($trade ? ' · '.$trade : ''))
+                            : ($trade ?? '—');
+                    })
                     ->searchable(),
                 // **Who is on this job** — the dispatch board's own first question, which this list
                 // could not answer. Measured at HEAD 2026-09-03: nineteen columns, and neither
@@ -174,13 +185,32 @@ class FacilityWorkOrdersTable
                     // re-creating the exact blindness the comment above describes.
                     ->sortable()
                     ->toggleable(),
+                // **BY WHEN — for both kinds of job (UX5-05).**
+                //
+                // This is one of the six columns a phone keeps, and its whole purpose is the
+                // deadline. `target_resolution_at` is the SLA clock, which only a CORRECTIVE order
+                // carries: a preventive one answers to its plan, whose due date is `scheduled_for`
+                // (the generator copies `next_due_date` onto the order). So on a PM job — the bulk
+                // of a technician's round — the phone rendered a dash where the date belongs, and
+                // `scheduled_for` sits behind `visibleFrom('md')`, i.e. nowhere they could reach.
+                //
+                // Answered with a fallback rather than a second column, because the question is one
+                // question. Sorting stays on `target_resolution_at`: the breached-SLA card sorts on
+                // it, and a sort that silently changed meaning per row would be worse than one that
+                // orders the PM jobs together.
                 TextColumn::make('target_resolution_at')
                     ->label(__('admin.facility.sla.target'))
+                    ->state(fn (FacilityWorkOrder $record) => $record->target_resolution_at ?? $record->scheduled_for)
                     ->dateTime('d/m/Y H:i')
                     ->placeholder('—')
                     // Red once the deadline has passed and the job is still open — the
                     // whole point of the clock is that it is visible before someone asks.
-                    ->color(fn (FacilityWorkOrder $record) => $record->isOverdue() ? 'danger' : null)
+                    // Red once the deadline has passed and the job is still open — the whole point
+                    // of the clock is that it is visible before someone asks. A PM job has no SLA,
+                    // so `isOverdue()` is false for it whatever its plan says; its lateness is the
+                    // compliance question, and `pmComplianceState()` is the one definition of it.
+                    ->color(fn (FacilityWorkOrder $record) => $record->isOverdue()
+                        || in_array($record->pmComplianceState(), ['overdue', 'late'], true) ? 'danger' : null)
                     ->description(fn (FacilityWorkOrder $record) => $record->isOverdue()
                         // Same one unit key as the response clock above.
                         ? __('admin.facility.sla.overdue').' · '.__('admin.facility.sla.hours_count', ['count' => $record->hoursOverSla()])
