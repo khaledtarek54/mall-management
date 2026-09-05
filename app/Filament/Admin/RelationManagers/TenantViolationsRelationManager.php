@@ -6,7 +6,6 @@ use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Models\Violation;
 use App\Models\ViolationCategory;
-use App\Support\ResourceLink;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -81,28 +80,8 @@ class TenantViolationsRelationManager extends RelationManager
                         default => 'warning',
                     }),
             ])
-            ->headerActions([
-                Action::make('record')
-                    ->label(__('admin.actions.record_violation'))
-                    ->icon('heroicon-o-plus')
-                    // NOT on a read-only page — see TenantPaymentsRelationManager for the
-                    // reasoning and for what it costs; this is the same shape, a LINK to a create
-                    // form that Filament's read-only rule for relation managers cannot see.
-                    // Measured the same way: of the five roles holding `violations.create`,
-                    // `coordinator` and `operations` cannot open a tenant screen at all and the
-                    // other three hold `tenants.edit`.
-                    ->visible(fn (?RelationManager $livewire): bool => $livewire?->isReadOnly() === false
-                        && ViolationResource::canCreate())
-                    // **`for_tenant`, NOT `tenant`.** `tenant` is Filament's own TENANCY route
-                    // parameter, so `getUrl('create', ['tenant' => $id])` puts the tenant's id in
-                    // the path where the mall's slug belongs — `/admin/2/violations/create` — and
-                    // the page 404s. CLAUDE.md records this exact trap from `CreatePayment`, and
-                    // this walked into it anyway, which is why the test below now drives the URL
-                    // through the real route rather than asserting the action exists.
-                    ->url(fn (RelationManager $livewire): string => ResourceLink::create(ViolationResource::class, [
-                        'for_tenant' => $livewire->getOwnerRecord()->getKey(),
-                    ])),
-            ])
+            // NO HEADER ACTION — see TenantPaymentsRelationManager. *Record violation* is
+            // `TenantActions::recordViolation()` now, in the record's header on both pages.
             ->recordActions([
                 Action::make('open')
                     ->label(__('admin.actions.open'))

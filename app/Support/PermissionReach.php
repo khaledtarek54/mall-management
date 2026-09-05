@@ -90,7 +90,7 @@ class PermissionReach
         'notes.view' => 'Notes are a polymorphic relation manager mounted on a parent record, so '.
             'seeing them is governed by whether you can view the PARENT — there is no separate notes '.
             'screen to gate. `notes.edit` is checked as a literal on the relation manager\'s row '.
-            'actions, and `notes.create` on BOTH that manager and `TenantNoteActions`, the header '.
+            'actions, and `notes.create` on BOTH that manager and `TenantActions`, the header '.
             'act on ViewTenant that the front desk reaches (2026-09-05: a View page\'s tabs do not '.
             'add rows, so the act moved to the header). Only the read is inherited. Honouring this '.
             'key would mean hiding the relation manager, which is a real option and not today\'s '.

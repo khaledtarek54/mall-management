@@ -79,8 +79,8 @@ it('offers the turnover tab only to a tenant who actually owes a declaration', f
     expect(TenantSalesDeclarationsRelationManager::canViewForRecord($this->tenant->fresh(), EditTenant::class))->toBeTrue();
 });
 
-it('links "Record violation" at a URL that actually resolves', function () {
-    // **The bug this file shipped and did not catch.** The header action was built with
+it('links "Record violation" at a URL that actually resolves, from BOTH record pages', function () {
+    // **The bug this file shipped and did not catch.** The action was built with
     // `getUrl('create', ['tenant' => $id])`, and `tenant` is Filament's own TENANCY route
     // parameter — so the tenant's id went into the path where the mall's slug belongs
     // (`/admin/2/violations/create`) and the page 404'd. CLAUDE.md records this exact trap from
@@ -88,31 +88,35 @@ it('links "Record violation" at a URL that actually resolves', function () {
     // visible, which is true of a tab whose only button is broken.
     //
     // So: take the URL the action really produces and FOLLOW it.
+    //
+    // It moved on 2026-09-05 from the violations TAB to the tenant record's header
+    // (`TenantActions::recordViolation`), because an act belongs to the record and appears by
+    // permission rather than by which page or tab you are standing on — and because a `->url()`
+    // link in a tab is invisible to Filament's read-only-under-a-ViewRecord rule, so the tenant's
+    // READ-ONLY page was offering it. Driven from BOTH pages here: one definition is only worth
+    // anything if both surfaces really resolve it.
     $this->actingAs(makeUser('super_admin', [$this->asset->id]));
 
-    $url = asTenant($this->asset, function () {
-        $manager = Livewire::test(TenantViolationsRelationManager::class, [
-            'ownerRecord' => $this->tenant->fresh(),
-            'pageClass' => EditTenant::class,
-        ])->instance();
+    foreach ([EditTenant::class, \App\Filament\Admin\Resources\Tenants\Pages\ViewTenant::class] as $page) {
+        $url = asTenant($this->asset, function () use ($page) {
+            $component = Livewire::test($page, ['record' => $this->tenant->getKey()])->instance();
 
-        $actions = $manager->getTable()->getHeaderActions();
-        $record = collect($actions)->first(fn ($a) => $a->getName() === 'record');
+            $action = collect($component->getCachedHeaderActions())
+                ->first(fn ($a) => $a->getName() === 'recordViolation');
 
-        expect($record)->not->toBeNull('the tab offers no "Record violation" action at all');
+            expect($action)->not->toBeNull();
 
-        return $record->getUrl();
-    });
+            return $action->getUrl();
+        });
 
-    // The tenant id belongs in the QUERY, never in the tenancy segment of the path — that
-    // substitution is precisely what produced `/admin/2/violations/create`.
-    $path = parse_url($url, PHP_URL_PATH);
+        // The tenant id belongs in the QUERY, never in the tenancy segment of the path — that
+        // substitution is precisely what produced `/admin/2/violations/create`.
+        expect(parse_url($url, PHP_URL_PATH))->not->toBe('/admin/'.$this->tenant->getKey().'/violations/create')
+            ->and($url)->toContain('for_tenant='.$this->tenant->getKey());
 
-    expect($path)->not->toBe('/admin/'.$this->tenant->getKey().'/violations/create')
-        ->and($url)->toContain('for_tenant='.$this->tenant->getKey());
-
-    // And the answer that settles it whatever the slug happens to be: the link opens.
-    $this->get($url)->assertSuccessful();
+        // And the answer that settles it whatever the slug happens to be: the link opens.
+        $this->get($url)->assertSuccessful();
+    }
 });
 
 it('opens that form with the tenant already chosen', function () {

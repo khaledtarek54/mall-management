@@ -4,7 +4,6 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\PaymentMethod;
-use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -15,7 +14,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 
 class TenantPaymentsRelationManager extends RelationManager
 {
@@ -95,41 +93,13 @@ class TenantPaymentsRelationManager extends RelationManager
                         ->when($data['payment_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date))),
             ])
             ->filtersFormColumns(2)
-            ->headerActions([
-                // The tenant hub's Payments tab could show a history and not add to it, so "record
-                // what this tenant just paid" meant leaving the record you were looking at and
-                // searching for it again in the Payments resource (UX5-03). It links to the real
-                // form with the tenant carried across rather than opening a second, thinner one:
-                // the payment form owns the posting-date guard, the property scope, the
-                // over-allocation backstop and the orphaned-receipt refusal.
-                Action::make('recordPayment')
-                    ->label(__('admin.collections.record_payment'))
-                    ->icon('heroicon-o-banknotes')
-                    // NOT on a read-only page. Filament makes every relation manager under a
-                    // `ViewRecord` read-only and denies its Create/Edit/Delete — but this is a
-                    // LINK to another resource's create form, which that rule cannot see, so a
-                    // page whose whole claim is that it does not write offered "Record payment".
-                    //
-                    // WHAT THIS COSTS, stated rather than waved away. Nobody LOSES the act: of the
-                    // four roles holding `payments.create`, `accounting` cannot open a tenant
-                    // screen at all and the other three hold `tenants.edit`, so a row click lands
-                    // them on the Edit page where this tab is writable and the button is here.
-                    // What it costs is a click for one of those three who deliberately opened the
-                    // READ-ONLY page and then decided to record a receipt: they press Edit first.
-                    // Accepted, because the alternative re-offers a create button on the page
-                    // whose whole claim is that it does not write — which is what was reported.
-                    //
-                    // `?RelationManager`: `getLivewire()` is nullable, and a non-null hint would
-                    // turn a table built without a Livewire owner from "no button" into a 500.
-                    // A missing owner reads as read-only here, which is the safe direction.
-                    ->visible(fn (?RelationManager $livewire): bool => $livewire?->isReadOnly() === false
-                        && (Auth::user()?->can('payments.create') ?? false))
-                    ->url(fn (RelationManager $livewire): string => ResourceLink::create(PaymentResource::class, [
-                        // `for_tenant`, never `tenant`: that key is Filament's tenancy ROUTE parameter and would
-                        // put the tenant id in the path where the mall's slug belongs — a 404.
-                        'for_tenant' => $livewire->getOwnerRecord()->getKey(),
-                    ])),
-            ])
+            // NO HEADER ACTION. *Record payment* used to live here — a `->url()` link into
+            // PaymentResource's create form, which Filament's read-only-under-a-`ViewRecord` rule
+            // cannot deny because a link is not an action, so the tenant's READ-ONLY page offered
+            // it. It is now `TenantActions::recordPayment()`, in the record's header on both the
+            // View and the Edit page: an act belongs to the RECORD and appears by PERMISSION, not
+            // by which page you opened or which tab you are looking at (Yardi's shape —
+            // docs/benchmarks/yardi/08). A tab LISTS what is attached to the record.
             ->recordActions([])
             ->toolbarActions([])
             ->defaultSort('payment_date', 'desc')

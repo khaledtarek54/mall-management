@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Filament\Admin\Actions\TenantNoteActions;
+use App\Filament\Admin\Actions\TenantActions;
 use App\Support\Filament\RefreshesOnRecordChange;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -49,9 +49,10 @@ class TenantNotesRelationManager extends RelationManager
      *
      * What the waiver bought was reachability; what it cost was a read-only page rendering
      * *Log communication*, *Edit* and *Delete* inside one of its tabs. The act now lives on
-     * `ViewTenant`'s HEADER instead ({@see \App\Filament\Admin\Actions\TenantNoteActions}),
-     * which is where this panel puts acts — so the role keeps its one function, the tab keeps
-     * Filament's default, and the two surfaces render one shared form.
+     * the record's HEADER instead ({@see \App\Filament\Admin\Actions\TenantActions}), on the View
+     * page AND the Edit page, because an act belongs to the RECORD and appears by PERMISSION — not
+     * by which page you opened. So the role keeps its one function, the tab keeps Filament's
+     * default, and both surfaces render one shared form.
      */
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
@@ -62,7 +63,7 @@ class TenantNotesRelationManager extends RelationManager
     {
         // Shared with the header act on `ViewTenant`, so the fields cannot depend on which page
         // the operator happened to be standing on when they logged the call.
-        return $schema->components(TenantNoteActions::formComponents());
+        return $schema->components(TenantActions::formComponents());
     }
 
     public function table(Table $table): Table

@@ -28,7 +28,7 @@ use Livewire\Livewire;
  * decide. That worked and it cost something: a page whose whole claim is that it does not write
  * rendered *Log communication*, *Edit* and *Delete* inside one of its tabs — reported from the
  * panel as exactly that. So the act moved to `ViewTenant`'s HEADER
- * ({@see \App\Filament\Admin\Actions\TenantNoteActions}), where this panel puts acts, and the
+ * ({@see \App\Filament\Admin\Actions\TenantActions}), where this panel puts acts, and the
  * tab went back to Filament's default. The front desk keeps its one function, the tabs stop
  * writing, and the two surfaces share one form.
  *

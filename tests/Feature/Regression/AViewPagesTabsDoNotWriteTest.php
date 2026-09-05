@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
+use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
 use App\Models\AccountingPeriod;
 use App\Models\Announcement;
 use App\Models\FiscalYear;
@@ -25,15 +26,26 @@ use Livewire\Livewire;
  *     create page. A link is not a `CreateAction`, so the default has nothing to deny.
  *  3. `TenantViolationsRelationManager` offered *Record violation*, the same shape.
  *
- * So the gate has a tooth per escape route, swept over every View page in the panel rather than
- * over the three that happened to be wrong: no relation manager waives the rule, and none of them
- * renders a link into a `.create` route. The second is resolved through the ROUTER — the URL is
- * matched back to its route name — rather than by pattern-matching the string, because "/create"
- * is a substring of plenty of legitimate paths and a resource could be named for it.
+ * So the gate has a tooth per escape route, and the two teeth are scoped differently on purpose:
  *
- * The control that stops this passing for the wrong reason is the EDIT page: everything removed
- * from the View page must still be there, or a change that simply deleted the buttons would read
- * as a pass.
+ * - **No relation manager under a `ViewRecord` waives the read-only rule.** A View-page question.
+ * - **No relation manager on ANY record page links into a `.create` route.** Not a View-page
+ *   question at all: a receipt and a violation are their own documents, and the act that raises
+ *   one belongs to the RECORD's header, by permission, on every page — Yardi's shape and this
+ *   repo's own reading of it (`docs/benchmarks/yardi/08`). Scoping this tooth to View pages would
+ *   have left the same button on the Edit page's tab, which is the drift the record hub exists to
+ *   prevent.
+ *
+ * A tab's OWN `CreateAction` is untouched by either — adding a portal user or a document to this
+ * tenant is that relationship's own row, and belongs in its tab.
+ *
+ * The route name is resolved through the ROUTER rather than by pattern-matching the string,
+ * because "/create" is a substring of plenty of legitimate paths and a resource could be named
+ * for it.
+ *
+ * The control that stops all this passing for the wrong reason is that the acts must still be
+ * REACHABLE — see the header tests below and `FrontDeskCanLogTheCallItTookTest`. A change that
+ * simply deleted the three buttons satisfies every refusal here.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -95,6 +107,16 @@ function routeNameOf(?string $url): ?string
     } catch (Throwable) {
         return null;
     }
+}
+
+/** The names of the header actions a mounted record page actually offers. */
+function headerActionNames($component): array
+{
+    return collect($component->instance()->getCachedHeaderActions())
+        ->filter(fn ($action) => $action->isVisible())
+        ->map(fn ($action) => $action->getName())
+        ->values()
+        ->all();
 }
 
 /** Every (resource, View page, relation manager) triple in every panel. */
@@ -266,38 +288,97 @@ it('still lets a view page tab LINK to a record, which is navigation and not a w
         ->and(collect($urls)->every(fn (?string $name) => is_string($name) && ! str_ends_with($name, '.create')))->toBeTrue();
 });
 
-it('keeps every one of those affordances on the EDIT page', function () {
-    // The control. Without it, a change that simply deleted the three buttons passes both
-    // refusals above and reads as a fix.
+it('offers the SAME acts on the view page and the edit page, by permission alone', function () {
+    // THE CONTROL, and the rule itself. Every refusal above is satisfied by a change that simply
+    // deleted the three buttons; this is what says they still exist, and that which page you opened
+    // does not decide what you may do — Yardi's shape (docs/benchmarks/yardi/08), where one customer
+    // screen's buttons are governed by function access.
+    $this->actingAs(makeUser('super_admin', [$this->asset->id]));
+    $tenant = makeTenant();
+
+    [$onView, $onEdit] = asTenant($this->asset, fn (): array => [
+        headerActionNames(Livewire::test(ViewTenant::class, ['record' => $tenant->getKey()])),
+        headerActionNames(Livewire::test(EditTenant::class, ['record' => $tenant->getKey()])),
+    ]);
+
+    $acts = ['logCommunication', 'recordPayment', 'recordViolation'];
+
+    expect($onView)->toContain(...$acts)
+        ->and($onEdit)->toContain(...$acts)
+        // The Edit page keeps what only it has, so "identical" is about the ACTS and not about the
+        // whole strip: editing and deleting are still page-shaped questions.
+        ->and($onEdit)->toContain('delete')
+        ->and($onView)->not->toContain('delete');
+});
+
+it('keeps the notes tab writable on the edit page', function () {
+    // The other half: the tab went back to Filament's default, which means read-only under a
+    // ViewRecord and writable everywhere else. A change that made the manager read-only outright
+    // would satisfy every refusal above and would break the ordinary way notes are managed.
     $this->actingAs(makeUser('super_admin', [$this->asset->id]));
     $tenant = makeTenant();
 
     $visible = asTenant($this->asset, function () use ($tenant): array {
-        $names = [];
+        $manager = Livewire::test(\App\Filament\Admin\RelationManagers\TenantNotesRelationManager::class, [
+            'ownerRecord' => $tenant,
+            'pageClass' => EditTenant::class,
+        ])->instance();
 
-        foreach ([
-            \App\Filament\Admin\RelationManagers\TenantNotesRelationManager::class,
-            \App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\TenantViolationsRelationManager::class,
-        ] as $relation) {
-            $manager = Livewire::test($relation, ['ownerRecord' => $tenant, 'pageClass' => EditTenant::class])->instance();
+        expect($manager->isReadOnly())->toBeFalse();
 
-            expect($manager->isReadOnly())->toBeFalse();
-
-            foreach ($manager->getTable()->getHeaderActions() as $action) {
-                if ($action->isVisible()) {
-                    $names[] = $action->getName();
-                }
-            }
-        }
-
-        return $names;
+        return collect($manager->getTable()->getHeaderActions())
+            ->filter(fn ($action) => $action->isVisible())
+            ->map(fn ($action) => $action->getName())
+            ->all();
     });
 
-    expect($visible)->toContain('create', 'recordPayment', 'record');
+    expect($visible)->toContain('create');
 });
 
-// The act that replaced those buttons — that the front desk can still log the call it just took
-// from the only tenant screen it can open — is proved in FrontDeskCanLogTheCallItTookTest, which
-// owned that requirement before this change and still owns it. Restating it here would be a second
-// description of one rule, free to drift from the first.
+it('registers every tab that still links into a create form, with a reason', function () {
+    // The behavioural sweep above can only reach a tab it has an owner-record fixture for, i.e. the
+    // four resources with a View page. This one reads all 64 relation managers on disk, so the rule
+    // is visible everywhere it could apply rather than only where a fixture happens to exist.
+    //
+    // Two are registered rather than fixed, and the reason is that the rule's JUSTIFICATION does
+    // not reach them: `LeaseResource` has no View page, so there is no read-only surface for the
+    // link to escape onto. Moving them would still be the consistent thing — an act belongs to the
+    // record's header — but `EditLease`'s header is GROUPED, and CLAUDE.md records what happens to
+    // an act added to a grouped header without its entry in the group map: it is defined and
+    // rendered NOWHERE, passing every visibility and authorisation check while never appearing.
+    // That is a change worth doing deliberately, not as a rider on this one.
+    $registered = [
+        'app/Filament/Admin/RelationManagers/LeaseInvoicesRelationManager.php' =>
+            'LeaseResource has no View page, so no read-only surface; EditLease has a grouped header and moving this needs the group map.',
+        'app/Filament/Admin/RelationManagers/LeaseSalesDeclarationsRelationManager.php' =>
+            'Same as LeaseInvoicesRelationManager.',
+    ];
+
+    $managers = collect(glob(app_path('Filament/*/RelationManagers/*.php')))
+        ->merge(glob(app_path('Filament/*/Resources/*/RelationManagers/*.php')))
+        ->values();
+
+    // The premise: a sweep that found no relation managers reports "none offend" just as happily.
+    expect($managers->count())->toBeGreaterThan(50);
+
+    $offenders = $managers
+        ->filter(function (string $path): bool {
+            // Comments stripped: this file's own explanations name the call, and a gate that fires
+            // on a sentence is one that gets weakened rather than fixed.
+            $code = collect(token_get_all(file_get_contents($path)))
+                ->reject(fn ($token) => is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true))
+                ->map(fn ($token) => is_array($token) ? $token[1] : $token)
+                ->implode('');
+
+            return str_contains($code, 'ResourceLink::create(');
+        })
+        ->map(fn (string $path): string => str_replace(base_path().'/', '', $path))
+        ->reject(fn (string $path): bool => array_key_exists($path, $registered))
+        ->values()
+        ->all();
+
+    expect($offenders)->toBe([])
+        // …and a registered entry that has since been fixed must be removed, or the list becomes a
+        // record of what used to be true.
+        ->and(collect($registered)->keys()->reject(fn (string $p) => $managers->contains(base_path($p)))->all())->toBe([]);
+});

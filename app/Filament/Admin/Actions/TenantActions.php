@@ -2,7 +2,10 @@
 
 namespace App\Filament\Admin\Actions;
 
+use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Models\Tenant;
+use App\Support\ResourceLink;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -13,40 +16,107 @@ use Filament\Schemas\Components\Component;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * **Logging a call on a tenant, defined once and reachable from both of the tenant's pages.**
+ * **Everything you can DO to a tenant, defined once and composed onto BOTH of its pages.**
  *
- * A READ-ONLY PAGE'S TABS OFFER NO WRITE BUTTONS, and the notes tab was the one exception in the
- * panel. `TenantNotesRelationManager` waived Filament's own rule — every relation manager under a
- * `ViewRecord` is read-only, and its Create/Edit/Delete are denied before their own gates are
- * consulted — by returning `isReadOnly(): false`, so `ViewTenant` rendered *Log communication*,
- * *Edit* and *Delete* inside a tab on a page whose whole claim is that it does not write.
+ * THE RULE, taken from Yardi and from this repo's own benchmark of it
+ * (`docs/benchmarks/yardi/08-yardi-ui-ux.md`): **an act belongs to the RECORD and appears by
+ * PERMISSION — not by which page you happened to open, and never inside a tab.** Voyager has one
+ * customer screen whose buttons are governed by function access; UX-01 refused to build a second
+ * read-only lease surface for exactly this reason (*"the lease page already IS the hub, and a
+ * second surface showing the same facts drifts from it"*), and UX-08 repeated it for the CAM pool.
+ * A tab is for LISTING what is attached to the record.
  *
- * **The waiver was not arbitrary and the reason it existed is the reason this class does.**
- * Measured across all 14 roles: `customer_service` is the front desk and holds `tenants.view`,
- * `notes.view`, `notes.create` and the request rights — and **no `tenants.edit`**, which is the
- * load-bearing half. `ListTenants` opens for them on `tenants.view`; what `tenants.edit` gates is
- * `EditTenant`, so **`ViewTenant` is the only tenant screen carrying this tab that they can
- * reach**. Taking the tab's write buttons away without putting the act somewhere else would leave
- * a granted right reaching no screen, which is the {@see \App\Support\PermissionReach} failure in
- * its confusing direction: the role appears to hold the permission, the screen refuses, and nobody
- * can tell policy from bug.
+ * Three acts, and each was somewhere else for a different bad reason:
  *
- * **So the act moves to the record's HEADER, where this panel already puts acts** — the list
- * FINDS, the record ACTS ({@see \App\Support\RowActionPolicy}) — and the tab goes back to
- * Filament's default. `ViewTenant` therefore reads as what it is: a page of tables you cannot
- * edit, with the things you may DO to the tenant in the header beside *Edit*.
+ * - **`logCommunication`** was `CreateAction` inside the notes tab, which had to waive Filament's
+ *   read-only-under-a-`ViewRecord` rule to be reachable at all.
+ * - **`recordPayment`** and **`recordViolation`** were header buttons on the payments and
+ *   violations TABS — `->url()` links into another resource's create form, which the read-only
+ *   rule cannot see because a link is not an action. So a page whose whole claim is that it does
+ *   not write offered *Record payment*.
  *
- * **`EditTenant` is deliberately NOT given this act.** Its notes tab is writable in the ordinary
- * way, and adding a second door to the same act on one screen is the duplicate
- * {@see \App\Support\Filament\RecordChanged} and `AnActIsDeclaredOnceConformanceTest` exist to
- * refuse. Two different PAGES each offering one way in is not that.
+ * All three now sit in the record's header on `ViewTenant` **and** `EditTenant`, from one
+ * definition, so the answer to *"can I record a receipt for this tenant"* is the operator's
+ * permission and nothing else. The first version of this fix removed the two links instead, which
+ * closed the reported defect and made the read-only page the one place you could not act from —
+ * the opposite of the record-hub architecture the rest of the panel follows.
  *
- * The FORM is shared rather than copied: the relation manager renders
- * {@see TenantNoteActions::formComponents()} and so does the modal, so the fields an operator
- * fills in cannot depend on which page they happened to be standing on.
+ * **A tab's OWN CreateAction is not this and stays where it is** (portal users, documents, notes on
+ * the Edit page): adding a contact to a company is that relationship's own row, and Yardi puts it
+ * in the contacts tab too. What moved is the CROSS-RESOURCE act — a receipt and a violation are
+ * their own documents with their own numbering, gates and books.
+ *
+ * **Composed as ONE spread (`...TenantActions::all()`), never act by act.** `Tests\Support\ActionStrips`
+ * expands any `Registry::method()` call to every member of that registry, so three individual calls
+ * would read as nine acts and `AnActIsDeclaredOnceConformanceTest` would report duplicates that do
+ * not exist.
+ *
+ * The note FORM is shared rather than copied: the relation manager renders
+ * {@see TenantActions::formComponents()} and so does the modal, so the fields an operator fills in
+ * cannot depend on which surface they were standing on.
  */
-class TenantNoteActions
+class TenantActions
 {
+    /**
+     * Composed onto `ViewTenant` and `EditTenant` as a single spread.
+     *
+     * Each act carries its own `visible()`/`->authorize()` pair, so a role simply does not see the
+     * ones it may not run — the page does not decide, and the two pages therefore cannot offer
+     * different answers to the same operator.
+     *
+     * @return array<int, Action>
+     */
+    public static function all(): array
+    {
+        return [
+            static::logCommunication(),
+            static::recordPayment(),
+            static::recordViolation(),
+        ];
+    }
+
+    /**
+     * Record a receipt against this tenant.
+     *
+     * A LINK, not a modal, and deliberately so: it opens the real payment form with the tenant
+     * carried across rather than a second, thinner one. That form owns the posting-date guard, the
+     * property scope, the over-allocation backstop and the orphaned-receipt refusal — none of which
+     * a convenience modal here would inherit.
+     *
+     * `for_tenant`, never `tenant`: the latter is Filament's tenancy ROUTE parameter, so it would
+     * put the tenant's id in the path where the mall's slug belongs and the page would 404.
+     * {@see ResourceLink::create()} refuses that collision rather than describing it.
+     */
+    public static function recordPayment(): Action
+    {
+        return Action::make('recordPayment')
+            ->label(__('admin.collections.record_payment'))
+            ->icon('heroicon-o-banknotes')
+            ->color('gray')
+            ->visible(fn (): bool => Auth::user()?->can('payments.create') ?? false)
+            ->authorize(fn (): bool => Auth::user()?->can('payments.create') ?? false)
+            ->url(fn (Tenant $record): string => ResourceLink::create(PaymentResource::class, [
+                'for_tenant' => $record->getKey(),
+            ]));
+    }
+
+    /**
+     * Record a violation against this tenant. Same shape and same reasoning as
+     * {@see recordPayment()} — the violation form owns the fine, the category and the evidence.
+     */
+    public static function recordViolation(): Action
+    {
+        return Action::make('recordViolation')
+            ->label(__('admin.actions.record_violation'))
+            ->icon('heroicon-o-exclamation-triangle')
+            ->color('gray')
+            ->visible(fn (): bool => ViolationResource::canCreate())
+            ->authorize(fn (): bool => ViolationResource::canCreate())
+            ->url(fn (Tenant $record): string => ResourceLink::create(ViolationResource::class, [
+                'for_tenant' => $record->getKey(),
+            ]));
+    }
+
     /**
      * The note form — one definition, rendered by the relation manager and by the modal.
      *

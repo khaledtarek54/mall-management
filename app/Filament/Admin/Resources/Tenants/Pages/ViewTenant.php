@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Tenants\Pages;
 
-use App\Filament\Admin\Actions\TenantNoteActions;
+use App\Filament\Admin\Actions\TenantActions;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -26,12 +26,13 @@ use Filament\Resources\Pages\ViewRecord;
  * this tenant and takes the reader to a screen with its own gates. What was reported, and what is
  * refused, is a tab that lets you ADD to it. `AViewPagesTabsDoNotWriteTest` asserts both halves.
  *
- * What survives is in the HEADER, where this panel puts acts (the list FINDS, the record ACTS):
- * `Edit` for whoever may edit the tenant, and `Log communication` for whoever may write a note.
- * The second is not decoration — `customer_service` holds `tenants.view`, `notes.view`,
- * `notes.create` and the request rights, and **no `tenants.edit`**. `ListTenants` opens for them on
- * `tenants.view`; `EditTenant` is what `tenants.edit` gates. So this is the only tenant screen
- * carrying the notes tab that they can reach, and this act is the whole of their job on it.
+ * **The acts are in the HEADER, and they are the SAME three this tenant's Edit page carries** —
+ * `App\Filament\Admin\Actions\TenantActions`, composed onto both. That is Yardi's shape and this
+ * repo's own reading of it (`docs/benchmarks/yardi/08`): an act belongs to the RECORD and appears
+ * by PERMISSION, never by which page you opened. So a `manager` standing on the read-only page can
+ * still record a receipt, and `customer_service` — `tenants.view`, `notes.view`, `notes.create`,
+ * the request rights and **no `tenants.edit`**, so `ListTenants` opens for them and `EditTenant`
+ * does not — can log the call it just took, which is the whole of its job here.
  */
 class ViewTenant extends ViewRecord
 {
@@ -40,9 +41,11 @@ class ViewTenant extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            // Reachable to `customer_service`, who cannot open `EditTenant` at all — so it gates
-            // on `notes.create` alone. See TenantNoteActions for why it is here and not in the tab.
-            TenantNoteActions::logCommunication(),
+            // The record hub's acts, identical to the ones on `EditTenant` and gated only by what
+            // the operator holds — see TenantActions for why an act belongs to the record rather
+            // than to a page or a tab. `customer_service` cannot open `EditTenant` at all, so this
+            // is where its one function lives; `manager` sees the same three here as there.
+            ...TenantActions::all(),
             EditAction::make(),
         ];
     }

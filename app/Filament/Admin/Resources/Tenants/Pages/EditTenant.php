@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Tenants\Pages;
 
+use App\Filament\Admin\Actions\TenantActions;
 use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Tenant;
@@ -39,6 +40,11 @@ class EditTenant extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The same three acts `ViewTenant` carries, from one definition: an act belongs to the
+            // record and appears by permission, not by which page the operator opened. Two of them
+            // used to be header buttons on the payments and violations TABS, where a read-only page
+            // could not deny them because a `->url()` link is not an action.
+            ...TenantActions::all(),
             PdfDownloadAction::make('statement')
                 ->label(__('admin.statement.action_label'))
                 ->icon(Heroicon::OutlinedDocumentArrowDown)
