@@ -27,7 +27,14 @@ test('Occupancy Map appears in admin sidebar nav', async ({ page }) => {
   await page.goto('/locale/en');
   await page.goto('/admin');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  const navLink = page.locator('aside, nav').locator('a[href*="/admin/AW/occupancy-map"]').first();
+  // The EXPANDED sidebar item (`fi-sidebar-item-btn`), not just any anchor with
+  // that href. The navigation is rendered more than once per page — the topbar
+  // carries a copy, and the sidebar carries a second, hidden dropdown copy for
+  // its collapsed state (which is why `Panel::getNavigation()` is built several
+  // times; see `NavigationItemMemo`). So the obvious locator plus `.first()`
+  // resolves to an invisible `fi-dropdown-list-item` and reports the sidebar as
+  // missing a link that is sitting in it.
+  const navLink = page.locator('a.fi-sidebar-item-btn[href*="/admin/AW/occupancy-map"]').first();
   await expect(navLink).toBeVisible({ timeout: 10000 });
 });
 

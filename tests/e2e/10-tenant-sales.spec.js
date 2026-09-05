@@ -14,15 +14,19 @@ test.describe('Tenant Sales Declarations', () => {
       const response = await page.goto('/admin/AW/tenant-sales-declarations');
       expect(response.status()).toBeLessThan(400);
       await expectNoLaravelError(page);
-      await expect(page.locator('text=Tenant Sales').first()).toBeVisible();
+      // The page HEADING, not the first match for the words: the topbar carries
+      // a hidden copy of the whole navigation, so `text=Tenant Sales` `.first()`
+      // resolved to an invisible dropdown item on a page that renders the
+      // heading perfectly well.
+      await expect(page.getByRole('heading', { level: 1, name: /Tenant Sales/i })).toBeVisible();
     });
 
     test('Admin queue page renders with the resource heading', async ({ page }) => {
       await page.goto('/admin/AW/tenant-sales-declarations');
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-      // Filament 4's ListRecords uses the navigation label as the page title,
-      // which is "Tenant Sales" (not the plural model label
-      // "Tenant Sales Declarations"). Match on the shorter label.
+      // The heading is the PLURAL MODEL LABEL — "Tenant Sales Declarations" —
+      // while the sidebar entry reads "Tenant Sales"; matching the shorter
+      // string covers both.
       await expect(page.locator('body')).toContainText('Tenant Sales', { timeout: 15000 });
     });
 
