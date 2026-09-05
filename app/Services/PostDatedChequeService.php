@@ -283,6 +283,8 @@ class PostDatedChequeService
             throw new \DomainException(__('admin.post_dated_cheques.errors.series_amount'));
         }
 
+        $this->assertSeriesNumbersFit((string) $data['first_cheque_number'], $count);
+
         $firstMaturity = Carbon::parse($data['first_cheque_date']);
         $received = isset($data['received_date'])
             ? Carbon::parse($data['received_date'])->toDateString()
@@ -315,6 +317,45 @@ class PostDatedChequeService
 
             return $created;
         });
+    }
+
+    /**
+     * Every number this series will mint has to fit `cheque_number` — varchar(100) NOT NULL — and
+     * the check is on the LAST one, not the first.
+     *
+     * Two ways a bounded field alone is not enough, both measured (2026-09-05):
+     *
+     *  1. The non-numeric branch of {@see nextChequeNumber()} appends `-N`, so a 98-character
+     *     number inside the bound becomes 101 characters on the tenth cheque of a series — and the
+     *     failure lands mid-`DB::transaction`, as an unhandled `QueryException` rather than as a
+     *     refusal anybody can read.
+     *  2. A numeric tail longer than PHP's integer can hold overflows on the `(int)` cast, so
+     *     `+1` and `+2` produce the SAME string and the series is refused by the unique index
+     *     with a duplicate-cheque message that describes nothing the operator did.
+     *
+     * Refused up front, in the operator's own words, rather than discovered by the database.
+     */
+    private function assertSeriesNumbersFit(string $first, int $count): void
+    {
+        if (mb_strlen($first) > PostDatedCheque::MAX_NUMBER_LENGTH) {
+            throw new \DomainException(__('admin.post_dated_cheques.errors.series_number_too_long', [
+                'max' => PostDatedCheque::MAX_NUMBER_LENGTH,
+            ]));
+        }
+
+        // 19 digits is where a decimal string stops fitting a 64-bit int.
+        if (preg_match('/^(\D*)(\d+)$/', $first, $m) === 1 && strlen($m[2]) > 18) {
+            throw new \DomainException(__('admin.post_dated_cheques.errors.series_number_not_countable'));
+        }
+
+        $last = $this->nextChequeNumber($first, $count - 1);
+
+        if (mb_strlen($last) > PostDatedCheque::MAX_NUMBER_LENGTH) {
+            throw new \DomainException(__('admin.post_dated_cheques.errors.series_number_grows_too_long', [
+                'last' => $last,
+                'max' => PostDatedCheque::MAX_NUMBER_LENGTH,
+            ]));
+        }
     }
 
     /** The `$offset`-th cheque number after `$first`, incrementing its numeric tail with zero-pad kept. */

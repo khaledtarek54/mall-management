@@ -288,10 +288,13 @@ class LeaseForm
                             ->helperText(fn (string $operation): ?string => $operation === 'edit'
                                 ? __('admin.helpers.locked_after_creation')
                                 : null)
+                            // `Tenant::FIELD_MAX`, because this is a second door onto the same
+                            // columns and a door that bounds nothing turns a validation message
+                            // into a database error on the way in.
                             ->createOptionForm([
-                                TextInput::make('name')->label(__('admin.fields.brand_name'))->required(),
-                                TextInput::make('phone')->label(__('admin.fields.phone'))->tel(),
-                                TextInput::make('email')->label(__('admin.fields.email'))->email(),
+                                TextInput::make('name')->label(__('admin.fields.brand_name'))->required()->maxLength(Tenant::FIELD_MAX['name']),
+                                TextInput::make('phone')->label(__('admin.fields.phone'))->tel()->maxLength(Tenant::FIELD_MAX['phone']),
+                                TextInput::make('email')->label(__('admin.fields.email'))->email()->maxLength(Tenant::FIELD_MAX['email']),
                             ]),
                         // `renewed` and `terminated` are OUTCOMES of a service, not states to type.
                         // Selecting them here wrote the status and skipped everything the act means:

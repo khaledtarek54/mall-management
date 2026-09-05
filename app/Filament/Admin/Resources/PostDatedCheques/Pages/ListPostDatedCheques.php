@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\PostDatedCheques\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
+use App\Models\PostDatedCheque;
 use App\Models\Tenant;
 use App\Services\PostDatedChequeService;
 use App\Support\Filament\EntitySelect;
@@ -54,10 +55,17 @@ class ListPostDatedCheques extends ListRecords
                         ->required()
                         ->native(false),
                     TextInput::make('bank_name')
-                        ->label(__('admin.post_dated_cheques.fields.bank_name')),
+                        ->label(__('admin.post_dated_cheques.fields.bank_name'))
+                        // The column's own width, as the single-cheque form states it: lodging a
+                        // series and lodging one cheque write the same column.
+                        ->maxLength(200),
                     TextInput::make('first_cheque_number')
                         ->label(__('admin.post_dated_cheques.fields.first_cheque_number'))
                         ->helperText(__('admin.post_dated_cheques.fields.first_cheque_number_hint'))
+                        // The column's width, as the single-cheque form states it. The service
+                        // checks the harder half — that every number the SERIES mints still fits
+                        // once the generator has incremented it.
+                        ->maxLength(PostDatedCheque::MAX_NUMBER_LENGTH)
                         ->required(),
                     TextInput::make('amount')
                         ->label(__('admin.post_dated_cheques.fields.amount_each'))

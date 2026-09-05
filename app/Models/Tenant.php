@@ -131,6 +131,31 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return ActivityLogging::for($this, 'tenant');
     }
 
+    /**
+     * How long each operator-typed field may be — ONE statement, read by every door onto a tenant:
+     * the tenant form, the lease form's inline "+ create tenant", the quick-lease wizard and the
+     * importer.
+     *
+     * **It exists because the doors disagreed, and the strictest one was a lockout.** The form
+     * capped `name` at 100, `email` at 150 and `phone` at 20 while `TenantImporter` accepted 200,
+     * 255 and 50 — all inside the columns, which hold 255. So a tenant imported from a migrating
+     * operator's own file with an ordinary `+20 (2) 2735-1234 ext 402` could never be saved from
+     * its own Edit page again: the form refused a field nobody had touched, with a length message
+     * about data the system itself had accepted. Measured 2026-09-05 through the real page.
+     *
+     * The wider number wins wherever they differed. Narrowing the importer instead would refuse a
+     * migrating operator's real data, which is the one thing an importer must not do.
+     *
+     * @var array<string, int>
+     */
+    public const FIELD_MAX = [
+        'name' => 200,
+        'legal_name' => 200,
+        'email' => 255,
+        'phone' => 50,
+        'contact_person' => 200,
+    ];
+
     protected $fillable = [
         // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
         // through `fillCustomFields()`, which discards keys the catalogue does not define. The

@@ -260,6 +260,14 @@ class PostDatedCheque extends Model
     }
 
     /** Awaiting maturity/clearing — the states that still owe cash into the register. */
+    /**
+     * `cheque_number` is varchar(100) NOT NULL, and both doors that write it — the single-cheque
+     * form and the lodge-a-series modal — state that width from here rather than each typing 100.
+     * The SERIES also has to fit after the generator has incremented it: see
+     * `PostDatedChequeService::assertSeriesNumbersFit()`.
+     */
+    public const MAX_NUMBER_LENGTH = 100;
+
     public const AWAITING_STATUSES = [self::STATUS_HELD, self::STATUS_DEPOSITED];
 
     /**

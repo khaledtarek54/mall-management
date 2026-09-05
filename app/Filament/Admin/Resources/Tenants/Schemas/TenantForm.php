@@ -46,10 +46,10 @@ class TenantForm
                         TextInput::make('name')
                             ->label(__('admin.fields.brand_name'))
                             ->required()
-                            ->maxLength(100),
+                            ->maxLength(Tenant::FIELD_MAX['name']),
                         TextInput::make('legal_name')
                             ->label(__('admin.fields.legal_name'))
-                            ->maxLength(150),
+                            ->maxLength(Tenant::FIELD_MAX['legal_name']),
                         Select::make('type')
                             ->label(__('admin.fields.type'))
                             ->options([
@@ -95,11 +95,11 @@ class TenantForm
                         TextInput::make('email')
                             ->label(__('admin.fields.email'))
                             ->email()
-                            ->maxLength(150),
+                            ->maxLength(Tenant::FIELD_MAX['email']),
                         TextInput::make('phone')
                             ->label(__('admin.fields.phone'))
                             ->tel()
-                            ->maxLength(20),
+                            ->maxLength(Tenant::FIELD_MAX['phone']),
                         TextInput::make('whatsapp')
                             ->label(__('admin.fields.whatsapp'))
                             ->tel()
@@ -117,7 +117,7 @@ class TenantForm
                             ->native(false),
                         TextInput::make('contact_person')
                             ->label(__('admin.fields.contact_person'))
-                            ->maxLength(100),
+                            ->maxLength(Tenant::FIELD_MAX['contact_person']),
                         TextInput::make('contact_person_phone')
                             ->label(__('admin.fields.contact_person_phone'))
                             ->tel()

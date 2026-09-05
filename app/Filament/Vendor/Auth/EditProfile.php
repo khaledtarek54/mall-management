@@ -45,13 +45,26 @@ use Illuminate\Validation\Rules\Unique;
  */
 class EditProfile extends BaseEditProfile
 {
+    /**
+     * Filament's own profile page caps the name at 255 (`Filament\Auth\Pages\EditProfile`), and
+     * `vendor_contacts.name` is varchar(200) — exactly like the email column beside it. Inherited
+     * rather than declared here, so no scan of `app/` could see it: a contractor with a long
+     * company-contact name got a QueryException on the form they use to change their password.
+     */
+    protected function getNameFormComponent(): Component
+    {
+        return parent::getNameFormComponent()->maxLength(200);
+    }
+
     protected function getEmailFormComponent(): Component
     {
         return TextInput::make('email')
             ->label(__('filament-panels::auth/pages/edit-profile.form.email.label'))
             ->email()
             ->required()
-            ->maxLength(255)
+            // `vendor_contacts.email` is varchar(200); Filament's own default is 255, which
+            // validates a value the database then refuses.
+            ->maxLength(200)
             // Narrowed to the rows that can sign in — read FROM the model, so this form and
             // `VendorContact::saving` cannot answer differently about one address.
             ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule): Unique => $rule->where(

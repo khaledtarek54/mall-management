@@ -65,6 +65,8 @@ class InvoiceActions
                         ->label(__('admin.actions.dispute_line_reason'))
                         ->placeholder(__('admin.actions.dispute_line_reason_placeholder'))
                         ->rows(2)
+                        // `invoice_items.disputed_reason` is varchar(255).
+                        ->maxLength(255)
                         ->required(),
                 ])
                 ->action(function (Invoice $record, array $data) {

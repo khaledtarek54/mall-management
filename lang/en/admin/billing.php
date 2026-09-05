@@ -268,6 +268,9 @@ return [
         'errors' => [
             'series_count' => 'A series must be between 1 and 60 cheques.',
             'series_amount' => 'The amount per cheque must be greater than zero.',
+            'series_number_too_long' => 'A cheque number can be at most :max characters.',
+            'series_number_not_countable' => 'That cheque number is too long a run of digits to count up from. Use the number printed on the cheque book.',
+            'series_number_grows_too_long' => 'This series would reach :last, which is longer than the :max characters a cheque number can hold. Shorten the first number or lodge fewer cheques.',
             'duplicate_cheque_number' => 'Cheque :number is already in the register for this tenant and bank (:reference). Cancel that entry first if this is a correction.',
         ],
     ],

@@ -412,11 +412,11 @@ class LeasesTable
                                     TextInput::make('tenant.name')
                                         ->label(__('admin.fields.brand_name'))
                                         ->required()
-                                        ->maxLength(100)
+                                        ->maxLength(Tenant::FIELD_MAX['name'])
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'new'),
                                     TextInput::make('tenant.legal_name')
                                         ->label(__('admin.fields.legal_name'))
-                                        ->maxLength(150)
+                                        ->maxLength(Tenant::FIELD_MAX['legal_name'])
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'new'),
                                     Select::make('tenant.type')
                                         ->label(__('admin.fields.type'))
@@ -431,13 +431,16 @@ class LeasesTable
                                     TextInput::make('tenant.email')
                                         ->label(__('admin.fields.email'))
                                         ->email()
+                                        ->maxLength(Tenant::FIELD_MAX['email'])
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'new'),
                                     TextInput::make('tenant.phone')
                                         ->label(__('admin.fields.phone'))
                                         ->tel()
+                                        ->maxLength(Tenant::FIELD_MAX['phone'])
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'new'),
                                     TextInput::make('tenant.contact_person')
                                         ->label(__('admin.fields.contact_person'))
+                                        ->maxLength(Tenant::FIELD_MAX['contact_person'])
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'new'),
                                 ]),
                             Step::make(__('admin.resources.lease.singular'))

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\PostDatedCheques\Schemas;
 
 use App\Models\Invoice;
+use App\Models\PostDatedCheque;
 use App\Models\Tenant;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
@@ -78,7 +79,7 @@ class PostDatedChequeForm
                     TextInput::make('cheque_number')
                         ->label(__('admin.post_dated_cheques.fields.cheque_number'))
                         ->required()
-                        ->maxLength(100),
+                        ->maxLength(PostDatedCheque::MAX_NUMBER_LENGTH),
                     TextInput::make('bank_name')
                         ->label(__('admin.post_dated_cheques.fields.bank_name'))
                         ->maxLength(200),

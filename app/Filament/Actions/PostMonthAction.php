@@ -76,6 +76,8 @@ class PostMonthAction
                 Textarea::make('reason')
                     ->label(__('admin.actions.post_to_month_reason'))
                     ->placeholder(__('admin.actions.post_to_month_reason_placeholder'))
+                    // `posting_month_overrides.reason` is varchar(255).
+                    ->maxLength(255)
                     ->rows(2)
                     ->required(),
             ])

@@ -29,11 +29,11 @@ class TenantImporter extends Importer
             ImportColumn::make('name')
                 ->label(__('admin.tables.tenant.name'))
                 ->requiredMapping()
-                ->rules(['required', 'max:200']),
+                ->rules(['required', 'max:'.Tenant::FIELD_MAX['name']]),
 
             ImportColumn::make('legal_name')
                 ->label(__('admin.fields.legal_name'))
-                ->rules(['nullable', 'max:200']),
+                ->rules(['nullable', 'max:'.Tenant::FIELD_MAX['legal_name']]),
 
             ImportColumn::make('type')
                 ->label(__('admin.fields.type'))
@@ -51,11 +51,11 @@ class TenantImporter extends Importer
 
             ImportColumn::make('email')
                 ->label(__('admin.tables.tenant.email'))
-                ->rules(['nullable', 'email', 'max:255']),
+                ->rules(['nullable', 'email', 'max:'.Tenant::FIELD_MAX['email']]),
 
             ImportColumn::make('phone')
                 ->label(__('admin.tables.tenant.phone'))
-                ->rules(['nullable', 'max:50']),
+                ->rules(['nullable', 'max:'.Tenant::FIELD_MAX['phone']]),
 
             // Which language this tenant's documents are issued in. An operator migrating from
             // another system knows this per retailer and would otherwise have to set it by hand on
@@ -68,7 +68,7 @@ class TenantImporter extends Importer
 
             ImportColumn::make('contact_person')
                 ->label(__('admin.fields.contact_person'))
-                ->rules(['nullable', 'max:200']),
+                ->rules(['nullable', 'max:'.Tenant::FIELD_MAX['contact_person']]),
 
             ImportColumn::make('address')
                 ->label(__('admin.fields.address'))
