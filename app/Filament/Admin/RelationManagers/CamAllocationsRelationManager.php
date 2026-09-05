@@ -194,9 +194,17 @@ class CamAllocationsRelationManager extends RelationManager
                 TextColumn::make('pro_rata_share_pct')
                     ->label(__('admin.tables.cam.share'))
                     ->formatStateUsing(fn ($state) => number_format((float) $state, 2).'%'),
+                // **THE FOUR MONEY COLUMNS TOTAL (UX5-01).** Only `cap_absorbed_amount` did, so an
+                // operator could read all thirty-nine participants' workings and not what the batch
+                // came to — which is the one question asked before billing it. Filament sums the
+                // whole filtered query rather than the page, so the figure answers for the pool.
+                //
+                // Σ allocated is the recovery identity's left side: it plus the landlord's share
+                // (shown on the pool itself, split into vacancy and caps) is the actual expense.
                 TextColumn::make('allocated_amount')
                     ->label(__('admin.tables.cam.allocated'))
-                    ->money('EGP', divideBy: 1),
+                    ->money('EGP', divideBy: 1)
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 // ── THE ROW MUST NOT CONTRADICT ITSELF ──────────────────────────────────────
                 //
                 // These were added "so the true-up reconciles when a cap bites" and then hidden by
@@ -234,15 +242,18 @@ class CamAllocationsRelationManager extends RelationManager
                 TextColumn::make('estimated_paid')
                     ->label(__('admin.tables.cam.estimated_paid'))
                     ->money('EGP', divideBy: 1)
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP'))
                     ->toggleable(),
                 TextColumn::make('true_up_amount')
                     ->label(__('admin.tables.cam.true_up'))
                     ->money('EGP', divideBy: 1)
                     ->weight('semibold')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP'))
                     ->color(fn ($state) => $state > 0 ? 'warning' : ($state < 0 ? 'success' : 'gray')),
                 TextColumn::make('admin_fee_amount')
                     ->label(__('admin.tables.cam.admin_fee'))
                     ->money('EGP', divideBy: 1)
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP'))
                     ->toggleable()
                     ->placeholder('—'),
                 TextColumn::make('status')
