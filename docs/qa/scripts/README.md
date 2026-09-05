@@ -27,6 +27,25 @@ docs/qa/scripts/race.sh lease "44,1"                     # two-process concurren
 `boot.php` **refuses to run unless the connection is `mall_management_qa`**, so a mistyped
 `DB_DATABASE` cannot touch your working database.
 
+## The staging soak — `soak-check.sh` + `soak-deltas.php`
+
+Different again: these run **on the staging box**, against its live database, read-only, every
+morning (cron, app user, 08:05 Cairo) for the month-long soak recorded in
+[STAGING-SOAK-2026-09.md](../STAGING-SOAK-2026-09.md).
+
+```bash
+docs/qa/scripts/soak-check.sh            # writes storage/logs/soak-YYYY-MM-DD.md, prints it
+docs/qa/scripts/soak-check.sh --post     # …and posts the verdict to DISCORD_WEBHOOK_URL
+```
+
+It chains `atriom:health`, `atriom:config-health`, `billing:reconcile --deep`, the two data audits,
+then `soak-deltas.php` — plain PHP executed INSIDE the app through `tinker --execute`, so "what moved
+since yesterday" is read through the real models and settlement rules rather than re-derived in SQL —
+then the ops log and the application log since the previous run. Exit 0 is green; exit 1 means a
+person reads the file. The three health rows that are red on a demo-posture box by design
+(`backup_capability`, `two_factor`, `demo_accounts`) are ignored; set `SOAK_EXPECTED_HEALTH_FAILS`
+to change that list.
+
 ## Gate mutation audit — does a green gate mean anything?
 
 ```bash
