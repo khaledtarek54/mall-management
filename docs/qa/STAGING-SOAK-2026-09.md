@@ -52,7 +52,7 @@ D0 = **Sat 5 Sep 2026**. Times are Africa/Cairo, from `php artisan schedule:list
 | every night 01:30 | `marketing:ensure-budgets` | a marketing budget row for NG appears on the first night |
 | 6 Sep 02:45 | `vendors:scan-contract-renewals` | Guardian Security: notice deadline passed → alert |
 | 6 Sep 02:45 | `vendors:scan-document-expiry` · `tenants:scan-document-expiry` | Delta COI (25 Sep), Carrefour COI (22 Sep), Al Tazaj COI (lapsed) → alerts |
-| 6 Sep 04:00 | `atriom-late-fees` | Al Tazaj's July invoice (due 8 Aug, grace 7) → 2% late fee invoice; Layla's July assessment likewise |
+| 6 Sep 04:00 | `atriom-late-fees` | Al Tazaj's August invoice (due 8 Aug, grace 7) → 2% late fee invoice; Layla's August assessment likewise; **and Nano's unpaid DEPOSIT bill** (due 23 Aug) — a late fee on a security deposit is a question for the accountant, so note what it does |
 | 6 Sep 06:00 / 06:15 | `billing:scan-overdue-invoices` · `remind-overdue-tenants` | owner alert + tenant reminders for the overdue set |
 | 7 Sep 02:30 | `facility:generate-preventive` | weekly cleaning inspection → work order |
 | 7 Sep 05:30 | `expenses:generate-recurring` | Nile Clean retainer → **draft vendor bill** (supplier's number blank, awaiting approval) |
@@ -124,6 +124,11 @@ and noted here with the hash.
 **Read the health rows with the staging triage in mind**: `backup_capability`, `two_factor` and
 `demo_accounts` are red on this box BY DESIGN (STAGING.md §5); the script ignores exactly those three.
 Anything else red is real.
+
+**Known configuration gap going in:** the box has no seller tax registration (`seller_tax_identity`,
+BLOCKING in `atriom:config-health`), because Val Plaza's seeder deliberately does not invent one.
+The script treats exactly that row as expected (`SOAK_EXPECTED_CONFIG_GAPS`); setting the TRN under
+Settings → Tax closes it and is on the operator.
 
 **Known environment gap going in:** the MailerSend token on the box lacks the SEND scope, so every
 e-mail notification fails with `403 Forbidden` (a WARNING in the ops log, not a failed job — the
