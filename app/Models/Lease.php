@@ -166,20 +166,47 @@ class Lease extends Model implements BillableAgreement, HasMedia
             }
         });
 
-        // ── Flipping the clause to cover the service charge projects ITS ladder ────────────────
-        // The rent side never needed this hook: every creation door projects, and a pre-projection
-        // lease is the backfill command's job. The toggle is different — it is flipped on EXISTING
-        // leases whose rent ladder is already projected, which `atriom:project-lease-schedules`
-        // deliberately skips (it treats any ORIGIN_ESCALATION row as "already projected"), so
-        // without this the forecast would show a stepping rent beside a flat service charge for
-        // the rest of the term, with no remedy path at all. On the MODEL for the standing reason:
-        // the API and services write leases without rendering a field. `updated`, not `saved` —
-        // on CREATE the charge rows are not seeded yet, and every creation door projects itself
-        // after seeding them. Idempotent: projection no-ops on amounts already in force, so a
-        // re-save that happens to include the flag rewrites nothing.
+        // ── The clause's projected future FOLLOWS the clause ───────────────────────────────────
+        // Two directions, one hook, on the MODEL for the standing reason: the API and services
+        // write leases without rendering a field. `updated`, not `saved` — on CREATE the charge
+        // rows are not seeded yet, and every creation door projects itself after seeding them.
+        //
+        // ON: flipping the service-charge toggle projects ITS ladder. The rent side never needed
+        // this — every creation door projects, and a pre-projection lease is the backfill
+        // command's job — but the toggle is flipped on EXISTING leases whose rent ladder is
+        // already projected, which `atriom:project-lease-schedules` deliberately skips (any
+        // ORIGIN_ESCALATION row reads as "already projected"), so without this the forecast would
+        // show a stepping rent beside a flat service charge with no remedy path at all.
+        // Idempotent: projection no-ops on amounts already in force.
+        //
+        // OFF: clearing the clause PRUNES its not-yet-started rungs. The `saving` hook above
+        // clears the clause's columns, and the sweep — the only thing that corrects a wrong rung,
+        // one anniversary at a time — never runs for a cleared clause (`none` is outside its
+        // whereIn; a cleared toggle fails the predicate), so the projected future would keep
+        // billing increases for a clause the operator removed, forever, with nothing left to
+        // catch it. The levy's lock-step rungs are matched to the rent rungs actually pruned, so
+        // a levy row that belongs to an operator's own future-dated rent change survives with it.
         static::updated(function (self $lease) {
-            if ($lease->wasChanged('escalation_applies_to_service_charge') && $lease->escalatesServiceCharge()) {
-                app(ChargeScheduleService::class)->projectTermEscalations($lease);
+            $schedule = app(ChargeScheduleService::class);
+            $today = CarbonImmutable::now()->startOfDay();
+
+            if ($lease->wasChanged('escalation_type') && (string) $lease->escalation_type === 'none') {
+                $rentPruned = $schedule->pruneProjectedLadder($lease, 'base_rent', $today);
+                $schedule->pruneProjectedLadder($lease, 'service_charge', $today);
+
+                if ($rentPruned !== []) {
+                    $schedule->pruneProjectedLadder($lease, 'marketing', $today, Charge::ORIGIN_LEVY, $rentPruned);
+                }
+
+                return;
+            }
+
+            if ($lease->wasChanged('escalation_applies_to_service_charge')) {
+                if ($lease->escalatesServiceCharge()) {
+                    $schedule->projectTermEscalations($lease);
+                } elseif (! $lease->escalation_applies_to_service_charge) {
+                    $schedule->pruneProjectedLadder($lease, 'service_charge', $today);
+                }
             }
         });
 

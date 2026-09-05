@@ -2,11 +2,13 @@
 
 namespace App\Filament\Admin\Resources\Leases\Schemas;
 
+use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\RentIndex;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\UnitOwnership;
+use App\Services\ChargeScheduleService;
 use App\Services\MarketingLevyService;
 use App\Settings\BillingSettings;
 use App\Support\Filament\CustomFieldsSchema;
@@ -19,6 +21,7 @@ use App\Support\SalesExclusions;
 use App\Support\Search\RecordOption;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
+use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
@@ -704,7 +707,22 @@ class LeaseForm
                         Toggle::make('escalation_applies_to_service_charge')
                             ->label(__('admin.fields.escalation_applies_to_service_charge'))
                             ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
-                            ->helperText(__('admin.helpers.escalation_applies_to_service_charge')),
+                            // The helper turns into a warning when the lease's current service
+                            // charge is a CAM re-estimate: the sweep and the projection both
+                            // refuse to step an estimate (the true-up re-prices it), so a ticked
+                            // toggle would otherwise read as configured while doing nothing.
+                            ->helperText(function (?Lease $record): string {
+                                if ($record?->exists) {
+                                    $row = app(ChargeScheduleService::class)
+                                        ->rowCovering($record, 'service_charge', CarbonImmutable::now()->startOfDay());
+
+                                    if ($row?->origin === Charge::ORIGIN_CAM_ESTIMATE) {
+                                        return __('admin.helpers.escalation_applies_to_service_charge_cam');
+                                    }
+                                }
+
+                                return __('admin.helpers.escalation_applies_to_service_charge');
+                            }),
                         TextInput::make('payment_terms_days')
                             ->label(__('admin.fields.payment_terms_days'))
                             ->numeric()

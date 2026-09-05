@@ -222,6 +222,12 @@ class ChargeScheduleService
             ? $this->rowCovering($lease, 'service_charge', self::billingBoundary($firstStep)->subDay())
             : null;
 
+        // A CAM re-estimate is never a ladder's base: the annual true-up re-prices it, and a
+        // ladder compounded from an estimate would double-adjust what the reconciliation corrects.
+        if ($serviceBase?->origin === Charge::ORIGIN_CAM_ESTIMATE) {
+            $serviceBase = null;
+        }
+
         $service = $serviceBase !== null ? (float) $serviceBase->amount : 0.0;
         $projectService = $byPercent && $service > 0;
 
@@ -293,7 +299,13 @@ class ChargeScheduleService
             if ($projectService) {
                 $service = round($service * (1 + $rate / 100), 2);
 
-                if ($this->rowCovering($lease, 'service_charge', $effective) !== null
+                // An estimate-governed step is skipped too: from the day a CAM re-estimate takes
+                // over, the contractual ladder no longer owns the schedule and writing onto the
+                // estimate's rung would overwrite the reconciliation's own answer.
+                $covering = $this->rowCovering($lease, 'service_charge', $effective);
+
+                if ($covering !== null
+                    && $covering->origin !== Charge::ORIGIN_CAM_ESTIMATE
                     && $this->setAmount($lease, 'service_charge', $service, $effective, [
                         'name' => 'Service Charge',
                     ], Charge::ORIGIN_ESCALATION)) {
@@ -657,6 +669,111 @@ class ChargeScheduleService
             Charge::query()->where(...self::keyFor($lease))->where('type', $type)->get(),
             $on,
         );
+    }
+
+    /**
+     * Deactivate a ladder's NOT-YET-STARTED projected rungs and re-open the rung they were
+     * chained onto — the schedule-side half of clearing an escalation clause.
+     *
+     * `Lease::saving` clears the clause's COLUMNS when it is switched off, and until now nothing
+     * cleared its projected future: the rungs written at signing kept billing increases for a
+     * clause the operator had removed, and the sweep — which amends a wrong rung in place each
+     * anniversary — never runs for a cleared clause, so nothing would ever correct them. "A field
+     * the operator cannot see must not hold a value that can take effect", applied to the
+     * schedule.
+     *
+     * Three rules, each load-bearing:
+     *
+     *  - **Origin-filtered.** Only rungs the projection (or the levy's lock-step) wrote are
+     *    removed. A future rung an operator amended through Change Rent carries `manual` and is a
+     *    STATED term — it survives, and the chain re-links around it.
+     *  - **Started rungs stay.** A rung already billing is the current amount and the history it
+     *    made; only `start_date > $from` goes.
+     *  - **The chain is RE-LINKED.** The projection closed each rung the day before the next, so
+     *    every surviving row whose end abuts a pruned rung would otherwise stop billing entirely
+     *    at that boundary — worse than the escalated amount. Each extends to the next surviving
+     *    row's eve (a stated future step keeps its place) or to the pruned chain's outer bound;
+     *    an end that abuts no pruned rung is an operator's own bound and is not moved.
+     *
+     * @param  list<string>|null  $onlyStartDates  restrict to rungs starting on these dates — the
+     *                                             levy's lock-step rungs are matched to the rent
+     *                                             rungs actually pruned, so a levy row belonging
+     *                                             to an operator's own future-dated rent change
+     *                                             is left alone
+     * @return list<string> the start dates of the rungs removed
+     */
+    public function pruneProjectedLadder(
+        BillableAgreement $lease,
+        string $type,
+        CarbonImmutable $from,
+        string $origin = Charge::ORIGIN_ESCALATION,
+        ?array $onlyStartDates = null,
+    ): array {
+        $future = Charge::query()
+            ->where(...self::keyFor($lease))
+            ->where('type', $type)
+            ->where('origin', $origin)
+            ->where('is_active', true)
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '>', $from->toDateString())
+            ->orderBy('start_date')
+            ->get()
+            // In PHP, not `whereIn`: the `date` cast serialises with the model's full datetime
+            // format, so on SQLite the column holds 'Y-m-d H:i:s' text and a bare date string
+            // never matches — green here, different on MySQL, the exact driver split this
+            // codebase documents.
+            ->filter(fn (Charge $c) => $onlyStartDates === null
+                || in_array(CarbonImmutable::instance($c->start_date)->toDateString(), $onlyStartDates, true))
+            ->values();
+
+        if ($future->isEmpty()) {
+            return [];
+        }
+
+        $outerEnd = $future->last()->end_date;
+
+        foreach ($future as $rung) {
+            $rung->update(['is_active' => false]);
+        }
+
+        // RE-LINK THE CHAIN. The projection closed each rung the day before the next, so every
+        // remaining row whose end is the EVE OF A PRUNED RUNG was chained onto something that no
+        // longer exists — left alone, its charge stops billing entirely at that boundary, which
+        // is worse than the escalated amount. Each such row extends to the next surviving row's
+        // eve (a stated future rung keeps its place in the chain) or, at the tail, to the pruned
+        // chain's own outer bound. A row whose end matches no pruned rung's eve is an operator's
+        // own bound and is not ours to move.
+        $prunedStartEves = $future
+            ->map(fn (Charge $c) => CarbonImmutable::instance($c->start_date)->subDay()->toDateString())
+            ->all();
+
+        $remaining = Charge::query()
+            ->where(...self::keyFor($lease))
+            ->where('type', $type)
+            ->where('is_active', true)
+            ->orderByRaw('start_date is null desc')
+            ->orderBy('start_date')
+            ->orderBy('id')
+            ->get()
+            ->values();
+
+        foreach ($remaining as $i => $row) {
+            if ($row->end_date === null
+                || ! in_array(CarbonImmutable::instance($row->end_date)->toDateString(), $prunedStartEves, true)) {
+                continue;
+            }
+
+            $next = $remaining[$i + 1] ?? null;
+
+            $row->update(['end_date' => $next?->start_date
+                ? CarbonImmutable::instance($next->start_date)->subDay()->toDateString()
+                : ($outerEnd ? CarbonImmutable::instance($outerEnd)->toDateString() : null)]);
+        }
+
+        return $future
+            ->map(fn (Charge $c) => CarbonImmutable::instance($c->start_date)->toDateString())
+            ->values()
+            ->all();
     }
 
     /**

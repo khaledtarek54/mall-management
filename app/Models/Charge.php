@@ -46,6 +46,13 @@ class Charge extends Model
 
     public const ORIGIN_LEVY = 'levy';            // derived from base rent (marketing levy)
 
+    // A CAM re-estimate applied from the reconciliation (ApplyCamEstimateService). Its own value
+    // rather than `manual` because the escalation clause must be able to tell an ESTIMATE from a
+    // contractual figure: the annual true-up re-prices an estimate, so the escalation sweep and
+    // the ladder projection both refuse to step a rung carrying this origin — escalating what the
+    // reconciliation corrects would double-adjust it.
+    public const ORIGIN_CAM_ESTIMATE = 'cam_estimate';
+
     /**
      * Ahead of the period it covers, or behind it — EG-30 (M-2).
      *

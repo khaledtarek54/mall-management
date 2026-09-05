@@ -335,6 +335,132 @@ it('projects the ladder when the toggle is flipped on mid-term', function () {
         ->and($lease->charges()->where('type', 'base_rent')->count())->toBe(3);
 });
 
+it('never escalates a CAM re-estimate — the true-up re-prices it', function () {
+    // `ApplyCamEstimateService` stamps its rungs `cam_estimate` so the clause can tell an
+    // ESTIMATE from a contractual figure. Escalating an estimate double-adjusts it: the annual
+    // reconciliation already replaces it with the year's actual costs.
+    CarbonImmutable::setTestNow('2026-01-02');
+    $lease = serviceEscalationLease();
+
+    $lease->charges()->where('type', 'service_charge')
+        ->update(['origin' => Charge::ORIGIN_CAM_ESTIMATE]);
+
+    app(RentEscalationService::class)->runForToday();
+
+    $lease->refresh();
+    expect((float) $lease->base_rent_monthly)->toBe(107000.0)
+        ->and((float) $lease->service_charge_monthly)->toBe(20000.0)
+        ->and($lease->charges()->where('type', 'service_charge')->count())->toBe(1)
+        ->and(LeaseEvent::query()->where('lease_id', $lease->id)->latest('id')->first()
+            ->payload[LeaseEventNarrative::KEY])->toBe('rent_escalated');
+});
+
+it('never overwrites a CAM re-estimate that takes over ON the anniversary', function () {
+    // The estimate is commonly applied effective 1 January — often the anniversary itself. The
+    // outgoing rung is contractual, so a base exists; but the INCOMING rung is the estimate, and
+    // `setAmount` would amend it in place with the escalated figure, silently replacing the
+    // reconciliation's own answer.
+    CarbonImmutable::setTestNow('2026-01-02');
+    $lease = serviceEscalationLease();
+
+    $lease->charges()->where('type', 'service_charge')->update(['end_date' => '2025-12-31']);
+
+    Charge::create([
+        'lease_id' => $lease->id,
+        'name' => 'Service Charge',
+        'type' => 'service_charge',
+        'origin' => Charge::ORIGIN_CAM_ESTIMATE,
+        'amount' => 25000,
+        'currency' => 'EGP',
+        'frequency' => 'monthly',
+        'start_date' => '2026-01-01',
+        'is_active' => true,
+    ]);
+
+    app(RentEscalationService::class)->runForToday();
+
+    $estimate = $lease->charges()->where('type', 'service_charge')
+        ->orderByDesc('start_date')->first();
+
+    expect((float) $estimate->amount)->toBe(25000.0)
+        ->and($estimate->origin)->toBe(Charge::ORIGIN_CAM_ESTIMATE)
+        ->and(LeaseEvent::query()->where('lease_id', $lease->id)->latest('id')->first()
+            ->payload[LeaseEventNarrative::KEY])->toBe('rent_escalated');
+});
+
+it('never uses a CAM re-estimate as the BASE of a step onto a stated successor', function () {
+    // The other side of the estimate guard: the estimate governs the year ENDING at the
+    // anniversary and an operator has already stated next year's figure. There is no contractual
+    // pre-step amount to derive from — estimate × 1.07 is not one — and `setAmount` would amend
+    // the stated rung in place with it.
+    CarbonImmutable::setTestNow('2026-01-02');
+    $lease = serviceEscalationLease();
+
+    $lease->charges()->where('type', 'service_charge')
+        ->update(['origin' => Charge::ORIGIN_CAM_ESTIMATE, 'end_date' => '2025-12-31']);
+
+    Charge::create([
+        'lease_id' => $lease->id,
+        'name' => 'Service Charge',
+        'type' => 'service_charge',
+        'origin' => Charge::ORIGIN_MANUAL,
+        'amount' => 24000,
+        'currency' => 'EGP',
+        'frequency' => 'monthly',
+        'start_date' => '2026-01-01',
+        'is_active' => true,
+    ]);
+
+    app(RentEscalationService::class)->runForToday();
+
+    $stated = $lease->charges()->where('type', 'service_charge')
+        ->orderByDesc('start_date')->first();
+
+    expect((float) $stated->amount)->toBe(24000.0)
+        ->and(LeaseEvent::query()->where('lease_id', $lease->id)->latest('id')->first()
+            ->payload[LeaseEventNarrative::KEY])->toBe('rent_escalated');
+});
+
+it('projects no service ladder off a CAM re-estimate base', function () {
+    $lease = serviceEscalationLease(['expiry_date' => '2027-12-31']);
+
+    $lease->charges()->where('type', 'service_charge')
+        ->update(['origin' => Charge::ORIGIN_CAM_ESTIMATE]);
+
+    app(ChargeScheduleService::class)->projectTermEscalations($lease);
+
+    expect($lease->charges()->where('type', 'service_charge')->count())->toBe(1)
+        ->and($lease->charges()->where('type', 'base_rent')->count())->toBe(3);
+});
+
+it('projects no ladder from an estimate base onto a stated successor', function () {
+    // The projection twin of the sweep's outgoing-estimate guard: the estimate governs the year
+    // ENDING at the first step and the operator has stated the figure after it. A ladder
+    // compounded from the estimate would amend the stated rung in place — estimate × 1.07 is
+    // nobody's contract.
+    $lease = serviceEscalationLease(['expiry_date' => '2027-12-31']);
+
+    $lease->charges()->where('type', 'service_charge')
+        ->update(['origin' => Charge::ORIGIN_CAM_ESTIMATE, 'end_date' => '2025-12-31']);
+
+    Charge::create([
+        'lease_id' => $lease->id,
+        'name' => 'Service Charge',
+        'type' => 'service_charge',
+        'origin' => Charge::ORIGIN_MANUAL,
+        'amount' => 24000,
+        'currency' => 'EGP',
+        'frequency' => 'monthly',
+        'start_date' => '2026-01-01',
+        'is_active' => true,
+    ]);
+
+    app(ChargeScheduleService::class)->projectTermEscalations($lease);
+
+    expect((float) $lease->charges()->where('type', 'service_charge')
+        ->orderByDesc('start_date')->first()->amount)->toBe(24000.0);
+});
+
 it('drops the flag with the rest of the clause when a lease is switched to none', function () {
     // A field the operator cannot see must not hold a value that can take effect — the same
     // clearing the rate, amount and collar already get.

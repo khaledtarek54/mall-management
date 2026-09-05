@@ -91,7 +91,9 @@ class ApplyCamEstimateService
                 // A lease that never had a service charge does not acquire one from a recovery
                 // proposal — the pre-schedule rule, preserved.
                 'skip_if_zero' => true,
-            ], Charge::ORIGIN_MANUAL);
+                // Its own origin (2026-09-05), so the escalation clause can tell an estimate from
+                // a contractual figure and refuse to step it — the true-up re-prices estimates.
+            ], Charge::ORIGIN_CAM_ESTIMATE);
 
             // Keep the lease column in step with the schedule, as every other writer does.
             $lease->update(['service_charge_monthly' => (float) $proposed]);

@@ -466,6 +466,14 @@ and applying are separate acts: an operator who disagrees never applies, and the
 the record as what the arithmetic suggested. Leases that have ended are skipped rather than having
 their billing resurrected.
 
+**The rung carries its own origin — `Charge::ORIGIN_CAM_ESTIMATE` (2026-09-05).** It was stamped
+`manual`, indistinguishable from a figure the operator typed, and the difference became load-bearing
+the day an escalation clause could cover the service charge (module 04): an estimate is re-priced by
+NEXT year's reconciliation, so the escalation sweep and the ladder projection both refuse to step a
+rung carrying this origin — escalating what the true-up corrects would double-adjust it. Rows
+applied before the change keep `manual` and are not distinguished retroactively; the lease form
+warns when the toggle is ticked over a current estimate.
+
 Before this, nothing ever moved the monthly estimate — so the reconciliation discovered the same
 shortfall every single year.
 

@@ -317,10 +317,19 @@ class RentEscalationService
                     );
 
                     $outgoing = $this->schedule->rowCovering($lease, 'service_charge', $anniversary->subDay());
+                    $incoming = $this->schedule->rowCovering($lease, 'service_charge', $anniversary);
 
+                    // A CAM RE-ESTIMATE IS NEVER STEPPED — the annual true-up re-prices it, so
+                    // escalating it double-adjusts. Both rungs are asked: an estimate as the
+                    // OUTGOING rung must not be the base of a step, and an estimate taking over
+                    // ON the anniversary owns that date — `setAmount` would amend it in place
+                    // with the escalated figure, silently overwriting the reconciliation's own
+                    // answer.
                     if ($outgoing !== null
                         && (float) $outgoing->amount > 0
-                        && $this->schedule->rowCovering($lease, 'service_charge', $anniversary) !== null) {
+                        && $outgoing->origin !== Charge::ORIGIN_CAM_ESTIMATE
+                        && $incoming !== null
+                        && $incoming->origin !== Charge::ORIGIN_CAM_ESTIMATE) {
                         $currentService = (float) $outgoing->amount;
                         $newService = round($currentService * (1 + $rate / 100), 2);
 

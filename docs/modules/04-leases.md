@@ -1070,15 +1070,36 @@
 > bounded service charge stops its ladder where it stops billing; the column heals to the stepped
 > figure as a side effect of `apply()`. **Flipping the toggle on mid-term projects the ladder**
 > (`Lease::updated` — the backfill command skips any lease already carrying `ORIGIN_ESCALATION`
-> rows, so without the hook a flagged existing lease had no remedy path); flipping it **off**
-> leaves already-projected future rungs standing, the same shape as switching `escalation_type` to
-> `none` with a projected rent ladder — correct them through the schedule tab. A service-only
+> rows, so without the hook a flagged existing lease had no remedy path). A service-only
 > lease (rent 0) projects its service ladder without minting zero rent or levy rows. Standing
 > caveat, now stated instead of implied: the projection writes the **raw** rate while the sweep
 > **collars** it, so under a collar that actually binds each rung is corrected in place the night
 > its anniversary is swept and the projected tail beyond it stays at the stated rate — pre-existing
-> on the rent ladder, identical here. (`ServiceChargeEscalatesWithRentTest`, seventeen cases, six
-> mutations proved — including the resurrection, the residue rollback and the inverted range.)
+> on the rent ladder, identical here. (`ServiceChargeEscalatesWithRentTest` — every guard
+> mutation-proved, including the resurrection, the residue rollback and the inverted range.)
+>
+> **A CAM RE-ESTIMATE IS NEVER STEPPED, and it can now be told apart (2026-09-05).**
+> `ApplyCamEstimateService` stamps its rungs **`Charge::ORIGIN_CAM_ESTIMATE`** (they carried
+> `manual` before, indistinguishable from an operator's own figure), because the docblocks said
+> *"keep the toggle off where the service charge is a reconciled CAM estimate"* three times and
+> nothing enforced it. The sweep asks BOTH rungs — an estimate as the **outgoing** rung is no base
+> for a step (estimate × 1.07 is nobody's contract), and an estimate taking over **on** the
+> anniversary owns that date (`setAmount` would amend it in place, silently overwriting the
+> reconciliation's answer) — and the projection refuses an estimate base and stops at an
+> estimate-governed step. The toggle's helper turns into a warning on a lease whose current
+> service charge is an estimate, so a ticked toggle cannot read as configured while doing nothing.
+>
+> **Clearing a clause takes its projected future with it (2026-09-05).** The `saving` hook clears
+> the clause's COLUMNS; `ChargeScheduleService::pruneProjectedLadder()` now clears its SCHEDULE on
+> the two events where the sweep's rung-by-rung self-correction dies — `escalation_type` → `none`
+> (rent + service + the levy's lock-step rungs, matched to the rent rungs actually pruned) and the
+> service-charge toggle → off. Only **not-yet-started** rungs carrying the projection's own origin
+> go: a rung already billing is history, and a future rung the operator amended through Change
+> Rent carries `manual` and is a stated term — it survives, and **the chain re-links around it**
+> (every surviving row whose end abuts a pruned rung extends to the next survivor's eve or the
+> chain's outer bound, because a deactivated future without a re-opened survivor stops the charge
+> billing entirely at the next anniversary — worse than the escalated amount).
+> (`AClearedEscalationClauseTakesItsProjectedFutureWithItTest`, mutation-proved three ways.)
 >
 > **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
 > `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to

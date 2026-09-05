@@ -270,6 +270,7 @@ return [
             'escalation' => 'Contracted escalation',
             'renewal' => 'Carried on renewal',
             'levy' => 'Derived from base rent',
+            'cam_estimate' => 'CAM re-estimate',
         ],
     ],
     'fit_out_scope' => [
