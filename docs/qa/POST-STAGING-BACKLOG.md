@@ -142,6 +142,21 @@ round changed the reading.
   run since the jobs were repaired.
 - ~~**OPS-05**~~ — **CLOSED 2026-09-05**: `atriom:health` reports `0 queued, 0 failed`. Was: reseed this workstation (`migrate:fresh --seed`) once the activity-log session lands:
   716 stale queued jobs and 5 E2E rows from 2026-08-23 are what turn the local health queue row red.
+- **SW-243** — gate the field-width rule, and fix the phone-FORMAT half of it. `ad651fb4` gave
+  tenant field widths one source (`Tenant::FIELD_MAX`) after finding the register's form stricter
+  than the importer — an imported tenant was un-saveable from its own Edit page. Two pieces are
+  deliberately left: **(a)** the rule is not on `ARuleIsOnEveryDoorConformanceTest`, because the door
+  set is not cleanly derivable by that gate's technique — `->createOptionForm(` appears on five forms
+  and only one of them creates a tenant, so the obvious derivation fires on noise, and a gate that
+  fires on noise gets weakened rather than fixed. The derivation that *would* work is the
+  column-aware one the review built by hand: tokenise every `TextInput`/`Textarea` chain, terminate
+  it at the sibling comma rather than at the next component, resolve the file's model, and require
+  a `maxLength` that is present and no greater than the column. That found four fields both of my
+  own regex passes missed. **(b)** The same importer-vs-form divergence exists on phone FORMAT: the
+  importer accepts any string up to 50, the form applies Filament's `tel()` regex, so a real number
+  written `+20 (2) 2735-1234 ext 402` imports cleanly and is then refused on its own Edit page —
+  the identical lockout, one rule along. Fixing it is a decision about which phone formats an
+  Egyptian operator's data actually contains, not a width, so it wants the operator's real file.
 - **D2-13 / H3** — measure the leading-wildcard `LIKE` search on a posture-B staging box before
   optimising anything. H3's own instruction, and staging is the first place it can be measured.
 - **OPS-06** — `vendor/bin/pint --test` fails on **30 files** and has for a long time: files nobody
