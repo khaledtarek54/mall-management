@@ -52,7 +52,7 @@ beforeEach(function () {
 
     app(WriteOffInvoiceService::class)->write($this->invoice->fresh(), [
         'amount' => 10000,
-        'reason' => 'bad_debt',
+        'reason' => 'tenant_insolvent',
         'entry_date' => now()->toDateString(),
     ]);
 
@@ -154,7 +154,7 @@ it('says nothing to void for a source that never posted', function () {
     ]);
 
     app(WriteOffInvoiceService::class)->write($other->fresh(), [
-        'amount' => 5000, 'reason' => 'bad_debt', 'entry_date' => now()->toDateString(),
+        'amount' => 5000, 'reason' => 'tenant_insolvent', 'entry_date' => now()->toDateString(),
     ]);
 
     $unposted = $other->fresh()->writeOffs()->latest('id')->firstOrFail();

@@ -332,6 +332,12 @@ class ValueSets
             TaxDepreciation::COMPUTERS, TaxDepreciation::GENERAL, TaxDepreciation::NONE,
         ],
         'invoices.eta_status' => ['pending', 'submitted', 'valid', 'invalid', 'rejected', 'cancelled'],
+        // WHY a debt was accepted as uncollectible (SW-239). Unregistered, the column took anything
+        // — a test wrote `bad_debt`, which is not one of the model's REASONS, and it saved — which
+        // is the unenforced-column class EG-37 exists to close, invisible to the coverage gate
+        // because `reason` is not one of the classification SUFFIXES it sweeps. Declared off the
+        // model's own constant, the third registration form, so the two cannot drift.
+        'invoice_write_offs.reason' => [\App\Models\InvoiceWriteOff::class, 'REASONS'],
         'invoices.status' => [
             'draft', 'issued', 'partially_paid', 'paid', 'overdue', 'disputed', 'cancelled', 'credited',
             'written_off',

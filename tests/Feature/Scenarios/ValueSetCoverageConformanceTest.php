@@ -78,6 +78,13 @@ const CLASSIFICATION_SUFFIXES = [
  * than weakening the list for everyone.
  */
 const SHAPE_EXEMPT = [
+    // A closed set on a column whose SUFFIX will never be swept: `reason` in this schema is
+    // overwhelmingly the operator's OWN WORDS — `waive_reason`, `void_reason`, `disputed_reason`,
+    // `lease_events.reason` (where the model's rule is that the operator's words WIN over the key)
+    // — so adding the suffix would demand classification of prose. The two closed-set exceptions,
+    // this and `credit_notes.reason`, are registered individually in `ValueSets::SETS` (SW-239).
+    'invoice_write_offs.reason' => 'reason is a prose suffix in this schema; this closed set is registered individually',
+
     // `reason` is FREE TEXT almost everywhere in this schema — twelve columns of it: a decision's
     // explanation, a void's, a waiver's, a tax override's, a suspension's. `credit_notes.reason`
     // is the one that is a closed classification (the admin form offers it as a Select over

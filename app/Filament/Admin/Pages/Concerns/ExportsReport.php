@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Pages\Concerns;
 use App\Support\ReportCsv;
 use App\Support\ReportXlsx;
 use Filament\Actions\Action;
-use Illuminate\Support\Facades\Auth;
 
 /**
  * The two ways a report leaves the screen (RP-07).
@@ -75,6 +74,15 @@ trait ExportsReport
      */
     public static function mayExport(): bool
     {
-        return Auth::user()?->can('reports.view') ?? false;
+        // THE PAGE'S OWN GATE, not a hardcoded `reports.view` (SW-177). The Exports doctrine is
+        // that whoever may READ a list may take it away — an export returns the page's own scoped
+        // query, so it can never show a row the screen would not. Hardcoding `reports.view` here
+        // split the two on exactly the pages whose read gate is deliberately different: the Vendor
+        // Scorecard admits `operations` through `vendors.view` (its docblock says why), so that
+        // role could read every figure and was refused the CSV of the same figures — and could get
+        // the identical file anyway by SCHEDULING the report to themselves, which made the refusal
+        // pure friction protecting nothing. Behaviour-identical on every page whose read gate IS
+        // `reports.view`, which is most of them.
+        return static::canAccess();
     }
 }
