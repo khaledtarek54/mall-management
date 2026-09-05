@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\TableView;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Schema;
  *  - a PERSONAL default — an unshared view, seen only by its owner;
  *  - a TEAM default — a shared view the manager marks, so everyone lands on the arrears pack.
  *
- * A personal default WINS over a team one ({@see App\Models\TableView::defaultFor()}), so marking a
+ * A personal default WINS over a team one ({@see TableView::defaultFor()}), so marking a
  * team view never overrides a colleague who has stated their own preference.
  *
  * The alternative — a `user_id × resource → view_id` preference table — expresses one more case

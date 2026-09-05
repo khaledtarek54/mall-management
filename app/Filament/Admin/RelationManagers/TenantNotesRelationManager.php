@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Actions\TenantActions;
 use App\Support\Filament\RefreshesOnRecordChange;
+use App\Support\PermissionReach;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -44,12 +45,12 @@ class TenantNotesRelationManager extends RelationManager
      * across all 14 roles, `customer_service` is the front desk and holds exactly `tenants.view`,
      * `notes.view`, `notes.create` and no `tenants.edit`, so `ViewTenant` is the only tenant
      * screen they can open and logging the call they had just taken was refused everywhere else.
-     * A right that reads as granted and reaches no screen is the {@see \App\Support\PermissionReach}
+     * A right that reads as granted and reaches no screen is the {@see PermissionReach}
      * failure exactly.
      *
      * What the waiver bought was reachability; what it cost was a read-only page rendering
      * *Log communication*, *Edit* and *Delete* inside one of its tabs. The act now lives on
-     * the record's HEADER instead ({@see \App\Filament\Admin\Actions\TenantActions}), on the View
+     * the record's HEADER instead ({@see TenantActions}), on the View
      * page AND the Edit page, because an act belongs to the RECORD and appears by PERMISSION — not
      * by which page you opened. So the role keeps its one function, the tab keeps Filament's
      * default, and both surfaces render one shared form.

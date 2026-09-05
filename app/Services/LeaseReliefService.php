@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Support\LeaseEventNarrative;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
+use App\Support\LeaseEventNarrative;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;

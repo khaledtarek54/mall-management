@@ -117,7 +117,6 @@ class AtriomGlobalSearchProvider implements GlobalSearchProvider
             $builder->category($label, $results);
         }
 
-
         return $builder;
     }
 

@@ -2,10 +2,19 @@
 
 use App\Contracts\AssistantModel;
 use App\Filament\Admin\Pages\ActivityLog;
+use App\Filament\Admin\Pages\IncomeStatement;
+use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\TrialBalance;
+use App\Filament\Admin\Resources\Employees\EmployeeResource;
+use App\Filament\Admin\Resources\Units\UnitResource;
+use App\Models\Employee;
 use App\Services\Assistant\AnswerQuestionService;
 use App\Support\Assistant\AssistantCorpus;
+use App\Support\Assistant\PeriodCompare;
+use App\Support\Assistant\RecordCount;
+use App\Support\Assistant\RecordSummary;
 use App\Support\Assistant\ReportRunner;
+use App\Support\AssistantFields;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -161,7 +170,7 @@ it('quotes the named record\'s own figures', function () {
     $this->actingAs(makeUser('super_admin'));
 
     asTenant($asset, function () {
-        $summary = App\Support\Assistant\RecordSummary::find(['qamaria']);
+        $summary = RecordSummary::find(['qamaria']);
 
         expect($summary)->not->toBeNull()
             ->and($summary['title'])->toContain('Qamaria')
@@ -178,7 +187,7 @@ it('never quotes a field that is not on the allowlist', function () {
     $this->actingAs(makeUser('super_admin'));
 
     asTenant($asset, function () {
-        $summary = App\Support\Assistant\RecordSummary::find(['qamaria']);
+        $summary = RecordSummary::find(['qamaria']);
 
         // Handing back the row would hand back whatever the table happens to carry. The fields are
         // listed, and `notes` is not one of them.
@@ -193,12 +202,12 @@ it('never summarises a record from a register the reader cannot open', function 
 
     // The refusal: `technician` holds no tenant register.
     $this->actingAs(makeUser('technician'));
-    asTenant($asset, fn () => expect(App\Support\Assistant\RecordSummary::find(['qamaria']))->toBeNull());
+    asTenant($asset, fn () => expect(RecordSummary::find(['qamaria']))->toBeNull());
 
     // The control, in the same shape.
     auth()->forgetUser();
     $this->actingAs(makeUser('super_admin'));
-    asTenant($asset, fn () => expect(App\Support\Assistant\RecordSummary::find(['qamaria']))->not->toBeNull());
+    asTenant($asset, fn () => expect(RecordSummary::find(['qamaria']))->not->toBeNull());
 });
 
 it('never reaches a record in another property', function () {
@@ -208,8 +217,8 @@ it('never reaches a record in another property', function () {
     $this->actingAs(makeUser('super_admin'));
 
     // Scope is inherited from the resource's own getEloquentQuery(), never re-implemented here.
-    asTenant($mine, fn () => expect(App\Support\Assistant\RecordSummary::find(['roasters']))->toBeNull());
-    asTenant($theirs, fn () => expect(App\Support\Assistant\RecordSummary::find(['roasters']))->not->toBeNull());
+    asTenant($mine, fn () => expect(RecordSummary::find(['roasters']))->toBeNull());
+    asTenant($theirs, fn () => expect(RecordSummary::find(['roasters']))->not->toBeNull());
 });
 
 it('puts the record summary in front of the model', function () {
@@ -239,20 +248,20 @@ it('counts, and splits only by a column this system has classified', function ()
     $this->actingAs(makeUser('super_admin'));
 
     asTenant($asset, function () {
-        $resource = App\Filament\Admin\Resources\Units\UnitResource::class;
+        $resource = UnitResource::class;
 
         // A total when nothing names a column.
-        $total = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units'], 'how many units');
+        $total = RecordCount::for($resource, ['how', 'many', 'units'], 'how many units');
         expect($total['body'])->toContain('3');
 
         // A split when the question names one — and `units.status` is registered in ValueSets,
         // which is the only reason it may be grouped by. There is no SQL here to write.
-        $split = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'status'], 'how many units status');
+        $split = RecordCount::for($resource, ['how', 'many', 'units', 'status'], 'how many units status');
         expect($split['body'])->toContain(__('admin.statuses.unit.vacant'));
 
         // A word naming no registered column falls back to the total rather than inventing a
         // grouping — the whole point of taking the column from a registry.
-        $unknown = App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units', 'wibble'], 'how many units wibble');
+        $unknown = RecordCount::for($resource, ['how', 'many', 'units', 'wibble'], 'how many units wibble');
         expect($unknown['body'])->not->toContain('—');
     });
 });
@@ -264,8 +273,8 @@ it('renders the stored codes in the reader\'s own language', function () {
     app()->setLocale('ar');
 
     asTenant($asset, function () {
-        $split = App\Support\Assistant\RecordCount::for(
-            App\Filament\Admin\Resources\Units\UnitResource::class,
+        $split = RecordCount::for(
+            UnitResource::class,
             ['كم', 'عدد', 'الوحدات', 'الحالة'],
             'كم عدد الوحدات حسب الحالة',
         );
@@ -284,14 +293,14 @@ it('will not count a register the reader may not open', function () {
     $asset = makeAsset();
     makeUnit($asset);
 
-    $resource = App\Filament\Admin\Resources\Units\UnitResource::class;
+    $resource = UnitResource::class;
 
     $this->actingAs(makeUser('marketing'));
-    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units'], 'how many units'))->toBeNull());
+    asTenant($asset, fn () => expect(RecordCount::for($resource, ['how', 'many', 'units'], 'how many units'))->toBeNull());
 
     auth()->forgetUser();
     $this->actingAs(makeUser('super_admin'));
-    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for($resource, ['how', 'many', 'units'], 'how many units'))->not->toBeNull());
+    asTenant($asset, fn () => expect(RecordCount::for($resource, ['how', 'many', 'units'], 'how many units'))->not->toBeNull());
 });
 
 it('counts only the reader\'s own property', function () {
@@ -306,8 +315,8 @@ it('counts only the reader\'s own property', function () {
     // The count runs on the resource's own getEloquentQuery(), so it is the list page's query —
     // not a re-implementation that could forget the scope.
     asTenant($mine, function () {
-        $body = App\Support\Assistant\RecordCount::for(
-            App\Filament\Admin\Resources\Units\UnitResource::class, ['how', 'many', 'units'], 'how many units')['body'];
+        $body = RecordCount::for(
+            UnitResource::class, ['how', 'many', 'units'], 'how many units')['body'];
 
         expect($body)->toContain('1')->not->toContain('5');
     });
@@ -316,13 +325,13 @@ it('counts only the reader\'s own property', function () {
 it('refuses to count a register it may not quote', function () {
     // The SAME allowlist that governs reading a record back. Counting rows of a register nobody may
     // quote is a smaller leak of the same kind — "how many employees" is a question about people.
-    expect(App\Support\AssistantFields::isSummarisable(App\Models\Employee::class))->toBeFalse();
+    expect(AssistantFields::isSummarisable(Employee::class))->toBeFalse();
 
     $asset = makeAsset();
     $this->actingAs(makeUser('super_admin'));
 
-    asTenant($asset, fn () => expect(App\Support\Assistant\RecordCount::for(
-        App\Filament\Admin\Resources\Employees\EmployeeResource::class, ['how', 'many', 'employees'], 'how many employees'))->toBeNull());
+    asTenant($asset, fn () => expect(RecordCount::for(
+        EmployeeResource::class, ['how', 'many', 'employees'], 'how many employees'))->toBeNull());
 });
 
 // ── B1d: the tool subtracts, never the model ───────────────────────────────────────────────────
@@ -331,7 +340,7 @@ it('computes the difference itself, from known figures', function () {
     $a = ['headers' => ['Line', 'Amount'], 'rows' => [['Revenue', '100000.00'], ['Expenses', '40000.00'], ['Old line', '500.00']], 'total' => 3, 'truncated' => false];
     $b = ['headers' => ['Line', 'Amount'], 'rows' => [['Revenue', '125000.00'], ['Expenses', '37500.50'], ['New line', '900.00']], 'total' => 3, 'truncated' => false];
 
-    $lines = implode("\n", App\Support\Assistant\PeriodCompare::diff($a, $b, 2025, 2026));
+    $lines = implode("\n", PeriodCompare::diff($a, $b, 2025, 2026));
 
     // The arithmetic, done in PHP from figures the report produced. A model shown two tables will
     // usually get this right and will eventually be confidently wrong about a number somebody acts
@@ -346,7 +355,7 @@ it('computes the difference itself, from known figures', function () {
 });
 
 it('reads the two periods from the question, and invents no third', function () {
-    $c = App\Support\Assistant\PeriodCompare::class;
+    $c = PeriodCompare::class;
 
     expect($c::years(['compare', '2025', '2026']))->toBe([2025, 2026])
         // One named year compares against the year before it.
@@ -361,8 +370,8 @@ it('will not compare a report that has no year to compare by', function () {
 
     // Two identical runs presented as a trend is worse than no answer. The rent roll takes an
     // `asOf` date, not a year.
-    asTenant($asset, fn () => expect(App\Support\Assistant\PeriodCompare::for(
-        App\Filament\Admin\Pages\RentRoll::class, ['compare', 'rent', 'roll']))->toBeNull());
+    asTenant($asset, fn () => expect(PeriodCompare::for(
+        RentRoll::class, ['compare', 'rent', 'roll']))->toBeNull());
 });
 
 it('compares one report against itself, both sides scoped to the reader', function () {
@@ -370,8 +379,8 @@ it('compares one report against itself, both sides scoped to the reader', functi
     $this->actingAs(makeUser('super_admin'));
 
     asTenant($asset, function () {
-        $result = App\Support\Assistant\PeriodCompare::for(
-            App\Filament\Admin\Pages\IncomeStatement::class,
+        $result = PeriodCompare::for(
+            IncomeStatement::class,
             ['compare', 'income', 'statement', '2026', '2025'],
         );
 
@@ -385,6 +394,6 @@ it('compares one report against itself, both sides scoped to the reader', functi
     // And a reader who cannot open the report gets no comparison of it either.
     auth()->forgetUser();
     $this->actingAs(makeUser('technician'));
-    asTenant($asset, fn () => expect(App\Support\Assistant\PeriodCompare::for(
-        App\Filament\Admin\Pages\IncomeStatement::class, ['compare', '2026', '2025']))->toBeNull());
+    asTenant($asset, fn () => expect(PeriodCompare::for(
+        IncomeStatement::class, ['compare', '2026', '2025']))->toBeNull());
 });

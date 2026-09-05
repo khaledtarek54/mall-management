@@ -31,8 +31,13 @@
 */
 
 use App\Models\Charge;
+use App\Models\DepositTransaction;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Models\Payment;
+use App\Services\BillFinalPeriodService;
 use App\Services\LeaseTerminationService;
+use App\Services\MonthlyBillingService;
 use App\Services\SettleMoveOutService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -86,7 +91,7 @@ function billMonthlyThrough(Lease $lease, string $through): void
 
     while ($period->lessThanOrEqualTo($last)) {
         CarbonImmutable::setTestNow($period->addDays(1)->setTime(9, 0));
-        app(App\Services\MonthlyBillingService::class)->generateForLease($lease->fresh(), $period);
+        app(MonthlyBillingService::class)->generateForLease($lease->fresh(), $period);
         $period = $period->addMonth();
     }
 }
@@ -127,7 +132,7 @@ it('shrinks the refund by exactly what was owed — the assertion that names the
     // The tenant is paid up on everything raised so far, and the deposit is held.
     foreach ($lease->fresh()->invoices as $invoice) {
         if ((float) $invoice->balance > 0) {
-            $payment = App\Models\Payment::create([
+            $payment = Payment::create([
                 'tenant_id' => $invoice->tenant_id,
                 'payment_date' => '2026-09-01',
                 'amount' => (float) $invoice->balance,
@@ -141,7 +146,7 @@ it('shrinks the refund by exactly what was owed — the assertion that names the
 
     // A deposit is HELD FOR MONEY RECEIVED, never for a figure on the lease — so the receipt has
     // to exist or there is nothing to settle against.
-    App\Models\DepositTransaction::create([
+    DepositTransaction::create([
         'lease_id' => $lease->id,
         'tenant_id' => $lease->tenant_id,
         'asset_id' => $lease->unit?->asset_id,
@@ -228,7 +233,7 @@ it('is idempotent — terminating twice raises one final invoice', function () {
 
     // The sweep is the second door onto the same act, so it must find nothing left to do. There is
     // no stamp of its own — `invoice_items.covered_end` is the whole mechanism.
-    app(App\Services\BillFinalPeriodService::class)
+    app(BillFinalPeriodService::class)
         ->billFor($lease->fresh(), CarbonImmutable::parse('2026-09-20'));
 
     expect($lease->fresh()->invoices()->count())->toBe($after);
@@ -326,7 +331,7 @@ it('REFUSES a lease whose history predates line-level periods, rather than doubl
     // deliberately did not backfill, and null means NOT RECORDED — with no clamp the planner
     // re-raises rent already invoiced AND already credited: measured, an 86,666.67 double-bill,
     // outbound on a document the tenant reads.
-    App\Models\InvoiceItem::query()
+    InvoiceItem::query()
         ->whereIn('invoice_id', $lease->fresh()->invoices()->pluck('id'))
         ->update(['covered_start' => null, 'covered_end' => null]);
 
@@ -334,7 +339,7 @@ it('REFUSES a lease whose history predates line-level periods, rather than doubl
 
     CarbonImmutable::setTestNow('2026-09-20 10:00:00');
 
-    $result = app(App\Services\BillFinalPeriodService::class)
+    $result = app(BillFinalPeriodService::class)
         ->billFor($lease->fresh(), CarbonImmutable::parse('2026-09-20'));
 
     expect($result['status'])->toBe('skipped')

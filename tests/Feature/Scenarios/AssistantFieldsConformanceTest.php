@@ -1,7 +1,12 @@
 <?php
 
+use App\Models\Custody;
+use App\Models\Employee;
+use App\Models\Payroll;
+use App\Models\User;
 use App\Support\AssistantFields;
 use App\Support\SearchPolicy;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -40,7 +45,7 @@ it('classifies every findable model as summarisable or refused', function () {
 it('refuses personal data by name, with the reason visible', function () {
     // Not an accident of omission: these are findable so an HR user can navigate to them, and never
     // quoted into a chat panel a colleague may be looking over.
-    foreach ([App\Models\Employee::class, App\Models\Payroll::class, App\Models\User::class, App\Models\Custody::class] as $model) {
+    foreach ([Employee::class, Payroll::class, User::class, Custody::class] as $model) {
         expect(AssistantFields::isSummarisable($model))->toBeFalse(class_basename($model).' must not be summarised');
         expect(AssistantFields::NOT_SUMMARISED[$model] ?? '')->not->toBe('');
     }
@@ -85,8 +90,8 @@ it('labels every summarised field in both languages', function () {
         // A field with no Arabic label renders in English on an Arabic panel — the silent half of
         // a bilingual system. `Lang::has()` falls back to English by default, so the check must
         // refuse the fallback or it passes for every key present in English only.
-        if (Illuminate\Support\Facades\Lang::has($label, 'en', false)) {
-            expect(Illuminate\Support\Facades\Lang::has($label, 'ar', false))
+        if (Lang::has($label, 'en', false)) {
+            expect(Lang::has($label, 'ar', false))
                 ->toBeTrue("{$label} is labelled in English but not Arabic");
         }
     }

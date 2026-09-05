@@ -2,29 +2,30 @@
 
 namespace App\Services\Assistant;
 
+use App\Contracts\AssistantModel;
+use App\Contracts\DeliverableReport;
 use App\Http\Middleware\SetLocale;
 use App\Models\AssistantDocChunk;
 use App\Models\AssistantQuestion;
-use App\Support\Assistant\AssistantCorpus;
-use App\Contracts\AssistantModel;
-use App\Contracts\DeliverableReport;
-use App\Support\Assistant\AssistantBudget;
 use App\Services\Assistant\Models\AssistantPrompt;
+use App\Support\Assistant\AssistantBudget;
+use App\Support\Assistant\AssistantCorpus;
 use App\Support\Assistant\AssistantDocs;
+use App\Support\Assistant\AssistantEntry;
+use App\Support\Assistant\AssistantRecords;
 use App\Support\Assistant\PeriodCompare;
 use App\Support\Assistant\RecordCount;
 use App\Support\Assistant\RecordSummary;
 use App\Support\Assistant\ReportRunner;
 use App\Support\Assistant\TaskCorpus;
-use App\Support\Assistant\AssistantEntry;
-use App\Support\Assistant\AssistantRecords;
 use App\Support\ReportCatalogue;
-use App\Support\ScreenGuides;
 use App\Support\ReportParameters;
+use App\Support\ScreenGuides;
 use App\Support\Search\SearchText;
-use Illuminate\Support\Facades\Cache;
 use App\Support\TenantScope;
+use Filament\Resources\Resource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Answer one typed question by pointing at the screen or report that already answers it.

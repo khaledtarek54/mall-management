@@ -2,6 +2,7 @@
 
 namespace App\Support\Filament;
 
+use Carbon\CarbonImmutable;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
@@ -50,7 +51,7 @@ class DateRangeFilter
                 // d/m/Y, matching the five older hand-written copies — a chip printing raw ISO
                 // beside chips printing d/m/Y reads as two different features.
                 $show = fn ($d): string => $d
-                    ? \Carbon\CarbonImmutable::parse($d)->format('d/m/Y')
+                    ? CarbonImmutable::parse($d)->format('d/m/Y')
                     : '…';
 
                 return $name.': '.$show($from).' → '.$show($until);

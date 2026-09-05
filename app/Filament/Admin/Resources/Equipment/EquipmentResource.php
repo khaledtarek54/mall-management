@@ -13,11 +13,11 @@ use App\Filament\Admin\Resources\Equipment\Tables\EquipmentTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Equipment;
 use BackedEnum;
-use Illuminate\Database\Eloquent\Builder;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**

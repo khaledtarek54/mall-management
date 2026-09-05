@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\ProrationMethod;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -31,7 +32,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * ## It is not a fifth proration method
  *
- * `prorate = false` bills on {@see App\Support\ProrationMethod::WHOLE_MONTH} — the existing rule,
+ * `prorate = false` bills on {@see ProrationMethod::WHOLE_MONTH} — the existing rule,
  * not a new one. That matters beyond tidiness: `MonthlyBillingService::monthsCovered()` is the ONE
  * definition of "how much of a period does this agreement run", and the termination credit
  * (`CreditUnearnedBillingService`) reads the same rule so a credit cannot disagree with the invoice

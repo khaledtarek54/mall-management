@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\AssistantModel;
+use App\Filament\Admin\Pages\Dashboard;
 use App\Livewire\AssistantChat;
 use App\Models\AssistantQuestion;
 use App\Services\Assistant\Models\NullAssistantModel;
@@ -120,7 +121,7 @@ it('rides on every admin page, not only its own screen', function () {
     // Registered on the panel's BODY_END hook, so the bubble is there wherever the operator is
     // working. Asserted through a REAL page request: a render hook that stopped firing would leave
     // every unit test green and the button gone from the whole panel.
-    $this->get(App\Filament\Admin\Pages\Dashboard::getUrl(tenant: $asset))
+    $this->get(Dashboard::getUrl(tenant: $asset))
         ->assertOk()
         ->assertSee('assistant-chat');
 });

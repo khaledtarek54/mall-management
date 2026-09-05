@@ -77,7 +77,7 @@ class RowClickTarget
      * said "eight admin pages", which was the size of that test's failure list
      * rather than the size of the population.)
      */
-    public static function for(Model | array $record, Table $table): ?string
+    public static function for(Model|array $record, Table $table): ?string
     {
         if (! $record instanceof Model) {
             return null;

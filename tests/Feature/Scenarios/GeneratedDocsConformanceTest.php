@@ -82,7 +82,6 @@ it('documents every GL posting source', function () {
     ]));
 });
 
-
 // ─────────── A document must not tell someone to run a command that does not exist ───────────
 
 /**

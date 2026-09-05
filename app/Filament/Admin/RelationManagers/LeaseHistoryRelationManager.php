@@ -2,12 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Support\LeaseEventNarrative;
 use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
-use Carbon\CarbonImmutable;
 use App\Models\LeaseEvent;
+use App\Support\LeaseEventNarrative;
 use Filament\Actions\ActionGroup;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;

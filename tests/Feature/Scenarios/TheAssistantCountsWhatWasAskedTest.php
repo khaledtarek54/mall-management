@@ -1,13 +1,16 @@
 <?php
 
 use App\Contracts\AssistantModel;
+use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Invoice;
 use App\Services\Assistant\AnswerQuestionService;
 use App\Support\Assistant\AssistantCorpus;
+use App\Support\Assistant\RecordCount;
 use App\Support\Assistant\RecordStates;
 use App\Support\AssistantFields;
 use App\Support\ValueSets;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * "WHAT IS THE PENDING INVOICES" — reported from the panel, and it found four defects.
@@ -109,14 +112,14 @@ it('counts only the rows the qualifier names', function (string $question, strin
 
     expect(assistantFigureFor($question, $asset))->toContain($expected);
 })->with([
-    'unpaid'              => ['how many invoices are unpaid', '1 of 3'],
-    'outstanding'         => ['how many invoices are outstanding', '1 of 3'],
-    'paid'                => ['how many invoices are paid', '2 of 3'],
+    'unpaid' => ['how many invoices are unpaid', '1 of 3'],
+    'outstanding' => ['how many invoices are outstanding', '1 of 3'],
+    'paid' => ['how many invoices are paid', '2 of 3'],
     // The negation, which used to answer its own opposite.
-    'not paid'            => ['how many invoices are not paid', '1 of 3'],
+    'not paid' => ['how many invoices are not paid', '1 of 3'],
     // The exact value must beat the compound that contains its word.
-    'partially paid'      => ['how many invoices are partially paid', '0 of 3'],
-    'overdue'             => ['how many invoices are overdue', '1 of 3'],
+    'partially paid' => ['how many invoices are partially paid', '0 of 3'],
+    'overdue' => ['how many invoices are overdue', '1 of 3'],
 ]);
 
 it('does not invert a negated question in arabic either', function () {
@@ -167,7 +170,7 @@ it('expands every state concept to values the column really holds', function () 
                 ->toBe([], "{$key}/{$state} names a value the column does not hold");
 
             expect(trans()->has("admin.assistant.states.{$state}"))->toBeTrue("no wording for {$state}");
-            expect(\Illuminate\Support\Facades\Lang::has("admin.assistant.states.{$state}", 'ar', fallback: false))
+            expect(Lang::has("admin.assistant.states.{$state}", 'ar', fallback: false))
                 ->toBeTrue("no Arabic wording for {$state}");
         }
     }
@@ -186,16 +189,16 @@ it('will not fall back to a bare total when only a state brought it here', funct
     [$asset] = booksWithOneUnpaidInvoice();
     $this->actingAs(makeUser('super_admin'));
 
-    $units = App\Filament\Admin\Resources\Units\UnitResource::class;
+    $units = UnitResource::class;
     $question = 'what is the pending invoices';
     $words = ['pending', 'invoices'];
 
     asTenant($asset, function () use ($units, $question, $words) {
         // Units have no "pending" state, so with a counting verb a total is a fair answer...
-        expect(App\Support\Assistant\RecordCount::for($units, $words, $question))->not->toBeNull();
+        expect(RecordCount::for($units, $words, $question))->not->toBeNull();
 
         // ...and with nothing but the state to go on, it is not an answer at all.
-        expect(App\Support\Assistant\RecordCount::for($units, $words, $question, mustFilter: true))
+        expect(RecordCount::for($units, $words, $question, mustFilter: true))
             ->toBeNull();
     });
 });

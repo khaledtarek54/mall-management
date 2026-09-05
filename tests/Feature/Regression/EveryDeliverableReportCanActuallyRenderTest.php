@@ -48,13 +48,13 @@ it('renders every report that claims to be deliverable', function () {
                 if (! isset($csv['filename'], $csv['headers'], $csv['rows'])) {
                     $broken[] = class_basename($page).' — returned an incomplete CSV';
                 }
-            } catch (\DomainException $e) {
+            } catch (DomainException $e) {
                 // A REFUSAL is not a failure. The general ledger declines to export until an
                 // account is chosen, which is correct: a ledger of everything is not a report, and
                 // the delivery service already treats a refusal as "not deliverable today" rather
                 // than as an error.
                 continue;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $broken[] = class_basename($page).' — '.get_class($e).': '.mb_substr($e->getMessage(), 0, 80);
             }
         }

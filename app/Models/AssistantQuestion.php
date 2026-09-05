@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +23,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[DeletionAllowed(reason: 'Operational: a log of what was typed into a search box. It records no decision, no money and no obligation — it exists to be counted and then pruned, and `HousekeepingSettings` gives it a retention period like every other transient table.')]
 class AssistantQuestion extends Model
 {
-    /** @use HasFactory<\Database\Factories\AssistantQuestionFactory> */
+    // No `@use HasFactory<...>` annotation: `Database\Factories\AssistantQuestionFactory`
+    // has never existed, and the docblock naming it was fine only while it stayed a string.
+    // `pint`'s `fully_qualified_strict_types` promoted it to a real import, which
+    // `UnresolvedClassReferenceConformanceTest` correctly refused. Nothing calls
+    // `AssistantQuestion::factory()`; the trait stays because removing it is a separate
+    // decision from formatting.
     use HasFactory;
 
     protected $fillable = [
@@ -84,9 +90,9 @@ class AssistantQuestion extends Model
     /**
      * The questions nothing answered, most-asked first — the whole point of the table.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return Builder<static>
      */
-    public function scopeUnanswered(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    public function scopeUnanswered(Builder $query): Builder
     {
         return $query->where('matched', false);
     }

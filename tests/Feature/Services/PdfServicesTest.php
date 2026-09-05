@@ -17,7 +17,7 @@ it('InvoicePdfService builds a PDF binary', function () {
     InvoiceItem::create([
         'invoice_id' => $invoice->id, 'type' => 'base_rent',
         'description' => 'Rent', 'amount' => 10000,
-        'vat_rate' => 0, 'vat_amount' => 0, 
+        'vat_rate' => 0, 'vat_amount' => 0,
     ]);
 
     $pdf = app(InvoicePdfService::class)->build($invoice);

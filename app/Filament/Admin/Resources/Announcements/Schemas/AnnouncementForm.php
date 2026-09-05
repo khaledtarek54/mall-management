@@ -5,6 +5,8 @@ namespace App\Filament\Admin\Resources\Announcements\Schemas;
 use App\Models\Announcement;
 use App\Services\SendAnnouncementAction;
 use App\Support\Filament\PropertyField;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -158,15 +160,15 @@ class AnnouncementForm
      * A stale `publish_at` — hidden by a switch back to "Send now", or scheduled for a time that has
      * since passed — must not widen the bound below today.
      */
-    private static function windowOpensAt(mixed $publishAt): \Carbon\CarbonInterface
+    private static function windowOpensAt(mixed $publishAt): CarbonInterface
     {
-        $now = \Carbon\CarbonImmutable::now();
+        $now = CarbonImmutable::now();
 
         if (blank($publishAt)) {
             return $now;
         }
 
-        $starts = rescue(fn () => \Carbon\CarbonImmutable::parse($publishAt), null, false);
+        $starts = rescue(fn () => CarbonImmutable::parse($publishAt), null, false);
 
         return $starts !== null && $starts->greaterThan($now) ? $starts : $now;
     }

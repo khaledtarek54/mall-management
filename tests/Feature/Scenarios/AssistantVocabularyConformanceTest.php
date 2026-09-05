@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\LedgerAccount;
+use App\Services\Assistant\AnswerQuestionService;
 use App\Support\Assistant\AssistantCorpus;
-use Database\Seeders\RolesPermissionsSeeder;
 use App\Support\ScreenGuides;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Lang;
 
 /**
@@ -70,13 +72,13 @@ it('still lets somebody ask about a chart account by its code', function () {
     $asset = makeAsset();
     $this->actingAs(makeUser('super_admin'));
 
-    App\Models\LedgerAccount::query()->firstOrCreate(
+    LedgerAccount::query()->firstOrCreate(
         ['code' => '51109'],
         ['name_en' => 'Bad debt expense', 'name_ar' => 'مصروف ديون معدومة', 'type' => 'expense'],
     );
 
     asTenant($asset, function () {
-        $results = app(App\Services\Assistant\AnswerQuestionService::class)->answer('account 51109')['results'];
+        $results = app(AnswerQuestionService::class)->answer('account 51109')['results'];
 
         expect(collect($results)->pluck('title')->implode(' '))->toContain('51109');
     });

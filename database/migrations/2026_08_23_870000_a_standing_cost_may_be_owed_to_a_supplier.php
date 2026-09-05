@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Expense;
+use App\Models\VendorBill;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -8,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
  * **A standing cost may be owed to a SUPPLIER, not paid out of the bank** — EG-33's other half.
  *
  * EG-33 built Yardi's Recurring Payables for costs the operator simply incurs: a real-estate tax
- * assessment, a government levy, an insurance premium. Those mint an {@see App\Models\Expense} —
+ * assessment, a government levy, an insurance premium. Those mint an {@see Expense} —
  * paid from cash or bank, no counterparty document, no AP.
  *
  * The other kind is the one a mall actually has most of: a **fixed cleaning retainer, a security
@@ -26,7 +28,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * ## The generated bill is a DRAFT, deliberately
  *
- * A `draft` vendor bill does not post ({@see App\Models\VendorBill::NON_POSTABLE_STATUSES}), and
+ * A `draft` vendor bill does not post ({@see VendorBill::NON_POSTABLE_STATUSES}), and
  * that is the right state for a document the COUNTERPARTY issues. Two reasons, and neither is
  * timidity:
  *

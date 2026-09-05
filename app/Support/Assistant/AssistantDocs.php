@@ -3,7 +3,7 @@
 namespace App\Support\Assistant;
 
 use App\Models\AssistantDocChunk;
-use App\Support\Search\SearchText;
+use Illuminate\Support\Collection;
 
 /**
  * The documentation tier — consulted only when the screen guides could not answer.
@@ -45,9 +45,9 @@ final class AssistantDocs
      * question that finds nothing Arabic is better answered in English than not at all.
      *
      * @param  array<int, string>  $words
-     * @return \Illuminate\Support\Collection<int, AssistantDocChunk>
+     * @return Collection<int, AssistantDocChunk>
      */
-    private static function matching(array $words, string $locale): \Illuminate\Support\Collection
+    private static function matching(array $words, string $locale): Collection
     {
         $own = AssistantDocChunk::query()->matchingAll($words)
             ->where('locale', $locale)->limit(self::CANDIDATE_LIMIT)->get();
@@ -61,9 +61,9 @@ final class AssistantDocs
      * Chunks containing every word but one, tried for each word in turn.
      *
      * @param  array<int, string>  $words
-     * @return \Illuminate\Support\Collection<int, AssistantDocChunk>
+     * @return Collection<int, AssistantDocChunk>
      */
-    private static function matchingAllButOne(array $words, string $locale): \Illuminate\Support\Collection
+    private static function matchingAllButOne(array $words, string $locale): Collection
     {
         $found = collect();
 

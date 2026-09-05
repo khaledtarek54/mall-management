@@ -5,7 +5,6 @@ namespace App\Livewire;
 use App\Contracts\AssistantModel;
 use App\Models\AssistantQuestion;
 use App\Services\Assistant\AnswerQuestionService;
-use App\Support\Modules;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -57,7 +56,6 @@ class AssistantChat extends Component
     private const SESSION_OPEN = 'assistant.chat.open';
 
     private const SESSION_CONVERSATION = 'assistant.chat.conversation';
-
 
     /**
      * Pick the thread back up, wherever the operator has navigated to.

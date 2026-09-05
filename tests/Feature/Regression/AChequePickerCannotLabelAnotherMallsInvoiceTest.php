@@ -17,7 +17,7 @@
 | page — the reason the resolver exists at all.
 */
 
-use App\Models\PostDatedCheque;
+use App\Models\Invoice;
 use App\Support\TenantScope;
 use Database\Seeders\RolesPermissionsSeeder;
 
@@ -41,7 +41,7 @@ function chequeInvoiceLabel(int $invoiceId): ?string
 {
     $visible = TenantScope::visibleAssetIds();
 
-    return App\Models\Invoice::query()
+    return Invoice::query()
         ->when($visible !== null, fn ($q) => $q->whereIn('asset_id', $visible))
         ->find($invoiceId)?->number;
 }

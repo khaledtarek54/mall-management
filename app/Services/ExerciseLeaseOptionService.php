@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Support\LeaseEventNarrative;
-use App\Support\Translate;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Models\LeaseOption;
+use App\Support\LeaseEventNarrative;
+use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;

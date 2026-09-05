@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\CreditNote;
-use App\Models\JournalEntry;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
 use App\Services\CreditNotePdfService;
 use Database\Seeders\AccountMappingSeeder;

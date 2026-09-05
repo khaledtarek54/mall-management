@@ -102,7 +102,7 @@ abstract class ApiController extends Controller
      *
      * `finally`, so a catalogue read that throws cannot leave the rest of the response — and, on a
      * long-lived worker, every response after it — rendering in the wrong language. Same reasoning
-     * as {@see \App\Support\Pdf\DocumentLocale::in()}.
+     * as {@see DocumentLocale::in()}.
      *
      * @template T
      *

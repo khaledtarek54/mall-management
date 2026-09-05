@@ -20,6 +20,7 @@ use App\Filament\Admin\Resources\OwnerStatementRuns\Tables\OwnerStatementRunsTab
 use App\Models\AccountingPeriod;
 use App\Models\FiscalYear;
 use App\Models\OwnerStatementRun;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Infolists\Components\TextEntry;
 use Livewire\Livewire;
@@ -28,7 +29,7 @@ beforeEach(function () {
     // Without the RBAC catalogue `makeUser()` mints a role with no permissions, the list page
     // refuses to mount, and every modal probe reads null — an error that looks like a harness fault
     // and is really an unauthorised operator.
-    $this->seed(Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
     $this->asset = makeAsset(['code' => 'OSR']);
 

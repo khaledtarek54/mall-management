@@ -70,7 +70,7 @@ class TableDefaults
                 ->filtersLayout(FiltersLayout::Dropdown)
                 ->filtersFormColumns(2)
                 ->striped()
-                ->recordUrl(fn (Model | array $record, Table $table): ?string => RowClickTarget::for($record, $table))
+                ->recordUrl(fn (Model|array $record, Table $table): ?string => RowClickTarget::for($record, $table))
                 ->defaultPaginationPageOption(25)
                 ->paginationPageOptions([10, 25, 50, 100]);
         });

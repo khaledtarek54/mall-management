@@ -6,7 +6,7 @@ use App\Models\AssistantDocChunk;
 use App\Support\AssistantFields;
 use App\Support\Search\SearchText;
 use App\Support\ValueSets;
-use Filament\Facades\Filament;
+use Illuminate\Support\Str;
 
 /**
  * "How many leases are there, and how do they split by status?"
@@ -412,7 +412,7 @@ final class RecordCount
      */
     private static function valueLabel(string $model, string $column, string $value): string
     {
-        $singular = \Illuminate\Support\Str::snake(class_basename($model));
+        $singular = Str::snake(class_basename($model));
 
         foreach (["admin.statuses.{$singular}.{$value}", "admin.enums.{$column}.{$value}"] as $key) {
             if (trans()->has($key)) {

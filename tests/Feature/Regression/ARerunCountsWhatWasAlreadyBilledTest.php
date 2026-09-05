@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\UnitOwnershipStatus;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
+use App\Models\UnitOwnership;
 use App\Services\CamReconciliationService;
+use App\Support\DeletionPolicy;
 use Carbon\CarbonImmutable;
 
 /**
@@ -120,12 +123,12 @@ it('ties out when a participant has been deleted out from under its allocation',
     // exit in one move, which is the point: three bugs with one symptom, and patching them one at a
     // time is how the second and third survived the first.
     $owner = makeTenant();
-    $ownership = App\Models\UnitOwnership::create([
+    $ownership = UnitOwnership::create([
         'asset_id' => $this->asset->id,
         'unit_id' => makeUnit($this->asset, ['area_sqm' => 100])->id,
         'tenant_id' => $owner->id,
         'tenure_type' => 'freehold',
-        'status' => App\Enums\UnitOwnershipStatus::HandedOver,
+        'status' => UnitOwnershipStatus::HandedOver,
         'assessment_basis' => 'area',
         'ownership_share_pct' => 100,
         'started_at' => '2027-01-01',
@@ -144,7 +147,7 @@ it('ties out when a participant has been deleted out from under its allocation',
         ->where('lease_id', $this->a->id)
         ->update(['status' => 'billed']);
 
-    App\Models\UnitOwnership::withoutEvents(fn () => $ownership->delete());
+    UnitOwnership::withoutEvents(fn () => $ownership->delete());
 
     $this->svc->generateAllocations($this->pool->fresh());
 
@@ -157,12 +160,12 @@ it('refuses to delete an ownership that carries an allocation at all', function 
     // The other half, and the one that stops the orphan existing. `Lease` has listed
     // `camAllocations` in its own `blockedBy` from the beginning; an ownership did not.
     $owner = makeTenant();
-    $ownership = App\Models\UnitOwnership::create([
+    $ownership = UnitOwnership::create([
         'asset_id' => $this->asset->id,
         'unit_id' => makeUnit($this->asset, ['area_sqm' => 100])->id,
         'tenant_id' => $owner->id,
         'tenure_type' => 'freehold',
-        'status' => App\Enums\UnitOwnershipStatus::HandedOver,
+        'status' => UnitOwnershipStatus::HandedOver,
         'assessment_basis' => 'area',
         'ownership_share_pct' => 100,
         'started_at' => '2027-01-01',
@@ -175,6 +178,6 @@ it('refuses to delete an ownership that carries an allocation at all', function 
     expect($ownership->fresh()->camAllocations()->exists())->toBeTrue()
         // The registry names the relation, and the gate separately proves the relation EXISTS — a
         // typo'd one blocks nothing and looks identical to a working guard.
-        ->and(App\Support\DeletionPolicy::blockingRelationsFor(App\Models\UnitOwnership::class))
+        ->and(DeletionPolicy::blockingRelationsFor(UnitOwnership::class))
         ->toContain('camAllocations');
 });

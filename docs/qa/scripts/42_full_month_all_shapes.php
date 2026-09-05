@@ -218,7 +218,6 @@ foreach ($L as $shape => $l) {
     qa_eq(sprintf('%-16s', $shape), $expect[$shape], $billed[$shape], 0.02);
 }
 
-
 qa_section('VAT — rent exempt, service charge taxed, levy exempt');
 $plainInv = $raised->firstWhere('lease_id', $L['plain']->id);
 qa_eq('plain lease VAT = 14% of the service charge only', 1400.00, round((float) $plainInv->vat_amount, 2));

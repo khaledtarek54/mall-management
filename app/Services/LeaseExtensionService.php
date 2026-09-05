@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Support\LeaseEventNarrative;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
+use App\Support\LeaseEventNarrative;
 use App\Support\LeaseTerm;
 use Carbon\CarbonImmutable;
 use DomainException;

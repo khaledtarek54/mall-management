@@ -1,8 +1,12 @@
 <?php
 
+use App\Filament\Admin\Pages\Dashboard;
+use App\Filament\Admin\Pages\IncomeStatement;
 use App\Models\AssistantQuestion;
 use App\Services\Assistant\AnswerQuestionService;
+use App\Settings\ModulesSettings;
 use App\Support\Assistant\AssistantCorpus;
+use App\Support\ReportCatalogue;
 use App\Support\ScreenGuides;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Lang;
@@ -192,7 +196,7 @@ it('finds a report by its ARABIC name, not only its English one', function () {
     // reach a report by typing its Arabic name — in this box or in the report hub's own filter,
     // which reads the same list. Pinned per report rather than as a count, because a count is
     // satisfied by one Arabic word anywhere.
-    foreach (App\Support\ReportCatalogue::REPORTS as $page => $meta) {
+    foreach (ReportCatalogue::REPORTS as $page => $meta) {
         expect(implode(' ', $meta['keywords'] ?? []))
             ->toMatch('/\p{Arabic}/u', "{$meta['key']} has no Arabic keyword");
     }
@@ -201,7 +205,6 @@ it('finds a report by its ARABIC name, not only its English one', function () {
     expect(askAtriomKeys('المتأخرات'))->toContain('ar_aging');
 });
 
-
 it('disappears from every page when the module is switched off', function () {
     $asset = makeAsset();
     $this->actingAs(makeUser('super_admin', [$asset->id]));
@@ -209,11 +212,11 @@ it('disappears from every page when the module is switched off', function () {
     // Asserted through a REAL page, because the switch is consulted in the panel's render hook. A
     // Livewire component has no `shouldRender()` convention — Livewire never calls one — so the
     // gate the chat used to carry was dead code and the toggle hid nothing.
-    $url = App\Filament\Admin\Pages\Dashboard::getUrl(tenant: $asset);
+    $url = Dashboard::getUrl(tenant: $asset);
 
     $this->get($url)->assertOk()->assertSee('assistant-chat');
 
-    app(App\Settings\ModulesSettings::class)->fill(['assistant' => false])->save();
+    app(ModulesSettings::class)->fill(['assistant' => false])->save();
 
     $this->get($url)->assertOk()->assertDontSee('assistant-chat');
 });
@@ -271,7 +274,7 @@ it('shows one card per destination, not one per registry it appears in', functio
         expect($screens)->toBe(array_unique($screens));
 
         // The merge keeps the SCREEN's identity, because its key is what resolves the guide.
-        $incomeStatement = collect($results)->firstWhere('screen', App\Filament\Admin\Pages\IncomeStatement::class);
+        $incomeStatement = collect($results)->firstWhere('screen', IncomeStatement::class);
         expect($incomeStatement['kind'])->toBe('screen');
     });
 });

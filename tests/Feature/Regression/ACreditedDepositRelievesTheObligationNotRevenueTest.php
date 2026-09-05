@@ -25,9 +25,12 @@
 use App\Models\CreditNote;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
+use App\Services\CreditNoteService;
 use App\Support\DepositBilling;
+use App\Support\DepositHoldings;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -102,7 +105,7 @@ function creditNoteDebits(CreditNote $note): array
 
 function codeForRole(string $role): ?string
 {
-    $id = app(App\Services\Accounting\AccountResolver::class)->id($role, test()->asset->id);
+    $id = app(AccountResolver::class)->id($role, test()->asset->id);
 
     return LedgerAccount::find($id)?->code;
 }
@@ -195,9 +198,9 @@ it('keeps deposits_tie_out GREEN while the note stands unapplied — the FATAL t
     $ids = [test()->asset->id];
 
     // The tie-out itself, both sides — not the journalizer's arithmetic.
-    expect(App\Support\DepositHoldings::standingDepositCredits($ids))->toEqual(100000.0)
-        ->and(App\Support\DepositHoldings::expectedGlBalance($ids))
-        ->toEqual((float) App\Support\DepositHoldings::glBalance($ids));
+    expect(DepositHoldings::standingDepositCredits($ids))->toEqual(100000.0)
+        ->and(DepositHoldings::expectedGlBalance($ids))
+        ->toEqual((float) DepositHoldings::glBalance($ids));
 });
 
 it('keeps the tie-out green after the note is APPLIED too — the other end of the window', function () {
@@ -217,16 +220,16 @@ it('keeps the tie-out green after the note is APPLIED too — the other end of t
     ]);
     $source->fresh()->recomputeTotals();
 
-    app(App\Services\CreditNoteService::class)->applyToInvoice($note->fresh(), $source->fresh());
+    app(CreditNoteService::class)->applyToInvoice($note->fresh(), $source->fresh());
 
     app(LedgerPoster::class)->sync($note->invoice->fresh());
     app(LedgerPoster::class)->sync($note->fresh());
 
     $ids = [test()->asset->id];
 
-    expect(App\Support\DepositHoldings::standingDepositCredits($ids))->toEqual(0.0)
-        ->and(App\Support\DepositHoldings::expectedGlBalance($ids))
-        ->toEqual((float) App\Support\DepositHoldings::glBalance($ids));
+    expect(DepositHoldings::standingDepositCredits($ids))->toEqual(0.0)
+        ->and(DepositHoldings::expectedGlBalance($ids))
+        ->toEqual((float) DepositHoldings::glBalance($ids));
 });
 
 it('shares ONE role resolution with the write-off door', function () {

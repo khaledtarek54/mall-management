@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\BankAccount;
-use App\Models\JournalEntry;
 use App\Models\Expense;
+use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;

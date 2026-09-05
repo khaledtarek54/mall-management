@@ -6,9 +6,9 @@ use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Models\Unit;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection;
 
 /**
  * The tenant's own lease terms.
@@ -47,7 +47,7 @@ class LeaseResource extends JsonResource
      * detail must answer it identically; they did not, and a released bay showed as
      * `parking_spots: 1` beside an empty `rentable_items`.
      *
-     * @return \Illuminate\Support\Collection<int, RentableItem>
+     * @return Collection<int, RentableItem>
      */
     private function openHoldings(): Collection
     {

@@ -3,6 +3,8 @@
 use App\Filament\Admin\RelationManagers\TenantSalesDeclarationsRelationManager;
 use App\Filament\Admin\RelationManagers\TenantViolationsRelationManager;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
+use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
+use App\Filament\Admin\Resources\Violations\Pages\CreateViolation;
 use App\Models\Violation;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -97,7 +99,7 @@ it('links "Record violation" at a URL that actually resolves, from BOTH record p
     // anything if both surfaces really resolve it.
     $this->actingAs(makeUser('super_admin', [$this->asset->id]));
 
-    foreach ([EditTenant::class, \App\Filament\Admin\Resources\Tenants\Pages\ViewTenant::class] as $page) {
+    foreach ([EditTenant::class, ViewTenant::class] as $page) {
         $url = asTenant($this->asset, function () use ($page) {
             $component = Livewire::test($page, ['record' => $this->tenant->getKey()])->instance();
 
@@ -128,7 +130,7 @@ it('opens that form with the tenant already chosen', function () {
     asTenant($this->asset, function () {
         Livewire::withQueryParams(['for_tenant' => $this->tenant->getKey()]);
 
-        Livewire::test(\App\Filament\Admin\Resources\Violations\Pages\CreateViolation::class)
+        Livewire::test(CreateViolation::class)
             ->assertFormSet(['tenant_id' => $this->tenant->getKey()]);
     });
 });

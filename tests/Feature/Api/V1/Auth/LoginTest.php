@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1\Auth;
 
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Support\MorphMap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -22,7 +23,7 @@ class LoginTest extends TestCase
     {
         $tenant = $this->makeTenantRow($overrides);
 
-        \App\Models\TenantUser::create([
+        TenantUser::create([
             'tenant_id' => $tenant->id,
             'name' => $tenant->contact_person ?: $tenant->name,
             'email' => $tenant->email,
@@ -72,7 +73,7 @@ class LoginTest extends TestCase
 
         $this->assertNotEmpty($response->json('accessToken'));
         $this->assertDatabaseHas('personal_access_tokens', [
-            'tokenable_type' => MorphMap::alias(\App\Models\TenantUser::class),
+            'tokenable_type' => MorphMap::alias(TenantUser::class),
             'tokenable_id' => tenantLogin($tenant)->id,
         ]);
     }

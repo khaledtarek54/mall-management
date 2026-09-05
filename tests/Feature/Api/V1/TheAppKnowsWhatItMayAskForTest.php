@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\TenantRequestType;
 use App\Models\TenantRequestSubcategory;
 use App\Services\DisputeInvoiceItemService;
 use Database\Seeders\TenantRequestSubcategorySeeder;

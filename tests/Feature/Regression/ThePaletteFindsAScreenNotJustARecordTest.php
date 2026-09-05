@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\TenantUser;
 use App\Support\Search\AtriomGlobalSearchProvider;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -116,7 +117,7 @@ it('offers no admin screen to the tenant portal', function () {
     // thing that kept it from mattering was a TenantUser failing `can()` — an accident of the
     // guard, not a gate.
     $tenant = makeTenant();
-    $portalUser = \App\Models\TenantUser::create([
+    $portalUser = TenantUser::create([
         'tenant_id' => $tenant->id,
         'name' => 'Portal reader',
         'email' => 'palette-portal-'.uniqid().'@test.local',

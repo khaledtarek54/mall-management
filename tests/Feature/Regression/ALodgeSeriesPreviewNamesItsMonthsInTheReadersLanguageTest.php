@@ -20,6 +20,8 @@
 */
 
 use App\Filament\Admin\Resources\PostDatedCheques\Pages\ListPostDatedCheques;
+use App\Support\Search\OptionDisplay;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Forms\Components\Placeholder;
 use Livewire\Livewire;
@@ -192,7 +194,7 @@ function panelRenderedSourceFiles(): array
             continue;
         }
 
-        /** @var iterable<\SplFileInfo> $it */
+        /** @var iterable<SplFileInfo> $it */
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS));
 
         foreach ($it as $file) {
@@ -242,8 +244,8 @@ it('proves its own premise — the sweep is looking at real files', function () 
 it('renders an Arabic month in the pickers the one shared seam feeds', function () {
     app()->setLocale('ar');
 
-    $subtitle = (new ReflectionMethod(App\Support\Search\OptionDisplay::class, 'dateRange'))
-        ->invoke(null, Carbon\CarbonImmutable::parse('2026-01-01'), Carbon\CarbonImmutable::parse('2028-12-01'));
+    $subtitle = (new ReflectionMethod(OptionDisplay::class, 'dateRange'))
+        ->invoke(null, CarbonImmutable::parse('2026-01-01'), CarbonImmutable::parse('2028-12-01'));
 
     // The months are Arabic; the YEARS stay in Latin digits, which `LatinNumeralsTest` pins app-wide.
     expect($subtitle)->toContain('2026')->toContain('2028')
@@ -251,7 +253,7 @@ it('renders an Arabic month in the pickers the one shared seam feeds', function 
 
     app()->setLocale('en');
 
-    expect((new ReflectionMethod(App\Support\Search\OptionDisplay::class, 'dateRange'))
-        ->invoke(null, Carbon\CarbonImmutable::parse('2026-01-01'), Carbon\CarbonImmutable::parse('2028-12-01')))
+    expect((new ReflectionMethod(OptionDisplay::class, 'dateRange'))
+        ->invoke(null, CarbonImmutable::parse('2026-01-01'), CarbonImmutable::parse('2028-12-01')))
         ->toBe('Jan 2026 – Dec 2028');
 });

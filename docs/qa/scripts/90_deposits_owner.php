@@ -19,7 +19,6 @@ use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use App\Support\DepositHoldings;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 
 $asset = Asset::where('code', 'AW')->firstOrFail();

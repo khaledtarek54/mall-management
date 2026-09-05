@@ -43,13 +43,16 @@
 */
 
 use App\Models\ChargeCode;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Models\Payment;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\WriteOffInvoiceService;
 use App\Support\DepositBilling;
+use App\Support\DepositHoldings;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -67,7 +70,7 @@ beforeEach(function () {
 });
 
 /** The debit side of the entry this write-off posted, keyed by posting role. */
-function writeOffDebits(App\Models\Invoice $invoice): array
+function writeOffDebits(Invoice $invoice): array
 {
     $writeOff = $invoice->writeOffs()->latest('id')->firstOrFail();
 
@@ -96,7 +99,7 @@ function writeOffDebits(App\Models\Invoice $invoice): array
 }
 
 /** An issued invoice whose only line is a security deposit. */
-function depositInvoice(float $amount = 100000): App\Models\Invoice
+function depositInvoice(float $amount = 100000): Invoice
 {
     $invoice = makeInvoice(test()->lease, [
         'status' => 'issued', 'subtotal' => $amount, 'vat_amount' => 0,
@@ -115,7 +118,7 @@ function depositInvoice(float $amount = 100000): App\Models\Invoice
 
 function accountIdForRole(string $role): int
 {
-    return app(App\Services\Accounting\AccountResolver::class)->id($role, test()->asset->id);
+    return app(AccountResolver::class)->id($role, test()->asset->id);
 }
 
 it('debits the deposit liability, not bad debt, when the written-off line is a deposit', function () {
@@ -320,8 +323,8 @@ it('keeps deposits_tie_out GREEN — the check both rows were justified by', fun
 
     $ids = [test()->asset->id];
 
-    expect((float) App\Support\DepositHoldings::glBalance($ids))->toEqual(60000.0)
-        ->and(App\Support\DepositHoldings::expectedGlBalance($ids))->toEqual(60000.0);
+    expect((float) DepositHoldings::glBalance($ids))->toEqual(60000.0)
+        ->and(DepositHoldings::expectedGlBalance($ids))->toEqual(60000.0);
 });
 
 it('attributes the deposit relief by the operator’s DATES, not by insertion order', function () {
@@ -356,10 +359,10 @@ it('attributes the deposit relief by the operator’s DATES, not by insertion or
 
     // The split each row FROZE is what its entry posts, so the attribution question is asked of
     // the origination computation directly, with each row's own siblings in place.
-    expect(round(App\Support\DepositBilling::depositShareAtWriteOff(
+    expect(round(DepositBilling::depositShareAtWriteOff(
         $invoice->fresh(), (float) $earlierDated->amount, $earlierDated->id), 2))
         ->toEqual(0.0)      // the earlier-dated 30,000 IS the rent
-        ->and(round(App\Support\DepositBilling::depositShareAtWriteOff(
+        ->and(round(DepositBilling::depositShareAtWriteOff(
             $invoice->fresh(), (float) $laterDated->amount, $laterDated->id), 2))
         ->toEqual(20000.0); // the later-dated 20,000 reaches the deposit in full
 });

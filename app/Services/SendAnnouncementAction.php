@@ -7,7 +7,6 @@ use App\Models\Announcement;
 use App\Models\Tenant;
 use App\Notifications\AnnouncementNotification;
 use App\Support\OpsLog;
-use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**

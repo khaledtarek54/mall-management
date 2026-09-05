@@ -7,9 +7,9 @@ use App\Models\FacilityWorkOrderComment;
 use App\Models\VendorContact;
 use App\Models\WorkOrderProposal;
 use App\Support\Filament\VendorScope;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * What the contractor is allowed to READ about a job — the half the portal shipped without.

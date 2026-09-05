@@ -174,7 +174,16 @@ round changed the reading.
   real file.
 - **D2-13 / H3** — measure the leading-wildcard `LIKE` search on a posture-B staging box before
   optimising anything. H3's own instruction, and staging is the first place it can be measured.
-- **OPS-06** — `vendor/bin/pint --test` fails on **30 files** and has for a long time: files nobody
+- ~~**OPS-06**~~ — **DONE 2026-09-06**, on the first genuinely quiet tree. It had grown from 30
+  files to **69** while it waited, which is the argument for doing it the moment the window opens
+  rather than when it is convenient. `vendor/bin/pint --test` now passes.
+  **It broke one thing and a gate caught it**: `fully_qualified_strict_types` promoted
+  `@use HasFactory<\Database\Factories\AssistantQuestionFactory>` — a docblock naming a class that
+  has NEVER existed — into a real `use` statement, and `UnresolvedClassReferenceConformanceTest`
+  refused it. The annotation was only ever safe while it stayed a string. That is the risk in any
+  formatting sweep over this tree and the reason the source-reading gates are the ones to run after
+  one: fifteen of them were, plus a behaviour sample over the rewritten files. *(Original note:)*
+  `vendor/bin/pint --test` failed on **30 files** and has for a long time: files nobody
   touched this cycle are dirty at HEAD (`app/Support/MorphMap.php`, `Navigation.php`,
   `ReportCatalogue.php`), so this is drift rather than anything a sweep introduced. `composer lint`
   exists and CI is paused, so nothing has enforced it. Almost all of it is `ordered_imports` /

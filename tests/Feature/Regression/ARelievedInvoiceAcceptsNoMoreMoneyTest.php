@@ -1,16 +1,23 @@
 <?php
 
+use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
+use App\Filament\Admin\Resources\Payments\Pages\EditPayment;
+use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PostDatedCheque;
 use App\Models\User;
 use App\Services\ApplyTenantCreditService;
+use App\Services\CreditNoteService;
 use App\Services\PostDatedChequeService;
 use App\Services\WriteOffInvoiceService;
 use App\Support\InvoiceSettlement;
 use App\Support\ValueSets;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
+use Livewire\Livewire;
 
 /**
  * An invoice whose AR has already been relieved accepts no more money — through ANY door.
@@ -258,7 +265,7 @@ it('does not offer a draft invoice to the payment allocation picker', function (
 it('applies NO credit note against a written-off invoice — the credit-note channel door', function () {
     $invoice = writtenOffInvoice();
 
-    $note = \App\Models\CreditNote::create([
+    $note = CreditNote::create([
         'tenant_id' => test()->tenant->id,
         'lease_id' => test()->lease->id,
         'status' => 'issued',
@@ -269,7 +276,7 @@ it('applies NO credit note against a written-off invoice — the credit-note cha
 
     // The refusal is a 0.0 return, not a throw — an apply sweep must be able to walk past an
     // ineligible invoice. What matters is that nothing moved.
-    expect(app(\App\Services\CreditNoteService::class)->applyToInvoice($note, $invoice, 5000.0))->toEqual(0.0)
+    expect(app(CreditNoteService::class)->applyToInvoice($note, $invoice, 5000.0))->toEqual(0.0)
         ->and((float) $invoice->fresh()->credit_applied_amount)->toEqual(0.0)
         ->and((float) $note->fresh()->balance)->toEqual(5000.0);
 });
@@ -277,10 +284,10 @@ it('applies NO credit note against a written-off invoice — the credit-note cha
 it('refuses the CreatePayment PAGE allocating to a written-off invoice — the operator door', function () {
     // The service-level guard is proven above; this drives the PAGE, because the page is a door of
     // its own — it builds the sync array itself and the picker narrowing is only a UI truth.
-    test()->seed(\Database\Seeders\RolesPermissionsSeeder::class);
-    \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+    test()->seed(RolesPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     test()->actingAs(makeUser('super_admin'));
-    \Filament\Facades\Filament::setTenant(test()->asset);
+    Filament::setTenant(test()->asset);
 
     $invoice = writtenOffInvoice();
 
@@ -299,10 +306,10 @@ it('refuses the CreatePayment PAGE allocating to a written-off invoice — the o
     // below is what stops that claim passing on a form that refuses everything.
     $before = Payment::count();
     try {
-        \Livewire\Livewire::test(\App\Filament\Admin\Resources\Payments\Pages\CreatePayment::class)
+        Livewire::test(CreatePayment::class)
             ->fillForm($fill($invoice->id, 1000))
             ->call('create');
-    } catch (\DomainException) {
+    } catch (DomainException) {
         // the model guard got there first — also a refusal
     }
     expect(Payment::count())->toBe($before)
@@ -311,23 +318,23 @@ it('refuses the CreatePayment PAGE allocating to a written-off invoice — the o
     // The CONTROL: the identical fill against a LIVE invoice sails through this same door.
     $live = makeInvoice(test()->lease);
     $live->update(['status' => 'issued']);
-    \Livewire\Livewire::test(\App\Filament\Admin\Resources\Payments\Pages\CreatePayment::class)
+    Livewire::test(CreatePayment::class)
         ->fillForm($fill($live->id, 1000))
         ->call('create')
         ->assertHasNoFormErrors();
     expect((float) $live->fresh()->paid_amount)->toEqual(1000.0);
 
-    \Filament\Facades\Filament::setTenant(null, isQuiet: true);
+    Filament::setTenant(null, isQuiet: true);
 
     // `$hasDatabaseTransactions` unwound the receipt with the refusal — no orphaned money.
     expect((float) $invoice->fresh()->paid_amount)->toEqual(0.0);
 });
 
 it('refuses the EditPayment PAGE re-allocating toward a written-off invoice — the same rule on the second door', function () {
-    test()->seed(\Database\Seeders\RolesPermissionsSeeder::class);
-    \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+    test()->seed(RolesPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
     test()->actingAs(makeUser('super_admin'));
-    \Filament\Facades\Filament::setTenant(test()->asset);
+    Filament::setTenant(test()->asset);
 
     $live = makeInvoice(test()->lease);
     $live->update(['status' => 'issued']);
@@ -348,17 +355,17 @@ it('refuses the EditPayment PAGE re-allocating toward a written-off invoice — 
     // Same layer-agnostic shape as the Create door, with the standing allocation as the control:
     // the re-allocation toward the written-off invoice must not survive, whichever layer refuses.
     try {
-        \Livewire\Livewire::test(\App\Filament\Admin\Resources\Payments\Pages\EditPayment::class, [
+        Livewire::test(EditPayment::class, [
             'record' => $payment->getRouteKey(),
         ])
             ->fillForm(['allocations' => [['invoice_id' => $wo->id, 'allocated_amount' => 1000]]])
             ->call('save');
-    } catch (\DomainException) {
+    } catch (DomainException) {
         // the model guard got there first — also a refusal
     }
 
     expect((float) $wo->fresh()->paid_amount)->toEqual(0.0)
         ->and((float) $live->fresh()->paid_amount)->toEqual(1000.0);
 
-    \Filament\Facades\Filament::setTenant(null, isQuiet: true);
+    Filament::setTenant(null, isQuiet: true);
 });

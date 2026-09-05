@@ -2,6 +2,7 @@
 
 namespace App\Support\Filament;
 
+use App\Filament\Admin\Actions\TenantActions;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -53,7 +54,7 @@ trait AnnouncesRecordChange
      * who holds `notes.create` and no `tenants.edit`, could log the call it had just taken. That
      * worked and it put *Log communication*, *Edit* and *Delete* inside a tab on a page whose whole
      * claim is that it does not write, which is how it was reported. Since 2026-09-05 the act lives
-     * in the tenant record's HEADER instead ({@see \App\Filament\Admin\Actions\TenantActions}) and
+     * in the tenant record's HEADER instead ({@see TenantActions}) and
      * **no relation manager in the panel waives the default** — `AViewPagesTabsDoNotWriteTest`
      * enforces that. The row actions keep their own `->authorize()` all the same, which is what
      * `RelationManagerCrudIsGatedConformanceTest` requires and what makes the deny two layers.

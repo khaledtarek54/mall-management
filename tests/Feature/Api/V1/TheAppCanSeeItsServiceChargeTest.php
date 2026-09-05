@@ -1,9 +1,9 @@
 <?php
 
+use App\Enums\UnitOwnershipStatus;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\UnitOwnership;
-use App\Enums\UnitOwnershipStatus;
 
 /**
  * **CAM had no API surface at all**, while the annual reconciliation puts `cam_recovery` and

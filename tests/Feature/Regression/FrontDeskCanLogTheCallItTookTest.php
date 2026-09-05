@@ -1,11 +1,13 @@
 <?php
 
+use App\Filament\Admin\Actions\TenantActions;
 use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
 use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Note;
+use App\Support\Filament\RecordChanged;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -28,7 +30,7 @@ use Livewire\Livewire;
  * decide. That worked and it cost something: a page whose whole claim is that it does not write
  * rendered *Log communication*, *Edit* and *Delete* inside one of its tabs — reported from the
  * panel as exactly that. So the act moved to `ViewTenant`'s HEADER
- * ({@see \App\Filament\Admin\Actions\TenantActions}), where this panel puts acts, and the
+ * ({@see TenantActions}), where this panel puts acts, and the
  * tab went back to Filament's default. The front desk keeps its one function, the tabs stop
  * writing, and the two surfaces share one form.
  *
@@ -111,7 +113,7 @@ it('shows the new note in the tab it was NOT written from', function () {
             ]);
 
         // The relation manager, told to refresh, re-reads.
-        $rm->dispatch(\App\Support\Filament\RecordChanged::EVENT);
+        $rm->dispatch(RecordChanged::EVENT);
 
         expect(tableRows($rm)->pluck('body')->all())->toBe(['Asked when the renewal offer lands.']);
     });

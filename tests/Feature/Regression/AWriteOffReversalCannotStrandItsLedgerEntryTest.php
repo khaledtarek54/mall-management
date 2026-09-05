@@ -26,6 +26,7 @@
 use App\Models\AccountingPeriod;
 use App\Models\JournalEntry;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\WriteOffInvoiceService;
 use Database\Seeders\AccountMappingSeeder;
@@ -140,7 +141,7 @@ it('asks one rule, so the guard cannot drift from the act', function () {
     closeEveryPeriod();
 
     expect(app(LedgerPoster::class)->canVoidEntryFor($this->writeOff->fresh()))->toBeFalse()
-        ->and(app(App\Services\Accounting\JournalPostingService::class)
+        ->and(app(JournalPostingService::class)
             ->openPeriodForReversalOf($entry->fresh()))->toBeNull();
 });
 

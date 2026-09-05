@@ -3,6 +3,8 @@
 namespace App\Support\Assistant;
 
 use App\Contracts\DeliverableReport;
+use App\Filament\Admin\Pages\ActivityLog;
+use App\Filament\Admin\Pages\ClauseRegister;
 use App\Support\ReportParameters;
 use DomainException;
 
@@ -44,8 +46,8 @@ final class ReportRunner
      * @var array<int, class-string>
      */
     public const CANNOT_RUN_HEADLESS = [
-        \App\Filament\Admin\Pages\ClauseRegister::class,
-        \App\Filament\Admin\Pages\ActivityLog::class,
+        ClauseRegister::class,
+        ActivityLog::class,
     ];
 
     /**

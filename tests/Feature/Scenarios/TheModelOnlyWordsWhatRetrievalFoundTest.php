@@ -1,17 +1,18 @@
 <?php
 
 use App\Contracts\AssistantModel;
+use App\Livewire\AssistantChat;
 use App\Models\AssistantDocChunk;
 use App\Models\AssistantQuestion;
 use App\Services\Assistant\AnswerQuestionService;
 use App\Services\Assistant\Models\ClaudeAssistantModel;
 use App\Services\Assistant\Models\NullAssistantModel;
 use App\Services\Assistant\Models\OpenAiCompatibleAssistantModel;
-use Illuminate\Support\Facades\Http;
 use App\Support\Assistant\AssistantBudget;
 use App\Support\Assistant\AssistantCorpus;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 /**
@@ -227,7 +228,7 @@ it('shows the answer above its sources, never instead of them', function () {
     // Through the CHAT, which is now the only assistant surface — the standalone page was removed
     // so there is one place to ask rather than two that can drift.
     asTenant($asset, function () {
-        Livewire::test(App\Livewire\AssistantChat::class)
+        Livewire::test(AssistantChat::class)
             ->assertOk()
             // Opened first: a closed panel renders the bubble and nothing else, so every assertion
             // about the thread would pass or fail for the wrong reason.

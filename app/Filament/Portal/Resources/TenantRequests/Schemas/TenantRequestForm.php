@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Collection;
 
 class TenantRequestForm
 {
@@ -121,9 +122,9 @@ class TenantRequestForm
      * This IS the scope in the portal — `TenantScope::visibleAssetIds()` is null for a `TenantUser`,
      * so nothing else narrows it.
      *
-     * @return \Illuminate\Support\Collection<int, int>
+     * @return Collection<int, int>
      */
-    private static function reportableUnitIds(): \Illuminate\Support\Collection
+    private static function reportableUnitIds(): Collection
     {
         $tenant = Portal::tenant();
 

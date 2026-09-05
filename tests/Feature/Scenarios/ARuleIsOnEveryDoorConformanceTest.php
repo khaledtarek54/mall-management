@@ -21,7 +21,6 @@
  * make impossible is the historical failure: a sixth door shipping with nobody ever asked the
  * question.
  */
-
 const RULE_DOORS = [
     // ── The deposit pot: every creator of a deposit_transactions row, plus the register itself.
     // The cap lives on the MODEL (`saving`), so a new Eloquent door is covered by existing — but

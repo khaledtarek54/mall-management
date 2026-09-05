@@ -18,6 +18,7 @@ use App\Models\Disbursement;
 use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
+use App\Models\InvoiceWriteOff;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
 use App\Models\LeaseEvent;
@@ -337,7 +338,7 @@ class ValueSets
         // is the unenforced-column class EG-37 exists to close, invisible to the coverage gate
         // because `reason` is not one of the classification SUFFIXES it sweeps. Declared off the
         // model's own constant, the third registration form, so the two cannot drift.
-        'invoice_write_offs.reason' => [\App\Models\InvoiceWriteOff::class, 'REASONS'],
+        'invoice_write_offs.reason' => [InvoiceWriteOff::class, 'REASONS'],
         'invoices.status' => [
             'draft', 'issued', 'partially_paid', 'paid', 'overdue', 'disputed', 'cancelled', 'credited',
             'written_off',

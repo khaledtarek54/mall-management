@@ -2,12 +2,46 @@
 
 namespace App\Support;
 
-use App\Models\{Announcement, Area, Asset, BankAccount, CreditNote, Custody, Department,
-    DepositTransaction, Disbursement, Employee, Equipment, Expense, FacilityWorkOrder, FixedAsset, InventoryItem,
-    Invoice, JournalEntry, Lease, LedgerAccount, MarketingPost, OwnerRequest, OwnerStatementRun,
-    Payment, Payroll, PostDatedCheque, PurchaseRequest, RentableItem, ServicePlan, StockMovement,
-    Tenant, TenantRequest, Unit, UnitOwnership, User, UtilityMeter, Vendor, VendorBill, Violation,
-    Warehouse, WorkPermit};
+use App\Models\Announcement;
+use App\Models\Area;
+use App\Models\Asset;
+use App\Models\BankAccount;
+use App\Models\CreditNote;
+use App\Models\Custody;
+use App\Models\Department;
+use App\Models\DepositTransaction;
+use App\Models\Disbursement;
+use App\Models\Employee;
+use App\Models\Equipment;
+use App\Models\Expense;
+use App\Models\FacilityWorkOrder;
+use App\Models\FixedAsset;
+use App\Models\InventoryItem;
+use App\Models\Invoice;
+use App\Models\JournalEntry;
+use App\Models\Lease;
+use App\Models\LedgerAccount;
+use App\Models\MarketingPost;
+use App\Models\OwnerRequest;
+use App\Models\OwnerStatementRun;
+use App\Models\Payment;
+use App\Models\Payroll;
+use App\Models\PostDatedCheque;
+use App\Models\PurchaseRequest;
+use App\Models\RentableItem;
+use App\Models\ServicePlan;
+use App\Models\StockMovement;
+use App\Models\Tenant;
+use App\Models\TenantRequest;
+use App\Models\Unit;
+use App\Models\UnitOwnership;
+use App\Models\User;
+use App\Models\UtilityMeter;
+use App\Models\Vendor;
+use App\Models\VendorBill;
+use App\Models\Violation;
+use App\Models\Warehouse;
+use App\Models\WorkPermit;
 
 /**
  * WHICH fields of a record the assistant may read back, and why the rest may not.
