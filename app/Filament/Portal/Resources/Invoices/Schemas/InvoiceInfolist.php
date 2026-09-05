@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Invoices\Schemas;
 
+use App\Models\InvoiceItem;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -73,6 +74,10 @@ class InvoiceInfolist
                         ->components([
                             TextEntry::make('description')
                                 ->label(__('admin.fields.description'))
+                                // Worded for whoever is signed in to the portal, not for whoever
+                                // raised the line (UX-30) — the same row reads correctly for a
+                                // retailer's Arabic bookkeeper and their English-reading auditor.
+                                ->state(fn (InvoiceItem $record): string => $record->narrative())
                                 ->columnSpan(2),
                             TextEntry::make('total')
                                 ->label(__('admin.fields.total'))

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\DescribesItsLine;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[PropertyOwned(via: 'creditNote')]
 class CreditNoteItem extends Model
 {
+    use DescribesItsLine;
+
     protected $fillable = [
         'credit_note_id',
         // WHICH charge this line credits — the charge code, exactly as `invoice_items.type` is
@@ -22,6 +25,10 @@ class CreditNoteItem extends Model
         // rather than guessing.
         'type',
         'description',
+        // See `InvoiceItem` — the same line-narrative pair, because a credit note is read by the
+        // same person as the invoice it reverses.
+        'description_key',
+        'description_data',
         'tax_code',
         'amount',
         'vat_rate',
@@ -31,6 +38,7 @@ class CreditNoteItem extends Model
     ];
 
     protected $casts = [
+        'description_data' => 'array',
         'amount' => 'decimal:2',
         'vat_rate' => 'decimal:2',
         'vat_amount' => 'decimal:2',

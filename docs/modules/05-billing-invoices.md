@@ -1506,6 +1506,32 @@ Used in form/table queries to auto-scope to the current property (Asset):
 
 ## 8. Extension points — how to change/extend SAFELY
 
+### Changing what a LINE says (UX-30)
+
+**A line stores DATA, never PROSE.** `invoice_items.description_key` names a template in
+`App\Support\LineNarrative` and `description_data` fills it; the sentence is composed when the
+document is READ, so one stored row is correct for a retailer's Arabic bookkeeper and their
+English-reading auditor. `credit_note_items` carries the same pair.
+
+- **To reword an existing line**, edit the lang key in `lang/{en,ar}/admin/…`. It reaches every
+  document ever raised under that key, including ones already issued — which is the whole point,
+  and the thing a stored sentence can never do.
+- **To add a new kind of line**, register the key in `LineNarrative::KEYS` with its placeholders,
+  add the wording to BOTH lang files, then store `description_key` + `description_data` from the
+  service. `LineNarrativeIsAKeyNotProseConformanceTest` fails on a key with no Arabic, on a
+  rendered `:placeholder`, on a key nothing writes, and on a line-raising service that stores prose
+  with no key.
+- **The whole sentence is one template, never a stem plus suffixes.** Arabic does not put a
+  parenthetical where English does, so `billing.period_arrears_prorated` is its own key rather than
+  three fragments joined at read time.
+- **A DATE or a CLASSIFICATION inside the line is data too.** `month`/`date` placeholders hold an
+  ISO date and are formatted for the reader; `trans`/`catalogue` ones hold a CODE and are worded for
+  the reader. Resolving either at write time produces one sentence in two languages, which is the
+  failure `LeaseEventNarrative` shipped and had to be found on screen.
+- **`description` stays and is the FLOOR** — for every line raised before this existed, and for a
+  line an operator worded themselves. **Typing in the description clears the key** (on the model, so
+  no writer can forget), because those are a person's words about that specific line.
+
 ### Adding a new charge type
 
 1. **Add to enum:** Edit migration or add new migration to expand the `type` enum in both `charges` and `invoice_items` tables.

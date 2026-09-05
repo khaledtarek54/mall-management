@@ -1353,6 +1353,10 @@ class CamReconciliationService
             items: [[
                 'charge_id' => $charge->id,
                 'description' => $name,
+                // Raw English for the whole of this service's life, on the line a tenant queries
+                // hardest. The prose stays as the floor; the key is what they read (UX-30).
+                'description_key' => 'cam.reconciliation',
+                'description_data' => ['year' => $year],
                 // 'cam_recovery' routes this to the dedicated CAM Recovery Revenue account
                 // (إيرادات استرداد المصروفات المشتركة) in the GL, not generic misc income.
                 'type' => 'cam_recovery',
@@ -1416,6 +1420,8 @@ class CamReconciliationService
         $feeLine = [
             'charge_id' => $charge->id,
             'description' => $name,
+            'description_key' => 'cam.admin_fee',
+            'description_data' => ['year' => $year],
             'type' => 'cam_admin_fee',
             'amount' => $fee,
             'vat_rate' => $feeVatRate,

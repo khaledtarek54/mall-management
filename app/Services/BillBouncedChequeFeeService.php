@@ -118,10 +118,13 @@ class BillBouncedChequeFeeService
             $invoice = app(IssueInvoiceService::class)->issue(
                 agreement: $agreement,
                 items: [[
-                    'description' => __('admin.post_dated_cheques.nsf_fee_line', [
+                    'description' => __('admin.post_dated_cheques.nsf_fee_line', $nsfLine = [
                         'cheque' => $locked->cheque_number,
                         'bank' => $locked->bank_name ?: '—',
                     ]),
+                    // The DATA, so the tenant reads this in their own language (UX-30).
+                    'description_key' => 'nsf_fee.line',
+                    'description_data' => $nsfLine,
                     'type' => InvoiceItemType::NsfFee->value,   // → misc_income in the GL journalizer
                     'amount' => $fee,
                     'vat_rate' => $vatRate,

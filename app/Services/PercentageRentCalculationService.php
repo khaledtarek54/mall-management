@@ -747,9 +747,14 @@ class PercentageRentCalculationService
         // One invoice can now cover several declared months, so the label and the invoice period
         // span the BILLING period rather than the single month that anchors it. The anchor is still
         // the first month — `reverseOverage()` keys on it.
-        $label = 'Percentage Rent — '.($declaration->is($last)
+        // The PERIOD, kept apart from the words. `Percentage Rent — ` was raw English on the line
+        // a tenant checks their own sales figures against (UX-30); the span itself is a label the
+        // declaration builds and is carried as data rather than re-derived.
+        $periodLabel = $declaration->is($last)
             ? $declaration->periodLabel()
-            : $declaration->periodLabel().' – '.$last->periodLabel());
+            : $declaration->periodLabel().' – '.$last->periodLabel();
+
+        $label = 'Percentage Rent — '.$periodLabel;
 
         $periodEnd = $last->period_end;
 
@@ -784,6 +789,8 @@ class PercentageRentCalculationService
             items: [[
                 'charge_id' => $charge->id,
                 'description' => $label,
+                'description_key' => 'percentage_rent.line',
+                'description_data' => ['label' => $periodLabel],
                 'type' => 'percentage_rent', // → percentage_rent_revenue in the GL journalizer
                 'amount' => $amount,
                 'vat_rate' => $vatRate,

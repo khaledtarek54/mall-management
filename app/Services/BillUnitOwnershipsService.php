@@ -237,19 +237,38 @@ class BillUnitOwnershipsService
             $vatAmount = round($amount * ($vatRate / 100), 2);
 
             $label = $charge->name.' - '.$coveredStart->format('F Y');
+            $inArrears = $charge->billsInArrears();
 
-            if ($charge->billsInArrears()) {
-                // A literal, for the reason the lease run's is — see `MonthlyBillingService`.
+            if ($inArrears) {
+                // The literal is the FLOOR — see `MonthlyBillingService`. The line's wording is the
+                // key below, resolved when the OWNER reads their assessment (UX-30).
                 $label .= ' (in arrears)';
             }
 
-            if ($factor < 1) {
-                $label .= ' ('.round($factor * 100).'% pro-rated)';
+            $proratedPct = $factor < 1 ? (int) round($factor * 100) : null;
+
+            if ($proratedPct !== null) {
+                $label .= ' ('.$proratedPct.'% pro-rated)';
             }
+
+            // The same four keys the lease run uses: an owner's صيانة assessment is the same
+            // sentence about a different agreement, and two templates saying one thing is how the
+            // two drift into wording the same charge differently.
+            $narrativeKey = match (true) {
+                $inArrears && $proratedPct !== null => 'billing.period_arrears_prorated',
+                $inArrears => 'billing.period_arrears',
+                $proratedPct !== null => 'billing.period_prorated',
+                default => 'billing.period',
+            };
+
+            $narrativeData = ['name' => $charge->name, 'period' => $coveredStart->toDateString()]
+                + ($proratedPct !== null ? ['pct' => $proratedPct] : []);
 
             return [
                 'charge_id' => $charge->id,
                 'description' => $label,
+                'description_key' => $narrativeKey,
+                'description_data' => $narrativeData,
                 'type' => $charge->type,
                 'amount' => $amount,
                 'vat_rate' => $vatRate,

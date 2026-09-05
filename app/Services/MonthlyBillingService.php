@@ -830,7 +830,12 @@ class MonthlyBillingService
             // entry and the tax point take.
             $vatRate = $charge->resolvedVatRate($effectivePeriodStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
-            $label = $charge->name.' - '.($coveredMonths > 1
+            // The line's WORDING is a key plus its data (UX-30) — resolved by
+            // `App\Support\LineNarrative` when the tenant reads the document, not here. The prose
+            // below is still composed and still stored, as the floor for a reader nobody converted
+            // and for the rows raised before this existed.
+            $isCycle = $coveredMonths > 1;
+            $label = $charge->name.' - '.($isCycle
                 ? $this->cycleLabel($coveredStart, $coveredEnd)
                 : $coveredStart->format('F Y'));
 
@@ -838,15 +843,16 @@ class MonthlyBillingService
             // September and this line is August's. A tenant reading "Service charge - August 2026"
             // under a September invoice would otherwise reasonably think it a duplicate.
             //
-            // A LITERAL, not `__()`, and deliberately so. `invoice_items.description` is stored
-            // prose and everything already in it is English: the `% pro-rated` suffix below is a
-            // hardcoded literal and the month comes from `format('F Y')`. Translating this one
-            // clause would freeze the BILLING RUN's locale into the row — a queue worker running in
-            // Arabic would store an Arabic word beside an English month on the same line, and the
-            // register would then hold both. Localising a stored invoice description is real work
-            // and it has a known shape here (store the DATA, resolve the words at render time, as
-            // `ActivityVocabulary` does). It is not this change.
-            if ($charge->billsInArrears()) {
+            // The literal here is the FLOOR, and it is now only the floor. This comment used to
+            // explain why translating the clause was refused — it would have frozen the billing
+            // RUN's locale into the row, storing an Arabic word beside an English month — and it
+            // named the right fix: store the DATA and resolve the words at render time. That is
+            // what `description_key` / `description_data` below do (UX-30), so the tenant reads
+            // this line in THEIR language and the English prose survives for any reader still on
+            // the column.
+            $inArrears = $charge->billsInArrears();
+
+            if ($inArrears) {
                 $label .= ' (in arrears)';
             }
 
@@ -854,9 +860,32 @@ class MonthlyBillingService
             // service charge beside it is not.
             $rowFactor = $rowMultiplier / max($cycleMonths, 1);
 
-            if ($charge->frequency === 'monthly' && $rowFactor < 1) {
-                $label .= ' ('.round($rowFactor * 100).'% pro-rated)';
+            $proratedPct = ($charge->frequency === 'monthly' && $rowFactor < 1)
+                ? (int) round($rowFactor * 100)
+                : null;
+
+            if ($proratedPct !== null) {
+                $label .= ' ('.$proratedPct.'% pro-rated)';
             }
+
+            // ONE key for the whole sentence, never a stem plus suffixes: Arabic does not put a
+            // parenthetical where English does. A multi-month cycle names both ends, so its period
+            // is prose the planner already built; a single month stores the DATE and is formatted
+            // in the reader's own locale.
+            $narrativeKey = match (true) {
+                $isCycle && $inArrears => 'billing.cycle_arrears',
+                $isCycle => 'billing.cycle',
+                $inArrears && $proratedPct !== null => 'billing.period_arrears_prorated',
+                $inArrears => 'billing.period_arrears',
+                $proratedPct !== null => 'billing.period_prorated',
+                default => 'billing.period',
+            };
+
+            $narrativeData = ['name' => $charge->name]
+                + ($isCycle
+                    ? ['period' => $this->cycleLabel($coveredStart, $coveredEnd)]
+                    : ['period' => $coveredStart->toDateString()])
+                + ($proratedPct !== null ? ['pct' => $proratedPct] : []);
 
             return [
                 'charge_id' => $charge->id,
@@ -867,6 +896,8 @@ class MonthlyBillingService
                 'covered_start' => $coveredStart->toDateString(),
                 'covered_end' => $coveredEnd->toDateString(),
                 'description' => $label,
+                'description_key' => $narrativeKey,
+                'description_data' => $narrativeData,
                 'type' => $charge->type,
                 'amount' => $amount,
                 'vat_rate' => $vatRate,

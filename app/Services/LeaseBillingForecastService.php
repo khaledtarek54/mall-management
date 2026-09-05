@@ -215,7 +215,7 @@ class LeaseBillingForecastService
         return [
             'items' => $invoice->items->map(fn ($item): array => [
                 'type' => $item->type,
-                'description' => $item->description,
+                'description' => $item->narrative(),
                 'amount' => (float) $item->amount,
                 'vat_amount' => (float) $item->vat_amount,
             ])->all(),

@@ -316,7 +316,7 @@ return [
         'apply_credit_confirm' => 'Apply the tenant\'s on-account credit to this invoice. The amount is capped at whichever is smaller — the credit available or the invoice balance.',
         'apply_credit_summary' => 'Invoice balance: :balance · Tenant credit available: :credit',
         'apply_credit_amount_helper' => 'Up to EGP :max can be applied (the lesser of the credit and the invoice balance).',
-        'late_fee_line_description' => 'Late fee — :percent% of :balance overdue balance (minimum :min).',
+        'late_fee_line_description' => 'Late fee — :percent% of :balance overdue balance (minimum :min). — :invoice',
         'bill_reading' => 'Bill to tenant',
         'bill_reading_confirm' => 'Issues a utility recharge invoice to the unit\'s tenant now — this reading\'s cost plus 14% VAT. A reading can only be recharged once.',
         'bill_reading_confirm_detailed' => 'Recharges :tenant for :period consumption — :amount plus 14% VAT — as a new invoice now. Check the tenant is correct for the consumption period. A reading can only be recharged once.',

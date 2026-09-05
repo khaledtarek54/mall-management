@@ -18,7 +18,9 @@ class InvoiceItemResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'description' => $this->description,
+            // Worded for the CALLER (UX-30). `SetApiLocale` has already resolved
+            // `Accept-Language`, and on this surface the caller is the recipient.
+            'description' => $this->resource->narrative(),
             'type' => $this->type,
             'amount' => (float) $this->amount,
             'vat_rate' => (float) $this->vat_rate,

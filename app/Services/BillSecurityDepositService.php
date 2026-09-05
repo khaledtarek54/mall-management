@@ -95,6 +95,9 @@ class BillSecurityDepositService
                 items: [[
                     'type' => 'security_deposit',
                     'description' => __('admin.deposits.invoice_line', ['ref' => $locked->reference]),
+                    // The DATA, so the tenant reads this in their own language (UX-30).
+                    'description_key' => 'deposit.line',
+                    'description_data' => ['ref' => $locked->reference],
                     'amount' => $amount,
                     'vat_rate' => $rate,
                     'vat_amount' => $vat,

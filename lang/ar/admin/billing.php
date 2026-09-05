@@ -1,6 +1,19 @@
 <?php
 
 return [
+    // انظر الملف الإنجليزي: الجملة كاملة هي القالب، وليست جذعًا يُضاف إليه لاحقة.
+    'invoice_lines' => [
+        'period' => ':name - :period',
+        'period_arrears' => ':name - :period (متأخر)',
+        'period_prorated' => ':name - :period (:pct% بالتناسب)',
+        'period_arrears_prorated' => ':name - :period (متأخر) (:pct% بالتناسب)',
+        'cycle' => ':name - :period',
+        'cycle_arrears' => ':name - :period (متأخر)',
+        'cam_reconciliation' => 'تسوية مصروفات المنطقة المشتركة — :year',
+        'cam_admin_fee' => 'رسوم إدارة المصروفات المشتركة — :year',
+        'percentage_rent' => 'الإيجار النسبي — :label',
+    ],
+
     'billing_frequency' => [
         'monthly' => 'شهري',
         'quarterly' => 'ربع سنوي (كل 3 أشهر)',

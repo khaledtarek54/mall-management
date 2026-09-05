@@ -96,6 +96,10 @@ class BillMeterReadingService
             $invoice = app(IssueInvoiceService::class)->issue(
                 agreement: $lease,
                 items: [[
+                    // The DATA (UX-30). Both the meter TYPE and the PERIOD were worded here, so a
+                    // line raised by an Arabic operator carried an Arabic type beside an Arabic
+                    // month for ever — correct for them and frozen for the tenant. The code and the
+                    // date are stored; `LineNarrative` words both for whoever reads the document.
                     'description' => __('admin.utility.recharge_line', [
                         'type' => __('admin.enums.meter_type')[$meter->type] ?? $meter->type,
                         'meter' => $meter->meter_number,
@@ -103,6 +107,14 @@ class BillMeterReadingService
                         'uom' => $meter->unit_of_measurement ?: '',
                         'period' => $periodStart->isoFormat('MMM YYYY'),
                     ]),
+                    'description_key' => 'utility.recharge',
+                    'description_data' => [
+                        'type' => $meter->type,
+                        'meter' => $meter->meter_number,
+                        'consumption' => number_format((float) $locked->consumption, 2),
+                        'uom' => $meter->unit_of_measurement ?: '',
+                        'period' => $periodStart->toDateString(),
+                    ],
                     'type' => 'utility', // → utility_revenue in the GL journalizer
                     'amount' => $amount,
                     'vat_rate' => $vatRate,

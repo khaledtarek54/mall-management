@@ -386,6 +386,16 @@ Invoice `status` ∈ `draft`, `issued`, `partially_paid`, `overdue`, `paid`,
 Adds `items: [{ id, description, type, amount, vat_rate, vat_amount, total }]`.
 `type` ∈ `base_rent`, `service_charge`, `utility`, `parking`, `percentage_rent`,
 `marketing`, `late_fee`, `other`.
+
+> **`description` now follows `Accept-Language` (2026-09-06, UX-30).** The schema is unchanged —
+> still a string — but the VALUE is no longer whatever language the billing run happened to be in.
+> A line is stored as a key plus its data (`App\Support\LineNarrative`) and worded when it is read,
+> so the same invoice returns *"Base Rent - September 2026"* to a client sending `Accept-Language:
+> en` and the Arabic sentence, with an Arabic month, to one sending `ar`. **The app must not cache a
+> description across a language change**, and must not assume two requests for one invoice return
+> byte-identical line text. A line an operator worded themselves is returned verbatim in both, which
+> is deliberate: those are a person's words about that specific line. The same applies to
+> `GET /me/credit-notes/{id}`.
 `creditAppliedAmount` is the portion of `paidAmount` covered by applied credit
 notes (vs cash). `paymentLinkUrl` is a shareable no-login Paymob link (null once
 nothing is owed) — the app can share it or open it in a WebView.

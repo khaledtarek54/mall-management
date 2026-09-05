@@ -250,6 +250,15 @@ Page off `meta`, never `links`. Default 25, max 100. `GET /me/leases`, `/me/unit
 
 Each of these produces a **silently wrong screen** rather than an error.
 
+0. **An invoice line's `description` follows `Accept-Language` (new, 2026-09-06).** The schema is
+   unchanged — still a string — but the value is no longer frozen in whatever language the billing
+   run happened to be in. A line is stored as a key plus its data and worded when it is read, so the
+   SAME invoice returns *"Base Rent - September 2026"* with `Accept-Language: en` and the Arabic
+   sentence, Arabic month included, with `ar`. **Do not cache a line's text across a language
+   change**, and do not assume two reads of one invoice give byte-identical line text. A line an
+   operator worded themselves comes back verbatim in both, on purpose: those are a person's words
+   about that specific line, not a template. Same for credit-note lines.
+
 1. **Invoice line keys are camelCase: `vatRate`, `vatAmount`.** `MOBILE-API.md` §4.3 prints them
    snake_case — that is a typo in the doc. Decoding the wrong ones shows every line's VAT as 0,
    or throws on a non-nullable `double`.

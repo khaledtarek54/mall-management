@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\DescribesItsLine;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[PropertyOwned(via: 'invoice')]
 class InvoiceItem extends Model
 {
+    use DescribesItsLine;
     use HasFactory;
 
     protected $fillable = [
@@ -23,6 +25,11 @@ class InvoiceItem extends Model
         'covered_start',
         'covered_end',
         'description',
+        // What this line says, stored as DATA (UX-30). The key names a template in
+        // `App\Support\LineNarrative` and the data fills it, so one row reads correctly in both
+        // languages; `description` above stays as the floor and as an operator's own wording.
+        'description_key',
+        'description_data',
         'type',
         'tax_code',
         'amount',
@@ -36,6 +43,7 @@ class InvoiceItem extends Model
     ];
 
     protected $casts = [
+        'description_data' => 'array',
         'covered_start' => 'date',
         'covered_end' => 'date',
         'amount' => 'decimal:2',

@@ -28,7 +28,8 @@ class CreditNoteItemResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'description' => $this->description,
+            // Worded for the CALLER — see `InvoiceItemResource`.
+            'description' => $this->resource->narrative(),
             'amount' => (float) $this->amount,
             'vat_rate' => (float) $this->vat_rate,
             'vat_amount' => (float) $this->vat_amount,

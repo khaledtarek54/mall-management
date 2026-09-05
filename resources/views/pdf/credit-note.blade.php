@@ -87,7 +87,10 @@
         <tbody>
             @foreach($note->items as $item)
                 <tr>
-                    <td class="ink">{{ Bidi::isolate($item->description) }}</td>
+                    {{-- The line is WORDED here, not when it was raised (UX-30): the whole
+                         template renders inside `DocumentLocale::in()`, so this answers in the
+                         language the document is being written in. --}}
+                    <td class="ink">{{ Bidi::isolate($item->narrative()) }}</td>
                     <td class="num">{{ number_format((float) $item->amount, 2) }}</td>
                     <td class="num">{{ rtrim(rtrim(number_format((float) $item->vat_rate, 2), '0'), '.') }}%</td>
                     <td class="num ink">{{ number_format((float) $item->total, 2) }}</td>

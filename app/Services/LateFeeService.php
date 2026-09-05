@@ -287,11 +287,19 @@ class LateFeeService
                     // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
                     // the charge instead of seeing a bare "Late Fee" amount. It now also names the
                     // invoice being penalised, which the line no longer sits on.
-                    'description' => __('admin.actions.late_fee_line_description', [
+                    // The DATA, not the sentence (UX-30). Resolving `__()` here froze whichever
+                    // language this sweep happened to run in — `config('app.locale')` on the
+                    // scheduled pass — onto a line the tenant reads. The invoice number used to be
+                    // appended AFTER the translated string; it is a placeholder now, because a
+                    // suffix glued on in English lands in the wrong place in Arabic.
+                    'description' => __('admin.actions.late_fee_line_description', $lateFeeLine = [
                         'percent' => rtrim(rtrim(number_format($percent, 2), '0'), '.'),
                         'balance' => 'EGP '.number_format($chargeable, 2),
                         'min' => 'EGP '.number_format((float) $min, 2),
-                    ]).' — '.$locked->number,
+                        'invoice' => $locked->number,
+                    ]),
+                    'description_key' => 'late_fee.line',
+                    'description_data' => $lateFeeLine,
                     'type' => 'late_fee',
                     'amount' => $fee,
                     'vat_rate' => $vatRate,

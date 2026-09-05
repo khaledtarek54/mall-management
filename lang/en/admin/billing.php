@@ -1,6 +1,25 @@
 <?php
 
 return [
+    // ── What a recurring line SAYS, resolved when the tenant reads it (UX-30) ────────────────
+    //
+    // The whole sentence is the template, never a stem plus suffixes: Arabic does not put a
+    // parenthetical where English does, so composing ` (in arrears)` onto a translated stem is the
+    // same defect as composing it in English. `:name` is the charge's own name — the operator's
+    // words — and `:period` is formatted by `App\Support\LineNarrative` in the READER's locale
+    // from a stored ISO date, so one row reads correctly in both.
+    'invoice_lines' => [
+        'period' => ':name - :period',
+        'period_arrears' => ':name - :period (in arrears)',
+        'period_prorated' => ':name - :period (:pct% pro-rated)',
+        'period_arrears_prorated' => ':name - :period (in arrears) (:pct% pro-rated)',
+        'cycle' => ':name - :period',
+        'cycle_arrears' => ':name - :period (in arrears)',
+        'cam_reconciliation' => 'CAM reconciliation — :year',
+        'cam_admin_fee' => 'CAM admin fee — :year',
+        'percentage_rent' => 'Percentage rent — :label',
+    ],
+
     'billing_frequency' => [
         'monthly' => 'Monthly',
         'quarterly' => 'Quarterly (every 3 months)',

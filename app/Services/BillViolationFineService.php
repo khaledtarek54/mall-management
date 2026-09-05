@@ -106,11 +106,22 @@ class BillViolationFineService
             $invoice = app(IssueInvoiceService::class)->issue(
                 agreement: $agreement,
                 items: [[
+                    // The DATA (UX-30). The CATEGORY and the DATE were both worded here — a
+                    // catalogue label and a formatted date — so an Arabic operator's fine carried
+                    // Arabic words to an English-reading tenant. The code and the date are stored;
+                    // `LineNarrative` resolves the label through the same `labelFor()` (which reads
+                    // INACTIVE rows, so retiring a category never blanks a line already billed).
                     'description' => __('admin.violations.fine_line', [
                         'reference' => $locked->reference,
                         'category' => ViolationCategory::labelFor($locked->category),
                         'date' => $locked->violation_date->isoFormat('D MMM YYYY'),
                     ]),
+                    'description_key' => 'violation.fine',
+                    'description_data' => [
+                        'reference' => $locked->reference,
+                        'category' => $locked->category,
+                        'date' => $locked->violation_date->toDateString(),
+                    ],
                     'type' => InvoiceItemType::ViolationFine->value, // → misc_income in the GL journalizer
                     'amount' => $fine,
                     'vat_rate' => $vatRate,
