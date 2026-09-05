@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Unit;
 use App\Models\UnitArea;
+use App\Support\AreaFitsTheProperty;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\Auth;
@@ -34,6 +35,11 @@ class RemeasureUnitService
         if ($newArea <= 0) {
             throw new DomainException(__('admin.errors.unit_area_not_positive'));
         }
+
+        // The second door onto `units.area_sqm` — the create form is the first. A re-survey can put
+        // a shop above the whole lettable area just as easily as a mistyped creation can, and this
+        // is the path that exists precisely to change the number afterwards.
+        AreaFitsTheProperty::assert($newArea, $unit->asset);
 
         $from = isset($data['effective_from']) && $data['effective_from']
             ? CarbonImmutable::parse($data['effective_from'])->startOfDay()

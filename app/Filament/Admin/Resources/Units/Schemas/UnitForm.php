@@ -6,11 +6,13 @@ use App\Models\Area;
 use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\Unit;
+use App\Support\AreaFitsTheProperty;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\ProjectedState;
 use App\Support\TenantScope;
+use Closure;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -94,6 +96,18 @@ class UnitForm
                         ->numeric()
                         ->minValue(0.01)
                         ->required()
+                        // A shop cannot be bigger than the whole lettable part of the mall. The
+                        // damage lands on the CAM apportionment rather than here, so nothing about
+                        // the unit register would ever have shown it.
+                        ->rules([
+                            fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                                $asset = Asset::find(TenantScope::clampAssetId($get('asset_id')));
+
+                                if (AreaFitsTheProperty::exceeds($value === null ? null : (float) $value, $asset)) {
+                                    $fail(AreaFitsTheProperty::message((float) $value, $asset));
+                                }
+                            },
+                        ])
                         ->suffix('m²')
                         // Editable only on CREATE, where it seeds the opening measurement. After
                         // that the area is a DATED record and changing it here would move the

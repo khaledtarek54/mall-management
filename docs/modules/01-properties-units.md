@@ -210,6 +210,29 @@ Companion accessors: `occupiedAreaSqm()`, `totalUnitAreaSqm()`. Guarding test: `
 - `AssetResource::canCreate()` returns false when inside a specific property context; true only when tenant is the ALL pseudo-asset or unset.
 - `AssignedAssets::idsForCurrentUser()` scopes to user's assigned assets (both `asset_user` and `asset_owner` relationships), but always hides the ALL pseudo-asset from the restricted user's visible set.
 
+### A unit fits inside its property
+
+`App\Support\AreaFitsTheProperty` refuses a unit whose area exceeds the property's stated
+`leasable_area_sqm`. Nothing errors when this is violated — the unit register looks fine — and the
+damage lands on `CamReconciliationService`, which apportions a recovery pool by area: one unit
+larger than the building takes above a 100% share and every other tenant is under-charged.
+
+**Three doors write `units.area_sqm` and all three ask:** the create form, `RemeasureUnitService`
+(the path that exists to change the number afterwards, so a create-time-only rule would leave the
+hole open where it matters most), and `UnitImporter` — whose bound was `min:0`, weaker than the
+form's, so a zero-area unit could be imported into a register that had always refused one.
+
+**It is a CEILING, not a sum.** Units that ADD UP to more than the property are deliberately not
+refused: measured areas drift, a re-survey lands one unit at a time, and a total-based refusal would
+lock the operator out of correcting the very rows that put it over. The running total is SHOWN
+instead, on the property's Units tab, and flagged while it does not fit — the same idiom
+`AssetOwnersRelationManager` uses for ownership percentages it likewise cannot refuse in one save.
+
+**Silent when the property states no leasable area.** Null (and a legacy 0) mean "not measured"; a
+ceiling of zero would refuse every unit on an unmeasured property. The rule lives on the form,
+service and importer rather than on the model, so seeders and fixtures can still stage data.
+(`AUnitFitsInsideItsPropertyTest`.)
+
 ### Occupancy is DERIVED, so the form offers only what a person may state
 
 `units.status` has four values and only two of them are an operator's. `vacant`, `reserved` and

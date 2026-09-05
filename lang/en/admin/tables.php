@@ -451,6 +451,8 @@ return [
         'permissions' => 'Permissions',
         'permissions_description' => 'Tick the actions this role is allowed to perform. Each module collapses for easy scanning.',
         'asset_owners' => 'Owners',
+        'asset_units_area_total' => 'Units recorded: :recorded m² of :leasable m² leasable.',
+        'asset_units_area_over' => 'Units recorded: :recorded m², which is more than the :leasable m² of leasable area this property states. Correct a unit\'s area, or the property\'s, before the next recovery is apportioned by area.',
         'asset_owners_detach_warning' => 'This erases the ownership tenure, and with it the basis of every statement that apportioned money to this owner. To record a sale, set an end date instead.',
         'asset_staff' => 'Assigned Staff',
     ],

@@ -4,13 +4,17 @@ namespace App\Filament\Imports;
 
 use App\Models\Asset;
 use App\Models\Unit;
+use App\Support\AreaFitsTheProperty;
 use App\Support\DataTransferNotice;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
+use Closure;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Contracts\Validation\DataAwareRule;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
 class UnitImporter extends Importer
@@ -24,7 +28,11 @@ class UnitImporter extends Importer
      * create/overwrite its units (cross-property WRITE leak). null visibleAssetIds() = unrestricted
      * (super_admin); otherwise the asset must be in the visible set or this returns null (row fails).
      */
-    private static function resolveVisibleAsset(?string $code): ?Asset
+    /**
+     * Public because the area-ceiling rule below is an anonymous class and cannot reach a private
+     * static on its enclosing class.
+     */
+    public static function resolveVisibleAsset(?string $code): ?Asset
     {
         if (! $code) {
             return null;
@@ -44,7 +52,7 @@ class UnitImporter extends Importer
             ImportColumn::make('asset_code')
                 ->label(__('admin.tables.asset.code'))
                 ->requiredMapping()
-                ->rules(['required', 'max:20', function (string $attribute, $value, \Closure $fail) {
+                ->rules(['required', 'max:20', function (string $attribute, $value, Closure $fail) {
                     if (self::resolveVisibleAsset(is_string($value) ? $value : null) === null) {
                         $fail(__('admin.validation.import_asset_out_of_scope'));
                     }
@@ -72,7 +80,40 @@ class UnitImporter extends Importer
             ImportColumn::make('area_sqm')
                 ->label(__('admin.tables.unit.area'))
                 ->numeric()
-                ->rules(['nullable', 'numeric', 'min:0']),
+                // `min:0` accepted a zero-area unit, which the form has always refused — a second
+                // door carrying a weaker bound than the first. The ceiling is the third door onto
+                // this column (form, remeasure service, here): a shop cannot measure more than the
+                // whole lettable part of the mall it is being imported into.
+                // The ceiling needs the ROW's property, not just this cell, so it is a DataAwareRule
+                // rather than a plain closure — Filament validates the whole row as one array, which
+                // is what makes `asset_code` reachable from here.
+                ->rules(['nullable', 'numeric', 'min:0.01', new class implements DataAwareRule, ValidationRule
+                {
+                    /** @var array<string, mixed> */
+                    protected array $data = [];
+
+                    /** @param array<string, mixed> $data */
+                    public function setData(array $data): static
+                    {
+                        $this->data = $data;
+
+                        return $this;
+                    }
+
+                    public function validate(string $attribute, mixed $value, Closure $fail): void
+                    {
+                        if (blank($value)) {
+                            return;
+                        }
+
+                        $code = $this->data['asset_code'] ?? null;
+                        $asset = UnitImporter::resolveVisibleAsset(is_string($code) ? $code : null);
+
+                        if (AreaFitsTheProperty::exceeds((float) $value, $asset)) {
+                            $fail(AreaFitsTheProperty::message((float) $value, $asset));
+                        }
+                    }
+                }]),
 
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))

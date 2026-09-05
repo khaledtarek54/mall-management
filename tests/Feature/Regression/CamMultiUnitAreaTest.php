@@ -80,7 +80,10 @@ it('still ties the pool out exactly — which is precisely why the tie-out could
 });
 
 it('freezes the corrected share on a re-run rather than recomputing it', function () {
-    $asset = makeAsset();
+    // Sized to hold its own units and the 5,000 m² re-measurement below: a unit cannot
+    // exceed the property's leasable area (AreaFitsTheProperty), and the fixture's default
+    // 800 m² was never a mall that could contain the 900 + 800 it already lets.
+    $asset = makeAsset(['total_area_sqm' => 12000, 'leasable_area_sqm' => 10000]);
 
     $masterA = makeUnit($asset, ['area_sqm' => 900]);
     $extraA = makeUnit($asset, ['area_sqm' => 300]);

@@ -144,5 +144,6 @@ return [
         'asset_owner_already_attached' => ':name already owns a share of this property, and one person holds one share here — two rows would be two answers to "how much of it is theirs", and the owner statement divides by exactly that number. Open the row that exists and change the percentage or the dates, or record the sale by setting an end date on it.',
         'asset_staff_already_attached' => ':name is already assigned to this property. Open the row that exists to change their title or their dates — a second assignment would say two different things about one person\'s tenure, and the access this grants is decided by whether ANY live row exists.',
         'department_member_already_attached' => ':name is already a member of this department. Open the row that exists to change their role or their dates — a second membership would say two different things about one person, and it is membership that grants the department\'s role.',
+        'unit_area_exceeds_property' => 'A unit of :area m² will not fit in :property, which states :leasable m² of leasable area in total. Correct the unit\'s area, or correct the property\'s leasable area if the building is bigger than recorded — a unit larger than the mall takes more than a 100% share of every recovery apportioned by area, and under-charges every other tenant.',
     ],
 ];
