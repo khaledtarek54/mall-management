@@ -853,11 +853,17 @@ is the step that pays.
 Every one of these turns a class of finding into something the build catches, which is the only way a
 sweep like this does not have to be repeated by hand.
 
-1. **An auth surface must be grantable from a screen** — the `is_portal_user` shape. Derive the set
+1. ✅ **An auth surface must be grantable from a screen** — the `is_portal_user` shape. Derive the set
    from the panels' own `canAccessPanel()` and require a write path for each flag it reads. **S.**
-2. **A rule must be on every door, not on the first one** — for a named set of invariants (the
+   *(`AuthSurfaceIsGrantableConformanceTest`, 2026-09-05 — three teeth, mutation-proved three ways.)*
+2. ✅ **A rule must be on every door, not on the first one** — for a named set of invariants (the
    deposit cap, evidence append, the settlement-channel guards), assert the refusal from *each*
    reachable entry point rather than from the service. Mutation-proved, or it proves nothing. **M.**
+   *(`ARuleIsOnEveryDoorConformanceTest`, 2026-09-05 — derives the doors token-stripped (deposit-pot: 3,
+   settlement channels: 8), requires each registered with the test that drives it and a proof token in
+   that test's source; three new door cases went into `ARelievedInvoiceAcceptsNoMoreMoneyTest` first —
+   the credit-note channel and both payment PAGES had never been driven against a relieved invoice.
+   Evidence-append already had its own door-derivation test and is deliberately not re-listed.)*
 3. **Every status must be reachable and leaveable** — sweep each `ValueSets` classification column
    and require, per value, an act that writes it and an act that leaves it, or a registered reason.
    This is Tranche C made permanent. **M.**
