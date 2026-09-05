@@ -1002,3 +1002,105 @@ for. (`APostedDocumentsStatusIsNotAPickerTest`.)
 
 **The lesson for the next sweep of this kind:** *which values a control offers* and *whether it
 should be a control* are two questions, and answering the first reads as finishing the job.
+
+---
+
+## 17. The closure plan (SW-240) — every money form closed once posted, every state an act
+
+§16 fixed the doors a panel report happened to find. This section is the RULE, planned from a
+runtime audit rather than from reading forms: all nine money Edit pages were MOUNTED on a committed
+fixture (issued invoice · captured-and-allocated payment · issued credit note · approved bill ·
+recorded expense · approved payroll · drawn-on deposit receipt · active fixed asset · settled-against
+custody), every form component walked, and its real `disabled`/`readOnly` state read back and
+cross-referenced with `ChangeImpact`. Reading source lies here — `->readOnly()` fields report as
+enabled to `isDisabled()`, and the first pass of this very audit called Payroll's `net_paid` a hole
+on exactly that false positive.
+
+### 17.1 — The measured baseline, 2026-09-05
+
+**Already closed, and worth saying so nobody re-derives it:** Payroll (zero open fields), Custody
+(memo fields only), VendorBill (`facility_work_order_id` only — deliberate: re-pointing a cost
+between jobs is the cost-object dimension, and `recomputeCosts()` runs on the job it LEFT),
+CreditNote (reason/notes only), Invoice (due-date-by-design + notes), Expense (`expense_date`
+DERIVED-by-design + memo fields). FixedAsset and the MarketingSpend modal are open BY DESIGN
+(§15.2), announced and hinted.
+
+**Genuinely open, with a verdict each:**
+
+| Surface | Field(s) | Why it matters | Disposition |
+|---|---|---|---|
+| Payment (captured) | `status` | A one-option enabled Select with a clear button — the §16.4 shape on the OTHER AR document. Worse on an `initiated` payment: picking `captured` **posts cash to the GL** through a bare dropdown, with no confirmation and no act | **Phase 1** |
+| Payment (captured) | `gateway`, `gateway_transaction_id` | The Paymob callback FINDS the payment by this column and DEDUPES on the `:txn:{id}:` marker inside it (`CallbackController`). Editing it on a live gateway payment can orphan the capture (money taken, never recorded) or strip the marker so a replayed callback **captures twice** — the double-charge class `ConcurrencyPolicy` exists for. GL-NEUTRAL and not money-neutral: §16.4's lesson again | **Phase 1** |
+| Payment (captured) | `cheque_number`, `cheque_clearance_date` | The paper instrument's identity — evidence of what was received | **Phase 1** |
+| CreditNote (draft) | `status` offering `issued` | **Two doors, unequal.** The `issue` ACT gates on `credit_notes.issue`, confirms, and runs `CreditNoteService::issue()`; the dropdown needs only `credit_notes.edit` — an operator without the issue right can issue by picking a value. The posting-date guard is NOT bypassed (`CreditNote::updating` re-asserts it), so this is an authz gap, not a books gap | **Phase 4** |
+| Deposit (drawn-on) | `is_opening_balance` | **A MODEL gap, not a UI one.** The receipt freeze's dirty-list names amount/parties/date/type/status and not this flag — yet flipping it on a drawn-on receipt voids the posted `Cr Deposits Held` while the applications' debits stand, the exact negative-pot class the freeze exists for | **Phase 3** |
+| Deposit (drawn-on) | `bank_account_id`, `method` | Defensible: the model deliberately leaves the RAIL correctable (it does not change what the pot is made of), the page announces the re-derive | register open-with-reason |
+
+### 17.2 — The rule, in Yardi's frame
+
+Voyager: posted = closed; corrections are reversals and credits; state is the outcome of a posting
+act. Atriom's DERIVED tier (edit → announced void-and-repost, while the entry is not yet evidence)
+is deliberately looser and is a RECORDED decision (§13, §15) — the plan does not reopen it. The UI
+rule that follows, enforceable per clause:
+
+1. **A REFUSED field renders disabled on a committed record.** Same predicate on both layers — the
+   deposit form divergence (§16.3) is the defect class this clause ends.
+2. **A DERIVED field renders disabled unless registered open-with-a-reason, and only on a surface
+   that announces the restatement.**
+3. **`status` is never an enabled control on a committed record, on any source, no exemptions.**
+   First-state transitions (draft → issued) are acts or the create-time choice.
+4. **Evidence identifiers lock when the money is received even where GL-NEUTRAL** — the gateway
+   pair, the cheque pair. This clause cannot be derived structurally, so it is one-off fixes with
+   regression tests rather than gate material.
+
+### 17.3 — Phase 1: Payment
+
+`status` → `disabled($locked)`. A new **`capture`** header act for `initiated` payments — the only
+manual transition left, and it posts cash: confirmation modal, gated on `payments.edit` in both
+`visible()` and `action()`, routed through a small service (assert initiated, capture, sync),
+announcing via `LedgerRestatement::noticeFor()`. The audience is real but rare: a gateway session
+that died mid-flight whose money genuinely arrived, confirmed against the bank statement. The four
+evidence fields → `disabled($locked)`. **Sequencing note: another session is mid-flight in
+`Payment.php` and `CallbackController.php` — this phase lands after their commit.**
+
+### 17.4 — Phase 2: the gate, so the next form cannot ship open
+
+The systemic piece — nothing today stops a tenth money form shipping wide open.
+
+- `committedFixtures()` moves from `ChangeImpactConformanceTest`'s file scope to
+  `Tests\Support\CommittedMoneyFixtures` (a class, not file-scope helpers — a parallel worker loads
+  only its own files, and redeclaration is fatal). The change-impact gate keeps its completeness
+  tooth; the new gate reuses the same fixtures so the two cannot disagree about what "committed" is.
+- `AMoneyFormIsClosedOnceCommittedConformanceTest`: derives the swept set from
+  `LedgerPoster::sources()` × Filament's model→resource registry (never a hand list), MOUNTS each
+  Edit page — and each GL source's relation-manager edit modal, today MarketingSpends — on its
+  committed fixture, and enforces clauses 1–3. Exemptions live in a registry with a reason each and
+  a stale-entry tooth; `readOnly` counts as closed. Mutation-proof: unlock one refused field, gate
+  goes red.
+
+### 17.5 — Phase 3: `is_opening_balance` joins the deposit freeze
+
+Model first (join both dirty-lists — the receipt freeze and the settled-account freeze), then the
+form (`disabled($frozen)`), then the regression pair: refusal on a drawn-on receipt, control that an
+UNDRAWN receipt's flag stays correctable — the over-lock is the trap, exactly as §16.4's draft case.
+
+### 17.6 — Phase 4: one door to an issued credit note
+
+`status` → `disabled()` always; the `issue` act — with its own permission, confirmation and service
+— is the door. The Select keeps rendering the record's own translated label, which is all it was
+doing correctly anyway.
+
+### 17.7 — Three decisions that are the operator's, stated rather than assumed
+
+- **D-A — invoice draft → issued.** Today the Select IS the sanctioned door (recorded in SW-215:
+  "the panel's Select is the other door"). Full Yardi alignment is an explicit **Issue** act, which
+  also enables an `invoices.issue` permission split like the credit note's. Recommended — one rule
+  across both AR documents — but it reverses a recorded decision, so it is asked, not assumed.
+- **D-B — `expense_date` stays editable-with-announcement.** Voyager would refuse and book the
+  correction into the current post month; Atriom chose original-period-if-open (§13 D-6). Restated
+  here so it is a choice being kept, not a hole being inherited.
+- **D-C — `reason` on an issued credit note.** A classification on a delivered document. Yardi keeps
+  memo open and classification closed; recommended `disabled($locked)`, low stakes either way.
+
+**Order: 2 → 3 → 4 → 1 → D-decisions.** The gate lands first so every later phase is proved by the
+gate going green rather than by hand; Payment last because of the concurrent session.
