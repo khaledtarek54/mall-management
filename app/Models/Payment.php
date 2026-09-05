@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -321,6 +322,54 @@ class Payment extends Model
     public function recomputeAllocatedInvoices(): void
     {
         $this->invoices()->get()->each->recomputeTotals();
+    }
+
+    /**
+     * Take a payment's invoice locks BEFORE its own — the canonical lock order (SW-009e).
+     *
+     * `assertInvoicesNotOverAllocated()` below is the authoritative guard and its shape cannot
+     * move: it locks the INVOICE and then takes a locking read of that invoice's PAYMENTS (a plain
+     * read would answer from the REPEATABLE READ snapshot taken before the wait). So every
+     * payment-side writer that will later touch invoices — the gateway callback, the void — must
+     * acquire invoices→payment or the two meet crosswise; proven as ER_LOCK_DEADLOCK on MySQL with
+     * two connections (2026-09-05), a capture landing while an operator edited an allocation.
+     *
+     * Ascending id order, so two payment-side writers over overlapping invoice sets cannot
+     * deadlock EACH OTHER. And a set-discovery loop: the pivot is read WITHOUT the payment lock
+     * (taking it first is the whole bug), so an allocation edit can land between the read and the
+     * locks — re-read after locking and extend until stable. Three passes is the honest bound;
+     * a set still moving after that means a writer storm, and refusing loudly beats looping.
+     *
+     * Call INSIDE the transaction that will lock the payment, BEFORE that lock.
+     */
+    public static function lockInvoicesThenSelf(int $paymentId): void
+    {
+        $locked = [];
+
+        for ($pass = 0; $pass < 3; $pass++) {
+            $ids = DB::table('invoice_payment')
+                ->where('payment_id', $paymentId)
+                ->orderBy('invoice_id')
+                ->pluck('invoice_id')
+                ->unique()
+                ->values()
+                ->all();
+
+            $new = array_values(array_diff($ids, $locked));
+
+            if ($new === []) {
+                return;
+            }
+
+            // Never acquire below an id already held — that re-opens the out-of-order window this
+            // exists to close. A lower id appearing after a higher one is held means the set moved
+            // underneath us; the next pass takes it, still in ascending order overall, because
+            // InnoDB holds the earlier locks for the life of the transaction.
+            Invoice::query()->whereIn('id', $new)->orderBy('id')->lockForUpdate()->get(['id']);
+            $locked = array_values(array_unique([...$locked, ...$new]));
+        }
+
+        throw new \DomainException(__('admin.refusals.payment_allocations_unstable'));
     }
 
     /**

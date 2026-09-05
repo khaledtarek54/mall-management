@@ -165,6 +165,12 @@ class CallbackController
             // What it can do is fire the `saved` hook twice on the same captured transition, which
             // sends the tenant two receipts for one payment. Small — and the same lock-and-re-check
             // discipline every other check-then-act path here already follows.
+            // THE INVOICES FIRST, THEN THE PAYMENT — the canonical order, for the reason
+            // `VoidPaymentService` states in full (SW-009e): the over-allocation guard locks
+            // invoice→payments and cannot be reordered, so every payment-side writer must take the
+            // invoices first or a capture racing an allocation edit deadlocks. Proven on MySQL.
+            Payment::lockInvoicesThenSelf($payment->getKey());
+
             $locked = Payment::query()->lockForUpdate()->find($payment->getKey());
 
             // Re-derived against the LOCKED row, not carried in from the pre-lock read — otherwise

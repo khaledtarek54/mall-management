@@ -2001,3 +2001,32 @@ two reversal doors, one obligation, one account.
 exposed TEN test files writing prose or invented codes into a Select-backed column — unreachable
 inputs, green over dead fixtures — all repaired against the form's real option set.
 `ACreditedDepositRelievesTheObligationNotRevenueTest`, 7 cases, 3 mutations.
+
+### SW-009c / SW-009d / SW-009e — the lock-order cycles
+
+**Three deadlock cycles, closed by giving each pair ONE canonical lock order (2026-09-05).** Proven,
+not reasoned: an async mysqli client replayed each pair's two real lock sequences on two connections
+with a forced interleave — **DEADLOCK×3 (ER_LOCK_DEADLOCK 1213) at HEAD, serialised×3 after** (both
+`.php` proofs in the session scratchpad; the durable half is `tests/Mysql/LockOrderCyclesAreBrokenTest`,
+which a synchronous Laravel connection can only take as far as "the fixed order serialises over the
+shared first row", so the deadlock half lives in this note).
+
+- **SW-009c `leases ⇄ units`.** The un-reorderable edge is the OBSERVER: any lease UPDATE fires
+  `LeaseObserver::updated → Unit::recomputeStatus()`, an X lock on `units` taken while the lease row
+  is held — so the canon is **leases → units**. `LeaseRenewalService` and `ConvertLeaseToHoldoverService`
+  locked units→leases; both now lock the lease first (and hold it explicitly, `findOrFail` under a
+  lock). `LeaseCreationService` locks only the unit, so it never crossed.
+- **SW-009e `payments ⇄ invoices`.** The un-reorderable edge is the over-allocation guard
+  (`assertInvoicesNotOverAllocated` locks invoice then a locking read of its payments) — canon
+  **invoices → payments**. `Payment::lockInvoicesThenSelf()` is the one seam the gateway callback and
+  the void both call before locking the payment: invoice ids ascending, a set-discovery loop because
+  the pivot is read before the payment lock (three passes, then refuse loudly rather than loop).
+- **SW-009d `invoices ⇄ credit_note_applications ⇄ credit_notes` — three orders in one file.** The
+  un-reorderable edge is `reverseAppliedCredit`, which runs from `Invoice::updated` already holding
+  the invoice — so the canon is the full total order **invoices → applications → notes**.
+  `applyToInvoice` (was notes→invoices), `reverseApplication` (was application→invoice) and
+  `reverseAllApplications` (was note→applications→invoices) all now obey it.
+
+`ConcurrencyPolicy` counts updated for the two files that gained a lock (Payment 10→11, CreditNote
+11→12) and the holdover entry (1→2); nothing else changed count, because the fix is order, not
+quantity.

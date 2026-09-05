@@ -28,8 +28,16 @@ class VoidPaymentService
         }
 
         return DB::transaction(function () use ($payment, $reason) {
-            // Lock + re-read inside the txn so two concurrent refunds serialize (and the
-            // second no-ops), mirroring the void-invoice + apply-credit lock discipline.
+            // THE INVOICES FIRST, THEN THE PAYMENT (SW-009e, deadlock proven on MySQL with two
+            // connections, 2026-09-05). `assertInvoicesNotOverAllocated` — the authoritative guard,
+            // whose semantics cannot move — locks the invoice and then takes a LOCKING read of its
+            // payments; this path locked the payment and then reached for the invoices, and the
+            // two met crosswise: ER_LOCK_DEADLOCK on a capture landing while an operator voided.
+            // Canon: invoices before payments, ids in ascending order, and the set re-checked
+            // after the payment lock because the pivot can move between the plain read and the
+            // locks (the set-discovery loop; three passes is the honest bound, then refuse).
+            Payment::lockInvoicesThenSelf($payment->id);
+
             $payment = Payment::query()->lockForUpdate()->find($payment->id);
             if (! $payment || ! $payment->isReceived()) {
                 return $payment; // already reversed by a racing request

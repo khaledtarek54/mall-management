@@ -109,11 +109,14 @@ final class ConcurrencyPolicy
                 'all, so two move-outs on one lease each refunded the whole deposit.',
         ],
         'app/Services/ConvertLeaseToHoldoverService.php' => [
-            'locks' => 1,
-            'protects' => 'The unit. Resuming an expired lease makes it ACTIVE on that shop again, so '.
-                'this is the third writer that can put an active lease on a unit. The hole is '.
-                'sequential rather than a race: the nightly sweep vacates the unit, leasing re-lets '.
-                'it, and the old lease is converted weeks later — two active leases, both billing.',
+            'locks' => 2,
+            'protects' => 'The LEASE then the unit (SW-009c). Resuming an expired lease makes it ACTIVE '.
+                'on that shop again, so this is the third writer that can put an active lease on a '.
+                'unit. The hole is sequential rather than a race: the nightly sweep vacates the '.
+                'unit, leasing re-lets it, and the old lease is converted weeks later — two active '.
+                'leases, both billing. The lease lock is taken FIRST and explicitly now: the '.
+                'observer edge (any lease UPDATE X-locks its unit) fixes the canonical order '.
+                'leases→units, and unit-first here was half a deadlock proven on MySQL 2026-09-05.',
         ],
         'app/Services/LeaseCreationService.php' => [
             'locks' => 1,
@@ -204,7 +207,7 @@ final class ConcurrencyPolicy
         // Locking the invoice row serialises two writers; it does not let either SEE the other's
         // allocation, because under REPEATABLE READ a plain read is served from the snapshot taken
         // before the wait. Measured with two processes: the guard passed on a fully-settled invoice.
-        'app/Models/Payment.php' => 10,
+        'app/Models/Payment.php' => 11,   // +1: lockInvoicesThenSelf's set-discovery loop (SW-009e)
         'app/Services/ApplyDepositToInvoiceService.php' => 2,
         'app/Services/Banking/MatchBankStatementLineService.php' => 1,
         // One row lock on the lease, re-read inside the txn. The shortfall is check-then-act over
@@ -223,7 +226,7 @@ final class ConcurrencyPolicy
         // INSIDE the transaction after the lock — a value read before the wait answers from a
         // pre-commit snapshot under MySQL REPEATABLE READ.
         'app/Services/AcceptWorkOrderService.php' => 1,
-        'app/Services/CreditNoteService.php' => 11,
+        'app/Services/CreditNoteService.php' => 12,   // +1: reverseAllApplications locks its invoices ascending, up front (SW-009d canon)
         'app/Services/MonthlyBillingService.php' => 2,
         // The final-period bill (SW-050) contends on the SAME 'billing:run:{month}' cache lock the
         // scheduled and manual runs hold — a termination racing a catch-up run for that month would

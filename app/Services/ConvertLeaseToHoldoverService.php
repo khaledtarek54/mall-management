@@ -114,6 +114,12 @@ class ConvertLeaseToHoldoverService
             // A LOCKING read: the row lock serialises the writers, and only a locking read can see
             // what the one that went first committed (MySQL REPEATABLE READ answers a plain read
             // from the snapshot taken before the wait).
+            // THE LEASE FIRST, THEN THE UNIT — same canon and same proof as
+            // `LeaseRenewalService` (SW-009c): the observer edge (any lease UPDATE → X lock on
+            // `units`) fixes the order leases→units, and this service both locks the unit AND
+            // later updates the lease, so unit-first was the other half of a proven deadlock.
+            $lease = Lease::query()->lockForUpdate()->findOrFail($lease->id);
+
             $unit = Unit::query()->lockForUpdate()->find($lease->unit_id);
 
             if ($unit && $unit->isActivelyLeasedForUpdate($lease->id)) {

@@ -52,8 +52,15 @@ class CreditNoteService
             // Lock BOTH rows and re-read their state INSIDE the txn. Two concurrent applies would
             // otherwise each observe the same pre-state and both commit their full amount —
             // over-applying the credit. Mirrors the payment path's lock-safe guard.
-            $note = CreditNote::query()->lockForUpdate()->find($note->id);
+            //
+            // THE INVOICE FIRST, THEN THE NOTE (SW-009c/d/e canon, deadlock proven on MySQL
+            // 2026-09-05). Every REVERSE path here runs invoice→…→note (`reverseAppliedCredit`
+            // from `Invoice::updated` holds the invoice, then locks applications then notes;
+            // `reverseAllApplications`/`reverseApplication` lock the invoice before the note), so
+            // this was the ONE path acquiring note→invoice — a void racing an apply on the same
+            // pair met it crosswise and MySQL killed one with 1213. Invoice-first everywhere now.
             $invoice = Invoice::query()->lockForUpdate()->find($invoice->id);
+            $note = CreditNote::query()->lockForUpdate()->find($note->id);
 
             // hasBalance() = balance > 0 AND status in [issued, applied] — blocks draft / void /
             // fully-applied notes (re-checked under the lock).
@@ -232,6 +239,16 @@ class CreditNoteService
     public function reverseAllApplications(CreditNote $note, ?string $reason = null): float
     {
         return DB::transaction(function () use ($note, $reason) {
+            // Canon: invoices → note → applications (SW-009d) — never note-first, which is what
+            // this was and what crossed `applyToInvoice`/`reverseAppliedCredit` into a deadlock.
+            // The invoice ids come from an UNLOCKED read so they can be locked FIRST, ascending, so
+            // two whole-note reversals over overlapping invoice sets cannot deadlock each other.
+            $invoiceIds = CreditNoteApplication::where('credit_note_id', $note->id)
+                ->orderBy('invoice_id')->pluck('invoice_id')->unique()->values()->all();
+
+            $invoices = Invoice::query()->whereIn('id', $invoiceIds)->orderBy('id')
+                ->lockForUpdate()->get()->keyBy('id');
+
             $note = CreditNote::query()->lockForUpdate()->find($note->id);
             if (! $note) {
                 return 0.0;
@@ -239,7 +256,8 @@ class CreditNoteService
 
             $reversed = 0.0;
             foreach (CreditNoteApplication::where('credit_note_id', $note->id)->lockForUpdate()->get() as $app) {
-                $invoice = Invoice::query()->lockForUpdate()->find($app->invoice_id);
+                $invoice = $invoices->get($app->invoice_id)
+                    ?? Invoice::query()->lockForUpdate()->find($app->invoice_id);
                 if ($invoice) {
                     $invoice->credit_applied_amount = max(0, round((float) $invoice->credit_applied_amount - (float) $app->amount, 2));
                     $invoice->recomputeTotals(); // re-opens the invoice's AR
@@ -279,6 +297,13 @@ class CreditNoteService
     public function reverseApplication(CreditNoteApplication $application): float
     {
         return DB::transaction(function () use ($application) {
+            // Canon: invoice → application → note (SW-009d). Every path in this file locks these
+            // three tables in this order — `reverseAppliedCredit` must, because it runs from
+            // `Invoice::updated` already holding the invoice, and a total order over all three is
+            // the only thing that stops any two crossing. Read the ids off the passed row (unlocked)
+            // to lock the invoice FIRST, then re-read the application under its own lock.
+            $invoice = Invoice::query()->lockForUpdate()->find($application->invoice_id);
+
             $application = CreditNoteApplication::query()->lockForUpdate()->find($application->id);
             if (! $application) {
                 return 0.0;
@@ -286,7 +311,6 @@ class CreditNoteService
 
             $amount = (float) $application->amount;
 
-            $invoice = Invoice::query()->lockForUpdate()->find($application->invoice_id);
             if ($invoice) {
                 $invoice->credit_applied_amount = max(0, round((float) $invoice->credit_applied_amount - $amount, 2));
                 $invoice->recomputeTotals(); // re-opens this invoice's AR

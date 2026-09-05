@@ -54,12 +54,20 @@ class LeaseRenewalService
             // Locking serialises them: the second request blocks until the first commits, then
             // re-reads `renewed` and is refused. Same shape as the period lock in
             // MonthlyBillingService and the session lock in PaymobPaymentInitiator.
-            // Lock the UNIT first. Occupancy is the contended resource, and every path that can
-            // put an active lease on a unit (here and LeaseCreationService) takes this same row —
-            // so they serialise against each other, not just against themselves.
-            Unit::query()->lockForUpdate()->find($original->unit_id);
-
+            // THE LEASE FIRST, THEN THE UNIT — the canonical order, and it cannot be the other
+            // way (SW-009c, deadlock proven on MySQL with two connections, 2026-09-05). Six paths
+            // acquire leases→units IMPLICITLY: any lease UPDATE fires `LeaseObserver::updated` →
+            // `Unit::recomputeStatus()`, an X lock on `units` taken while the lease row is held —
+            // and an observer's lock order cannot be reordered. Unit-first here closed the cycle:
+            // renewal held the unit and waited on the lease, termination held the lease and its
+            // observer waited on the unit — MySQL killed one with ER_LOCK_DEADLOCK (1213), an
+            // intermittent 500 on two ordinary acts.
+            //
+            // The unit lock still serialises the occupancy writers (creation, renewal, holdover);
+            // it is simply taken second, and every re-check below runs under BOTH locks.
             $original = Lease::query()->lockForUpdate()->find($original->id);
+
+            Unit::query()->lockForUpdate()->find($original?->unit_id ?? 0);
 
             if (! $original || $original->status !== 'active') {
                 throw new InvalidArgumentException(
