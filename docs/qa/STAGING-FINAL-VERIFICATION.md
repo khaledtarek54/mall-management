@@ -394,8 +394,14 @@ Plus UX5-07 (portal Arabic gate, §3).
 
 All stale **in the direction of understating the build** — things shipped that the record still
 sells as open. **Two were fixed immediately** because they were active traps for the next maintainer
-rather than mere drift; the remaining ten are a half-day pass, tracked in
+rather than mere drift; the remaining ten were closed on 2026-09-05 and the closing is recorded in
 [POST-STAGING-BACKLOG.md §4](POST-STAGING-BACKLOG.md#4--documentation-drift).
+
+**Six of those ten had already been fixed by the sessions that owned those documents** — so the
+table below is itself a point-in-time reading, and every row was re-checked against the CODE before
+anything was edited. Four were genuinely still wrong; one of them, the B1 sizing, was wrong in the
+expensive direction (STATUS said XS on the strength of the fee's terms being captured, while nothing
+in the application reads them).
 
 | Where | Stale claim | Reality |
 |---|---|---|

@@ -191,15 +191,29 @@ round changed the reading.
 
 ## 4 · Documentation drift
 
-All stale **in the direction of understating the build** — half a day closes the set. Full table in
-[STAGING-FINAL-VERIFICATION.md §8](STAGING-FINAL-VERIFICATION.md#8--documentation-drift-found-by-this-round).
+~~All stale **in the direction of understating the build** — half a day closes the set.~~
+**CLOSED 2026-09-05, and the list itself was the best evidence for its own rule.** Ten rows were
+carried here; **six had already been fixed** by the sessions that owned those documents — the CPI
+and revenue-forecast rows were corrected on 2026-08-31, C3.1/C3.2 read as built and reasoned-decline
+in STATUS today, benchmarks/yardi/03 carries the words *"this paragraph said 'there is no statement'
+until it was re-checked"*, STATUS §0's own paragraph already records the `FixtureColumnsExist`
+correction, and A3.4 was accurate as written. **A drift list goes stale exactly as fast as the
+documents it is about**, which is why every row here was re-checked against the CODE before anything
+was edited rather than fixed from the list.
 
-Highest value first: STATUS §0 + gap-analysis H1 (the fixture gate is **on**) · STATUS §5 C3.1 (bins
-shipped) and C3.2 (transfers work; cross-property is a reasoned decline) · gap-analysis §3.2 vs §7
-(CPI escalation) and §3.6 vs §7 (revenue forecast) · STATUS §7's stale technician-phone claim ·
-benchmarks/yardi/03's stale "no CAM statement" · the B1 sizing mismatch · move UX-08/UX-10/UX-12 into
-ROADMAP or close them there. *(CLAUDE.md's morph-map sentence and the `cashFlow()` docblock were
-corrected in the same commit as §0 — they were active traps for the next maintainer, not just drift.)*
+Four were genuinely still wrong, and one of them was wrong in the expensive direction:
+
+| Where | Was | Now |
+|---|---|---|
+| gap-analysis H1 | `FixtureColumnsExistConformanceTest` "ships `skip()`ed" | Struck through — the 72 ghost keys were cleared and the gate switched on the same afternoon (`7335552f`), hours after that row was last re-verified |
+| gap-analysis §7 | Two rows in ONE table disagreeing about the revenue forecast — *"the open half is the forward projection"* beside *"🟡 → ✅ built 2026-08-19"* | The stale row removed. A document contradicting itself in adjacent rows is worse than either row alone |
+| STATUS §7 | *"on a phone the work-order list shows cost variance but hides `equipment.code` and `scheduled_for`"* | Closed by UX5-05, and **the question was wrong in both directions**: the cost columns were already toggled off at every width, and the fix went WITHIN the six phone columns rather than adding a seventh |
+| **STATUS B2.1/B2.2** | **XS** — "the fee % and basis are configurable; only the account is missing" | **M**, matching gap-analysis B1, which was right. Measured: `management_fee_pct` and `fee_basis` are captured, on the form, audited and in `ValueSets` — and **nothing reads them**. No service computes the fee, nothing raises it, nothing posts it. The account is not the last thing missing; it is what unblocks writing the rest |
+
+Also corrected: `ci.yml`'s header named **five** conformance gates when there are ~96. The list is
+now deliberately not restated there — the job runs `vendor/bin/pest --parallel`, so every gate runs
+whether or not somebody remembered the comment, and a named subset in a header reads as the set that
+is covered.
 
 ---
 

@@ -3,10 +3,15 @@ name: CI
 # Auto-runs are PAUSED (2026-07-29, at the owner's request — the pipeline takes too long to be
 # in the push loop). Only manual runs fire: Actions → Run workflow, or `gh workflow run ci.yml`.
 #
-# While paused, the five self-enforcing conformance gates — PropertyIsolation, GlRegistry,
-# MediaPrivacy, AdminSmokeManifest and DashboardLayout — are ADVISORY: nothing blocks a bad change
-# from merging, so keep `pest --parallel` green locally before pushing. Every one of them exists
-# because the class of bug it catches already shipped once.
+# While paused, the conformance gates are ADVISORY: nothing blocks a bad change from merging, so
+# keep `pest --parallel` green locally before pushing. Every one of them exists because the class of
+# bug it catches already shipped once.
+#
+# There were five when this header was written and there are now ~96 (`tests/Feature/Scenarios/
+# *Conformance*`). The list is deliberately NOT restated here — the test job runs
+# `vendor/bin/pest --parallel`, i.e. the whole suite, so every gate runs whether or not anybody
+# remembered to add it to a comment. A named subset in a header is a list that goes stale and then
+# reads as the set that is covered.
 #
 # The jobs themselves were REPAIRED on 2026-07-29 and are worth running manually before anything
 # risky — all four had been failing on every run since at least 2026-07-23 for reasons that had

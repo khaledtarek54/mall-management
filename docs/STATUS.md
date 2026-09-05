@@ -289,7 +289,7 @@ is blocking** — if the answer is no, the row disappears.
 | **C4.13** | **Should a technician be emailed when work is assigned?** | Bell only. Mailing everything trains people to ignore the alerts that matter. | XS |
 | **E.4** | **Must completing a work order require a photo?** | Tenant-request evidence shipped; work-order photos can be attached, not required. | XS |
 | **E.5** | **Is who/when/from→to enough for status history**, or do you need per-step comments and attachments? | Who/when/from→to is recorded. | M |
-| **B2.1 / B2.2** | **Which GL account does the unit-owner letting FEE post to**, and **is there a sinking fund (صندوق صيانة)**? | Both block module 37's phase 5. The fee % and basis are configurable; only the account is missing. | XS |
+| **B2.1 / B2.2** | **Which GL account does the unit-owner letting FEE post to**, and **is there a sinking fund (صندوق صيانة)**? | Both block module 37's phase 5. **Sized M, not XS — corrected 2026-09-05 against the code.** The fee's TERMS are captured (`unit_ownerships.management_fee_pct` + `fee_basis`, on the form, audited, in `ValueSets`) and **nothing reads them**: no service computes the fee, nothing raises it, nothing posts it. So the account is not the only thing missing — it is the thing that unblocks writing the rest. This row said XS while [gap-analysis B1](gap-analysis/README.md) said M; the gap doc was right. | M |
 | **B.7 / B.5 / B.8** | **A float per property? Tenant money in trust/escrow per property? Is each mall a separate legal entity with inter-company entries?** | None modelled; single-company GL with a property dimension. | M / L / XL |
 | **A7.4** | **Is anything really billed in USD or EUR?** | **EGP only, and enforced.** If a lease is USD-*linked*, index the escalation and denominate in EGP (EG-31) rather than full multi-currency. | M |
 | **C3.7** | **"Personal accounts" (محسوبات شخصية)** — who exactly, and what for? | **Custody (عهدة) and employee advances are built** and post to the GL. A per-person sub-ledger beyond those does not exist, and cannot be sized until we know who it is for. | ? |
@@ -322,9 +322,11 @@ Measured or decided, not forgotten. Re-opening one should require new evidence.
   maintenance** — declined breadth, per the Yardi and Odoo benchmarks.
 - **The straight-line rent engine ships OFF**, awaiting the accountant's ruling.
 - **No technician mobile app** — technicians use the admin panel, so that role's UX in the panel is
-  the requirement. *(Open UX question: on a phone the work-order list shows cost variance but hides
-  `equipment.code` and `scheduled_for`, and `visibleFrom('md')` is not a toggle the operator can
-  override.)*
+  the requirement. *(The phone-column half of this was closed by UX5-05 on 2026-09-05, and the
+  question as written here was wrong in both directions: the cost columns were already toggled off
+  by default at every width, and the fix for the missing date and machine was made WITHIN the six
+  columns a phone shows rather than by adding a seventh — a preventive job answers to its plan, not
+  to the SLA clock only a corrective order carries.)*
 
 ---
 
