@@ -74,7 +74,7 @@ return [
         'payroll_deductions_exceed_gross' => 'Payroll deductions exceed gross salaries; fix the amounts before approving.',
         'bill_cancel_has_payments' => 'Cannot cancel a bill that has payments. Void them first (Payments → Void payment), then cancel the bill.',
         'payment_allocations_unstable' => "This payment's allocations kept changing while it was being locked. Try again in a moment.",
-    'payment_void_state' => 'Only a received receipt can be voided.',
+        'payment_void_state' => 'Only a received receipt can be voided.',
         'payment_method_moves_no_money' => 'A payment rail has to move money in at least one direction. With both "Accepts money in" and "Pays money out" switched off, no picker will ever offer it and no document can name it. Switch one back on — or leave both on and untick "Active", which is how a rail is retired without changing the documents that already name it.',
         'invoice_void_eta_filed' => 'This invoice was filed with the Tax Authority and cannot be voided internally — issue a credit note instead.',
         'invoice_void_has_cash' => 'Invoice :number carries captured payments, so it cannot be voided — void the receipt first, then void the invoice.',
@@ -138,6 +138,7 @@ return [
         // ── Added 2026-09-04 (SW-119) ───────────────────────────────────────────────────
         'document_template_duplicate_block' => 'There is already a wording block for :block on this scope. One row per block per property — the house default holds one, and each mall may override it with one — because two rows for one slot is a tie the document would break by whichever happened to be saved first, and that is nobody\'s decision. Open the row that exists and edit it, or switch it off before writing another.',
         // ── Added 2026-09-04 (SW-068) ───────────────────────────────────────────────────
+        'recurring_schedule_contract_ended' => 'This schedule names the contract ":contract", which has ended (:ends), so it would never book again. Link a contract that is still running, or clear the contract and give the schedule its own end date.',
         'recurring_schedule_never_books' => 'This schedule would never book a single cost: its first booking falls on :first, which is after the end date :ends — so the nightly run would skip it for ever and nothing on any screen would say so. Move the end date past :first, bring the start date forward, change the day of the month, or clear the end date so it runs until you switch it off.',
     ],
 ];

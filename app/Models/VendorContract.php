@@ -128,6 +128,16 @@ class VendorContract extends Model
     protected static function booted(): void
     {
         static::saving(function (VendorContract $contract) {
+            // A termination is DATED. `terminated` means "closed early", and until 2026-09-05 the
+            // status moved while `end_date` kept the original term — so a retainer schedule bounded
+            // by the contract (SW-242) went on billing to a date the contract no longer ran to.
+            // The termination day becomes the end date unless an earlier one was stated.
+            if ($contract->status === 'terminated'
+                && $contract->isDirty('status')
+                && ($contract->end_date === null || $contract->end_date->gt(now()->startOfDay()))) {
+                $contract->end_date = now()->startOfDay();
+            }
+
             $contract->notice_deadline = ($contract->end_date !== null && $contract->notice_period_days !== null)
                 ? $contract->end_date->copy()->subDays((int) $contract->notice_period_days)->startOfDay()
                 : null;

@@ -27,6 +27,7 @@ return [
         ],
         'help' => [
             'vendor' => 'Leave blank for a cost with no supplier — a tax, a levy, a licence.',
+            'vendor_contract' => 'Names the contract this retainer is billed under. The schedule stops when that contract ends.',
             'payment_terms_days' => 'Days from the bill date until it falls due. Zero means due on issue.',
             'description' => 'What appears on the expense this books. "Real-estate tax — 2nd instalment" reads better on a P&L than "Tax".',
             'amount' => 'The assessed figure. This system does not compute real-estate tax — the assessment comes from the authority.',

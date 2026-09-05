@@ -623,6 +623,16 @@ The 'operations' role has all three (view, create, edit).
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+### A recurring cost that names a contract stops when the contract does (SW-242, 2026-09-05)
+
+**Risk:** a retainer schedule (`recurring_expenses.vendor_contract_id`) kept raising a draft bill every month after its contract had ended — and, until the review of the fix, would have kept doing so under a contract terminated early, re-linked while ended, or deleted — `RecurringExpense::nextDueOn()` read only the schedule's own `ends_on`, and `GenerateRecurringExpensesService` copied the contract id onto each bill without asking whether the contract was still in force. Found by dry-running the staging soak calendar: Guardian Security's contract ended on the 12th, was `expired` on the 13th, and a 68,400 bill was drafted on the 20th.
+
+**Mitigation:** `RecurringExpense::effectiveEndsOn()` — the schedule's own end or the contract's `end_date`, whichever is EARLIER — is the one definition every reader uses (`nextDueOn()` for the nightly run and the register's *Next due* column, `everBooks()` for the save-time refusal). An operator can still end a retainer earlier than the contract, never later. The adversarial review of the first cut found four doors around it, all closed the same day: **the edit door** (the save-time guard re-runs when `vendor_contract_id` moves, not only when the schedule's own window does — re-linking an existing schedule to an ended contract is refused, and the loaded relation is unset first so the guard reads the contract being SAVED, not the one loaded); **a terminated contract** (`terminated` means closed EARLY, and the status used to move while `end_date` kept the original term — `VendorContract::saving` now dates the termination onto `end_date`, and the bound treats `terminated` as ended whatever the date says); **a deleted contract** (`vendorContract()` is `withTrashed()`, because a soft delete never fires the column's `nullOnDelete` and a null relation would silently lift the bound); and **the register's N+1** (the table eager-loads the contract). The refusal is TWO keys chosen by which bound closed the window — `recurring_schedule_contract_ended` names the contract and says to link a live one or clear it, where the own-window key told the operator to clear an end date that was not the problem. Yardi's recurring payable is a child of the contract and stops with it.
+
+**Test:** `ARecurringCostStopsWhenItsContractEndsTest` (nine cases — the edit door, termination, deletion — each refusal paired with a control that books).
+
+---
+
 ### Slug generation collision safety
 
 **Risk:** If two vendors are created with the same name in rapid succession, or if one is soft-deleted and recreated with the same name, collisions can occur.

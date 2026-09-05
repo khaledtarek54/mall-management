@@ -18,6 +18,9 @@ class RecurringExpensesTable
     public static function configure(Table $table): Table
     {
         return $table
+            // `Next due` asks each row's contract whether it still runs (SW-242); loaded once per
+            // page rather than once per row.
+            ->modifyQueryUsing(fn ($query) => $query->with('vendorContract'))
             ->defaultSort('description')
             ->columns([
                 TextColumn::make('description')

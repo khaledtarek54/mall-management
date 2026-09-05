@@ -177,19 +177,38 @@ class RecurringExpense extends Model
                 return;
             }
 
-            if ($schedule->exists && ! $schedule->isDirty(self::WINDOW_COLUMNS)) {
+            // The contract is part of the window (SW-242): re-linking an existing schedule to a
+            // contract that has ended is the edit door onto the same inert row, so it re-asks.
+            if ($schedule->exists && ! $schedule->isDirty([...self::WINDOW_COLUMNS, 'vendor_contract_id'])) {
                 return;
+            }
+
+            // Eloquent keeps a loaded relation when its foreign key moves; the guard must read the
+            // contract the row is being SAVED with, not the one it was loaded with.
+            if ($schedule->isDirty('vendor_contract_id')) {
+                $schedule->unsetRelation('vendorContract');
             }
 
             if ($schedule->everBooks()) {
                 return;
             }
 
-            // `everBooks()` is false here only because the first scheduled day falls past
-            // `ends_on` — its other branch needs a null `starts_on`, which returned above — so both
-            // dates exist and the refusal can name the exact day the end date has to clear.
+            $first = $schedule->firstScheduledDay();
+
+            // Two refusals, chosen by WHICH bound closed the window — a sentence about "the end
+            // date" that quotes the CONTRACT's date sends the operator to clear a field that is not
+            // the problem (the two-keys-by-branch rule the write-off cap already follows).
+            if ($first !== null && $schedule->contractEndedBy($first)) {
+                throw new DomainException(__('admin.refusals.recurring_schedule_contract_ended', [
+                    'contract' => $schedule->vendorContract?->name ?? '—',
+                    'ends' => $schedule->vendorContract?->end_date?->toDateString() ?? '—',
+                ]));
+            }
+
+            // Here only because the first scheduled day falls past the schedule's OWN `ends_on`,
+            // so both dates exist and the refusal can name the exact day the end date has to clear.
             throw new DomainException(__('admin.refusals.recurring_schedule_never_books', [
-                'first' => $schedule->firstScheduledDay()?->toDateString(),
+                'first' => $first?->toDateString(),
                 'ends' => CarbonImmutable::instance($schedule->ends_on)->toDateString(),
             ]));
         });
@@ -215,9 +234,15 @@ class RecurringExpense extends Model
      *
      * @return BelongsTo<VendorContract, $this>
      */
+    /**
+     * `withTrashed()`, because the contract BOUNDS the schedule (SW-242): a soft-deleted contract
+     * keeps its id on this row (soft deletes never fire the column's `nullOnDelete`), and a plain
+     * relation answering null would silently lift the bound — the retainer resumes, each new bill
+     * pointing at a contract nobody can open.
+     */
     public function vendorContract(): BelongsTo
     {
-        return $this->belongsTo(VendorContract::class);
+        return $this->belongsTo(VendorContract::class)->withTrashed();
     }
 
     /**
@@ -382,10 +407,68 @@ class RecurringExpense extends Model
         return $first !== null && ! $this->endsBefore($first);
     }
 
-    /** Has the schedule's own window already closed by `$day`? One definition, two readers. */
+    /**
+     * The day this schedule stops booking — its own `ends_on`, or the linked contract's `end_date`,
+     * whichever comes first. Null means open-ended. The last day itself still books, on both
+     * bounds: the end date IS a valid booking day, as it always was for `ends_on`.
+     *
+     * **A recurring cost that names a contract is bounded by that contract's term (SW-242,
+     * 2026-09-05).** Until then the schedule read only its own window: a security retainer whose
+     * contract ended on the 12th went on raising a draft bill on the 20th of every month — under a
+     * contract the register already showed as `expired` — for as long as nobody noticed, which is
+     * the failure the month-long staging soak was built to produce. Yardi's recurring payable is a
+     * child of the contract and stops with it; here the schedule's own `ends_on` is still honoured,
+     * so an operator can end a retainer EARLIER than the contract, never later.
+     *
+     * A TERMINATED contract is ended whatever its `end_date` says — `VendorContract::saving` dates
+     * the termination onto `end_date` when the status moves, so the two agree on a row written
+     * through the app; the status check is for rows that were not. A `draft` contract bounds
+     * nothing, as before.
+     */
+    public function effectiveEndsOn(): ?CarbonImmutable
+    {
+        $own = $this->ends_on !== null ? CarbonImmutable::instance($this->ends_on) : null;
+
+        $contractEnd = $this->vendor_contract_id !== null
+            ? $this->vendorContract?->end_date
+            : null;
+        $contract = $contractEnd !== null ? CarbonImmutable::instance($contractEnd) : null;
+
+        return match (true) {
+            $own === null => $contract,
+            $contract === null => $own,
+            default => $own->lessThan($contract) ? $own : $contract,
+        };
+    }
+
+    /** Has the linked contract ended by `$day` — by its end date, or by being terminated? */
+    public function contractEndedBy(CarbonImmutable $day): bool
+    {
+        if ($this->vendor_contract_id === null) {
+            return false;
+        }
+
+        $contract = $this->vendorContract;
+
+        if ($contract === null) {
+            return false;
+        }
+
+        if ($contract->status === 'terminated') {
+            return true;
+        }
+
+        return $contract->end_date !== null && $day->greaterThan(CarbonImmutable::instance($contract->end_date));
+    }
+
+    /** Has the schedule's window already closed by `$day`? One definition, every reader. */
     private function endsBefore(CarbonImmutable $day): bool
     {
-        return $this->ends_on !== null && $day->greaterThan(CarbonImmutable::instance($this->ends_on));
+        if ($this->ends_on !== null && $day->greaterThan(CarbonImmutable::instance($this->ends_on))) {
+            return true;
+        }
+
+        return $this->contractEndedBy($day);
     }
 
     /** @param  Builder<self>  $query */

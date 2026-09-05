@@ -64,7 +64,10 @@ class RecurringExpenseForm
                                 fn ($w) => $w->whereIn('asset_id', $visible)->orWhereNull('asset_id'),
                             ));
                     })
-                    ->visible(fn (Get $get): bool => filled($get('vendor_id'))),
+                    ->visible(fn (Get $get): bool => filled($get('vendor_id')))
+                    // A consequence, so it is visible rather than a hover: naming a contract bounds
+                    // the schedule by that contract's term (SW-242).
+                    ->helperText(__('admin.recurring_expenses.help.vendor_contract')),
 
                 TextInput::make('description')
                     ->label(__('admin.fields.description'))
