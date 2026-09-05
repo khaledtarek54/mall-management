@@ -240,11 +240,26 @@ class CreditUnearnedBillingService
                 // termination and losing the credit inside a best-effort job.
                 'issue_date' => $terminationDate,
                 'reason' => 'adjustment',
+                // The DATA (UX-30). `__()` here froze the explanation in whichever language the
+                // move-out was settled in, and both dates were formatted `d/m/Y` at write time —
+                // so an Arabic settlement sent an English-reading tenant an Arabic paragraph.
                 'reason_notes' => __("admin.credit_notes.unearned_on_{$reason}", [
                     'invoice' => $invoice->number,
                     'date' => $terminationDate->format('d/m/Y'),
                     'through' => $periodEnd->format('d/m/Y'),
                 ]),
+                // NAMED, never interpolated. `"credit.note_unearned_{$reason}"` is invisible to
+                // the conformance gate's writer sweep, and an unregistered `$reason` would compose
+                // a key that resolves to nothing and falls silently back to the frozen prose.
+                'reason_notes_key' => match ($reason) {
+                    'transfer' => 'credit.note_unearned_transfer',
+                    default => 'credit.note_unearned_termination',
+                },
+                'reason_notes_data' => [
+                    'invoice' => $invoice->number,
+                    'date' => $terminationDate->toDateString(),
+                    'through' => $periodEnd->toDateString(),
+                ],
                 'subtotal' => $subtotal,
                 'vat_amount' => $vat,
                 'total' => $total,

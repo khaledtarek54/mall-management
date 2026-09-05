@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Charge;
+use App\Models\CreditNote;
 use App\Models\InvoiceItem;
 use App\Services\MonthlyBillingService;
 use App\Support\LineNarrative;
@@ -176,4 +177,28 @@ it('resolves a classification inside the sentence for the reader too', function 
     // The meter number is an identifier the operator reads off the device — never translated.
     expect($en)->toContain('MTR-1');
     expect($ar)->toContain('MTR-1');
+});
+
+it('words the credit note\'s own explanation for its reader too', function () {
+    // The half UX-30 left on the first pass: the LINES were converted and the paragraph ABOVE
+    // them — the sentence a tenant reads first — was not. `CamReconciliationService` wrote raw
+    // English and `CreditUnearnedBillingService` resolved `__()` at write time with `d/m/Y` dates,
+    // so one credit note carried an English explanation over Arabic line text.
+    $note = new CreditNote([
+        'reason_notes' => 'floor',
+        'reason_notes_key' => 'credit.note_unearned_termination',
+        'reason_notes_data' => ['invoice' => 'INV-1', 'date' => '2026-09-15', 'through' => '2026-09-30'],
+    ]);
+
+    expect($note->narrative('en'))->toContain('INV-1');
+    expect($note->narrative('en'))->toContain('Sep');
+
+    $arabic = $note->narrative('ar');
+    expect($arabic)->toContain('INV-1');            // the document number is never translated
+    expect($arabic)->not->toContain('Sep');         // …and both DATES are the reader's
+    expect($arabic)->toMatch('/\p{Arabic}/u');
+
+    // The floor and the operator's own words, on this column too.
+    expect((new CreditNote(['reason_notes' => 'Agreed by email']))->narrative('ar'))
+        ->toBe('Agreed by email');
 });

@@ -187,7 +187,11 @@ class ChangeImpact
                 'vat_amount' => 'the VAT debit; the sales-returns line is derived as total − vat',
             ],
             self::NEUTRAL => [
-                'reason', 'reason_notes', 'currency', 'issued_by_user_id', 'applied_at', 'voided_at', 'notes',
+                // `reason_notes_key`/`_data` sit with `reason_notes` for the same reason: the
+                // note is what the document SAYS, and the journalizer reads none of it. They
+                // are the same fact stored as data instead of prose (UX-30).
+                'reason', 'reason_notes', 'reason_notes_key', 'reason_notes_data',
+                'currency', 'issued_by_user_id', 'applied_at', 'voided_at', 'notes',
                 // Not read by the journalizer at all — the sales-returns line is derived as
                 // `total − vat_amount`, so subtotal is a display figure as far as the books go.
                 'subtotal',

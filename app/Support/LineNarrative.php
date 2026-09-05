@@ -115,6 +115,10 @@ final class LineNarrative
 
         // ── Credit-note lines. The tenant reads these beside the invoice they reverse ─────────
         'credit.cam_recovery' => ['lang' => 'admin.credit_notes.line_cam_recovery', 'text' => ['year']],
+        // The NOTE above the lines — the sentence a tenant reads first on this document.
+        'credit.note_cam' => ['lang' => 'admin.credit_notes.note_cam', 'text' => ['year']],
+        'credit.note_unearned_termination' => ['lang' => 'admin.credit_notes.unearned_on_termination', 'text' => ['invoice'], 'date' => ['date', 'through']],
+        'credit.note_unearned_transfer' => ['lang' => 'admin.credit_notes.unearned_on_transfer', 'text' => ['invoice'], 'date' => ['date', 'through']],
         'credit.unearned' => ['lang' => 'admin.credit_notes.line_unearned', 'text' => ['invoice'], 'date' => ['through']],
         // The charge being credited was prepended OUTSIDE the sentence — a catalogue label
         // resolved in the writer's locale, glued to a translated string. One template instead.

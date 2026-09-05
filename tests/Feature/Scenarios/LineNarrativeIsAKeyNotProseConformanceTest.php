@@ -214,7 +214,13 @@ it('lets no line-raising service store prose with no key', function () {
             && str_contains($source, "'description' =>");
         $raisesCreditNoteLine = str_contains($source, '->describeAs(');
 
-        if (! $raisesInvoiceLine && ! $raisesCreditNoteLine) {
+        // A model that DECLARES its narrative columns (`narrativeColumns()`) is wiring, not a
+        // writer — its `'reason_notes' => [...]` is a column map, and reading it as prose reported
+        // `CreditNote` itself as the offender.
+        $writesANote = str_contains($source, "'reason_notes' =>")
+            && ! str_contains($source, 'function narrativeColumns(');
+
+        if (! $raisesInvoiceLine && ! $raisesCreditNoteLine && ! $writesANote) {
             continue;
         }
 
@@ -229,6 +235,17 @@ it('lets no line-raising service store prose with no key', function () {
         // third, which was still resolving `__()` at write time.
         $invoiceCalls = substr_count($source, "'description' =>");
         $keyed = substr_count($source, "'description_key' =>");
+
+        // The credit note's own `reason_notes` — the paragraph a tenant reads ABOVE the lines,
+        // and the one this document is mostly about. It was left frozen when the lines were
+        // converted, which is how a single credit note came to carry an English explanation over
+        // Arabic line text.
+        $notesWritten = substr_count($source, "'reason_notes' =>");
+        $notesKeyed = substr_count($source, "'reason_notes_key' =>");
+
+        if ($notesWritten > $notesKeyed) {
+            $offenders[] = "{$relative}: writes reason_notes {$notesWritten}×, names a key {$notesKeyed}×";
+        }
 
         if ($raisesInvoiceLine && $keyed < $invoiceCalls) {
             $offenders[] = "{$relative}: {$invoiceCalls} invoice line(s), {$keyed} keyed";

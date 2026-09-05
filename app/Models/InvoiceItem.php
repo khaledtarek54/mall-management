@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\DescribesItsLine;
+use App\Models\Concerns\WordsItselfForItsReader;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,8 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[PropertyOwned(via: 'invoice')]
 class InvoiceItem extends Model
 {
-    use DescribesItsLine;
     use HasFactory;
+    use WordsItselfForItsReader;
 
     protected $fillable = [
         'invoice_id',

@@ -6,6 +6,7 @@ use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\HidesDraftsFromTenant;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Models\Concerns\WordsItselfForItsReader;
 use App\Services\CreditNoteService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
@@ -32,6 +33,20 @@ use Spatie\Activitylog\Support\LogOptions;
 class CreditNote extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
+    use WordsItselfForItsReader;
+
+    /**
+     * The credit note words its own `reason_notes` — the paragraph a tenant reads ABOVE the lines,
+     * and the one this document is mostly about. Its LINES word themselves through the same trait
+     * on `CreditNoteItem`.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    protected static function narrativeColumns(): array
+    {
+        return ['reason_notes' => ['reason_notes_key', 'reason_notes_data']];
+    }
+
     use HasFactory, HasSearchText, HidesDraftsFromTenant, LogsActivity, SoftDeletes;
 
     /**
@@ -61,6 +76,10 @@ class CreditNote extends Model
         'issue_date',
         'reason',
         'reason_notes',
+        // WHAT the note says, as data (UX-30). `reason_notes` above stays as the floor and as the
+        // operator's own words — it is a Textarea on the form, and typing there clears the key.
+        'reason_notes_key',
+        'reason_notes_data',
         'subtotal',
         'vat_amount',
         'total',
@@ -75,6 +94,7 @@ class CreditNote extends Model
     ];
 
     protected $casts = [
+        'reason_notes_data' => 'array',
         'issue_date' => 'date',
         'applied_at' => 'datetime',
         'voided_at' => 'datetime',

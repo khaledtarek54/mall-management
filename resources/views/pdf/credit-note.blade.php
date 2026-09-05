@@ -50,7 +50,9 @@
                 <div class="label">{{ __('admin.fields.credit_note_reason') }}</div>
                 <div class="headline">{{ __("admin.enums.credit_note_reason.{$note->reason}") }}</div>
                 @if($note->reason_notes)
-                    <div class="value">{{ Bidi::isolateLines($note->reason_notes) }}</div>
+                    {{-- Worded here, not when the credit was raised (UX-30) — the template runs
+                         inside `DocumentLocale::in()`, so this is the reader's language. --}}
+                    <div class="value">{{ Bidi::isolateLines($note->narrative()) }}</div>
                 @endif
             </td>
             <td class="last" style="width:32%;">

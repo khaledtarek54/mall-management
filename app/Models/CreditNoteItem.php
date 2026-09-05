@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\DescribesItsLine;
+use App\Models\Concerns\WordsItselfForItsReader;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[PropertyOwned(via: 'creditNote')]
 class CreditNoteItem extends Model
 {
-    use DescribesItsLine;
+    use WordsItselfForItsReader;
 
     protected $fillable = [
         'credit_note_id',

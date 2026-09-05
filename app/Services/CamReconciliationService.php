@@ -1503,7 +1503,11 @@ class CamReconciliationService
             'status' => 'issued',
             'issue_date' => now(),
             'reason' => 'adjustment',
+            // Raw English for the whole of this service's life, on the paragraph a tenant reads
+            // FIRST — directly above line text that already rendered in their own language.
             'reason_notes' => "CAM reconciliation credit — {$year}",
+            'reason_notes_key' => 'credit.note_cam',
+            'reason_notes_data' => ['year' => $year],
             'subtotal' => $credit,
             'vat_amount' => $vat,
             'total' => $total,
