@@ -5,6 +5,7 @@ namespace App\Services\Accounting;
 use App\Models\AccountMapping;
 use App\Models\BankAccount;
 use App\Models\LedgerAccount;
+use App\Support\CashFlowSection;
 
 /**
  * Give a bank account a chart leaf of its own.
@@ -80,6 +81,13 @@ class MintBankLedgerAccountService
             // nobody supplied. A caller that HAS both (a seeder) passes both.
             'name_ar' => $nameAr ?? $name,
             'type' => 'asset',
+            // A bank's own leaf IS cash on the cash-flow statement. `CashFlowSection::for()` floors
+            // an unclassified asset to OPERATING — the safer error for working capital, and exactly
+            // the wrong one for the account whose whole identity is "money in the bank": left null,
+            // every receipt routed through a minted bank read as an operating working-capital
+            // movement while only the generic `bank` role account counted as cash. The statement
+            // still balanced, which is why nothing said so (2026-09-05).
+            'cash_flow_section' => CashFlowSection::CASH,
             'is_postable' => true,
             'is_active' => true,
         ]);

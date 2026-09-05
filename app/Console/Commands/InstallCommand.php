@@ -11,18 +11,7 @@ use App\Models\Holiday;
 use App\Models\LedgerAccount;
 use App\Models\User;
 use App\Support\Health;
-use Database\Seeders\AccountingSeeder;
-use Database\Seeders\ApprovalRulesSeeder;
-use Database\Seeders\DepartmentSeeder;
-use Database\Seeders\ExpenseCategorySeeder;
-use Database\Seeders\HolidaySeeder;
-use Database\Seeders\PaymentMethodSeeder;
-use Database\Seeders\RetailCategorySeeder;
-use Database\Seeders\RolesPermissionsSeeder;
-use Database\Seeders\TenantRequestSubcategorySeeder;
-use Database\Seeders\UtilityTariffSeeder;
-use Database\Seeders\VendorDocumentTypeSeeder;
-use Database\Seeders\ViolationCategorySeeder;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Facades\Hash;
@@ -75,48 +64,26 @@ class InstallCommand extends Command
 
         $this->components->info('Seeding the reference data a real install needs (never demo data).');
 
-        $this->callSilent('db:seed', ['--class' => RolesPermissionsSeeder::class, '--force' => true]);
+        // THE reference list, in THE order — `DatabaseSeeder::REFERENCE`, which `migrate:fresh
+        // --seed` and `LearningSeeder` run too. This command carried its own copy of the twelve
+        // names until 2026-09-05, and the three copies had drifted: `DatabaseSeeder` had no
+        // `UtilityTariffSeeder`, so every dev machine priced every meter reading at 0.00. What each
+        // seeder is for, and what its absence did, is recorded on the list itself.
+        //
+        // Two are worth naming here because their absence was SILENT in production:
+        // ApprovalRulesSeeder (missing until 2026-08-11 — with `approval_rules` empty,
+        // canApprove() returned true for ANY amount, so the spend tiers simply did not exist) and
+        // DepartmentSeeder (DepartmentResource::canCreate() is false because the set is seeded, so
+        // an install that skipped it had an empty table FOREVER and tenant-request routing off).
+        foreach (DatabaseSeeder::REFERENCE as $seeder) {
+            $this->callSilent('db:seed', ['--class' => $seeder, '--force' => true]);
+        }
+
         $this->components->twoColumnDetail('Roles + permissions',
             Role::count().' roles · '.Permission::count().' permissions');
-
-        // The spend-approval ladder. Missing here until 2026-08-11, and its absence was SILENT:
-        // with `approval_rules` empty, ApprovalPolicy::permissionFor() returns null and
-        // canApprove() returns true for ANY amount — so FR-CM-11 (spare-part tiers) and
-        // FR-PROC-02 (purchase-request tiers) simply did not exist in production. Base RBAC still
-        // applied, so this was lost value-tiering rather than open season; but `required_permission`
-        // froze as null, so the audit trail could not even show which tier had been required.
-        // Every approval test seeds this itself, which is why a green suite never noticed.
-        $this->callSilent('db:seed', ['--class' => ApprovalRulesSeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Approval ladder', ApprovalRule::count().' bands');
-
-        // Departments are reference data too, and DepartmentResource::canCreate() returns false
-        // because the set is "seeded" — so on an install that skipped this the table stayed empty
-        // FOREVER with no in-app remedy, and tenant-request auto-routing was permanently off.
-        $this->callSilent('db:seed', ['--class' => DepartmentSeeder::class, '--force' => true]);
-
-        // The utility tariffs a mall recharges against. Seeded WITHOUT rates — a published figure is
-        // the operator's to confirm — but seeded, because until 2026-08-20 nothing created a tariff
-        // at all and every meter therefore priced a reading at 0.00, which the billing service then
-        // correctly refused. The catalogue existing is what turns that into a screen asking to be
-        // priced rather than a feature that appears to do nothing.
-        $this->callSilent('db:seed', ['--class' => UtilityTariffSeeder::class, '--force' => true]);
-
         $this->components->twoColumnDetail('Departments', Department::count().' departments');
-
-        // Egypt's fixed-date public holidays, this year and next. Without this a fresh deploy
-        // ships an EMPTY calendar, and a missing holiday is completely silent — an SLA measured
-        // straight across Eid, with nothing on any screen to say why. The moon-sighted dates are
-        // deliberately not seeded; the operator adds those, which the screen guide says.
-        $this->callSilent('db:seed', ['--class' => PaymentMethodSeeder::class, '--force' => true]);
-        $this->callSilent('db:seed', ['--class' => ExpenseCategorySeeder::class, '--force' => true]);
-        $this->callSilent('db:seed', ['--class' => TenantRequestSubcategorySeeder::class, '--force' => true]);
-        $this->callSilent('db:seed', ['--class' => RetailCategorySeeder::class, '--force' => true]);
-        $this->callSilent('db:seed', ['--class' => ViolationCategorySeeder::class, '--force' => true]);
-        $this->callSilent('db:seed', ['--class' => VendorDocumentTypeSeeder::class, '--force' => true]);
-        $this->callSilent('db:seed', ['--class' => HolidaySeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Holidays', Holiday::count().' fixed-date holidays (the moon-sighted ones are yours to add)');
-
-        $this->callSilent('db:seed', ['--class' => AccountingSeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Chart of accounts', LedgerAccount::count().' accounts');
         $this->components->twoColumnDetail('Account mappings', AccountMapping::count().' posting roles mapped');
         $this->components->twoColumnDetail('Charge codes', ChargeCode::count().' codes');

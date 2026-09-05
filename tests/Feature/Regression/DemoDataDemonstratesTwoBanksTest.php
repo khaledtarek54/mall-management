@@ -127,8 +127,8 @@ it('demonstrates two banks in one mall on a fresh demo', function () {
     // ── Every register with demo rows says something ─────────────────────────────────────────────
     // Receipts and expenses were the two the first cut covered; payroll and deposit movements are
     // the other two with demo rows, and they were empty, so four of the six new columns said
-    // nothing. (Vendor-bill payments and disbursements have no demo rows at all — a pre-existing
-    // gap in the seeder, not this feature's.)
+    // nothing. (Disbursements have no demo rows; vendor-bill payments do, and name CIB.
+    //     // gap in the seeder, not this feature's.)
     expect(Payment::whereNotNull('bank_account_id')->count())->toBeGreaterThan(50);
     expect(Expense::whereNotNull('bank_account_id')->count())->toBeGreaterThan(0);
     expect(Payroll::whereNotNull('bank_account_id')->count())->toBeGreaterThan(0);
@@ -137,11 +137,20 @@ it('demonstrates two banks in one mall on a fresh demo', function () {
     // Both banks are used, or the demo shows a two-bank feature with one bank.
     expect(Payment::whereNotNull('bank_account_id')->distinct()->count('bank_account_id'))->toBe(2);
 
-    // A card capture and a cheque are NOT in the bank on their own date — that timing gap is the
-    // known-wrong thing `PaymentMethod` documents. Naming an account on them would offer them as
-    // reconciliation candidates days before the money arrived.
-    expect(Payment::whereIn('method', ['card', 'cheque'])->whereNotNull('bank_account_id')->count())
-        ->toBe(0, 'A deferred-settlement rail was given a bank account, which makes the matcher lie.');
+    // A card capture and a cheque name the property DEFAULT, because that is what the running
+    // system does on those rails since 2026-09-02 (SW-228: `requires_bank_account` is true for
+    // every rail but cash, and `RecordsBankAccount` fills the default in). Until 2026-09-05 the demo
+    // left them null on the T+1/T+2 argument — the clearing-account problem `PaymentMethod`
+    // documents, which is a reason for a clearing account, not for seeding half the receipts into
+    // the unattributed `bank` role and teaching the reconciliation screen something the system no
+    // longer does.
+    $default = BankAccount::defaultFor($operating->asset_id, BankAccount::PURPOSE_OPERATING);
+    $deferred = Payment::whereIn('method', ['card', 'cheque'])->get();
+    expect($deferred)->not->toBeEmpty()
+        ->and($deferred->whereNull('bank_account_id')->count())
+        ->toBe(0, 'A card or cheque receipt was left unattributed, which the running system no longer does.')
+        ->and($deferred->pluck('bank_account_id')->unique()->all())
+        ->toBe([$default->id], 'A card or cheque receipt named something other than the property default.');
 
     // ── Beside the generic account, never instead of it ──────────────────────────────────────────
     // `11102001` must stay postable and stay the `bank` role: it is the floor for every document

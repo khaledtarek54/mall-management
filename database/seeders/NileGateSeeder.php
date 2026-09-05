@@ -89,7 +89,11 @@ use Illuminate\Support\Facades\Notification;
  *   10th 08:00  sales:scan-missing-declarations — Carrefour + Al Tazaj never declared LAST month
  *   D+7  02:30  generator monthly test-run plan is due → work order
  *   D+8  02:30  Guardian Security contract (ended D+7) → expired
- *   D+10 05:30  Carrefour's rent anniversary → leases:apply-escalations steps the rent +7%
+ *   D+10 05:30  Carrefour's rent anniversary → leases:apply-escalations moves the lease's own rent
+ *              figure to 96,300 and records the event. The LADDER already stepped on the 1st (a
+ *              mid-month step snaps to its billing month — ChargeScheduleService::billingBoundary),
+ *              so THIS month's invoice is already at the new rent; the check is that the sweep adds
+ *              no second rung and October bills the same 96,300 once
  *   15th 05:30  municipal waste levy schedule → expense recorded
  *   17th 07:30  sales:estimate-missing — estimated declarations for the two that never declared
  *   D+15 02:30  quarterly fire-safety plan due → work order
@@ -354,13 +358,13 @@ class NileGateSeeder extends Seeder
     {
         return [
             'carrefour' => ['name' => 'Carrefour Express',  'legal' => 'Majid Al Futtaim Hypermarkets Egypt LLC', 'contact' => 'Amr Hassan',      'portal' => true,  'locale' => null, 'coi_days' => 17],
-            'tazaj'     => ['name' => 'Al Tazaj',           'legal' => 'Al Tazaj Fakieh Egypt SAE',               'contact' => 'Yasmine Kamel',   'portal' => true,  'locale' => 'ar', 'coi_days' => -20],
-            'optics'    => ['name' => 'Cairo Optics',       'legal' => 'Cairo Optics Trading LLC',                'contact' => 'Hany Boulos',     'portal' => false, 'locale' => null, 'coi_days' => 240],
-            'nano'      => ['name' => 'Nano Pharmacy',      'legal' => 'Nano Pharmacies SAE',                     'contact' => 'Dr. Rania Fathy', 'portal' => false, 'locale' => 'ar', 'coi_days' => 240],
-            'fitzone'   => ['name' => 'Fit Zone Gym',       'legal' => 'Fit Zone Fitness Egypt LLC',              'contact' => 'Omar Selim',      'portal' => false, 'locale' => null, 'coi_days' => 240],
-            'koshary'   => ['name' => 'Koshary Abou Tarek', 'legal' => 'Abou Tarek Restaurants SAE',              'contact' => 'Tarek Mahmoud',   'portal' => false, 'locale' => 'ar', 'coi_days' => 240],
-            'bershka'   => ['name' => 'Bershka',            'legal' => 'Bershka Egypt LLC',                       'contact' => 'Nour El-Din',     'portal' => false, 'locale' => null, 'coi_days' => 240],
-            'orange'    => ['name' => 'Orange Kiosk',       'legal' => 'Orange Egypt for Telecommunications SAE', 'contact' => 'Mostafa Adel',    'portal' => false, 'locale' => null, 'coi_days' => 240],
+            'tazaj' => ['name' => 'Al Tazaj',           'legal' => 'Al Tazaj Fakieh Egypt SAE',               'contact' => 'Yasmine Kamel',   'portal' => true,  'locale' => 'ar', 'coi_days' => -20],
+            'optics' => ['name' => 'Cairo Optics',       'legal' => 'Cairo Optics Trading LLC',                'contact' => 'Hany Boulos',     'portal' => false, 'locale' => null, 'coi_days' => 240],
+            'nano' => ['name' => 'Nano Pharmacy',      'legal' => 'Nano Pharmacies SAE',                     'contact' => 'Dr. Rania Fathy', 'portal' => false, 'locale' => 'ar', 'coi_days' => 240],
+            'fitzone' => ['name' => 'Fit Zone Gym',       'legal' => 'Fit Zone Fitness Egypt LLC',              'contact' => 'Omar Selim',      'portal' => false, 'locale' => null, 'coi_days' => 240],
+            'koshary' => ['name' => 'Koshary Abou Tarek', 'legal' => 'Abou Tarek Restaurants SAE',              'contact' => 'Tarek Mahmoud',   'portal' => false, 'locale' => 'ar', 'coi_days' => 240],
+            'bershka' => ['name' => 'Bershka',            'legal' => 'Bershka Egypt LLC',                       'contact' => 'Nour El-Din',     'portal' => false, 'locale' => null, 'coi_days' => 240],
+            'orange' => ['name' => 'Orange Kiosk',       'legal' => 'Orange Egypt for Telecommunications SAE', 'contact' => 'Mostafa Adel',    'portal' => false, 'locale' => null, 'coi_days' => 240],
         ];
     }
 
@@ -580,16 +584,34 @@ class NileGateSeeder extends Seeder
 
         $created = 0;
         for ($m = $first; $m->lessThan($untilExclusive); $m = $m->addMonth()) {
-            $created += (int) ($billing->runForPeriod($m, $this->asset->id)['created'] ?? 0);
+            $created += (int) ($this->billed($billing->runForPeriod($m, $this->asset->id), $m)['created'] ?? 0);
         }
 
         $this->command?->info("   Billing history: {$created} invoices from {$first->format('M Y')} to {$untilExclusive->subMonth()->format('M Y')}");
     }
 
+    /**
+     * A billing run that CONSIDERED nothing did not run: `runForPeriod()` answers all-zeros, silently,
+     * when another run holds the `billing:run:YYYY-MM` cache lock (900 s) — a crashed earlier seeding,
+     * or seeding during the 02:00 job. Everything after this lodges cheques and settles receipts
+     * against the invoices it created, so a silent zero here is a corrupt mall, not a quiet one.
+     *
+     * @param  array<string, mixed>  $stats
+     * @return array<string, mixed>
+     */
+    private function billed(array $stats, CarbonImmutable $period): array
+    {
+        if ((int) ($stats['leases_considered'] ?? 0) === 0) {
+            throw new \RuntimeException("Monthly billing for {$period->format('Y-m')} considered no lease at all — is a billing run for that period holding the lock? Nothing was written for it; stop here rather than seed a mall with no invoices.");
+        }
+
+        return $stats;
+    }
+
     /** This month's run, NOT silenced — the portal bells and the mail path are part of the test. */
     private function seedCurrentMonthBilling(): void
     {
-        $stats = app(MonthlyBillingService::class)->runForPeriod($this->today->startOfMonth(), $this->asset->id);
+        $stats = $this->billed(app(MonthlyBillingService::class)->runForPeriod($this->today->startOfMonth(), $this->asset->id), $this->today->startOfMonth());
         $owners = app(BillUnitOwnershipsService::class)->runForPeriod($this->today->startOfMonth(), $this->asset->id);
 
         $this->command?->info('   Current month: '.($stats['created'] ?? 0).' lease invoices + '.($owners['created'] ?? 0).' owner assessments issued (notifications live)');
@@ -740,16 +762,16 @@ class NileGateSeeder extends Seeder
 
         // Carrefour: a series of ten monthly cheques for this month's invoice amount, the first
         // maturing D+5. Ten, not twelve — the coverage scan should say they run out before the
-        // lease does; and the rent steps +7% on D+10, so from next month each cheque under-covers.
-        $carrefourInvoice = Invoice::query()->where('lease_id', $this->leases['carrefour']->id)
-            ->whereDate('period_start', $thisMonth->toDateString())->first();
+        // lease does. This month's invoice already carries the +7% step (the ladder snaps the D+10
+        // anniversary to the 1st), so the cheques cover exactly until the NEXT step, a year on.
+        $carrefourInvoice = $this->currentMonthInvoiceFor('carrefour');
         $series = $service->lodgeSeries([
             'asset_id' => $this->asset->id,
             'tenant_id' => $this->tenants['carrefour']->id,
             'lease_id' => $this->leases['carrefour']->id,
             'bank_name' => 'CIB',
             'first_cheque_number' => '400201',
-            'amount' => (float) ($carrefourInvoice?->total ?? 111600),
+            'amount' => (float) $carrefourInvoice->total,
             'count' => 10,
             'interval_months' => 1,
             'first_cheque_date' => $this->today->addDays(5)->toDateString(),
@@ -760,8 +782,7 @@ class NileGateSeeder extends Seeder
         // Koshary: this month's invoice is covered by a cheque maturing D+3 (held — somebody has to
         // bank it), and next month's by one maturing D+33.
         $koshary = $this->leases['koshary'];
-        $kosharyInvoice = Invoice::query()->where('lease_id', $koshary->id)
-            ->whereDate('period_start', $thisMonth->toDateString())->first();
+        $kosharyInvoice = $this->currentMonthInvoiceFor('koshary');
         foreach ([[3, $kosharyInvoice], [33, null]] as [$days, $invoice]) {
             PostDatedCheque::create([
                 'reference' => PostDatedCheque::generateReference(),
@@ -771,7 +792,7 @@ class NileGateSeeder extends Seeder
                 'invoice_id' => $invoice?->id,
                 'cheque_number' => 'KT-'.(7701 + $days),
                 'bank_name' => 'Banque Misr',
-                'amount' => (float) ($kosharyInvoice?->total ?? 42980),
+                'amount' => (float) $kosharyInvoice->total,
                 'currency' => 'EGP',
                 'cheque_date' => $this->today->addDays($days)->toDateString(),
                 'received_date' => $this->today->subDays(2)->toDateString(),
@@ -780,6 +801,15 @@ class NileGateSeeder extends Seeder
         }
 
         $this->command?->info('   Post-dated cheques: Carrefour series of '.$series->count().' from D+5 · Koshary D+3 (against this month) and D+33');
+    }
+
+    /** The invoice this month's run raised for a lease — or a loud stop, never a made-up figure. */
+    private function currentMonthInvoiceFor(string $key): Invoice
+    {
+        return Invoice::query()
+            ->where('lease_id', $this->leases[$key]->id)
+            ->whereDate('period_start', $this->today->startOfMonth()->toDateString())
+            ->firstOr(fn () => throw new \RuntimeException("No invoice for {$key} this month — the billing run must have created one before cheques are lodged against it."));
     }
 
     private function seedLeaseOptions(): void
@@ -1090,6 +1120,10 @@ class NileGateSeeder extends Seeder
         ];
 
         foreach ($rows as $r) {
+            // Last month's occurrence is always in the past, so the first thing the nightly run
+            // raises is THIS month's — on its own day if that is still ahead, or the next morning
+            // if the seed day has already passed it (one period, never a backlog: `nextDueOn()`
+            // walks forward from the stamp one period at a time).
             $lastOccurrence = $thisMonth->subMonth()->day($r['day']);
             RecurringExpense::create([
                 'asset_id' => $this->asset->id,
@@ -1105,7 +1139,7 @@ class NileGateSeeder extends Seeder
                 'day_of_month' => $r['day'],
                 'payment_terms_days' => $r['terms'],
                 'starts_on' => $thisMonth->subMonths(3)->toDateString(),
-                'last_generated_on' => $lastOccurrence->lessThan($this->today) ? $lastOccurrence->toDateString() : $lastOccurrence->subMonth()->toDateString(),
+                'last_generated_on' => $lastOccurrence->toDateString(),
                 'is_active' => true,
             ]);
         }

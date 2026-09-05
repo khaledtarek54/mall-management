@@ -27,7 +27,7 @@ so the history is what the system would have produced had it been running since 
 
 | Tenant | Unit | Rent | Why it is here |
 |---|---|---|---|
-| Carrefour Express | B-01 | 90,000 | Anchor. Rent anniversary **15 Sep** → escalation +7%. Ten-cheque series from 10 Sep. Percentage rent; August undeclared. COI lapses 22 Sep. |
+| Carrefour Express | B-01 | 90,000 → 96,300 | Anchor. Rent anniversary **15 Sep**: the ladder already stepped September's invoice to 96,300 (a mid-month step snaps to its billing month, by design), so the 15 Sep sweep moves the lease's own rent figure and must add no second rung. Ten-cheque series from 10 Sep at the stepped amount. Percentage rent; August undeclared. COI lapses 22 Sep. |
 | Al Tazaj | A-04 | 30,000 | **Two months behind** → late fee, dunning, arrears ageing. Percentage rent; August undeclared. COI already lapsed. Urgent HVAC request open. |
 | Cairo Optics | A-01 | 15,000 | Lease **expires 30 Sep** → `leases:expire` frees the shop on 1 Oct, holdover decision. |
 | Nano Pharmacy | A-07 | 12,000 | Commenced 16 Aug → prorated first invoice. Deposit billed, **unpaid**. |
@@ -52,12 +52,12 @@ D0 = **Sat 5 Sep 2026**. Times are Africa/Cairo, from `php artisan schedule:list
 | every night 01:30 | `marketing:ensure-budgets` | a marketing budget row for NG appears on the first night |
 | 6 Sep 02:45 | `vendors:scan-contract-renewals` | Guardian Security: notice deadline passed → alert |
 | 6 Sep 02:45 | `vendors:scan-document-expiry` · `tenants:scan-document-expiry` | Delta COI (25 Sep), Carrefour COI (22 Sep), Al Tazaj COI (lapsed) → alerts |
-| 6 Sep 04:00 | `atriom-late-fees` | Al Tazaj's August invoice (due 8 Aug, grace 7) → 2% late fee invoice; Layla's August assessment likewise; **and Nano's unpaid DEPOSIT bill** (due 23 Aug) — a late fee on a security deposit is a question for the accountant, so note what it does |
+| 6 Sep 04:00 | `atriom-late-fees` | Al Tazaj's August invoice (due 8 Aug, grace 7) → 2% late fee invoice; Fit Zone's half-paid August likewise; Layla's August assessment likewise; **and Nano's unpaid DEPOSIT bill** (due 23 Aug) — a late fee on a security deposit is a question for the accountant, so note what it does. Four fees in all (dry-run confirmed). |
 | 6 Sep 06:00 / 06:15 | `billing:scan-overdue-invoices` · `remind-overdue-tenants` | owner alert + tenant reminders for the overdue set |
 | 7 Sep 02:30 | `facility:generate-preventive` | weekly cleaning inspection → work order |
 | 7 Sep 05:30 | `expenses:generate-recurring` | Nile Clean retainer → **draft vendor bill** (supplier's number blank, awaiting approval) |
 | 8 Sep 07:45 | `pdc:scan-maturing` | Koshary cheque matured, still held → reported |
-| 9 Sep 06:00 | overdue scan | Orange kiosk (due 8 Sep) joins the overdue set |
+| 9 Sep 06:00 | overdue scan | Every unpaid September lease invoice (due 8 Sep) joins the overdue set: Carrefour and Koshary (cheques pending), Al Tazaj, Nano, Fit Zone, Orange — six; the owners' assessments are due the 15th |
 | 9 Sep 12:00 | `announcements:send-scheduled` | the fire-drill notice goes out |
 | 10 Sep | Carrefour cheque #1 matures | held until somebody banks it (an act) |
 | 10 Sep 08:00 | `sales:scan-missing-declarations` | Carrefour + Al Tazaj reminded: August undeclared |
@@ -65,12 +65,12 @@ D0 = **Sat 5 Sep 2026**. Times are Africa/Cairo, from `php artisan schedule:list
 | 12 Sep 06:45 | `leases:scan-option-windows` | Fit Zone expansion window OPENS → alert |
 | 13 Sep 02:30 | `vendors:expire-contracts` | Guardian Security → `expired` |
 | 14 Sep 08:00 | `pdc:scan-coverage` (Mondays) | Carrefour's cheques run out June 2027, lease runs to Sept 2028 → reported |
-| **15 Sep 05:30** | `leases:apply-escalations` | **Carrefour rent 90,000 → 96,300**; lease event recorded; October bills at the new rent |
+| **15 Sep 05:30** | `leases:apply-escalations` | **Carrefour's rent figure 90,000 → 96,300** and a lease event recorded. NOTE: September was ALREADY billed at 96,300 (INV-NG-0058 = 118,215) — `ChargeScheduleService::billingBoundary()` snaps a mid-month step to the start of its billing month, a documented rule ("bills all of April at the new rent, as it always has"), stricter than Yardi, which prorates the two rates within the month. The sweep must NOT step it a second time. |
 | 15 Sep 05:30 | recurring | municipal waste levy → expense |
-| 16 Sep 04:00 | late fees | Orange kiosk (overdue since 9 Sep + 7 grace) → late fee |
+| 16 Sep 04:00 | late fees | Every September lease invoice still unpaid after the 7-day grace → late fee (six if no cheque was banked; dry-run: 6). Banking Carrefour's and Koshary's cheques before the 15th is what keeps theirs off the list |
 | 17 Sep 07:30 | `sales:estimate-missing` | estimated August declarations for Carrefour + Al Tazaj |
 | 20 Sep 02:30 | preventive | quarterly fire-safety inspection → work order |
-| 20 Sep 05:30 | recurring | Guardian retainer — contract expired on the 12th: **watch what it does** |
+| 20 Sep 05:30 | recurring | Guardian retainer — its contract ended on the 12th, so **nothing is raised** (SW-242, fixed 5 Sep before the box reached this date); the register's *Next due* for it reads blank |
 | 25 Sep 02:45 | vendor document scan | Delta COI lapses today |
 | 25 Sep 05:30 | recurring | telecom → expense |
 | 25 Sep 06:45 | option windows | Fit Zone renewal window CLOSES → alert; lapses if nobody acted |
@@ -139,4 +139,5 @@ it cannot prove e-mail delivery until the token is fixed.
 
 | Date | Verdict | What ran / what was seen | Findings |
 |---|---|---|---|
+| 2026-09-05 | pre-validated | Every scheduled event in the calendar was dry-run on the scratch copy with `--date`/`--period` before staging was seeded: 4 late fees on D+1 and 6 more on the 16th, the cleaning bill drafted on the 7th (28,500 incl. VAT), the waste levy expensed on the 15th (5,130), Guardian's retainer STILL billed on the 20th under a contract that ended on the 12th (68,400 — a question for the operator, see the calendar), 1 + 3 preventive work orders, both August declarations reminded then estimated, Carrefour stepped once on the 15th, September depreciation posted. Books tied out after all of it; every charge schedule unambiguous. | **First finding, from the dry-run:** a recurring cost LINKED to a vendor contract keeps raising draft bills after that contract has ended — `GenerateRecurringExpensesService::raiseVendorBill()` copies `vendor_contract_id` onto the bill and never asks whether the contract is still in force; the schedule reads only its own `ends_on`. Yardi's recurring payable is bounded by the contract term. Fixed the same day as **SW-242** (`39d20a6a` — `RecurringExpense::effectiveEndsOn()`, own end or the contract's, whichever is earlier; the review of the fix closed four more doors: re-linking an ended contract on edit, a terminated contract keeping its original term, a deleted contract lifting the bound, and an N+1 on the register; `ARecurringCostStopsWhenItsContractEndsTest`, 9 cases). On the box the 20 Sep row now reads: Guardian's retainer must NOT bill. |
 | 2026-09-05 | seeded | NG seeded on the scratch database first, then on staging: 66 invoices, 53 receipts, 12 cheques, 5 bills, GL posted. `billing:reconcile --deep` 9/9 green. | Two seeder-side findings fixed before staging: receipts created outside a transaction posted before their allocation (53 void + reversal pairs); a back-dated billing run dates DUE from the run day, by design, so seeded history re-anchors due dates to issue date + terms. |

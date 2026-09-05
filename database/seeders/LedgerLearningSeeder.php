@@ -16,6 +16,7 @@ use App\Services\Accounting\LedgerPoster;
 use App\Services\CreditNoteService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use RuntimeException;
 
 /**
  * A SET OF BOOKS SMALL ENOUGH TO CHECK IN YOUR HEAD.

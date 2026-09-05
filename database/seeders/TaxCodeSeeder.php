@@ -82,8 +82,9 @@ use Illuminate\Database\Seeder;
  *     entity level. It has no per-document rate; it is computed from the financial statements after
  *     the year is closed.
  *   - **Salary tax and social insurance — ضريبة كسب العمل والتأمينات الاجتماعية.** Per-employee and
- *     on a progressive bracket table, not a single rate on a line. They live in `PayrollSettings`
- *     and module 24 (HR/payroll), which is where a bracket table can be expressed.
+ *     on a progressive bracket table, not a single rate on a line. They live in the dated
+ *     `payroll_rates` ladder (`App\Support\PayrollRates`, EG-03) and module 24 (HR/payroll),
+ *     which is where a bracket table can be expressed.
  *
  * @see TaxCode
  */

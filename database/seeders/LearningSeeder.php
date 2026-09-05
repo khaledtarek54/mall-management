@@ -23,9 +23,10 @@ use Illuminate\Support\Facades\Hash;
  * without, one property, empty units and a few tenants, and then **stops**.
  *
  * What you get:
- *   - reference data — the identical four seeders `atriom:install` runs (roles + 182 permissions,
- *     the approval ladder, departments, and the accounting spine: chart of accounts, account
- *     mappings, tax codes, charge codes, an open fiscal calendar). Without the accounting half a
+ *   - reference data — the identical seeders `atriom:install` runs, `DatabaseSeeder::REFERENCE`
+ *     (roles + permissions, the approval ladder, departments, the catalogues, and the accounting
+ *     spine: chart of accounts, account mappings, tax codes, charge codes, an open fiscal
+ *     calendar). Without the accounting half a
  *     database **bills perfectly and posts nothing** — see InstallCommand's docblock.
  *   - one property (Atriom Walk / AW) with two floors and **12 vacant units**
  *   - **3 tenants, no leases, no charges, no invoices, no payments, no journal entries**
@@ -137,26 +138,10 @@ class LearningSeeder extends Seeder
     public function run(): void
     {
         // ── 1. Reference data ──────────────────────────────────────────────────────────────────
-        // The same TEN, in the same order, that `atriom:install` runs on a real first deploy.
-        // AccountingSeeder is last because a charge code names the tax code it bills under. Both
-        // UtilityTariffSeeder and HolidaySeeder are portfolio-wide (`asset_id` null), so neither
-        // needs the property this seeder creates below — and without them the empty-mall variant
-        // shipped no tariff catalogue and a BLANK working calendar, which is not "the same
-        // reference data `atriom:install` lays down" however the comment above it read.
-        $this->call([
-            RolesPermissionsSeeder::class,
-            ApprovalRulesSeeder::class,
-            DepartmentSeeder::class,
-            UtilityTariffSeeder::class,
-            PaymentMethodSeeder::class,
-            ExpenseCategorySeeder::class,
-            TenantRequestSubcategorySeeder::class,
-            RetailCategorySeeder::class,
-            ViolationCategorySeeder::class,
-            VendorDocumentTypeSeeder::class,
-            HolidaySeeder::class,
-            AccountingSeeder::class,
-        ]);
+        // THE list `atriom:install` runs on a real first deploy — read from `DatabaseSeeder`, never
+        // re-listed here. This was its own copy of twelve names until 2026-09-05, and the third
+        // copy (`DatabaseSeeder::REFERENCE` itself) had already drifted to eleven.
+        $this->call(DatabaseSeeder::REFERENCE);
 
         $password = Hash::make((string) config('demo.user_password'));
 

@@ -36,7 +36,6 @@ use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
 use App\Models\LeaseOption;
-use App\Models\LedgerAccount;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
@@ -46,7 +45,7 @@ use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Payroll;
-use App\Models\PayrollLine;
+use App\Models\PayrollRate;
 use App\Models\PostDatedCheque;
 use App\Models\RentableItem;
 use App\Models\RentIndex;
@@ -74,6 +73,7 @@ use App\Models\ViolationCategory;
 use App\Models\Warehouse;
 use App\Models\WorkPermit;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Services\Accounting\SetPostMonthService;
 use App\Services\AllocatePaymentToInvoiceItemsService;
 use App\Services\AssignRentableItemService;
@@ -85,9 +85,11 @@ use App\Services\DepreciationService;
 use App\Services\DisposeFixedAssetService;
 use App\Services\DisputeInvoiceItemService;
 use App\Services\FacilityWorkOrderService;
+use App\Services\GeneratePayrollService;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
+use App\Services\LeaseCreationService;
 use App\Services\LeaseReliefService;
 use App\Services\LeaseSpaceChangeService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
@@ -102,17 +104,20 @@ use App\Services\RecordAdvanceRepaymentService;
 use App\Services\SendAnnouncementAction;
 use App\Services\SettleCustodyService;
 use App\Services\StockMovementService;
+use App\Services\TransferUnitOwnershipService;
 use App\Services\VendorBillService;
 use App\Services\WorkOrderPartService;
 use App\Services\WorkOrderProposalService;
 use App\Services\WorkPermitService;
 use App\Support\MorphMap;
+use App\Support\SlaResolver;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -273,7 +278,7 @@ class DemoSeeder extends Seeder
         );
         foreach (range(1, 8) as $n) {
             Unit::updateOrCreate(
-                ['asset_id' => $plazaAnnex->id, 'code' => sprintf('PA-%02d', $n)],
+                ['asset_id' => $plazaAnnex->id, 'code' => sprintf('%s-%02d', $this->secondaryCode(), $n)],
                 [
                     'floor_id' => $this->floorFor($plazaAnnex, 'Ground')->id,
                     'category' => $n <= 4 ? 'retail' : 'food_beverage',
@@ -418,8 +423,11 @@ class DemoSeeder extends Seeder
             $rent = $unitData['base_rent'] ?? $this->calculateRent($unitData);
             $service = round($rent * 0.15, 0); // service charge ~15% of rent
 
+            // No reference here: `Lease::creating` allocates one from the UNIT's property under the
+            // document-number lock, and returns early when one is already filled — so a value
+            // computed here would bypass the lock and (with the old hardcoded code) carry the wrong
+            // mall's initials on a subclass.
             $lease = Lease::create([
-                'reference' => Lease::generateReference($this->primaryCode()),
                 'unit_id' => $unit->id,
                 'tenant_id' => $tenant->id,
                 'status' => 'active',
@@ -429,6 +437,10 @@ class DemoSeeder extends Seeder
                 'base_rent_monthly' => $rent,
                 'service_charge_monthly' => $service,
                 'currency' => 'EGP',
+                // Both halves, as every creation door writes them: the MONTHS are what the form and
+                // the service state, and `Lease::saving` re-derives the amount from them on a rent
+                // change — with months null the deposit froze for the life of the lease.
+                'security_deposit_months' => 3,
                 'security_deposit' => $rent * 3,
                 // A spread of escalation shapes rather than seven identical 7% leases, so the
                 // demo shows what the module can express and the E2E smoke walks each branch.
@@ -460,38 +472,17 @@ class DemoSeeder extends Seeder
             $unit->update(['status' => 'occupied']);
             $occupiedCount++;
 
-            // Create charges — dated from the commencement, exactly as
-            // `LeaseCreationService::seedStandardCharges()` does. Leaving `start_date` null produced
-            // demo data no part of the app would ever write: `atriom:audit-charge-schedules` flagged
-            // 66 undated rows on a FRESH install, because the LS-06 stamping migration runs before
-            // the seeder and so could never reach them.
-            Charge::create([
-                'lease_id' => $lease->id,
-                'name' => 'Base Rent',
-                'type' => 'base_rent',
-                'amount' => $rent,
-                'frequency' => 'monthly',
-                'vat_applicable' => false, // rent is VAT-exempt in Egypt
-                'vat_rate' => Vat::EXEMPT,
-                'start_date' => $commencement,
-                'is_active' => true,
-            ]);
-
-            Charge::create([
-                'lease_id' => $lease->id,
-                'name' => 'Service Charge',
-                'type' => 'service_charge',
-                'amount' => $service,
-                'frequency' => 'monthly',
-                'vat_applicable' => true,
-                // Settings-driven, never a literal — the same rule the app is gated on.
-                'vat_rate' => Vat::standardRate(),
-                'start_date' => $commencement,
-                'is_active' => true,
-            ]);
+            // The standard charge pair PLUS the marketing levy, through the same door every lease
+            // created in the panel or by the wizard goes through. This used to write the two rows by
+            // hand with `vat_applicable => false` on rent and a frozen `vat_rate` on the service
+            // charge — the exact EG-01 shape: the catalogue could never reach a demo lease again, so
+            // pointing `base_rent` at VAT_14 (the Law 157/2025 demo) reached every app-created lease
+            // and NONE of these. It also seeded no levy row at all, on leases whose
+            // `has_marketing_levy` says yes.
+            LeaseCreationService::seedStandardCharges($lease, $rent, $service, $commencement);
 
             // Generate past invoices (for AR aging realism)
-            $this->generateInvoiceHistory($lease, $tenant, $rent, $service, $commencement);
+            $this->generateInvoiceHistory($lease, $tenant, $commencement);
         }
 
         // Showcase a MULTI-UNIT lease (#7 master unit): expand one active lease
@@ -513,6 +504,7 @@ class DemoSeeder extends Seeder
         // After the portal tenant's invoices exist, give them a credit on account (needs open invoices).
         $this->seedTenantCredit();
         $this->seedVendors($atriomWalk);
+        $this->seedSlaPolicy($atriomWalk);
         $this->seedTenantRequests();
         $this->seedTenantSalesDeclarations();
         $this->seedCamReconciliation($atriomWalk);
@@ -847,7 +839,8 @@ class DemoSeeder extends Seeder
                 'variable_pct' => 70,
                 'admin_fee_pct' => 0.10,
                 'admin_fee_on_net' => true,
-                'recovery_vat_rate' => Vat::standardRate(),
+                // The catalogue's ruling on the recovery line, as the pool form resolves it.
+                'recovery_vat_rate' => Vat::rateForType('cam_recovery'),
                 'status' => 'draft',
                 'notes' => 'Extraction ducting, grease-trap pumping and the F&B waste contract. '
                     .'Only the food-court tenants participate; the main CAM pool covers the rest of the centre.',
@@ -1084,10 +1077,12 @@ class DemoSeeder extends Seeder
 
         $documentDate = Carbon::today()->subMonths(2)->startOfMonth()->addDays(21);
 
-        $bill = VendorBill::updateOrCreate(
-            ['number' => 'SUP-LATE-'.$documentDate->format('Ym')],
+        // `number` is OUR series (BILL-AW-…), allocated on create; the supplier's own invoice
+        // number is `reference`. And approval is an act — `VendorBillService::approve()` asserts
+        // the posting date and records who approved and when — not a status written on insert.
+        $bill = VendorBill::firstOrCreate(
+            ['vendor_id' => $vendor->id, 'reference' => 'SUP-LATE-'.$documentDate->format('Ym')],
             [
-                'vendor_id' => $vendor->id,
                 'asset_id' => $asset->id,
                 'category' => 'maintenance',
                 'bill_date' => $documentDate->toDateString(),
@@ -1095,10 +1090,14 @@ class DemoSeeder extends Seeder
                 'subtotal' => 48000,
                 'vat_amount' => 0,
                 'total' => 48000,
-                'status' => 'approved',
+                'status' => 'draft',
                 'description' => 'Chiller service. Invoice reached accounts payable six weeks late.',
             ],
         );
+
+        if ($bill->status === 'draft') {
+            app(VendorBillService::class)->approve($bill);
+        }
 
         try {
             app(SetPostMonthService::class)->set(
@@ -1134,11 +1133,16 @@ class DemoSeeder extends Seeder
                 continue;
             }
 
-            $rent = (float) $lease->base_rent_monthly;
-            $service = (float) $lease->service_charge_monthly;
-            $marketing = round($rent * 0.05, 2); // 5% marketing levy, charged to the tenant
-            $vat = round($service * 0.14, 2);
-            $subtotal = $rent + $service + $marketing;
+            // The lines the lease's own charge ladder produces — rent, service charge AND the
+            // levy — in the billing service's shape, with the catalogue's VAT (see historyLines()).
+            $lines = $this->historyLines($lease, $issueDate, $issueDate->copy()->endOfMonth());
+
+            if ($lines === []) {
+                continue;
+            }
+
+            $subtotal = round(array_sum(array_column($lines, 'amount')), 2);
+            $vat = round(array_sum(array_column($lines, 'vat_amount')), 2);
             $total = round($subtotal + $vat, 2);
 
             $invoice = Invoice::create([
@@ -1157,34 +1161,9 @@ class DemoSeeder extends Seeder
                 'currency' => 'EGP',
             ]);
 
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => 'Monthly Rent - '.$issueDate->format('F Y'),
-                'type' => 'base_rent',
-                'amount' => $rent,
-                'vat_rate' => 0,
-                'vat_amount' => 0,
-                'total' => $rent,
-            ]);
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => 'Service Charge - '.$issueDate->format('F Y'),
-                'type' => 'service_charge',
-                'amount' => $service,
-                'vat_rate' => Vat::standardRate(),
-                'vat_amount' => $vat,
-                'total' => $service + $vat,
-            ]);
-            // Marketing levy line — funds the property marketing budget (derived).
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => 'Marketing Levy - '.$issueDate->format('F Y'),
-                'type' => 'marketing',
-                'amount' => $marketing,
-                'vat_rate' => 0,
-                'vat_amount' => 0,
-                'total' => $marketing,
-            ]);
+            foreach ($lines as $line) {
+                InvoiceItem::create(['invoice_id' => $invoice->id, ...$line]);
+            }
 
             $created++;
         }
@@ -1197,6 +1176,26 @@ class DemoSeeder extends Seeder
      * one resolved, one closed. Spreads across the three portal tenants so any
      * /portal login has something to see.
      */
+    /**
+     * Per-property SLA (FR-CM-05): this mall has a 24/7 engineering team, so it runs a tighter
+     * clock than the operator default (urgent 4h, high 24h). Only the priorities that actually
+     * differ are recorded — the rest fall back, which is the point of a policy row being an
+     * override rather than a requirement.
+     *
+     * Seeded BEFORE the tenant requests and the work orders, because both freeze a deadline on the
+     * row at creation: seeded after them (as it was, inside the preventive-maintenance block) every
+     * demo request carried the portfolio deadline the mall's own policy overrides.
+     */
+    private function seedSlaPolicy(Asset $asset): void
+    {
+        foreach (['urgent' => 2, 'high' => 12] as $priority => $hours) {
+            SlaPolicy::updateOrCreate(
+                ['asset_id' => $asset->id, 'priority' => $priority],
+                ['resolve_hours' => $hours],
+            );
+        }
+    }
+
     private function seedTenantRequests(): void
     {
         $tenants = Tenant::whereIn('email', [
@@ -1215,7 +1214,7 @@ class DemoSeeder extends Seeder
         $seedData = [
             // tenant1 — Cilantro (A-01) — urgent + open
             [
-                'tenant_email' => 'tenant1@atriomwalk.test',
+                'tenant_email' => 'tenant1@'.$this->emailDomain(),
                 'title' => 'AC unit blowing warm air',
                 'description' => 'Customer area AC has been blowing warm air since yesterday morning. With the heat, we are losing sit-down customers. Need urgent fix.',
                 'category' => 'hvac',
@@ -1232,7 +1231,7 @@ class DemoSeeder extends Seeder
 
             // tenant1 — older, resolved one
             [
-                'tenant_email' => 'tenant1@atriomwalk.test',
+                'tenant_email' => 'tenant1@'.$this->emailDomain(),
                 'title' => 'Front signage light flickering',
                 'description' => 'The Cilantro sign at the entrance flickers at night.',
                 'category' => 'electrical',
@@ -1249,7 +1248,7 @@ class DemoSeeder extends Seeder
 
             // tenant2 — Magrabi Optical (A-02) — awaiting tenant
             [
-                'tenant_email' => 'tenant2@atriomwalk.test',
+                'tenant_email' => 'tenant2@'.$this->emailDomain(),
                 'title' => 'Leak from ceiling near display cases',
                 'description' => 'There is water dripping from one of the ceiling tiles near our front display. We placed a bucket but need this checked before stock is damaged.',
                 'category' => 'plumbing',
@@ -1265,7 +1264,7 @@ class DemoSeeder extends Seeder
 
             // tenant2 — closed
             [
-                'tenant_email' => 'tenant2@atriomwalk.test',
+                'tenant_email' => 'tenant2@'.$this->emailDomain(),
                 'title' => 'Door auto-closer too tight',
                 'description' => 'Glass door is hard to push for elderly customers.',
                 'category' => 'structural',
@@ -1281,7 +1280,7 @@ class DemoSeeder extends Seeder
 
             // tenant3 — Buffalo Burger — acknowledged, just opened
             [
-                'tenant_email' => 'tenant3@atriomwalk.test',
+                'tenant_email' => 'tenant3@'.$this->emailDomain(),
                 'title' => 'Fire alarm beeping every 2 minutes',
                 'description' => 'The small fire-alarm sensor near the kitchen has been beeping every couple of minutes since this morning. Probably low battery. We did not touch it.',
                 'category' => 'safety',
@@ -1296,7 +1295,7 @@ class DemoSeeder extends Seeder
 
             // tenant1 — Complaint about a neighbour — resolved, rated
             [
-                'tenant_email' => 'tenant1@atriomwalk.test',
+                'tenant_email' => 'tenant1@'.$this->emailDomain(),
                 'request_type' => 'complaint',
                 'title' => 'Loud music from neighbouring unit after hours',
                 'description' => 'The unit next door plays loud music well past closing, disturbing our evening diners. Could the team have a word?',
@@ -1314,7 +1313,7 @@ class DemoSeeder extends Seeder
 
             // tenant2 — General inquiry — open, no SLA, no sub-category
             [
-                'tenant_email' => 'tenant2@atriomwalk.test',
+                'tenant_email' => 'tenant2@'.$this->emailDomain(),
                 'request_type' => 'inquiry',
                 'title' => 'Eid holiday trading hours?',
                 'description' => 'Can you confirm the mall opening hours during the Eid holiday so we can plan staffing?',
@@ -1326,7 +1325,7 @@ class DemoSeeder extends Seeder
 
             // tenant3 — Access request — parking permit — acknowledged
             [
-                'tenant_email' => 'tenant3@atriomwalk.test',
+                'tenant_email' => 'tenant3@'.$this->emailDomain(),
                 'request_type' => 'access',
                 'title' => 'Extra parking permit for new manager',
                 'description' => 'We hired a new branch manager and need an additional basement parking permit.',
@@ -1340,7 +1339,7 @@ class DemoSeeder extends Seeder
 
             // tenant1 — Billing query — in progress, routed to accounting, no SLA
             [
-                'tenant_email' => 'tenant1@atriomwalk.test',
+                'tenant_email' => 'tenant1@'.$this->emailDomain(),
                 'request_type' => 'billing',
                 'title' => 'Service charge on latest invoice looks high',
                 'description' => 'The service charge on this month\'s invoice is noticeably higher than last month. Could you break it down for us?',
@@ -1353,7 +1352,7 @@ class DemoSeeder extends Seeder
 
             // tenant2 — Document request — lease copy — closed, rated
             [
-                'tenant_email' => 'tenant2@atriomwalk.test',
+                'tenant_email' => 'tenant2@'.$this->emailDomain(),
                 'request_type' => 'document',
                 'title' => 'Copy of signed lease agreement',
                 'description' => 'Our accountant needs a PDF copy of our current signed lease for the annual audit.',
@@ -1385,8 +1384,16 @@ class DemoSeeder extends Seeder
             }
 
             $submittedAt = Carbon::now()->subDays($row['submitted_days_ago'])->subHours(rand(1, 6));
-            $slaHours = config("sla.{$row['priority']}.resolve_hours", 168);
             $type = TenantRequestType::tryFrom($row['request_type'] ?? 'maintenance') ?? TenantRequestType::default();
+
+            // The MALL's clock, not the portfolio default: `SlaResolver` reads the per-property
+            // policy seeded just before this (urgent 2h, high 12h on Atriom Walk). Reading
+            // `config('sla.*')` here gave the urgent AC request the portfolio deadline while the
+            // screen beside it said the mall runs a tighter one. The clock is frozen on the row as
+            // `TenantRequestService::create()` freezes it, so a later change to the working-clock
+            // setting cannot re-time a request already running.
+            $slaHours = SlaResolver::hoursFor($unit->asset_id, $row['priority']);
+            $slaClock = SlaResolver::clockFor($unit->asset_id, $row['priority']);
 
             $request = TenantRequest::create([
                 'reference' => TenantRequest::generateReference($unit->asset->code, $type->referencePrefix()),
@@ -1403,6 +1410,7 @@ class DemoSeeder extends Seeder
                 'submitted_at' => $submittedAt,
                 // Only SLA-bearing types carry a resolution deadline.
                 'target_resolution_at' => $type->hasSla() ? $submittedAt->copy()->addHours($slaHours) : null,
+                'sla_clock' => $type->hasSla() ? $slaClock : null,
             ]);
 
             // Walk the request through the requested status using legal transitions.
@@ -1810,24 +1818,26 @@ class DemoSeeder extends Seeder
 
             $payDate = $now->copy()->subDays(rand(0, 12));
 
-            $payment = Payment::create([
-                'reference' => Payment::generateReference(),
-                'tenant_id' => $invoice->tenant_id,
-                'amount' => round($amount, 2),
-                'currency' => 'EGP',
-                'method' => $method = collect(['bank_transfer', 'instapay', 'card', 'cheque'])->random(),
-                'bank_account_id' => $this->demoBankAccountFor($method, $invoice->id),
-                'status' => 'captured',
-                'payment_date' => $payDate,
-            ]);
+            // Receipt + allocation as one unit of work — see generateInvoiceHistory().
+            DB::transaction(function () use ($invoice, $amount, $payDate): void {
+                $payment = Payment::create([
+                    'tenant_id' => $invoice->tenant_id,
+                    'amount' => round($amount, 2),
+                    'currency' => 'EGP',
+                    'method' => $method = collect(['bank_transfer', 'instapay', 'card', 'cheque'])->random(),
+                    'bank_account_id' => $this->demoBankAccountFor($method, $invoice->id),
+                    'status' => 'captured',
+                    'payment_date' => $payDate,
+                ]);
 
-            $invoice->payments()->attach($payment->id, ['allocated_amount' => round($amount, 2)]);
+                $invoice->payments()->attach($payment->id, ['allocated_amount' => round($amount, 2)]);
 
-            // Derive paid/balance/status from the allocation rather than writing them — the
-            // project invariant (Invoice::recomputeTotals is the single source of truth for AR).
-            // Hand-writing them produced demo data that was only correct until something
-            // recomputed, at which point the seeded figures were silently replaced.
-            $invoice->recomputeTotals();
+                // Derive paid/balance/status from the allocation rather than writing them — the
+                // project invariant (Invoice::recomputeTotals is the single source of truth for AR).
+                // Hand-writing them produced demo data that was only correct until something
+                // recomputed, at which point the seeded figures were silently replaced.
+                $invoice->recomputeTotals();
+            });
 
             $created++;
         }
@@ -1844,7 +1854,7 @@ class DemoSeeder extends Seeder
      */
     private function seedTenantCredit(): void
     {
-        $tenant = Tenant::where('email', 'tenant1@atriomwalk.test')->first();
+        $tenant = Tenant::where('email', 'tenant1@'.$this->emailDomain())->first();
         if (! $tenant) {
             return;
         }
@@ -1858,20 +1868,21 @@ class DemoSeeder extends Seeder
         $surplus = 6000.0;
         $amount = round((float) $payOff->balance + $surplus, 2);
 
-        $payment = Payment::create([
-            'reference' => Payment::generateReference(),
-            'tenant_id' => $tenant->id,
-            'amount' => $amount,
-            'currency' => 'EGP',
-            'method' => 'cash',
-            'status' => 'captured',
-            'payment_date' => Carbon::now()->subDays(2),
-            'notes' => 'Rent paid in advance — surplus held on account (credit).',
-        ]);
+        DB::transaction(function () use ($tenant, $amount, $payOff): void {
+            $payment = Payment::create([
+                'tenant_id' => $tenant->id,
+                'amount' => $amount,
+                'currency' => 'EGP',
+                'method' => 'cash',
+                'status' => 'captured',
+                'payment_date' => Carbon::now()->subDays(2),
+                'notes' => 'Rent paid in advance — surplus held on account (credit).',
+            ]);
 
-        // Allocate only the invoice's balance; the surplus stays UNALLOCATED = the credit on account.
-        $payment->invoices()->attach($payOff->id, ['allocated_amount' => round((float) $payOff->balance, 2)]);
-        $payOff->recomputeTotals();
+            // Allocate only the invoice's balance; the surplus stays UNALLOCATED = the credit on account.
+            $payment->invoices()->attach($payOff->id, ['allocated_amount' => round((float) $payOff->balance, 2)]);
+            $payOff->recomputeTotals();
+        });
 
         $this->command->info("   Seeded EGP {$surplus} credit on account for {$tenant->name} (portal tenant1)");
     }
@@ -1902,19 +1913,31 @@ class DemoSeeder extends Seeder
                     return;
                 }
                 $lease = $leases[$i++];
-                $rent = (float) $lease->base_rent_monthly;
-                $service = (float) $lease->service_charge_monthly;
-                $subtotal = round($rent + $service, 2);
-                $vat = round($service * 0.14, 2); // VAT only on service charge — base rent is VAT-exempt
-                $total = round($subtotal + $vat, 2);
                 $dueDate = $now->copy()->subDays($bucket['days']);
+                $issueDate = $dueDate->copy()->subDays(7);
+
+                // The same line shape the billing service writes — charge row, covered window,
+                // catalogue VAT — so these rows are ageing fixtures and not a second definition
+                // of what an invoice is.
+                // Dated by the DUE month — the invoice's own `period_start` — never by the issue
+                // date: seven days back from a due date early in the month is the previous month,
+                // and a line covering a month its invoice does not name is the shape this exists
+                // to stop writing.
+                $lines = $this->historyLines($lease, $dueDate->copy()->startOfMonth(), $dueDate->copy()->endOfMonth());
+
+                if ($lines === []) {
+                    continue;
+                }
+
+                $subtotal = round(array_sum(array_column($lines, 'amount')), 2);
+                $vat = round(array_sum(array_column($lines, 'vat_amount')), 2);
+                $total = round($subtotal + $vat, 2);
 
                 $invoice = Invoice::create([
-                    'number' => Invoice::generateNumber('AW', $dueDate),
                     'lease_id' => $lease->id,
                     'tenant_id' => $lease->tenant_id,
                     'status' => $bucket['days'] > 0 ? 'overdue' : 'issued',
-                    'issue_date' => $dueDate->copy()->subDays(7),
+                    'issue_date' => $issueDate,
                     'due_date' => $dueDate,
                     'period_start' => $dueDate->copy()->startOfMonth(),
                     'period_end' => $dueDate->copy()->endOfMonth(),
@@ -1926,35 +1949,45 @@ class DemoSeeder extends Seeder
                     'currency' => 'EGP',
                 ]);
 
-                // Line items so the invoice renders (and posts to the GL) like a real one.
-                InvoiceItem::create([
-                    'invoice_id' => $invoice->id,
-                    'description' => 'Monthly Rent - '.$dueDate->format('F Y'),
-                    'type' => 'base_rent', 'amount' => $rent, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => $rent,
-                ]);
-                InvoiceItem::create([
-                    'invoice_id' => $invoice->id,
-                    'description' => 'Service Charge - '.$dueDate->format('F Y'),
-                    'type' => 'service_charge', 'amount' => $service, 'vat_rate' => Vat::standardRate(), 'vat_amount' => $vat, 'total' => round($service + $vat, 2),
-                ]);
+                foreach ($lines as $line) {
+                    InvoiceItem::create(['invoice_id' => $invoice->id, ...$line]);
+                }
             }
         }
 
         $this->command->info('   Seeded AR aging spread across 5 buckets');
     }
 
-    private function generateInvoiceHistory(Lease $lease, Tenant $tenant, float $rent, float $service, Carbon $startDate): void
+    /**
+     * Past invoices for a lease, month by month.
+     *
+     * Hand-written rather than run through `MonthlyBillingService`, deliberately: the demo's
+     * figures (the ageing spread, the "collected this month" tile, the overdue count) are pinned to
+     * one deterministic sequence, and a service run dates every DUE date from the day the seeder
+     * runs. What is NOT hand-written any more is the SHAPE of a line — see `historyLines()`.
+     *
+     * A fit-out grace is honoured: for a month the lease's own terms abate, rent and the levy on it
+     * are not billed. Until 2026-09-05 every fourth demo lease carried three months of rent
+     * invoices (and receipts) that its `rent_commencement_date` said should never have existed.
+     */
+    private function generateInvoiceHistory(Lease $lease, Tenant $tenant, Carbon $startDate): void
     {
         $monthsToGenerate = (int) $startDate->diffInMonths(now());
 
         for ($m = 0; $m < $monthsToGenerate; $m++) {
             $period = $startDate->copy()->addMonths($m);
             $issueDate = $period->copy()->startOfMonth();
-            $dueDate = $issueDate->copy()->addDays(7);
+            $dueDate = $issueDate->copy()->addDays($lease->paymentTermsDays());
 
-            $subtotal = $rent + $service;
-            $vat = round($service * 0.14, 2); // VAT only on service charge
-            $total = $subtotal + $vat;
+            $lines = $this->historyLines($lease, $issueDate, $period->copy()->endOfMonth());
+
+            if ($lines === []) {
+                continue;
+            }
+
+            $subtotal = round(array_sum(array_column($lines, 'amount')), 2);
+            $vat = round(array_sum(array_column($lines, 'vat_amount')), 2);
+            $total = round($subtotal + $vat, 2);
 
             // Most are paid, ~15% overdue for the most recent ones
             $isPaid = ! ($m === $monthsToGenerate - 1 && rand(1, 100) > 70);
@@ -1966,8 +1999,9 @@ class DemoSeeder extends Seeder
                 default => 0,
             };
 
+            // `number` is allocated by `Invoice::creating` from the invoice's own property; a value
+            // passed here is overwritten, so none is.
             $invoice = Invoice::create([
-                'number' => Invoice::generateNumber('AW', $issueDate),
                 'lease_id' => $lease->id,
                 'tenant_id' => $tenant->id,
                 // paid_amount / balance / status are DERIVED — the allocation below plus
@@ -1988,44 +2022,90 @@ class DemoSeeder extends Seeder
                 'currency' => 'EGP',
             ]);
 
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => 'Monthly Rent - '.$period->format('F Y'),
-                'type' => 'base_rent',
-                'amount' => $rent,
-                'vat_rate' => 0,
-                'vat_amount' => 0,
-                'total' => $rent,
-            ]);
-
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => 'Service Charge - '.$period->format('F Y'),
-                'type' => 'service_charge',
-                'amount' => $service,
-                'vat_rate' => Vat::standardRate(),
-                'vat_amount' => $vat,
-                'total' => $service + $vat,
-            ]);
+            foreach ($lines as $line) {
+                InvoiceItem::create(['invoice_id' => $invoice->id, ...$line]);
+            }
 
             if ($paidAmount > 0) {
-                $payment = Payment::create([
-                    'reference' => Payment::generateReference(),
-                    'tenant_id' => $tenant->id,
-                    'amount' => $paidAmount,
-                    'currency' => 'EGP',
-                    'method' => $method = collect(['card', 'bank_transfer', 'instapay', 'cash'])->random(),
-                    'bank_account_id' => $this->demoBankAccountFor($method, $invoice->id),
-                    'status' => 'captured',
-                    'payment_date' => $dueDate->copy()->subDays(rand(0, 5)),
-                ]);
+                // The receipt and its allocation are ONE unit of work, as `CreatePayment` writes
+                // them: the ledger job is dispatched after COMMIT, so created outside a transaction
+                // the receipt posts before its allocation exists (an unearned-revenue entry with no
+                // property), then is voided and re-posted — a void + reversal pair per receipt.
+                DB::transaction(function () use ($invoice, $tenant, $paidAmount, $dueDate, $lease): void {
+                    $payment = Payment::create([
+                        'tenant_id' => $tenant->id,
+                        'amount' => $paidAmount,
+                        'currency' => 'EGP',
+                        'method' => $method = collect(['card', 'bank_transfer', 'instapay', 'cash'])->random(),
+                        'bank_account_id' => $this->demoBankAccountFor($method, $invoice->id, $lease->unit?->asset_id),
+                        'status' => 'captured',
+                        'payment_date' => $dueDate->copy()->subDays(rand(0, 5)),
+                    ]);
 
-                $invoice->payments()->attach($payment->id, ['allocated_amount' => $paidAmount]);
-                $invoice->recomputeTotals(); // → paid / partially_paid, balance from the pivot
+                    $invoice->payments()->attach($payment->id, ['allocated_amount' => $paidAmount]);
+                    $invoice->recomputeTotals(); // → paid / partially_paid, balance from the pivot
+                });
             } elseif ($dueDate->isPast()) {
                 $invoice->recomputeTotals(); // → overdue
             }
         }
+    }
+
+    /**
+     * One month's lines for a lease, in the shape `MonthlyBillingService` writes them.
+     *
+     * Each line names its CHARGE row and the months it covers (`covered_start`/`covered_end` — what
+     * `lastCoveredEndFor()` reads, and what the 2026-09-03 migration says is "not recorded" when
+     * null), takes its VAT from `Charge::resolvedVatRate()` — the catalogue's answer for the
+     * document's own date, never a literal 14 — and includes the marketing levy because the lease's
+     * ladder does. Rent and the levy on it are omitted for a month inside the fit-out grace.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function historyLines(Lease $lease, Carbon $issueDate, Carbon $periodEnd): array
+    {
+        $rentFrom = $lease->rent_commencement_date
+            ? Carbon::instance($lease->rent_commencement_date)->startOfDay()
+            : null;
+        $inGrace = $rentFrom !== null && $periodEnd->lt($rentFrom);
+
+        // The row IN FORCE on the date, not "the last row of that type": once the ladder is
+        // projected a lease carries several rungs per type, and keying by type alone would price
+        // every history line at the final rung with a `charge_id` pointing years ahead.
+        $charges = $lease->charges()
+            ->where('is_active', true)
+            ->whereDate('start_date', '<=', $issueDate->toDateString())
+            ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $issueDate->toDateString()))
+            ->orderBy('start_date')
+            ->get()
+            ->keyBy('type');
+        $lines = [];
+
+        foreach (['base_rent', 'service_charge', 'marketing'] as $type) {
+            $charge = $charges->get($type);
+
+            if ($charge === null || ($inGrace && $type !== 'service_charge')) {
+                continue;
+            }
+
+            $amount = round((float) $charge->amount, 2);
+            $rate = (float) $charge->resolvedVatRate(CarbonImmutable::instance($issueDate));
+            $vatAmount = round($amount * $rate / 100, 2);
+
+            $lines[] = [
+                'charge_id' => $charge->id,
+                'covered_start' => $issueDate->toDateString(),
+                'covered_end' => $periodEnd->toDateString(),
+                'description' => $charge->name.' - '.$issueDate->format('F Y'),
+                'type' => $type,
+                'amount' => $amount,
+                'vat_rate' => $rate,
+                'vat_amount' => $vatAmount,
+                'total' => round($amount + $vatAmount, 2),
+            ];
+        }
+
+        return $lines;
     }
 
     private function calculateRent(array $unitData): float
@@ -2386,15 +2466,14 @@ class DemoSeeder extends Seeder
             return;
         }
 
-        // 1) Draft — admin still drafting, not yet issued
-        $draft = $this->makeCreditNote($invoices[0], 1200, 'adjustment', 'Goodwill adjustment for prolonged AC outage in February.');
-        $draft->status = 'draft';
-        $draft->save();
+        $service = app(CreditNoteService::class);
 
-        // 2) Issued with balance remaining — ready to apply
-        $issued = $this->makeCreditNote($invoices[1], 2500, 'dispute', 'Service-charge dispute settled in tenant favor for one month.');
-        $issued->status = 'issued';
-        $issued->save();
+        // 1) Draft — admin still drafting, not yet issued
+        $this->makeCreditNote($invoices[0], 1200, 'adjustment', 'Goodwill adjustment for prolonged AC outage in February.', 'service_charge');
+
+        // 2) Issued with balance remaining — ready to apply. Issued by the SERVICE (it asserts the
+        // period is open), never by writing `status` — SW-240: a money state moves through an act.
+        $service->issue($this->makeCreditNote($invoices[1], 2500, 'dispute', 'Service-charge dispute settled in tenant favor for one month.', 'service_charge'));
 
         // 3) Partially applied — issued, then half consumed against an OPEN invoice
         // via the real service so both sides stay consistent (the note's
@@ -2406,25 +2485,24 @@ class DemoSeeder extends Seeder
             ->orderByDesc('balance')
             ->first();
         if ($applyTarget) {
-            $partial = $this->makeCreditNote($applyTarget, 4000, 'return', 'Stock return processed for non-trading promotional fixture.');
-            $service = app(CreditNoteService::class);
+            $partial = $this->makeCreditNote($applyTarget, 4000, 'return', 'Stock return processed for non-trading promotional fixture.', 'other');
             $service->issue($partial);
             $service->applyToInvoice($partial, $applyTarget, 2000);
         }
 
-        // 4) Void — refused / cancelled before application
+        // 4) Void — issued, then reversed the same day, through the act that records WHY
+        // (`ReversalReason`, 2026-08-28). Written by hand it was a void with no reason in the
+        // trail: the state the panel can no longer produce.
         if (isset($invoices[3])) {
-            $void = $this->makeCreditNote($invoices[3], 800, 'other', 'Issued in error; voided same day.');
-            $void->status = 'void';
-            $void->voided_at = now()->subDay();
-            $void->balance = 0;
-            $void->save();
+            $void = $this->makeCreditNote($invoices[3], 800, 'other', 'Issued in error; voided same day.', 'other');
+            $service->issue($void);
+            $service->void($void->fresh(), 'Issued in error; voided the same day.');
         }
 
         $this->command->info('   Credit notes seeded: '.CreditNote::count());
     }
 
-    private function makeCreditNote(Invoice $invoice, float $total, string $reason, string $description): CreditNote
+    private function makeCreditNote(Invoice $invoice, float $total, string $reason, string $description, ?string $type = null): CreditNote
     {
         $note = CreditNote::create([
             'tenant_id' => $invoice->tenant_id,
@@ -2440,11 +2518,14 @@ class DemoSeeder extends Seeder
             'applied_amount' => 0,
             'balance' => $total,
             'currency' => 'EGP',
-            'issued_by_user_id' => 1,
+            'issued_by_user_id' => User::where('email', 'admin@mall.test')->value('id'),
         ]);
 
+        // `type` is the mirror of `invoice_items.type` (SW-216): a pool nets what was credited BACK
+        // by line type, and a line with no type is invisible to it.
         CreditNoteItem::create([
             'credit_note_id' => $note->id,
+            'type' => $type,
             'description' => $description,
             'amount' => $total,
             'vat_rate' => 0,
@@ -3037,8 +3118,23 @@ class DemoSeeder extends Seeder
         $repay->record($adv2, ['amount' => 5000, 'repaid_on' => Carbon::now()->subMonths(2)->toDateString(), 'method' => 'bank']);
         $repay->record($adv2, ['amount' => 5000, 'repaid_on' => Carbon::now()->subMonth()->toDateString(), 'method' => 'bank']);
 
-        // Payroll runs: last month approved (GL-postable), current month draft.
+        // The statutory rates are the operator's own numbers — like the trade rates and the NTE
+        // ceilings, seeded HERE and never at install (EG-03: a fresh install ships the band with every
+        // rate at zero, so the software never decides to deduct from anybody's pay). Written onto the
+        // rung that ships, so the payslips and /admin/payroll-rates say the same thing: until
+        // 2026-09-05 the lines were hand-computed at 10% / 11% ON GROSS while the rates screen read
+        // 0%, insurance was charged above the 16,700 ceiling, and the employer share was never
+        // written — a run the generator could not have produced.
+        PayrollRate::query()->orderByDesc('effective_from')->first()?->update([
+            'salary_tax_rate' => 10,
+            'employee_social_insurance_rate' => 11,
+            'employer_social_insurance_rate' => 18.75,
+        ]);
+
+        // Payroll runs: last month approved (GL-postable), current month draft — both LINED by
+        // `GeneratePayrollService`, on the insurable wage, employer share included.
         $payrollService = app(PayrollService::class);
+        $generate = app(GeneratePayrollService::class);
         foreach ([1 => 'approved', 0 => 'draft'] as $monthsBack => $finalState) {
             $month = Carbon::now()->subMonths($monthsBack)->startOfMonth();
             $payroll = Payroll::create([
@@ -3055,17 +3151,9 @@ class DemoSeeder extends Seeder
                 'net_paid' => 0,
             ]);
 
-            // One line per employee; the run header derives from Σ lines on save.
-            foreach ($employees as $emp) {
-                $gross = (float) $emp->base_salary;
-                PayrollLine::create([
-                    'payroll_id' => $payroll->id,
-                    'employee_id' => $emp->id,
-                    'gross' => $gross,
-                    'salary_tax' => round($gross * 0.10, 2),
-                    'social_insurance' => round($gross * 0.11, 2),
-                ]);
-            }
+            // One line per eligible employee, computed the way the panel's Generate button computes
+            // them; the run header derives from Σ lines on save.
+            $generate->generate($payroll);
 
             if ($finalState === 'approved') {
                 $payrollService->approve($payroll->refresh());
@@ -3444,17 +3532,6 @@ class DemoSeeder extends Seeder
         $brightSpark = Vendor::where('email', 'service@brightspark.eg')->value('id');
 
         $this->seedEquipment($asset);
-
-        // Per-property SLA (FR-CM-05): this mall has a 24/7 engineering team, so it runs a
-        // tighter clock than the operator default (urgent 4h, high 24h). Only the
-        // priorities that actually differ are recorded — the rest fall back, which is the
-        // point of a policy row being an override rather than a requirement.
-        foreach (['urgent' => 2, 'high' => 12] as $priority => $hours) {
-            SlaPolicy::updateOrCreate(
-                ['asset_id' => $asset->id, 'priority' => $priority],
-                ['resolve_hours' => $hours],
-            );
-        }
 
         // `equip` = the machine this plan services (FR-PPM-01/03). A plan naming one is
         // `fixed` (per-asset) maintenance; the rest stay `routine` and property-wide.
@@ -4045,7 +4122,7 @@ class DemoSeeder extends Seeder
                 'vat_amount' => $vat,
                 'total' => $s['amount'] + $vat,
                 'paid_from' => $s['paid'],
-                'bank_account_id' => $this->demoBankAccountFor($s['paid'], $s['days']),
+                'bank_account_id' => $this->demoBankAccountFor($s['paid'], $s['days'], $asset->id),
                 'expense_date' => Carbon::now()->subDays($s['days'])->toDateString(),
                 'status' => 'recorded',
             ]);
@@ -4081,23 +4158,24 @@ class DemoSeeder extends Seeder
      */
     private function seedBankAccounts(Asset $asset): void
     {
-        $banks = LedgerAccount::query()->where('code', '11102')->first();
+        // Each leaf is MINTED through the method the bank-account picker's own create button
+        // calls — anchored on the parent of the `bank` role account, at the next free code and the
+        // width of its neighbours, classified CASH on the cash-flow statement — never a literal
+        // `11102002`. A literal is a guess about somebody else's numbering (the real Egyptian chart
+        // is still pending), and the hand-written version also omitted `cash_flow_section`, so all
+        // three demo banks read as OPERATING working capital on the cash-flow statement.
+        //
+        // Idempotent on the bank account's own key: a re-run reuses the leaf it already has rather
+        // than minting a fresh one per pass.
+        $mint = app(MintBankLedgerAccountService::class);
+        $leaf = function (string $accountNumber, string $en, string $ar) use ($asset, $mint): ?int {
+            $existing = BankAccount::query()
+                ->where('asset_id', $asset->id)
+                ->where('account_number', $accountNumber)
+                ->value('ledger_account_id');
 
-        if ($banks === null) {
-            return; // A chart we do not recognise — leave it alone rather than guess a parent.
-        }
-
-        $leaf = fn (string $code, string $en, string $ar): LedgerAccount => LedgerAccount::updateOrCreate(
-            ['code' => $code],
-            [
-                'parent_id' => $banks->id,
-                'name_en' => $en,
-                'name_ar' => $ar,
-                'type' => 'asset',
-                'is_postable' => true,
-                'is_active' => true,
-            ],
-        );
+            return $existing ?? $mint->mint($en, $asset->id, $ar)?->id;
+        };
 
         $this->cibAccount = BankAccount::updateOrCreate(
             ['asset_id' => $asset->id, 'account_number' => '100-2003-004455'],
@@ -4106,7 +4184,7 @@ class DemoSeeder extends Seeder
                 'bank_name' => 'Commercial International Bank',
                 'iban' => 'EG380019000500000000263180002',
                 'currency' => 'EGP',
-                'ledger_account_id' => $leaf('11102002', 'CIB — Operating Account', 'حساب البنك التجاري الدولي — التشغيل')->id,
+                'ledger_account_id' => $leaf('100-2003-004455', 'CIB — Operating Account', 'حساب البنك التجاري الدولي — التشغيل'),
                 'purpose' => BankAccount::PURPOSE_OPERATING,
                 // The property's DEFAULT: every money form on Atriom Walk opens with this filled in
                 // and the operator confirms rather than chooses, which is the half that makes
@@ -4125,7 +4203,7 @@ class DemoSeeder extends Seeder
                 'bank_name' => 'National Bank of Egypt',
                 'iban' => 'EG210003000600000000123456789',
                 'currency' => 'EGP',
-                'ledger_account_id' => $leaf('11102003', 'NBE — Service Charge Account', 'حساب البنك الأهلي المصري — الخدمات')->id,
+                'ledger_account_id' => $leaf('900-8007-001122', 'NBE — Service Charge Account', 'حساب البنك الأهلي المصري — الخدمات'),
                 // Service-charge money is still the operator's working cash — a second OPERATING
                 // account, not a second purpose. It is deliberately not the default: two accounts
                 // with one default is the situation the whole design is about, and a demo where
@@ -4149,7 +4227,7 @@ class DemoSeeder extends Seeder
                 'bank_name' => 'National Bank of Egypt',
                 'iban' => 'EG210003000600000000998877665',
                 'currency' => 'EGP',
-                'ledger_account_id' => $leaf('11102004', 'NBE — Tenant Deposits Account', 'حساب البنك الأهلي المصري — تأمينات المستأجرين')->id,
+                'ledger_account_id' => $leaf('900-8007-004488', 'NBE — Tenant Deposits Account', 'حساب البنك الأهلي المصري — تأمينات المستأجرين'),
                 'purpose' => BankAccount::PURPOSE_DEPOSITS,
                 'is_default' => true,
                 'is_active' => true,
@@ -4161,30 +4239,14 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * Rails whose money is actually IN the bank on the document's own date.
-     *
-     * Deliberately not "everything that is not cash". A card capture debits the bank the day it is
-     * captured while the money lands T+1/T+2 (longer for Fawry), and a cheque lands when it clears —
-     * that timing gap is the known-wrong thing {@see PaymentMethod} documents and the
-     * reason a clearing account per rail is the eventual fix. Naming a bank account on those
-     * documents would make the demo actively misleading: `MatchBankStatementLineService` finds
-     * candidates BY the chart account, so every card capture would be offered against a CIB
-     * statement line dated days before the money arrived, and the operator's first lesson from the
-     * reconciliation screen would be a wrong match.
+     * Rails a person keys against a statement line — alternated between the two operating accounts,
+     * because one account demonstrates nothing: the register, the column, the filter and the
+     * reconciliation matcher only become legible once two banks hold different money.
      *
      * @var array<int, string>
      */
-    private const DEMO_SETTLED_RAILS = ['bank_transfer', 'instapay', 'bank'];
+    private const DEMO_ALTERNATED_RAILS = ['bank_transfer', 'instapay', 'bank'];
 
-    /**
-     * Which bank a demo document went through — alternating, and null wherever the money is not
-     * yet in the bank.
-     *
-     * Alternating rather than all-one, because one account demonstrates nothing: the register, the
-     * column, the filter and the reconciliation matcher only become legible once two banks hold
-     * different money. Cash and the deferred rails stay null, which is the honest state and also
-     * the one the floor covers.
-     */
     /**
      * The account a document of this PURPOSE banks in — resolved through the app's own ladder.
      *
@@ -4199,17 +4261,29 @@ class DemoSeeder extends Seeder
         return BankAccount::defaultFor($assetId, $purpose)?->id;
     }
 
-    private function demoBankAccountFor(string $method, int $seq): ?int
+    /**
+     * Which bank a demo receipt went through.
+     *
+     * Every rail the catalogue says needs an account gets one — alternated for the rails above,
+     * the property DEFAULT for the rest, exactly what `RecordsBankAccount` fills in on a receipt
+     * keyed in the panel. Cash stays null. The earlier version left card and cheque receipts
+     * unattributed on the argument that their money lands T+1/T+2; that timing gap is the
+     * clearing-account problem `PaymentMethod` documents, not a reason to post the receipt to the
+     * generic `bank` role — and since 2026-09-02 the running system names the default on exactly
+     * those rails (SW-228), so a demo that seeded half its receipts into the unattributed pile was
+     * teaching the reconciliation screen something the system no longer does.
+     */
+    private function demoBankAccountFor(string $method, int $seq, ?int $assetId = null): ?int
     {
-        if ($this->cibAccount === null || $this->nbeAccount === null) {
+        if (! PaymentMethod::requiresBankAccount($method)) {
             return null;
         }
 
-        if (! in_array($method, self::DEMO_SETTLED_RAILS, true)) {
-            return null;
+        if (in_array($method, self::DEMO_ALTERNATED_RAILS, true) && $this->cibAccount !== null && $this->nbeAccount !== null) {
+            return $seq % 2 === 0 ? $this->cibAccount->id : $this->nbeAccount->id;
         }
 
-        return $seq % 2 === 0 ? $this->cibAccount->id : $this->nbeAccount->id;
+        return Payment::defaultBankAccountIdFor($assetId ?? $this->cibAccount?->asset_id, $method);
     }
 
     /**
@@ -4325,13 +4399,21 @@ class DemoSeeder extends Seeder
             ]);
             $count++;
 
+            // Lodged WITH the bank it went to and the day it went (2026-09-02: the bank belongs to
+            // the physical act and is captured at lodgement, never inferred at clearing), and a
+            // cleared cheque is cleared from a lodgement, the way Voyager treats clearing as the
+            // deposit's confirmation.
+            $operating = $this->demoBankAccountForPurpose(BankAccount::PURPOSE_OPERATING, $asset->id);
+            $lodgedOn = now()->addDays($offset)->toDateString(); // on its own maturity date
+
             if ($action === 'deposited') {
-                $service->deposit($cheque);
+                $service->deposit($cheque, $operating, $lodgedOn);
             } elseif ($action === 'cleared' && $actor) {
-                $service->clear($cheque, $actor, now()->subDays(2)->toDateString());
+                $service->deposit($cheque, $operating, $lodgedOn);
+                $service->clear($cheque->fresh(), $actor, now()->subDays(2)->toDateString());
             } elseif ($action === 'bounced') {
-                $service->deposit($cheque);
-                $service->bounce($cheque);
+                $service->deposit($cheque, $operating, $lodgedOn);
+                $service->bounce($cheque->fresh());
             }
         }
 
@@ -4538,19 +4620,24 @@ class DemoSeeder extends Seeder
         // The register keeps BOTH rows: the seller's tenure is CLOSED with a date, never deleted,
         // or every assessment he was billed loses its basis. This is what makes the "Current owners
         // only" filter on the list screen mean something.
+        // Through `TransferUnitOwnershipService`, which is what the panel's Transfer action calls:
+        // it closes the seller's tenure AND the seller's charge rows (an open-ended row left active
+        // after a transfer is the overlap the schedule audit exists to catch), copies the deed
+        // share and the schedule to the buyer, credits the seller the days not owned and bills the
+        // buyer the remainder — the mid-month split the service exists for (F-02). Written by hand
+        // it produced a shape no operator could reach. The seller's assessments are unpaid at this
+        // point (the demo pays nobody's صيانة), so the arrears gate is waived, as the action lets
+        // an operator waive it.
         $resoldOn = CarbonImmutable::now()->startOfMonth()->subMonths(2);
-        UnitOwnership::where('unit_id', $units[0]->id)
-            ->whereNull('ended_at')
-            ->first()
-            ?->update([
-                'ended_at' => $resoldOn->subDay()->toDateString(),
-                'status' => UnitOwnershipStatus::Transferred->value,
-            ]);
+        $seller = UnitOwnership::where('unit_id', $units[0]->id)->whereNull('ended_at')->firstOrFail();
 
-        $this->makeOwnership($asset, $units[0], $buyers[3], Carbon::parse($resoldOn->toDateString()), [
-            'management_mode' => UnitManagementMode::SelfOccupied->value,
-            'notes' => 'Bought from Ashraf El-Gindy — resale, second owner of this unit.',
-        ]);
+        app(TransferUnitOwnershipService::class)->transfer(
+            $seller,
+            $buyers[3],
+            $resoldOn,
+            allowOutstanding: true,
+            reason: 'Resale — second owner of this unit.',
+        );
 
         for ($m = 2; $m >= 0; $m--) {
             $run->runForPeriod(CarbonImmutable::now()->startOfMonth()->subMonths($m), $asset->id);
@@ -4589,7 +4676,8 @@ class DemoSeeder extends Seeder
             'amount' => round((float) $unit->area_sqm * 55, 2),
             'currency' => 'EGP',
             'frequency' => 'monthly',
-            'vat_applicable' => true,
+            // null: the catalogue answers at billing time (EG-01) — an explicit value here is an
+            // override the operator never chose.
             'is_active' => true,
             'start_date' => $from->toDateString(),
         ]);

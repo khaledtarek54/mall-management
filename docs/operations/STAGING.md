@@ -19,6 +19,8 @@ Staging exists so the cut-over can be rehearsed before it is performed
 times). That makes staging the box where a **wrong number is still cheap**, which is the whole of
 its value — and the reason a fabricated payment on it is worse than harmless.
 
+> **From 2026-09-05 the box is also running a month-long SOAK** — a second property, Nile Gate Mall (NG), beside the Val Plaza demo mall, with a daily check at 08:05 that posts to Discord. Do not reseed or reset it without reading [docs/qa/STAGING-SOAK-2026-09.md](../qa/STAGING-SOAK-2026-09.md) first.
+
 **Decide which staging you are running, because the two have opposite security postures:**
 
 | | **A — demo data** (`migrate:fresh --seed`) | **B — production restore** |
