@@ -48,6 +48,12 @@
         "note": null
     },
     {
+        "model": "AssetUser",
+        "label": "Asset User",
+        "classification": "owned",
+        "note": null
+    },
+    {
         "model": "AssistantDocChunk",
         "label": "Assistant Doc Chunk",
         "classification": "shared",
@@ -572,6 +578,12 @@
     {
         "model": "TableView",
         "label": "Table View",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "TableViewDefault",
+        "label": "Table View Default",
         "classification": "shared",
         "note": null
     },
