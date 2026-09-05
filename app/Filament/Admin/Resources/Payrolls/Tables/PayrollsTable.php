@@ -23,6 +23,11 @@ class PayrollsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // `withCount`, so "does this run have lines?" is a subselect on the query Filament
+            // already runs rather than an `exists()` per row. Measured 2026-09-05: the row action
+            // below asked it once per row — the `TenantBalances` shape at a smaller scale, and here
+            // it needs no support class, because a COUNT is not a business rule.
+            ->modifyQueryUsing(fn ($query) => $query->withCount('lines'))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.fields.payroll_number'))
@@ -102,7 +107,11 @@ class PayrollsTable
                     ->label(__('admin.reports.csv.export'))
                     ->icon('heroicon-o-table-cells')
                     ->color('gray')
-                    ->visible(fn (Payroll $record) => PayrollResource::canView($record) && $record->lines()->exists())
+                    // `lines_count` comes from the table's own `withCount` — the same question,
+                    // asked once for the page. The fallback is for a caller that builds this action
+                    // outside the table, where the attribute is absent and null is not "no lines".
+                    ->visible(fn (Payroll $record) => PayrollResource::canView($record)
+                        && ($record->lines_count !== null ? $record->lines_count > 0 : $record->lines()->exists()))
                     ->authorize(fn (Payroll $record) => PayrollResource::canView($record))
                     ->action(function (Payroll $record) {
                         $csv = PayrollResource::registerCsv($record);
