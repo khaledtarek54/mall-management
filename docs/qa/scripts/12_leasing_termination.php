@@ -111,8 +111,10 @@ $st = app(MoveOutStatementService::class)->for($l5->fresh(), CarbonImmutable::pa
 printf("  held=%s openAr=%s credit=%s net=%s residual=%s\n",
     number_format($st['deposit_held'], 2), number_format($st['open_ar'], 2),
     number_format($st['tenant_credit'], 2), number_format($st['net_to_tenant'], 2), number_format($st['residual_debt'], 2));
-qa_eq('open AR is the unpaid June rent', 25000.00, $st['open_ar']);
-qa_eq('net to tenant = deposit - arrears', 50000.00, $st['net_to_tenant']);
+// SW-050 (2026-09-04): termination now bills the CONSUMED final cycle — August, terminated on
+// its last day, is a full 25,000 the tenant occupied. Open AR = unpaid June + the final bill.
+qa_eq('open AR = unpaid June rent + the consumed final August cycle', 50000.00, $st['open_ar']);
+qa_eq('net to tenant = deposit - arrears (incl. the final cycle)', 25000.00, $st['net_to_tenant']);
 qa_eq('no shortfall (deposit fully collected)', 0.00, $st['deposit_shortfall']);
 
 $settled = app(SettleMoveOutService::class)->settle($l5->fresh(), [
@@ -128,7 +130,8 @@ $held = app(MoveOutStatementService::class)->depositHeld($l5->fresh());
 qa_eq('deposit remaining after arrears + forfeit + refund is zero', 0.00, $held);
 qa_eq('a forfeit was recorded for the deduction', 10000.00,
     (float) DepositTransaction::where('lease_id', $l5->id)->where('type', 'forfeit')->sum('amount'));
-qa_eq('the balance was refunded', 40000.00,
+// 75,000 held − 50,000 arrears (June + SW-050's final August cycle) − 10,000 make-good.
+qa_eq('the balance was refunded', 15000.00,
     (float) DepositTransaction::where('lease_id', $l5->id)->where('type', 'refund')->sum('amount'));
 
 qa_section('MOVE-OUT 2 — refusals');

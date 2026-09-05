@@ -91,18 +91,18 @@ qa_ok('…and the invoice is no longer marked paid', in_array($i4->status, ['iss
 qa_section('WRITE-OFF — full and partial');
 $l5 = $mk(50000);
 $i5 = $bill($l5, '2026-08');
-$wo = app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 20000, 'reason' => 'uncollectible', 'entry_date' => '2026-08-20']);
+$wo = app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 20000, 'reason' => 'uneconomic_to_pursue', 'entry_date' => '2026-08-20']);
 $i5->refresh();
 qa_eq('a PARTIAL write-off books 20,000 of bad debt', 20000.00, (float) $wo->amount);
 qa_eq('…and deliberately leaves the balance standing', 50000.00, (float) $i5->balance);
 qa_ok('…so the invoice is still live', $i5->status !== 'written_off', $i5->status);
 qa_refuses('writing off more than remains is refused',
-    fn () => app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 40000, 'reason' => 'uncollectible', 'entry_date' => '2026-08-20']));
-$wo2 = app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 30000, 'reason' => 'uncollectible', 'entry_date' => '2026-08-20']);
+    fn () => app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 40000, 'reason' => 'uneconomic_to_pursue', 'entry_date' => '2026-08-20']));
+$wo2 = app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 30000, 'reason' => 'uneconomic_to_pursue', 'entry_date' => '2026-08-20']);
 $i5->refresh();
 qa_eq('writing off the remainder completes it', 'written_off', $i5->status);
 qa_refuses('a fully written-off invoice cannot be written off again',
-    fn () => app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 1, 'reason' => 'uncollectible', 'entry_date' => '2026-08-20']));
+    fn () => app(WriteOffInvoiceService::class)->write($i5->fresh(), ['amount' => 1, 'reason' => 'uneconomic_to_pursue', 'entry_date' => '2026-08-20']));
 app(WriteOffInvoiceService::class)->reverse($wo2->fresh());
 qa_ok('reversing a write-off re-opens the debt', $i5->fresh()->status !== 'written_off', $i5->fresh()->status);
 
@@ -138,7 +138,7 @@ if ($period) {
     $l7 = $mk(30000);
     $i7 = $bill($l7, '2026-08');
     qa_refuses('a write-off dated into a CLOSED period is refused',
-        fn () => app(WriteOffInvoiceService::class)->write($i7->fresh(), ['amount' => 1000, 'reason' => 'uncollectible', 'entry_date' => $closedDate]));
+        fn () => app(WriteOffInvoiceService::class)->write($i7->fresh(), ['amount' => 1000, 'reason' => 'uneconomic_to_pursue', 'entry_date' => $closedDate]));
     qa_refuses('a payment dated into a CLOSED period is refused', function () use ($i7, $closedDate) {
         Payment::create(['tenant_id' => $i7->tenant_id, 'amount' => 100, 'payment_date' => $closedDate,
             'method' => 'cash', 'status' => 'captured', 'reference' => 'QA-'.uniqid()]);

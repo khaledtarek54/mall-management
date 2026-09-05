@@ -108,13 +108,13 @@ if ($owner) {
         // an accounting period, so the service resolves its own window from it. This script still
         // passed two Carbons and died on a TypeError.
         $period = AccountingPeriod::query()
-            ->whereDate('starts_on', '<=', '2026-07-01')
-            ->whereDate('ends_on', '>=', '2026-07-01')
+            ->whereDate('starts_on', '<=', '2026-06-01')
+            ->whereDate('ends_on', '>=', '2026-06-01')
             ->first();
         if (! $period) {
-            qa_ok('a July 2026 accounting period exists to file the run against', false);
+            qa_ok('a June 2026 accounting period exists to file the run against', false);
 
-            throw new RuntimeException('no accounting period covering 2026-07');
+            throw new RuntimeException('no accounting period covering 2026-06');
         }
         $run = app(GenerateOwnerStatementRunService::class)->generate($asset, $period);
         printf("  run #%d status=%s statements=%d\n", $run->id, $run->status, $run->statements()->count());

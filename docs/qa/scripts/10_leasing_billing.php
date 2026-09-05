@@ -160,8 +160,18 @@ qa_refuses('an overlapping rent row is refused AT THE WRITE (the earliest seam)'
 DB::table('charges')->insert(['lease_id' => $l9->id, 'name' => 'Base Rent (legacy dup)', 'type' => 'base_rent',
     'amount' => 27000, 'currency' => 'EGP', 'frequency' => 'monthly', 'vat_applicable' => 0, 'vat_rate' => null,
     'start_date' => '2026-01-01', 'is_active' => 1, 'created_at' => now(), 'updated_at' => now()]);
-qa_refuses('…and a raw legacy overlap is refused at BILLING time too',
-    fn () => $plan($l9->fresh(), '2026-09'));
+// A PLAN is a read and answers the clash as a refusal REASON (schedule_conflict) rather than
+// throwing — the operator sees why nothing billed. The WRITE still throws.
+$clash = $plan($l9->fresh(), '2026-09');
+qa_ok('…a raw legacy overlap makes the month un-billable', ! $clash['billable'], json_encode(array_diff_key($clash, ['invoice' => 1])));
+qa_eq('…named as a schedule conflict, not silently mis-billed', 'schedule_conflict', $clash['reason']);
+// The public generate seam CATCHES the clash (a batch run must not die on one bad lease),
+// ops-logs it, and reports `failed` — the refusal in substance: nothing billed, loudly.
+$w = $billing->generateForLease($l9->fresh(), CarbonImmutable::parse('2026-09-01'));
+qa_eq('…and the WRITE reports failed, not skipped', 'failed', $w['status']);
+qa_ok('…and no invoice was created for the clashing month',
+    ($w['invoice'] ?? null) === null
+    && Invoice::where('lease_id', $l9->id)->whereDate('period_start', '2026-09-01')->doesntExist());
 
 qa_section('BILLING 11 — invoice totals + AR seeding on the persisted document');
 $inv = Invoice::where('lease_id', $l1->id)->whereDate('period_start', '2026-09-01')->first();

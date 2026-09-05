@@ -37,7 +37,9 @@ $emps = collect(range(1, 3))->map(fn ($i) => Employee::create(['asset_id' => $as
     // 'bank', not the rail catalogue's 'bank_transfer': `employees.payment_method` is
     // deliberately NOT catalogue-widened (ValueSets), and the form offers cash|bank only.
     'payment_method' => 'bank', 'status' => 'active']));
-$run = Payroll::create(['asset_id' => $asset->id, 'period_month' => '2026-08-01',
+// An unseeded month: the baseline approves an August run, and SW-100's per-employee guard
+// correctly refuses a second approved payslip for the same month.
+$run = Payroll::create(['asset_id' => $asset->id, 'period_month' => '2026-11-01',
     'description' => 'QA August payroll', 'status' => 'draft', 'paid_from' => 'bank']);
 $svc = app(GeneratePayrollService::class);
 printf("  eligible staff: %d\n", $svc->eligibleCount($run->fresh()));

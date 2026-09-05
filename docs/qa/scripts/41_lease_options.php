@@ -113,8 +113,10 @@ qa_eq('…and no lease event (a timeline of non-events is one nobody reads)', 0,
 $lp = $opt($mk(), ['type' => 'rofo']);
 $svc->resolveWithout($lp->fresh(), 'lapsed');
 qa_eq('lapsed', 'lapsed', $lp->fresh()->status);
+// A DomainException since the refusals-translation pass: exercising a resolved option is an
+// OPERATOR act refused with a toast, not a developer error 500.
 qa_refuses('an already-resolved option cannot be exercised',
-    fn () => $svc->exercise($lp->fresh()), null, InvalidArgumentException::class);
+    fn () => $svc->exercise($lp->fresh()), null, DomainException::class);
 qa_refuses('…nor resolved again', fn () => $svc->resolveWithout($lp->fresh(), 'waived'), null, InvalidArgumentException::class);
 qa_refuses('an invalid resolution is refused',
     fn () => $svc->resolveWithout($opt($mk(), ['type' => 'purchase'])->fresh(), 'cancelled'), null, InvalidArgumentException::class);

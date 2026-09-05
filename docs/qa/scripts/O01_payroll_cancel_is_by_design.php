@@ -58,6 +58,14 @@ $salBefore = qa_role_balance('salaries_expense');
 qa_section('…now cancel it');
 $bankAfterApprove = qa_role_balance('bank');
 $salAfterApprove = qa_role_balance('salaries_expense');
+// Capture THIS run's posted bank credit BEFORE the void — read afterwards it is trivially zero
+// and proves nothing existed to reverse.
+$creditWhilePosted = (float) JournalEntry::where('source_type', $run->getMorphClass())
+    ->where('source_id', $run->id)->where('status', 'posted')
+    ->join('journal_lines', 'journal_lines.journal_entry_id', '=', 'journal_entries.id')
+    ->sum('journal_lines.credit');
+qa_eq('while approved, the run\'s own entry credits its full net pay (bank + withholdings)', true,
+    $creditWhilePosted >= (float) $run->net_paid - 0.02);
 qa_allows('an approved payroll cancels with NO refusal', fn () => app(PayrollService::class)->cancel($run->fresh()));
 qa_eq('status is cancelled', 'cancelled', $run->fresh()->status);
 Artisan::call('accounting:sync-ledger', ['--all' => true]);
@@ -67,20 +75,11 @@ qa_ok('the posted entry has been VOIDED', ! $stillPosted);
 printf("  bank %s → %s · salaries expense %s → %s\n",
     number_format($bankAfterApprove, 2), number_format(qa_role_balance('bank'), 2),
     number_format($salAfterApprove, 2), number_format(qa_role_balance('salaries_expense'), 2));
-// Measured against the balance taken immediately AFTER this run's own approval-sync, so the delta
-// is this run's reversal alone — no other run's void can land in between (nothing else is pending).
 // Measured on THIS run's OWN entry, not the role balance: the shared `--all` sweep also carries
-// the seeded August run's void, so a role-level delta straddles two events. What the observation
-// actually claims is that cancelling voids THIS run's bank credit — so assert its own posted line
-// existed at net_paid and is gone after the void.
-$bankRole = $run->fresh(); // no-op; kept for readability of the two reads below
-$creditWhilePosted = (float) JournalEntry::where('source_type', $run->getMorphClass())
-    ->where('source_id', $run->id)->where('status', 'posted')
-    ->join('journal_lines', 'journal_lines.journal_entry_id', '=', 'journal_entries.id')
-    ->sum('journal_lines.credit');
-qa_ok('the bank credit is reversed — money that WAS paid to staff',
-    ! $stillPosted && abs($creditWhilePosted) < 0.02,
-    'the run posted a net-paid credit while approved, and after cancel it has NO live posted entry');
+// the seeded August run's void, so a role-level delta straddles two events. The credit was
+// captured while posted (above); after cancel the run must hold NO live posted entry.
+qa_ok('the bank credit is reversed — money that WAS paid to staff', ! $stillPosted,
+    'the run credited '.number_format($creditWhilePosted, 2).' while approved; nothing posted survives the cancel');
 qa_ok('…and the salary expense is reversed out of the P&L',
     ! JournalEntry::where('source_type', $run->getMorphClass())->where('source_id', $run->id)
         ->where('status', 'posted')->exists());

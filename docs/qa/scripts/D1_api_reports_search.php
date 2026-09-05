@@ -38,7 +38,12 @@ function qa_api(string $method, string $uri, ?Tenant $as = null, array $body = [
     $kernel = app(Kernel::class);
     $headers = ['Accept' => 'application/json'];
     if ($as) {
-        $headers['Authorization'] = 'Bearer '.$as->createToken('qa', ['tenant:*'])->plainTextToken;
+        // Since 2026-09-05 the tenant-api guard authenticates a TenantUser — the SAME row the
+        // portal signs in — not the Tenant company. A token minted on Tenant now 401s everywhere,
+        // so mint it on one of the company's portal users (admin preferred: writes are gated).
+        $tu = $as->users()->where('is_admin', true)->first()
+            ?? $as->users()->firstOrFail();
+        $headers['Authorization'] = 'Bearer '.$tu->createToken('qa', ['tenant:*'])->plainTextToken;
     }
     $req = Request::create($uri, $method, $body, [], [], array_combine(
         array_map(fn ($h) => 'HTTP_'.strtoupper(str_replace('-', '_', $h)), array_keys($headers)),

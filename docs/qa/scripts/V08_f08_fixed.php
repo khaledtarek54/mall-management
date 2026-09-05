@@ -28,6 +28,10 @@ $mk = function (Tenant $t, string $code, float $area) use ($asset): Lease {
 };
 $term = fn (Lease $l, int $year, float $pct) => LeaseCamTerm::create(['lease_id' => $l->id,
     'effective_year' => $year, 'stated_share_pct' => $pct, 'cap_type' => 'absolute',
+    // A cap amount, because the model now REFUSES an absolute cap with none — it would resolve to
+    // nothing and bill the tenant in full while the lease showed a cap term. This script observes
+    // the stated-share apportionment, not the cap, so any non-binding ceiling above the pool does.
+    'cap_absolute_amount' => 99_999_999,
     'cap_scope' => LeaseCamTerm::SCOPE_TOTAL, 'cap_carry_forward' => false]);
 $pool = fn (int $year, float $actual) => CamExpensePool::create(['asset_id' => $asset->id,
     'name' => "QCM $year", 'period_year' => $year, 'total_actual_expense' => $actual,

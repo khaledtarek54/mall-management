@@ -123,8 +123,14 @@ qa_eq('assets = liabilities + equity (+ unclosed net income)',
 qa_section('CYCLE 6 — AR aging ties to the open receivables');
 $aging = $reports->arAgingBuckets($to);
 $bucketTotal = round((float) collect($aging['buckets'] ?? $aging)->sum(fn ($b) => (float) ($b['amount'] ?? $b['total'] ?? 0)), 2);
-$openAr = round((float) Invoice::whereNotIn('status', ['draft', 'cancelled', 'written_off', 'credited'])
-    ->where('asset_id', $asset->id)->where('balance', '>', 0)->sum('balance'), 2);
+// Mirror the report's POPULATION (live statuses, issued by the as-of date) but compute the
+// figure by independent arithmetic: collectable = max(0, balance − prior write-offs). The report
+// deliberately chases only what is still collectable — quoting raw `balance` would chase money
+// the operator forgave (a partial write-off leaves `balance` standing by design).
+$openAr = round((float) Invoice::query()->stillOwed()
+    ->whereDate('issue_date', '<=', $to)
+    ->where('asset_id', $asset->id)->with('writeOffs')->get()
+    ->sum(fn ($i) => max(0.0, (float) $i->balance - (float) $i->writeOffs->sum('amount'))), 2);
 printf("  aging buckets total %s vs open invoice balances %s\n", number_format($bucketTotal, 2), number_format($openAr, 2));
 qa_eq('the aging report totals the real open AR', $openAr, $bucketTotal, 1.0);
 

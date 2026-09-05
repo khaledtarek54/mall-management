@@ -192,6 +192,12 @@ qa_ok('exercising an option does not change what the lease bills this month',
     (float) $optionLeases['renewal']->fresh()->base_rent_monthly === $rentBefore,
     'rent still '.number_format($rentBefore, 2));
 
+// Asked BEFORE the run: since SW-052 the plan itself answers already_billed (subtotal 0) once
+// the month is raised, so this probe only means anything while the month is still unbilled.
+// The run and the manual plan must disagree ONLY on the prorate flag, and deliberately.
+$manual = $billing->planInvoiceForLease($L['mid_start']->fresh('charges'), $MONTH, $END, prorate: false);
+qa_eq('the un-prorated plan bills the whole month, on request', 30000.00, round($manual['subtotal'], 2));
+
 qa_section('THE RUN — preview, then post');
 $preview = $billing->previewForPeriod($MONTH, $asset->id);
 $lastId = (int) Invoice::max('id');
@@ -212,9 +218,6 @@ foreach ($L as $shape => $l) {
     qa_eq(sprintf('%-16s', $shape), $expect[$shape], $billed[$shape], 0.02);
 }
 
-// The run and the manual plan must disagree ONLY on this flag, and deliberately.
-$manual = $billing->planInvoiceForLease($L['mid_start']->fresh('charges'), $MONTH, $END, prorate: false);
-qa_eq('…and the un-prorated plan still bills the whole month, on request', 30000.00, round($manual['subtotal'], 2));
 
 qa_section('VAT — rent exempt, service charge taxed, levy exempt');
 $plainInv = $raised->firstWhere('lease_id', $L['plain']->id);

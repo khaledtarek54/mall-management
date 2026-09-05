@@ -15,7 +15,10 @@ use Carbon\CarbonImmutable;
 $bill = app(BillUnitOwnershipsService::class);
 $xfer = app(TransferUnitOwnershipService::class);
 $asset = Asset::where('code', 'AW')->firstOrFail();
-$unit = Unit::where('asset_id', $asset->id)->where('status', 'vacant')->firstOrFail();
+// A unit with NO existing ownership — the baseline seeds handed-over owners, and SW-220's
+// overlap guard (2026-09-02) correctly refuses a second tenure past 100% for the day.
+$unit = Unit::where('asset_id', $asset->id)->where('status', 'vacant')
+    ->whereNotIn('id', UnitOwnership::pluck('unit_id'))->firstOrFail();
 $owners = Tenant::whereIn('id', UnitOwnership::pluck('tenant_id'))->take(2)->get();
 
 qa_section('RESALE — the REALISTIC sequence: bill on the 1st, sell on the 11th');

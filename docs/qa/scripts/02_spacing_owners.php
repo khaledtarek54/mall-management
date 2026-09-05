@@ -24,7 +24,9 @@ $coB = UnitOwnership::where('unit_id', $coA->unit_id)->where('ownership_share_pc
 $monthly = (float) $coA->charges()->where('is_active', true)->where('frequency', 'monthly')->sum('amount');
 printf("  unit C-15 monthly assessment (per ownership row): %s\n", number_format($monthly, 2));
 
-$p = CarbonImmutable::parse('2026-09-01');
+// October: the baseline (a mall mid-life) has already billed September's assessments, so a
+// September billOne correctly answers null — which is the OWNERS 2 idempotency claim, not this one.
+$p = CarbonImmutable::parse('2026-10-01');
 $iA = $bill->billOne($coA->fresh(), $p, $p->endOfMonth());
 $iB = $bill->billOne($coB->fresh(), $p, $p->endOfMonth());
 qa_ok('co-owner A billed', $iA !== null);
@@ -44,7 +46,7 @@ qa_ok('re-billing the same period returns null', $again === null);
 $stats = $bill->runForPeriod($p);
 printf("  full run for %s: %s\n", $p->format('Y-m'), json_encode($stats));
 $dupes = Invoice::whereNotNull('unit_ownership_id')->where('status', '!=', 'cancelled')
-    ->whereDate('period_start', '2026-09-01')->selectRaw('unit_ownership_id, count(*) c')
+    ->whereDate('period_start', $p->toDateString())->selectRaw('unit_ownership_id, count(*) c')
     ->groupBy('unit_ownership_id')->having('c', '>', 1)->get();
 qa_eq('no ownership has two assessments for the month', 0, $dupes->count());
 
@@ -52,7 +54,10 @@ qa_section('OWNERS 3 — a resale splits ONE month between seller and buyer');
 // C-11: seller tenure ended 2026-05-31, buyer from 2026-06-01 — a clean boundary. Build a
 // mid-month case on a fresh unit so the proration rule is actually exercised.
 $asset = Asset::where('code', 'AW')->firstOrFail();
-$unit = Unit::where('asset_id', $asset->id)->where('status', 'vacant')->firstOrFail();
+// A unit with NO existing ownership — the baseline seeds handed-over owners, and SW-220's
+// overlap guard (2026-09-02) correctly refuses a second tenure past 100% for the day.
+$unit = Unit::where('asset_id', $asset->id)->where('status', 'vacant')
+    ->whereNotIn('id', UnitOwnership::pluck('unit_id'))->firstOrFail();
 $ownerTenants = Tenant::whereIn('id', UnitOwnership::pluck('tenant_id'))->take(2)->get();
 $seller = UnitOwnership::create([
     'asset_id' => $asset->id, 'unit_id' => $unit->id, 'tenant_id' => $ownerTenants[0]->id,

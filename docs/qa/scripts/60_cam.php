@@ -100,7 +100,10 @@ $l4 = $mk($tenants[3], 50);
 // 12.5% on a shop whose area share is ~2% would push the pool to 110% — refused since F-08.
 // Prove the refusal, then use a figure the pool can actually carry.
 LeaseCamTerm::create(['lease_id' => $l4->id, 'effective_year' => 2032, 'stated_share_pct' => 12.5,
-    'cap_type' => 'absolute', 'cap_scope' => LeaseCamTerm::SCOPE_TOTAL, 'cap_carry_forward' => false]);
+    // The cap is incidental here (this section tests the over-100% refusal) and the model now
+    // refuses an absolute cap with no amount — so give it one far above anything the pool bills.
+    'cap_type' => 'absolute', 'cap_absolute_amount' => 99_999_999,
+    'cap_scope' => LeaseCamTerm::SCOPE_TOTAL, 'cap_carry_forward' => false]);
 $pool32 = CamExpensePool::create(['asset_id' => $asset->id, 'name' => 'QA CAM 2032', 'period_year' => 2032,
     'total_actual_expense' => 1000000, 'total_estimated_collected' => 0, 'status' => 'draft',
     'estimate_basis' => 'stated', 'recovery_vat_rate' => 14, 'admin_fee_pct' => 0]);

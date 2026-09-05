@@ -18,7 +18,9 @@ use Illuminate\Support\Facades\Artisan;
 $asset = Asset::where('code', 'AW')->firstOrFail();
 $admin = User::where('email', 'admin@mall.test')->firstOrFail();
 $acct = fn ($r) => app(AccountResolver::class)->id($r);
-$period = AccountingPeriod::whereDate('starts_on', '<=', '2026-07-01')->whereDate('ends_on', '>=', '2026-07-31')->firstOrFail();
+// June, not July: DemoSeeder now finalises a July statement for this asset, and the service
+// correctly refuses regenerating over a finalised run — revise is the path for THAT one.
+$period = AccountingPeriod::whereDate('starts_on', '<=', '2026-06-01')->whereDate('ends_on', '>=', '2026-06-30')->firstOrFail();
 
 qa_section('OWNER STATEMENTS — the run ties to the income statement AND to its own children');
 $run = app(GenerateOwnerStatementRunService::class)->generate($asset, $period);

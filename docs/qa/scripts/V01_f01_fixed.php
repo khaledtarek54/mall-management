@@ -32,7 +32,13 @@ qa_ok('the charges (assessment schedule) relation manager is mounted',
 qa_eq('…and it is the assessment schedule',
     UnitOwnershipChargesRelationManager::class, $rels[0]);
 
-$unit = Unit::where('asset_id', $asset->id)->where('status', 'vacant')->firstOrFail();
+// A unit with NO existing ownership this period — the baseline seeds handed-over owners, and
+// SW-220's overlap guard (2026-09-02) now correctly refuses a second tenure that would push the
+// day's total past 100%. The old fixture leaned on "vacant" alone, which does not exclude an
+// existing ownership on the same unit.
+$owned = UnitOwnership::pluck('unit_id')->all();
+$unit = Unit::where('asset_id', $asset->id)->where('status', 'vacant')
+    ->whereNotIn('id', $owned)->firstOrFail();
 $owner = Tenant::whereIn('id', UnitOwnership::pluck('tenant_id'))->firstOrFail();
 $o = UnitOwnership::create(['asset_id' => $asset->id, 'unit_id' => $unit->id, 'tenant_id' => $owner->id,
     'tenure_type' => 'freehold', 'status' => 'handed_over', 'assessment_basis' => 'area', 'ownership_share_pct' => 100,
