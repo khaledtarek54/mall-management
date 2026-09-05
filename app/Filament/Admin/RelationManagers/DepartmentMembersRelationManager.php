@@ -35,9 +35,9 @@ class DepartmentMembersRelationManager extends RelationManager
     {
         return $schema->columns(2)->components([
             TextInput::make('role')
-                ->label(__('admin.fields.staff_role'))
+                ->label(__('admin.fields.department_member_role'))
                 ->maxLength(100)
-                ->helperText(__('admin.fields.staff_role_helper')),
+                ->helperText(__('admin.fields.department_member_role_helper')),
             DatePicker::make('assigned_at')
                 ->label(__('admin.fields.assigned_at'))
                 ->default(now())
@@ -71,7 +71,7 @@ class DepartmentMembersRelationManager extends RelationManager
                     ->formatStateUsing(fn (string $state) => PermissionVocabulary::roleLabel($state))
                     ->color('gray'),
                 TextColumn::make('pivot.role')
-                    ->label(__('admin.fields.staff_role'))
+                    ->label(__('admin.fields.department_member_role'))
                     ->placeholder('—'),
                 TextColumn::make('pivot.assigned_at')
                     ->label(__('admin.fields.assigned_at'))
@@ -99,7 +99,7 @@ class DepartmentMembersRelationManager extends RelationManager
                     ->schema(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
                         TextInput::make('role')
-                            ->label(__('admin.fields.staff_role'))
+                            ->label(__('admin.fields.department_member_role'))
                             ->maxLength(100),
                         DatePicker::make('assigned_at')
                             ->label(__('admin.fields.assigned_at'))

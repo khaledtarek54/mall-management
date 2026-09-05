@@ -193,7 +193,12 @@ class Asset extends Model implements HasMedia
     public function staff(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'asset_user')
-            ->withPivot(['assigned_at', 'ended_at', 'notes'])
+            // `title` is the job title AT THIS PROPERTY and it has to be listed here or the pivot
+            // silently drops it: Filament fills the edit modal from the loaded pivot and saves back
+            // through it, so a column missing from `withPivot` reads blank and writes nothing under
+            // a "Saved" toast. That is precisely how the field sat inert after the column was
+            // dropped in July — see the 2026-09-05 migration.
+            ->withPivot(['title', 'assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
     }
 

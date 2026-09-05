@@ -37,10 +37,10 @@ class AssetStaffRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            TextInput::make('role')
-                ->label(__('admin.fields.staff_role'))
+            TextInput::make('title')
+                ->label(__('admin.fields.staff_title'))
                 ->maxLength(100)
-                ->helperText(__('admin.fields.staff_role_helper')),
+                ->helperText(__('admin.fields.staff_title_helper')),
             DatePicker::make('assigned_at')
                 ->label(__('admin.fields.assigned_at'))
                 ->default(now())
@@ -73,8 +73,8 @@ class AssetStaffRelationManager extends RelationManager
                     ->badge()
                     ->formatStateUsing(fn (string $state) => PermissionVocabulary::roleLabel($state))
                     ->color('gray'),
-                TextColumn::make('pivot.role')
-                    ->label(__('admin.fields.staff_role'))
+                TextColumn::make('pivot.title')
+                    ->label(__('admin.fields.staff_title'))
                     ->placeholder('—'),
                 TextColumn::make('pivot.assigned_at')
                     ->label(__('admin.fields.assigned_at'))
@@ -102,8 +102,8 @@ class AssetStaffRelationManager extends RelationManager
                     )
                     ->schema(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),
-                        TextInput::make('role')
-                            ->label(__('admin.fields.staff_role'))
+                        TextInput::make('title')
+                            ->label(__('admin.fields.staff_title'))
                             ->maxLength(100),
                         DatePicker::make('assigned_at')
                             ->label(__('admin.fields.assigned_at'))

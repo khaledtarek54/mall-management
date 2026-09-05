@@ -115,7 +115,7 @@ Unique constraint: `(lease_id, unit_id)`. Index on `unit_id`. **Source of truth 
 | id | bigint | PK | Auto-increment ID |
 | user_id | bigint | FK, cascadeOnDelete | Admin panel user |
 | asset_id | bigint | FK, cascadeOnDelete | Property |
-| role | varchar(100) | nullable | Free-form property-specific role (e.g., "Property Manager", "Site Engineer") |
+| title | varchar(100) | nullable | Free-form job title AT THIS PROPERTY (e.g., "Property Manager", "Site Engineer"). Named `title`, never `role`: `role` was dropped in July 2026 because its three writers each meant something different by it, and the name is a `CLASSIFICATION_SUFFIXES` member, so a column called `role` is swept as a closed value set this free text can never honestly be. |
 | assigned_at | date | nullable | Assignment start date |
 | ended_at | date | nullable | Assignment end date (soft termination; no cascade) |
 | notes | text | nullable | Optional notes |
@@ -212,7 +212,7 @@ Companion accessors: `occupiedAreaSqm()`, `totalUnitAreaSqm()`. Guarding test: `
 
 ### Staff vs. Owners
 
-- **Staff** (`asset_user` pivot): Admin panel users assigned to *operate* this property (Property Manager, Leasing Lead, etc.). Role is a free-form label per asset, separate from global RBAC roles.
+- **Staff** (`asset_user` pivot): Admin panel users assigned to *operate* this property (Property Manager, Leasing Lead, etc.). `title` is a free-form label per asset, separate from global RBAC roles — the panel labels it "Title at this property".
 - **Owners** (`asset_owner` pivot): Users with *legal ownership* stake (Jawad users); ownership_percentage sums to 100.0 across all owners. Both scoped to their owned properties via `AssignedAssets::idsFor()`.
 
 **Scoping:** `AssignedAssets::idsFor(User)` returns the union of `assignedAssets` and `ownedAssets` IDs, excluding the ALL pseudo-asset. Super-admins see everything (null return = no scoping).
