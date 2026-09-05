@@ -85,7 +85,14 @@ class TenantViolationsRelationManager extends RelationManager
                 Action::make('record')
                     ->label(__('admin.actions.record_violation'))
                     ->icon('heroicon-o-plus')
-                    ->visible(fn (): bool => ViolationResource::canCreate())
+                    // NOT on a read-only page — see TenantPaymentsRelationManager for the
+                    // reasoning and for what it costs; this is the same shape, a LINK to a create
+                    // form that Filament's read-only rule for relation managers cannot see.
+                    // Measured the same way: of the five roles holding `violations.create`,
+                    // `coordinator` and `operations` cannot open a tenant screen at all and the
+                    // other three hold `tenants.edit`.
+                    ->visible(fn (?RelationManager $livewire): bool => $livewire?->isReadOnly() === false
+                        && ViolationResource::canCreate())
                     // **`for_tenant`, NOT `tenant`.** `tenant` is Filament's own TENANCY route
                     // parameter, so `getUrl('create', ['tenant' => $id])` puts the tenant's id in
                     // the path where the mall's slug belongs — `/admin/2/violations/create` — and

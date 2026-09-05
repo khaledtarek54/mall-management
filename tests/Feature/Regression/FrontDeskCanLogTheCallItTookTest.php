@@ -4,6 +4,7 @@ use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
 use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
+use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Note;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
@@ -22,10 +23,17 @@ use Livewire\Livewire;
  * nobody can tell policy from bug. Measured on the code as it stood: `isReadOnly: true`,
  * `isAuthorized: false`, `isVisible: false`.
  *
- * "The page is a View page" is a UI inference, not an authorization fact — this panel has no
- * policies and gates on permissions at the call site — so `TenantNotesRelationManager` waives the
- * default and the three call-site gates decide. Which is only safe BECAUSE they exist: the refusal
- * half below is what says so, and would go red if any of them were dropped.
+ * **THE ROUTE CHANGED ON 2026-09-05 AND THE REQUIREMENT DID NOT.** The first answer was for
+ * `TenantNotesRelationManager` to waive the read-only default, letting its three call-site gates
+ * decide. That worked and it cost something: a page whose whole claim is that it does not write
+ * rendered *Log communication*, *Edit* and *Delete* inside one of its tabs — reported from the
+ * panel as exactly that. So the act moved to `ViewTenant`'s HEADER
+ * ({@see \App\Filament\Admin\Actions\TenantNoteActions}), where this panel puts acts, and the
+ * tab went back to Filament's default. The front desk keeps its one function, the tabs stop
+ * writing, and the two surfaces share one form.
+ *
+ * What this file still proves is the requirement, not the mechanism: the front desk can log the
+ * call it just took, from the only tenant screen it can open, and nothing else came with it.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -45,45 +53,102 @@ function notesRmOnViewPage($tenant)
 }
 
 it('lets the front desk log a note from the only tenant screen it can open', function () {
-    $this->actingAs(makeUser('customer_service', [$this->asset->id]));
+    $desk = makeUser('customer_service', [$this->asset->id]);
+    $this->actingAs($desk);
 
     // The premise, asserted rather than assumed — if the seeder ever grants `tenants.edit` here,
     // this test would be proving something about a different role.
-    expect(auth()->user()->can('notes.create'))->toBeTrue()
-        ->and(auth()->user()->can('tenants.edit'))->toBeFalse();
+    expect($desk->can('notes.create'))->toBeTrue()
+        ->and($desk->can('tenants.edit'))->toBeFalse()
+        ->and(TenantResource::canEdit($this->tenant))->toBeFalse();
+
+    // Driven through the real page and the real act, not by asking an action whether it feels
+    // authorized: what was reported broken was the operator being unable to write the note down,
+    // so the assertion is that the note exists afterwards.
+    asTenant($this->asset, function () {
+        Livewire::test(ViewTenant::class, ['record' => $this->tenant->getKey()])
+            ->assertActionVisible('logCommunication')
+            ->callAction('logCommunication', [
+                'channel' => 'call',
+                'contacted_at' => now()->toDateTimeString(),
+                'subject' => 'Service-charge query',
+                'body' => 'Asked about the service-charge line on invoice 0042.',
+            ]);
+    });
+
+    $note = Note::sole();
+
+    expect($note->body)->toBe('Asked about the service-charge line on invoice 0042.')
+        ->and($note->noteable_id)->toBe($this->tenant->getKey())
+        // Stamped from the session, never from the payload: who made the call is not something
+        // the form may state.
+        ->and($note->author_id)->toBe($desk->id);
+});
+
+it('shows the new note in the tab it was NOT written from', function () {
+    // ASSERTING THE ROW IS NOT ASSERTING THE SCREEN, and moving the act to the header is exactly
+    // what makes the difference bite: `HasRelationManagers` mounts each manager with a stable
+    // `key()`, which is what tells Livewire 3 to leave a child alone when the parent re-renders.
+    // So the header saved the note and the tab below went on showing the rows from before the
+    // click, under a success toast — which an operator reads as "it did not save", and logs again.
+    // `TenantNotesRelationManager` listens for `RecordChanged::EVENT` for that reason; this is the
+    // assertion that says so, and the test above would stay green with the listener removed.
+    $desk = makeUser('customer_service', [$this->asset->id]);
+    $this->actingAs($desk);
 
     asTenant($this->asset, function () {
         $rm = notesRmOnViewPage($this->tenant);
-        $create = $rm->instance()->getTable()->getHeaderActions()[0];
 
-        expect($create->isAuthorized())->toBeTrue()
-            ->and($create->isVisible())->toBeTrue();
+        expect(tableRows($rm))->toBeEmpty();
+
+        // The page's header act, announcing to the components around it exactly as it does live.
+        Livewire::test(ViewTenant::class, ['record' => $this->tenant->getKey()])
+            ->callAction('logCommunication', [
+                'channel' => 'whatsapp',
+                'contacted_at' => now()->toDateTimeString(),
+                'subject' => 'Renewal',
+                'body' => 'Asked when the renewal offer lands.',
+            ]);
+
+        // The relation manager, told to refresh, re-reads.
+        $rm->dispatch(\App\Support\Filament\RecordChanged::EVENT);
+
+        expect(tableRows($rm)->pluck('body')->all())->toBe(['Asked when the renewal offer lands.']);
     });
 });
 
-it('still refuses a role that does not hold notes.create', function () {
-    // The control, and it is doing real work: waiving Filament's read-only default is only safe
-    // because each action carries its own `->authorize()`. Drop one and this goes red — which is
-    // the difference between a considered waiver and an open door.
-    $this->actingAs(makeUser('vendor', [$this->asset->id]));
+it('still refuses the act to a role that does not hold notes.create', function () {
+    // The control, and it is doing real work: a refusal test passes just as happily when the act
+    // has quietly stopped existing, so it is paired with the case above that must succeed.
+    // `viewer` is the right foil — it can open the page (`tenants.view`) and read the notes tab
+    // (`notes.view`), and holds nothing that may write.
+    $reader = makeUser('viewer', [$this->asset->id]);
+    $this->actingAs($reader);
 
-    expect(auth()->user()->can('notes.view'))->toBeTrue()
-        ->and(auth()->user()->can('notes.create'))->toBeFalse();
+    expect($reader->can('notes.view'))->toBeTrue()
+        ->and($reader->can('notes.create'))->toBeFalse();
 
     asTenant($this->asset, function () {
-        $rm = notesRmOnViewPage($this->tenant);
+        $page = Livewire::test(ViewTenant::class, ['record' => $this->tenant->getKey()]);
 
-        foreach ($rm->instance()->getTable()->getHeaderActions() as $action) {
-            expect($action->isAuthorized())->toBeFalse()
-                ->and($action->isVisible())->toBeFalse();
-        }
+        $page->assertActionHidden('logCommunication');
+
+        // Hidden is the UI half. The gate is the other one, and it is a separate layer here: the
+        // act declares `->authorize()`, so `AuthorizedAction::call()` aborts 403 on dispatch even
+        // if a release ever stopped hidden implying disabled. Asserting the predicate directly is
+        // what CLAUDE.md prescribes — neither `callAction()` nor `mountAction` can prove a gate,
+        // because both refuse a hidden action first and go green whether or not the gate exists.
+        expect($page->instance()->getAction('logCommunication')->isAuthorized())->toBeFalse();
     });
+
+    expect(Note::count())->toBe(0);
 });
 
 it('refuses EDIT and DELETE to the front desk, which holds neither', function () {
-    // Waiving read-only opens the whole relation manager, not just the button that needed it — so
-    // the row actions have to be checked too, or "let the front desk log a call" quietly became
-    // "let the front desk rewrite the file".
+    // "Let the front desk log a call" must not have become "let the front desk rewrite the file".
+    // Under the waiver this was the row actions' own `->authorize()` doing the work; now Filament's
+    // read-only default refuses them first. Both are worth asserting the same way, because what
+    // matters is the OUTCOME for this role and not which layer produced it.
     $desk = makeUser('customer_service', [$this->asset->id]);
 
     $note = $this->tenant->notes()->create([
@@ -100,8 +165,13 @@ it('refuses EDIT and DELETE to the front desk, which holds neither', function ()
 
     asTenant($this->asset, function () use ($note) {
         $rm = notesRmOnViewPage($this->tenant);
+        $rowActions = $rm->instance()->getTable()->getRecordActions();
 
-        foreach ($rm->instance()->getTable()->getRecordActions() as $action) {
+        // The premise: `foreach` over an empty array asserts nothing, and a manager that had lost
+        // its row actions entirely would satisfy every refusal below.
+        expect($rowActions)->not->toBeEmpty();
+
+        foreach ($rowActions as $action) {
             $bound = $action->getClone()->record($note);
 
             expect($bound->isAuthorized())->toBeFalse(

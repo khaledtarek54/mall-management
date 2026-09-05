@@ -105,7 +105,25 @@ class TenantPaymentsRelationManager extends RelationManager
                 Action::make('recordPayment')
                     ->label(__('admin.collections.record_payment'))
                     ->icon('heroicon-o-banknotes')
-                    ->visible(fn (): bool => Auth::user()?->can('payments.create') ?? false)
+                    // NOT on a read-only page. Filament makes every relation manager under a
+                    // `ViewRecord` read-only and denies its Create/Edit/Delete — but this is a
+                    // LINK to another resource's create form, which that rule cannot see, so a
+                    // page whose whole claim is that it does not write offered "Record payment".
+                    //
+                    // WHAT THIS COSTS, stated rather than waved away. Nobody LOSES the act: of the
+                    // four roles holding `payments.create`, `accounting` cannot open a tenant
+                    // screen at all and the other three hold `tenants.edit`, so a row click lands
+                    // them on the Edit page where this tab is writable and the button is here.
+                    // What it costs is a click for one of those three who deliberately opened the
+                    // READ-ONLY page and then decided to record a receipt: they press Edit first.
+                    // Accepted, because the alternative re-offers a create button on the page
+                    // whose whole claim is that it does not write — which is what was reported.
+                    //
+                    // `?RelationManager`: `getLivewire()` is nullable, and a non-null hint would
+                    // turn a table built without a Livewire owner from "no button" into a 500.
+                    // A missing owner reads as read-only here, which is the safe direction.
+                    ->visible(fn (?RelationManager $livewire): bool => $livewire?->isReadOnly() === false
+                        && (Auth::user()?->can('payments.create') ?? false))
                     ->url(fn (RelationManager $livewire): string => ResourceLink::create(PaymentResource::class, [
                         // `for_tenant`, never `tenant`: that key is Filament's tenancy ROUTE parameter and would
                         // put the tenant id in the path where the mall's slug belongs — a 404.

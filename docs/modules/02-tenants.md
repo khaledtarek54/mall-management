@@ -251,13 +251,59 @@ both years. And the status column was 8% wide, breaking the header to "STATU S" 
 - `tenantScopeRelation()` = `'leases.unit'` — filters by `leases.unit.asset_id`.
 - Includes lease-less tenants (new tenants with no lease yet remain visible; not scoped away).
 
-**Related managers** (appear as tabs on the edit page):
+**Related managers** (tabs on the Edit page AND on the View page — see the read-only rule below):
 - PortalUsersRelationManager — create/edit/delete TenantUser accounts
 - TenantLeasesRelationManager — view tenant's leases (read-only or editable based on policy)
 - TenantPaymentsRelationManager — view/record payments
 - TenantMaintenanceRelationManager — view maintenance requests
 - TenantNotesRelationManager — add/view admin notes
 - ActivitiesRelationManager — activity log (Spatie)
+
+**A VIEW PAGE'S TABS DO NOT ADD ROWS** (2026-09-05). Filament makes every relation manager under a
+`ViewRecord` read-only and denies its Create/Edit/Delete before their own gates run. The tenant hub
+had three affordances that escaped that, each by a different route, and all three are closed:
+
+| Affordance | How it escaped | Now |
+|---|---|---|
+| Notes: *Log communication* / *Edit* / *Delete* | `TenantNotesRelationManager::isReadOnly()` returned `false` outright | waiver removed; the act moved to `ViewTenant`'s **header** (`App\Filament\Admin\Actions\TenantNoteActions::logCommunication()`) |
+| Payments: *Record payment* | a `->url()` **link** to `PaymentResource`'s create page — not a `CreateAction`, so the read-only rule has nothing to deny | `visible()` also requires `! $livewire->isReadOnly()` |
+| Violations: *Record violation* | same shape, to `ViolationResource` | same |
+
+**A row action that OPENS an existing record is deliberately not in that set.** The requests, sales
+and violations tabs each carry an `open` link to that record's own page — navigation to a screen
+with its own gates, not the tab adding to itself. The gate asserts **both** halves, because
+refusing every link would pass the sweep and strand the reader on rows they cannot open.
+
+**Why the notes act moved rather than being removed.** Measured across all 14 roles:
+`customer_service` — the front desk — holds `tenants.view`, `notes.view`, `notes.create`, the
+request rights and **no `tenants.edit`**. `ListTenants` opens for them on `tenants.view`;
+`EditTenant` is what `tenants.edit` gates — so `ViewTenant` is the only tenant screen **carrying
+this tab** that they can reach, and logging the call it just took is the whole of its job on it.
+Deleting the button would have left a granted right reaching no screen
+(`App\Support\PermissionReach`'s failure, in its confusing direction). The header is where this
+panel puts acts anyway — *the list FINDS, the record ACTS* — and the modal renders the same form
+components the tab does, so the two surfaces cannot drift.
+
+**Moving it broke the tab, which is the half worth remembering.** `HasRelationManagers` mounts each
+relation manager with a stable `key()`, which is exactly what tells Livewire 3 to leave a child
+alone when the parent re-renders — so the header saved the note and the table below went on showing
+the rows from before the click, under a success toast. An operator reads that as "it did not save"
+and logs the call twice. `TenantNotesRelationManager` now uses `RefreshesOnRecordChange`; asserting
+`Note::sole()` is structurally unable to notice, so the test asserts the **table**.
+
+**What the two links cost is stated rather than waved away.** Nobody loses them: of the four roles
+holding `payments.create`, `accounting` cannot open a tenant screen at all and the other three hold
+`tenants.edit`, so a row click lands them on the Edit page where the button still is (same for the
+five holding `violations.create` — `coordinator` and `operations` cannot open a tenant screen
+either). What it costs is a click for one of those three who deliberately opens the read-only page
+and *then* decides to record a receipt: they press Edit first. Accepted, because re-offering it in
+the header puts a create button back on the page whose whole claim is that it does not write.
+
+Gated by `AViewPagesTabsDoNotWriteTest` — it sweeps **every panel** (the portal has such a page
+too), every View page with tabs (a fourth such resource fails the gate rather than being skipped),
+and every strip **including row actions**, resolving each URL **through the router** rather than
+matching `/create` in the string. The requirement the change had to preserve keeps its own file,
+`FrontDeskCanLogTheCallItTookTest`.
 
 ### Portal Resources
 **Location:** `app/Filament/Portal/Resources/` (auto-discovered; each module owns its own)

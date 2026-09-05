@@ -48,12 +48,19 @@ trait AnnouncesRecordChange
      * seam exists at all: the twenty-first would not remember. Composing beats replacing, which is
      * the lesson the previous fix already learned one layer up.
      *
-     * **Where that default is the WRONG answer, say so on the relation manager, not here.**
-     * "The page is a View page" is a UI inference; this panel has no policies and gates on
-     * permissions at the call site. `TenantNotesRelationManager` waives it deliberately and states
-     * why — `customer_service` holds `notes.create`, holds no `tenants.edit`, and could otherwise
-     * never log the call it just took. That waiver is only safe because each of its actions carries
-     * its own `->authorize()`, which is what `RelationManagerCrudIsGatedConformanceTest` enforces.
+     * **Where that default is the wrong answer, the ACT moves — it does not get waived here.**
+     * `TenantNotesRelationManager` used to waive it (`isReadOnly(): false`) so `customer_service`,
+     * who holds `notes.create` and no `tenants.edit`, could log the call it had just taken. That
+     * worked and it put *Log communication*, *Edit* and *Delete* inside a tab on a page whose whole
+     * claim is that it does not write, which is how it was reported. Since 2026-09-05 the act lives
+     * on `ViewTenant`'s HEADER instead ({@see \App\Filament\Admin\Actions\TenantNoteActions}) and
+     * **no relation manager in the panel waives the default** — `AViewPagesTabsDoNotWriteTest`
+     * enforces that. The row actions keep their own `->authorize()` all the same, which is what
+     * `RelationManagerCrudIsGatedConformanceTest` requires and what makes the deny two layers.
+     *
+     * Note the consequence for THIS seam: an act on the page header changes rows a CHILD renders,
+     * and a child mounted with a stable key does not re-render on its own — so the manager has to
+     * listen ({@see RefreshesOnRecordChange}), which the notes one now does.
      */
     protected function defaultAuthorizationAllows(): bool
     {

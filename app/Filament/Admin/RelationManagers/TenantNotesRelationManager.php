@@ -2,14 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Models\Note;
+use App\Filament\Admin\Actions\TenantNoteActions;
+use App\Support\Filament\RefreshesOnRecordChange;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -19,32 +16,43 @@ use Illuminate\Database\Eloquent\Model;
 
 class TenantNotesRelationManager extends RelationManager
 {
+    /**
+     * THE ACT THAT WRITES THESE ROWS IS NOT ON THIS COMPONENT ANY MORE, SO IT HAS TO BE TOLD.
+     *
+     * `HasRelationManagers` mounts each manager with a STABLE `key()`, which is exactly what tells
+     * Livewire 3 to leave a child alone when the parent re-renders — so `ViewTenant`'s header act
+     * saved a note and this table went on showing the rows from before the click, under a success
+     * toast. An operator reads that as "it did not save" and logs the call twice.
+     *
+     * It did not need this while the CreateAction lived here: the component that handled the click
+     * was the component whose table needed re-rendering. Moving an act to the page header is
+     * precisely the case `RecordChanged` exists for, and the listener is what completes it.
+     *
+     * Nothing else in the panel needs it today, and the reason is worth stating: this is the only
+     * relation manager whose rows are written by an act on its OWNER's page. The day another act
+     * moves the same way, its manager needs this line too — a green test that asserts the ROW is
+     * structurally unable to notice, which is why the test for this asserts the TABLE.
+     */
+    use RefreshesOnRecordChange;
+
     protected static string $relationship = 'notes';
 
     /**
-     * NOT read-only on a View page — the one relation manager in the panel that says so.
+     * READ-ONLY ON A VIEW PAGE, like every other relation manager in the panel.
      *
-     * Filament makes every relation manager read-only when it hangs off a `ViewRecord`, and denies
-     * its Create/Edit/Delete actions before their own gates are ever consulted. For most of the 61
-     * here that is a sensible default. For this one it makes a designed role's ONLY function
-     * unreachable: `customer_service` is the front desk — `tenants.view`, `notes.view`,
-     * `notes.create`, and deliberately no `tenants.edit` — so `ViewTenant` is the only tenant screen
-     * they can open, and logging the call they just took was refused there. A right that reads as
-     * granted and reaches no screen is the `App\Support\PermissionReach` failure exactly, and it is
-     * the confusing direction: the role appears to hold it, the screen refuses, and nobody can tell
-     * policy from bug.
+     * This one used to waive that (`isReadOnly(): false`), and the reason was real: measured
+     * across all 14 roles, `customer_service` is the front desk and holds exactly `tenants.view`,
+     * `notes.view`, `notes.create` and no `tenants.edit`, so `ViewTenant` is the only tenant
+     * screen they can open and logging the call they had just taken was refused everywhere else.
+     * A right that reads as granted and reaches no screen is the {@see \App\Support\PermissionReach}
+     * failure exactly.
      *
-     * "The page is a View page" is a UI inference, not an authorization fact — this panel has no
-     * policies and gates on permissions at the call site. So the answer is to let the call site
-     * answer: all three actions below carry `->authorize()` on `notes.create` / `notes.edit` /
-     * super_admin, and `RelationManagerCrudIsGatedConformanceTest` is what keeps that true. Waiving
-     * the default here without those gates would have opened the screen to anyone who can read it.
+     * What the waiver bought was reachability; what it cost was a read-only page rendering
+     * *Log communication*, *Edit* and *Delete* inside one of its tabs. The act now lives on
+     * `ViewTenant`'s HEADER instead ({@see \App\Filament\Admin\Actions\TenantNoteActions}),
+     * which is where this panel puts acts — so the role keeps its one function, the tab keeps
+     * Filament's default, and the two surfaces render one shared form.
      */
-    public function isReadOnly(): bool
-    {
-        return false;
-    }
-
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.relation_managers.notes');
@@ -52,28 +60,9 @@ class TenantNotesRelationManager extends RelationManager
 
     public function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Select::make('channel')
-                ->label(__('admin.fields.note_channel'))
-                ->options(fn () => __('admin.enums.note_channel'))
-                ->default('call')
-                ->required()
-                ->native(false),
-            DateTimePicker::make('contacted_at')
-                ->label(__('admin.fields.contacted_at'))
-                ->default(fn () => now())
-                ->displayFormat('d/m/Y H:i')
-                ->required(),
-            TextInput::make('subject')
-                ->label(__('admin.fields.note_subject'))
-                ->maxLength(150)
-                ->columnSpanFull(),
-            Textarea::make('body')
-                ->label(__('admin.fields.note_body'))
-                ->required()
-                ->rows(4)
-                ->columnSpanFull(),
-        ]);
+        // Shared with the header act on `ViewTenant`, so the fields cannot depend on which page
+        // the operator happened to be standing on when they logged the call.
+        return $schema->components(TenantNoteActions::formComponents());
     }
 
     public function table(Table $table): Table
