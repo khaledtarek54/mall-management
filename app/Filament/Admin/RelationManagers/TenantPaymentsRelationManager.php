@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\PaymentMethod;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -105,7 +106,7 @@ class TenantPaymentsRelationManager extends RelationManager
                     ->label(__('admin.collections.record_payment'))
                     ->icon('heroicon-o-banknotes')
                     ->visible(fn (): bool => Auth::user()?->can('payments.create') ?? false)
-                    ->url(fn (RelationManager $livewire): string => PaymentResource::getUrl('create', [
+                    ->url(fn (RelationManager $livewire): string => ResourceLink::create(PaymentResource::class, [
                         // `for_tenant`, never `tenant`: that key is Filament's tenancy ROUTE parameter and would
                         // put the tenant id in the path where the mall's slug belongs — a 404.
                         'for_tenant' => $livewire->getOwnerRecord()->getKey(),

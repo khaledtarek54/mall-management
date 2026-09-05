@@ -4,10 +4,13 @@ namespace App\Filament\Admin\Resources\Violations\Pages;
 
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
+use App\Support\Filament\PrefillsCreateForm;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateViolation extends CreateRecord
 {
+    use PrefillsCreateForm;
+
     protected static string $resource = ViolationResource::class;
 
     /**
@@ -33,7 +36,7 @@ class CreateViolation extends CreateRecord
             ? ['tenant_id' => $tenantId]
             : [];
 
-        $this->form->fill($state ?: null);
+        $this->fillFormWithDefaults($state);
 
         $this->callHook('afterFill');
     }

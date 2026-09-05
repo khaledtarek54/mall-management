@@ -6,11 +6,14 @@ use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\User;
 use App\Services\PercentageRentCalculationService;
+use App\Support\Filament\PrefillsCreateForm;
 use App\Support\MorphMap;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateTenantSalesDeclaration extends CreateRecord
 {
+    use PrefillsCreateForm;
+
     protected static string $resource = TenantSalesDeclarationResource::class;
 
     /**
@@ -32,10 +35,10 @@ class CreateTenantSalesDeclaration extends CreateRecord
 
         $leaseId = (int) request()->query('lease', 0);
 
-        $this->form->fill(
+        $this->fillFormWithDefaults(
             $leaseId > 0 && LeaseResource::getEloquentQuery()->whereKey($leaseId)->exists()
                 ? ['lease_id' => $leaseId]
-                : null,
+                : [],
         );
 
         $this->callHook('afterFill');

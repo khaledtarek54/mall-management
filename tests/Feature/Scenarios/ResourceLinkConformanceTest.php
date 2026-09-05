@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
+use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Widgets\ActionRequired;
 use App\Filament\Admin\Widgets\EtaCompliance;
 use App\Filament\Admin\Widgets\LeasingPipeline;
@@ -578,6 +579,100 @@ it('J: a dashboard deep link still wins over a stored filter', function () {
 
 /*
 |--------------------------------------------------------------------------
+| A create link goes through ResourceLink::create()
+|--------------------------------------------------------------------------
+| `getUrl('create', [...])` resolves its array against the destination ROUTE first: a key that
+| names a route parameter is substituted into the PATH, and only the leftovers become a query
+| string. Every resource route here carries the tenancy parameter `tenant`, so
+| `getUrl('create', ['tenant' => $id])` does not prefill a tenant — it puts that id where the
+| mall's slug belongs and the page 404s.
+|
+| Shipped twice: `CreatePayment` in August, whose prefill could therefore never fire, and the
+| tenant 360's compliance tab on 2026-09-05, whose Record-violation button was dead on arrival.
+| Both files carried a comment warning about it. `ResourceLink::create()` refuses a colliding key
+| outright, which is the difference between a documented trap and one that cannot be written.
+*/
+it('routes every parameterised create link through ResourceLink::create()', function () {
+    $offenders = [];
+
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('app/Filament'))) as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $source = file_get_contents($file->getPathname());
+
+        // Comments stripped first, or the files DOCUMENTING this trap are reported as committing
+        // it — the prose-false-positive shape this codebase has hit three times.
+        $stripped = $source;
+        foreach (token_get_all($source) as $token) {
+            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                $at = strpos($stripped, $token[1]);
+                if ($at !== false) {
+                    $stripped = substr_replace($stripped, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
+                }
+            }
+        }
+
+        // Every shape that reaches getUrl WITH parameters — the no-argument form is fine, it can
+        // collide with nothing:
+        //
+        //   Resource: getUrl('create', [...]) · getUrl("create", ...) · named arguments · array()
+        //             · a hoisted variable
+        //   Page:     getUrl([...]) — Page::getUrl(array $parameters) has byte-identical
+        //             $parameters['tenant'] ??= ... semantics and four live call sites
+        //
+        // A hoisted variable is the one form no static read can resolve, so this matches on the
+        // SHAPE — parameters were passed, and not through the seam — rather than on the keys.
+        $patterns = [
+            '/getUrl\(\s*([\x27"])create\1\s*,\s*\S/',
+            '/getUrl\(\s*name:\s*([\x27"])create\1\s*,/',
+            '/getUrl\(\s*parameters:/',
+            '/::getUrl\(\s*(?:\[|array\()/',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $stripped)) {
+                $offenders[] = ltrim(str_replace(base_path(), '', $file->getPathname()), '/');
+
+                break;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([],
+        'these build a parameterised create link by hand — use ResourceLink::create(), which refuses a key that would land in the path');
+});
+
+it('refuses a key that would be substituted into the path', function () {
+    // The refusal happens BEFORE the URL is generated, so it needs no mall selected — which is
+    // the point: it fires where the code is written, not where it renders.
+    expect(fn () => ResourceLink::create(ViolationResource::class, ['tenant' => 1]))
+        ->toThrow(LogicException::class);
+
+    // THE CONTROL — the prefixed convention is accepted and really does reach the query string,
+    // without which a seam that refused everything would satisfy the refusal above. This half
+    // does generate a URL, so it needs a mall in the tenancy segment.
+    $asset = makeAsset();
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAs(makeUser('super_admin', [$asset->id]));
+    Filament::setTenant($asset, isQuiet: true);
+
+    // `finally`, so a failure inside the expectation cannot leave a tenant set for every case
+    // after this one in the file — there is no afterEach here to catch it.
+    try {
+        $url = ResourceLink::create(ViolationResource::class, ['for_tenant' => 1]);
+
+        expect($url)->toContain('for_tenant=1')
+            ->and(parse_url($url, PHP_URL_PATH))->toContain('/violations/create')
+            ->and(parse_url($url, PHP_URL_PATH))->not->toContain('/1/violations');
+    } finally {
+        Filament::setTenant(null, isQuiet: true);
+    }
+});
+
+/*
+|--------------------------------------------------------------------------
 | `tenant` is Filament's TENANCY parameter, never a query key
 |--------------------------------------------------------------------------
 | `getUrl('create', ['tenant' => $id])` does not add `?tenant=`: Filament substitutes it into the
@@ -627,11 +722,4 @@ it('never passes a `tenant` query key to getUrl — that is the tenancy route pa
         'these build a link with `tenant` as a query key, which Filament puts in the PATH — use `for_tenant`');
 });
 
-it('proves that sweep can see a real offender', function () {
-    // Without this the check above passes just as happily on a sweep that reads nothing — the
-    // vacuous-gate shape recorded three times in CLAUDE.md.
-    $probe = "<?php ViolationResource::getUrl('create', ['tenant' => \$id]);";
 
-    expect(preg_match("/getUrl\(/", $probe))->toBe(1)
-        ->and(preg_match("/'tenant'\s*=>/", $probe))->toBe(1);
-});

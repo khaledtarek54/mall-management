@@ -172,7 +172,11 @@ class ReportParameters
             $query['savedReport'] = $savedReport;
         }
 
-        return rescue(fn () => $page::getUrl($query), '#', false);
+        // Through the seam, because THIS is the call site that makes it worth having: `$query` is
+        // built from whatever parameters the report DECLARES, so a collision with a route
+        // parameter is not written by anybody — it appears the day a report declares a property
+        // with an unlucky name, and the link would 404 with nothing to say why.
+        return rescue(fn () => ResourceLink::page($page, $query), '#', false);
     }
 
     /**

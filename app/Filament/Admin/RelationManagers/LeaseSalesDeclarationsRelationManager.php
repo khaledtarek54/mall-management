@@ -6,6 +6,7 @@ use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
+use App\Support\ResourceLink;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -102,7 +103,7 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
                     ->label(__('admin.actions.declare_sales'))
                     ->icon('heroicon-o-plus')
                     ->visible(fn (): bool => TenantSalesDeclarationResource::canCreate())
-                    ->url(fn (RelationManager $livewire): string => TenantSalesDeclarationResource::getUrl('create', [
+                    ->url(fn (RelationManager $livewire): string => ResourceLink::create(TenantSalesDeclarationResource::class, [
                         'lease' => $livewire->getOwnerRecord()->getKey(),
                     ])),
             ])

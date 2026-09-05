@@ -6,6 +6,7 @@ use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Models\Violation;
 use App\Models\ViolationCategory;
+use App\Support\ResourceLink;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -91,7 +92,7 @@ class TenantViolationsRelationManager extends RelationManager
                     // the page 404s. CLAUDE.md records this exact trap from `CreatePayment`, and
                     // this walked into it anyway, which is why the test below now drives the URL
                     // through the real route rather than asserting the action exists.
-                    ->url(fn (RelationManager $livewire): string => ViolationResource::getUrl('create', [
+                    ->url(fn (RelationManager $livewire): string => ResourceLink::create(ViolationResource::class, [
                         'for_tenant' => $livewire->getOwnerRecord()->getKey(),
                     ])),
             ])

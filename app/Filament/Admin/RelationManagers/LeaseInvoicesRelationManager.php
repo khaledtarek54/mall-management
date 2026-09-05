@@ -6,6 +6,7 @@ use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Invoice;
+use App\Support\ResourceLink;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -122,7 +123,7 @@ class LeaseInvoicesRelationManager extends RelationManager
                     ->visible(fn (Invoice $record): bool => (float) $record->balance > 0
                         && ! in_array($record->status, ['draft', 'cancelled', 'written_off'], true)
                         && (auth()->user()?->can('payments.create') ?? false))
-                    ->url(fn (Invoice $record): string => PaymentResource::getUrl('create', [
+                    ->url(fn (Invoice $record): string => ResourceLink::create(PaymentResource::class, [
                         'invoice' => $record->getKey(),
                     ])),
             ])

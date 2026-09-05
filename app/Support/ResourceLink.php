@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Route;
+use LogicException;
 
 /**
  * **The one way to build a deep link into a resource's table.**
@@ -61,6 +63,114 @@ final class ResourceLink
      * @var array<int, string>
      */
     public const DEAD_KEYS = ['tableFilters', 'tableSort', 'tableSearch', 'tableGrouping', 'activeTab'];
+
+    /**
+     * A link to a resource's CREATE page, carrying prefill in the query string.
+     *
+     * **Why this exists rather than a bare `Resource::getUrl('create', [...])`.** Filament resolves
+     * a parameter array against the destination ROUTE first: any key that names a route parameter
+     * is substituted into the PATH, and only what is left over becomes a query string. Every
+     * resource route in this panel carries the tenancy parameter `tenant`, so
+     * `getUrl('create', ['tenant' => $id])` does not prefill a tenant — it puts that id where the
+     * mall's slug belongs and the page 404s.
+     *
+     * That has shipped twice: `CreatePayment` in August, whose prefill could therefore never fire,
+     * and the tenant 360's compliance tab on 2026-09-05, whose Record-violation button was dead
+     * from the moment it landed. Both files carried a comment warning about it — the second was
+     * written by someone who had just read the first — which is how a trap stops earning another
+     * paragraph and starts earning a seam.
+     *
+     * So the mistake is REFUSED here rather than described. The convention for the value the
+     * collision was reaching for is a `for_` prefix (`for_tenant`), read back by the create page's
+     * own `fillForm()`.
+     *
+     * **`LogicException`, deliberately NOT a `DomainException`.** Every call site is a `->url()`
+     * closure, so this fires at RENDER time — once per table row — not where the line was typed.
+     * A `DomainException` in this codebase is an operator refusal: `bootstrap/app.php` renders it
+     * as a toast and a redirect back, and `dontReport()`s it. That would show an operator an
+     * English sentence about route parameters, bounce their page, and keep the whole thing out of
+     * Sentry. This is a developer error and belongs in the 500 that gets reported.
+     *
+     * @param  class-string<resource>  $resource
+     * @param  array<string, mixed>  $query  prefill for the create page's `fillForm()`
+     *
+     * @throws LogicException when a key would be substituted into the path instead
+     */
+    public static function create(string $resource, array $query = []): string
+    {
+        if ($query !== []) {
+            self::assertNoRouteParameterCollision(
+                $resource::getRouteBaseName().'.create',
+                $query,
+                class_basename($resource),
+            );
+        }
+
+        return $resource::getUrl('create', $query);
+    }
+
+    /**
+     * A link to a standalone Filament PAGE, carrying its parameters in the query string.
+     *
+     * The resource twin of {@see create()}, and it exists for the same reason:
+     * `Page::getUrl(array $parameters)` has byte-identical `$parameters['tenant'] ??= …`
+     * semantics, so a page parameter named after a route parameter is substituted into the PATH
+     * and the link 404s exactly as a create link does.
+     *
+     * The call site that makes this worth a seam rather than a comment is
+     * `ReportParameters::urlFor()`, which builds its array from whatever parameters a report
+     * DECLARES — so the collision is not written by anybody, it appears the day a report declares
+     * a parameter with an unlucky name.
+     *
+     * @param  class-string  $page
+     * @param  array<string, mixed>  $query
+     *
+     * @throws LogicException when a key would be substituted into the path instead
+     */
+    public static function page(string $page, array $query = []): string
+    {
+        if ($query !== []) {
+            self::assertNoRouteParameterCollision($page::getRouteName(), $query, class_basename($page));
+        }
+
+        return $page::getUrl($query);
+    }
+
+    /**
+     * Refuse a query key that the router would substitute into the path.
+     *
+     * @param  array<string, mixed>  $query
+     *
+     * @throws LogicException
+     */
+    private static function assertNoRouteParameterCollision(string $routeName, array $query, string $subject): void
+    {
+        $route = Route::getRoutes()->getByName($routeName);
+
+        // A name we cannot resolve is not a licence to guess — but it is also not silently fine.
+        // `getUrl()` itself throws `RouteNotFoundException` a line later, so the guard degrading
+        // to "nothing reserved" cannot mask a live link: an unresolvable route has no working
+        // call site to protect.
+        if ($route === null) {
+            return;
+        }
+
+        $collisions = array_intersect(array_keys($query), $route->parameterNames());
+
+        if ($collisions === []) {
+            return;
+        }
+
+        throw new LogicException(sprintf(
+            '%s: [%s] name route parameter(s) of %s, so they would be substituted into the PATH '
+            .'rather than the query string and the link would 404. Prefix the value (for_%s) and '
+            .'read it on the destination page.',
+            $subject,
+            implode(', ', $collisions),
+            $routeName,
+            reset($collisions),
+        ));
+    }
 
     /**
      * A link to a resource's list page, pre-filtered and pre-sorted.

@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Payment;
+use App\Support\Filament\PrefillsCreateForm;
 use App\Support\PostingDate;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 class CreatePayment extends CreateRecord
 {
+    use PrefillsCreateForm;
+
     /**
      * The receipt and its allocations are ONE unit of work.
      *
@@ -94,7 +97,7 @@ class CreatePayment extends CreateRecord
             $state['tenant_id'] = $tenantId;
         }
 
-        $this->form->fill($state ?: null);
+        $this->fillFormWithDefaults($state);
 
         $this->callHook('afterFill');
     }

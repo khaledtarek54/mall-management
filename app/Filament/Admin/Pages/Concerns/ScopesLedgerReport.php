@@ -8,6 +8,7 @@ use App\Models\FiscalYear;
 use App\Services\Accounting\LedgerReportService;
 use App\Support\Filament\PropertyField;
 use App\Support\ReportPreferences;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use App\Support\UnallocatedNotice;
 use Filament\Forms\Components\Select;
@@ -614,7 +615,7 @@ trait ScopesLedgerReport
             return null;
         }
 
-        return GeneralLedger::getUrl(array_filter([
+        return ResourceLink::page(GeneralLedger::class, array_filter([
             'accountId' => $accountId,
             'year' => $this->year ?? null,
             'period' => $this->period ?? null,

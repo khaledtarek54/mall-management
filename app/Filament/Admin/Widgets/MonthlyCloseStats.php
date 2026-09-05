@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\Reports;
 use App\Services\Reports\ReportService;
+use App\Support\ResourceLink;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -92,7 +93,7 @@ class MonthlyCloseStats extends StatsOverviewWidget
                 // Hand the drill-down the SAME ageing date these buckets were computed at.
                 // Without it the page re-aged at "now" and listed a different set of
                 // invoices than the total on the card the operator just clicked.
-                ->url(ArAging::getUrl([
+                ->url(ResourceLink::page(ArAging::class, [
                     'bucket' => $key,
                     'asOf' => $report['ar_aging_as_of'],
                 ]));

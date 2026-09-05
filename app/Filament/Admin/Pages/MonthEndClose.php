@@ -11,6 +11,7 @@ use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationR
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Services\Accounting\MonthEndReadinessService;
 use App\Support\Modules;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -160,7 +161,7 @@ class MonthEndClose extends Page implements HasSchemas, HasTable
     protected function stepUrl(string $key): ?string
     {
         return match ($key) {
-            'billing_posted' => BillingRunPreview::getUrl(['period' => $this->period]),
+            'billing_posted' => ResourceLink::page(BillingRunPreview::class, ['period' => $this->period]),
             'sales_declared' => TenantSalesDeclarationResource::getUrl(),
             'payments_settled' => PaymentResource::getUrl(),
             'vendor_bills_posted' => VendorBillResource::getUrl(),
