@@ -68,6 +68,52 @@ it('renders one stored line in both languages', function () {
     expect($arabic)->toMatch('/\p{Arabic}/u');
 });
 
+it('names both ends of a multi-month cycle in the reader\'s language', function () {
+    // A quarterly, semi-annual or annual lease bills a CYCLE, and the first pass handed
+    // `cycleLabel()` through as verbatim text. That method uses `format('M Y')` — `DateTime::format`,
+    // never localised — so every Arabic invoice for every non-monthly lease in the portfolio read
+    // `Base Rent - Aug–Oct 2026`. Found by review; reproduced here, which is why this case exists.
+    CarbonImmutable::setTestNow('2026-09-05 09:00:00');
+
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active',
+        'commencement_date' => '2026-08-01',
+        'expiry_date' => '2027-12-31',
+        'billing_frequency' => 'quarterly',
+        'base_rent_monthly' => 30000,
+        'service_charge_monthly' => 0,
+        'has_marketing_levy' => false,
+        'escalation_type' => 'none',
+    ]);
+
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
+        'amount' => 30000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2026-08-01', 'is_active' => true,
+    ]);
+
+    $result = app(MonthlyBillingService::class)
+        ->generateForLease($lease->fresh(), CarbonImmutable::parse('2026-08-01'));
+
+    expect($result['status'])->toBe('created');
+
+    $line = InvoiceItem::query()->latest('id')->firstOrFail();
+
+    expect($line->description_key)->toBe('billing.cycle');
+    // BOTH ENDS as dates — never a label the writer already formatted.
+    expect($line->description_data)->toHaveKeys(['from', 'to']);
+    expect($line->description_data['from'])->toBe('2026-08-01');
+
+    expect($line->narrative('en'))->toBe('Base Rent - August 2026 – October 2026');
+
+    $arabic = $line->narrative('ar');
+    expect($arabic)->toContain('Base Rent');
+    expect($arabic)->not->toContain('August');
+    expect($arabic)->not->toContain('Aug–Oct');
+    expect($arabic)->toMatch('/\p{Arabic}/u');
+});
+
 it('lets an operator who words a line themselves keep their words', function () {
     // The precedence `LeaseEventNarrative` learned the expensive way: testing the key first throws
     // away the only part of the row carrying what a person meant. Typing a description clears the

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\CreditNotes\Schemas;
 
+use App\Models\CreditNoteItem;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -67,6 +68,11 @@ class CreditNoteInfolist
                         ->schema([
                             TextEntry::make('description')
                                 ->label(__('admin.fields.description'))
+                                // Worded for whoever is signed in, exactly as the invoice twin is
+                                // (UX-30). This one was missed on the first pass and was masked by
+                                // the credit-note writers being unconverted — it would have gone
+                                // live silently the day they were.
+                                ->state(fn (CreditNoteItem $record): string => $record->narrative())
                                 ->columnSpan(2),
                             TextEntry::make('vat_amount')
                                 ->label(__('admin.fields.vat_amount'))

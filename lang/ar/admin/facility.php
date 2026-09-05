@@ -480,6 +480,7 @@ return [
     'utility' => [
         'not_billed' => 'لم تُحمَّل',
         'recharge_line' => 'إعادة تحميل :type — عداد :meter، :consumption :uom (:period)',
+        'recharge_line_no_uom' => 'إعادة تحميل :type — عداد :meter، :consumption (:period)',
         'bill_failed_missing' => 'لم تعد هذه القراءة موجودة.',
         'bill_failed_no_unit' => 'هذا العداد غير مرتبط بوحدة، فلا يوجد مستأجر لتحميله (استهلاك المناطق المشتركة على المالك).',
         'bill_failed_no_lease' => 'لا يوجد عقد نشط لوحدة هذا العداد — لا يوجد مستأجر للتحميل عليه.',

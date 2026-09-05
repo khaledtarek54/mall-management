@@ -872,8 +872,13 @@ class MonthlyBillingService
             // parenthetical where English does. A multi-month cycle names both ends, so its period
             // is prose the planner already built; a single month stores the DATE and is formatted
             // in the reader's own locale.
+            // A cycle prorates too, if it ever can — testing `$isCycle` first meant such a row
+            // carried a `pct` its template had no placeholder for. See `LineNarrative::KEYS` for
+            // the measured bound on whether that path is reachable at all.
             $narrativeKey = match (true) {
+                $isCycle && $inArrears && $proratedPct !== null => 'billing.cycle_arrears_prorated',
                 $isCycle && $inArrears => 'billing.cycle_arrears',
+                $isCycle && $proratedPct !== null => 'billing.cycle_prorated',
                 $isCycle => 'billing.cycle',
                 $inArrears && $proratedPct !== null => 'billing.period_arrears_prorated',
                 $inArrears => 'billing.period_arrears',
@@ -881,9 +886,12 @@ class MonthlyBillingService
                 default => 'billing.period',
             };
 
+            // Both ENDS of a cycle as dates, so the reader's locale names the months. Passing
+            // `cycleLabel()` through as text carried `DateTime::format`'s English into every
+            // Arabic quarterly line.
             $narrativeData = ['name' => $charge->name]
                 + ($isCycle
-                    ? ['period' => $this->cycleLabel($coveredStart, $coveredEnd)]
+                    ? ['from' => $coveredStart->toDateString(), 'to' => $coveredEnd->toDateString()]
                     : ['period' => $coveredStart->toDateString()])
                 + ($proratedPct !== null ? ['pct' => $proratedPct] : []);
 

@@ -1530,6 +1530,11 @@ class CamReconciliationService
             // invoice_id`, so it can never reach this note. That is correct: netting it would
             // subtract the true-up from the estimate the true-up was computed against.
             'cam_recovery',
+            // WHAT the line says, as data (UX-30). The `__()` above stays as the floor; this is
+            // what the tenant actually reads, in their own language, on the credit note that
+            // returns their money.
+            'credit.cam_recovery',
+            ['year' => $year],
         );
 
         return $note;

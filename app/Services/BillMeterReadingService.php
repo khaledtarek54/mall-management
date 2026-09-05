@@ -107,14 +107,21 @@ class BillMeterReadingService
                         'uom' => $meter->unit_of_measurement ?: '',
                         'period' => $periodStart->isoFormat('MMM YYYY'),
                     ]),
-                    'description_key' => 'utility.recharge',
-                    'description_data' => [
+                    // A meter with NO unit of measurement gets the template without one. An
+                    // absent placeholder renders an em dash — right for a missing reference on a
+                    // financial statement, wrong here, where a dash straight after the consumption
+                    // figure on a tax invoice reads as a missing NUMBER. The column is nullable
+                    // and the form does not require it, so this is an ordinary meter.
+                    'description_key' => filled($meter->unit_of_measurement)
+                        ? 'utility.recharge'
+                        : 'utility.recharge_no_uom',
+                    'description_data' => array_filter([
                         'type' => $meter->type,
                         'meter' => $meter->meter_number,
                         'consumption' => number_format((float) $locked->consumption, 2),
-                        'uom' => $meter->unit_of_measurement ?: '',
+                        'uom' => $meter->unit_of_measurement ?: null,
                         'period' => $periodStart->toDateString(),
-                    ],
+                    ], fn ($value) => $value !== null),
                     'type' => 'utility', // → utility_revenue in the GL journalizer
                     'amount' => $amount,
                     'vat_rate' => $vatRate,

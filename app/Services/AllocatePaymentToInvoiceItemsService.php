@@ -71,7 +71,9 @@ class AllocatePaymentToInvoiceItemsService
 
             if ($amount > (float) $item->total) {
                 throw new DomainException(__('admin.errors.item_allocation_exceeds_line', [
-                    'line' => $item->description,
+                    // The line as the READER reads it: interpolating the stored column put an
+                    // English sentence inside an Arabic refusal (UX-30).
+                    'line' => $item->narrative(),
                     'total' => number_format((float) $item->total, 2),
                 ]));
             }

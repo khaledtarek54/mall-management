@@ -232,7 +232,10 @@ class LeaseBillingForecastService
             ->whereNotNull('period_start')
             // The LINES too, not just the header — the forecast row reads every figure from the
             // invoice once one exists, so the columns cannot disagree with each other.
-            ->with('items:id,invoice_id,type,description,amount,vat_amount')
+            // `description_key` and `description_data` MUST be in this select. Without them
+            // `narrative()` reads two nulls and falls silently to the frozen prose — no error, no
+            // strict-mode complaint, just the old behaviour wearing the new call. Found by review.
+            ->with('items:id,invoice_id,type,description,description_key,description_data,amount,vat_amount')
             ->whereNotNull('period_end')
             ->get(['id', 'number', 'total', 'subtotal', 'vat_amount', 'period_start', 'period_end', 'status'])
             // ── KEYED BY THE WHOLE PERIOD, NOT THE MONTH IT STARTS IN (2026-08-28) ──────────

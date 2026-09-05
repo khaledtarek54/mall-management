@@ -4,14 +4,17 @@ return [
     // انظر الملف الإنجليزي: الجملة كاملة هي القالب، وليست جذعًا يُضاف إليه لاحقة.
     'invoice_lines' => [
         'period' => ':name - :period',
-        'period_arrears' => ':name - :period (متأخر)',
+        'period_arrears' => ':name - :period (مستحق عن فترة سابقة)',
         'period_prorated' => ':name - :period (:pct% بالتناسب)',
-        'period_arrears_prorated' => ':name - :period (متأخر) (:pct% بالتناسب)',
-        'cycle' => ':name - :period',
-        'cycle_arrears' => ':name - :period (متأخر)',
+        'period_arrears_prorated' => ':name - :period (مستحق عن فترة سابقة) (:pct% بالتناسب)',
+        'cycle' => ':name - :from – :to',
+        'cycle_arrears' => ':name - :from – :to (مستحق عن فترة سابقة)',
+        'cycle_prorated' => ':name - :from – :to (:pct% بالتناسب)',
+        'cycle_arrears_prorated' => ':name - :from – :to (مستحق عن فترة سابقة) (:pct% بالتناسب)',
         'cam_reconciliation' => 'تسوية مصروفات المنطقة المشتركة — :year',
         'cam_admin_fee' => 'رسوم إدارة المصروفات المشتركة — :year',
-        'percentage_rent' => 'الإيجار النسبي — :label',
+        'percentage_rent' => 'الإيجار النسبي — :period',
+        'percentage_rent_span' => 'الإيجار النسبي — :from – :to',
     ],
 
     'billing_frequency' => [
@@ -134,6 +137,7 @@ return [
     'credit_notes' => [
         'line_unearned' => 'مدة مفوترة غير مستحقة على :invoice بعد :through',
         'line_cam_recovery' => 'ردّ فائض تحصيل المصروفات المشتركة — تسوية :year',
+        'line_unearned_charge' => ':charge — مدة مفوترة غير مستحقة على :invoice بعد :through',
         'unearned_on_termination' => 'الجزء غير المستحق من الفاتورة :invoice — انتهى العقد في :date، وكانت الفاتورة محتسبة حتى :through.',
         'unearned_on_transfer' => 'الجزء غير المستحق من الفاتورة :invoice — انتقلت ملكية الوحدة في :date، وكانت الفاتورة محتسبة حتى :through.',
     ],

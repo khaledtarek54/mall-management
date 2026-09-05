@@ -45,6 +45,79 @@ const LINE_PROSE_EXEMPT = [
         .' the string is read by the gateway, never rendered on a document a tenant files',
 ];
 
+/**
+ * Every file that could raise a money-document line — services AND the Filament screens the
+ * exemptions name. The first version globbed `app/Services` only, so the exemption registered for
+ * `InvoiceForm` protected a file the sweep could never reach: it read as coverage and covered
+ * nothing.
+ *
+ * @return list<string>
+ */
+function lineWritingFiles(): array
+{
+    return array_merge(
+        glob(base_path('app/Services/*.php')),
+        glob(base_path('app/Services/*/*.php')),
+        glob(base_path('app/Filament/Admin/Resources/*/Schemas/*.php')),
+        glob(base_path('app/Models/*.php')),
+    );
+}
+
+/**
+ * Each `->describeAs(...)` call's argument list, as source text.
+ *
+ * Tokenised, never brace-counted over raw characters: a `[` or `(` inside a string makes a
+ * character counter run to end of file and fail OPEN, which is the exact defect the review of
+ * `MoneyDocumentDoors` caught in a sibling gate.
+ *
+ * @return list<string>
+ */
+function describeAsCalls(string $source): array
+{
+    $tokens = array_values(token_get_all($source));
+    $calls = [];
+
+    for ($i = 0; $i < count($tokens); $i++) {
+        if (! is_array($tokens[$i]) || $tokens[$i][1] !== 'describeAs') {
+            continue;
+        }
+        if (($tokens[$i + 1] ?? null) !== '(') {
+            continue;
+        }
+
+        $depth = 0;
+        $call = [];
+
+        for ($j = $i + 1; $j < count($tokens); $j++) {
+            $token = $tokens[$j];
+
+            if ($token === '(' || $token === '[') {
+                $depth++;
+            } elseif ($token === ')' || $token === ']') {
+                $depth--;
+                if ($depth === 0) {
+                    break;
+                }
+            }
+
+            $call[] = is_array($token) ? $token[1] : $token;
+        }
+
+        $calls[] = implode('', $call);
+    }
+
+    return $calls;
+}
+
+/** PHP source with comments removed, so a key named in a docblock is not read as a writer. */
+function withoutComments(string $source): string
+{
+    return implode('', array_map(
+        fn ($token) => is_array($token) ? (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? ' ' : $token[1]) : $token,
+        token_get_all($source),
+    ));
+}
+
 it('resolves every registered narrative in both languages', function () {
     $broken = [];
 
@@ -98,10 +171,14 @@ it('resolves every registered narrative in both languages', function () {
 it('has a writer for every narrative it catalogues', function () {
     // Derived from the tree, because a key catalogued in both languages that nothing stores is a
     // sentence nobody reads — and it looks exactly like coverage.
+    //
+    // Comments are STRIPPED first. `str_contains($source, "'key'")` counted a key named in a
+    // docblock or a `// TODO` as a writer — the prose false-positive shape this project has now
+    // recorded three times, and the review caught it here as well.
     $written = [];
 
-    foreach (glob(base_path('app/Services/*.php')) + glob(base_path('app/Services/*/*.php')) as $path) {
-        $source = file_get_contents($path);
+    foreach (lineWritingFiles() as $path) {
+        $source = withoutComments(file_get_contents($path));
 
         foreach (array_keys(LineNarrative::KEYS) as $key) {
             if (str_contains($source, "'{$key}'")) {
@@ -123,28 +200,59 @@ it('lets no line-raising service store prose with no key', function () {
     $offenders = [];
     $checked = 0;
 
-    $files = array_merge(glob(base_path('app/Services/*.php')), glob(base_path('app/Services/*/*.php')));
-
-    foreach ($files as $path) {
+    foreach (lineWritingFiles() as $path) {
         $relative = str_replace(base_path().'/', '', $path);
         $source = file_get_contents($path);
 
-        // A line-raiser is a file that puts a `description` into an ITEMS array — the shape every
-        // one of these services uses — rather than any file mentioning the word.
-        if (! preg_match('/items:\s*\[|\$items\[\]|items\'\s*=>\s*\[/', $source)) {
-            continue;
-        }
-        if (! str_contains($source, "'description' =>")) {
+        // A line-raiser puts a `description` into an ITEMS array — or calls `describeAs()`, the
+        // one seam that creates a CREDIT-NOTE line, which takes its text as a POSITIONAL argument
+        // and so has neither shape. The first version of this gate matched the array only, and
+        // measured on the two offenders (`CreditUnearnedBillingService`, `CreditNoteService`) it
+        // found zero of either marker: **the files that most obviously broke the rule were not
+        // even examined**, and `$checked` passed on the invoice services alone. Found by review.
+        $raisesInvoiceLine = preg_match('/items:\s*\[|\$items\[\]|items\'\s*=>\s*\[/', $source)
+            && str_contains($source, "'description' =>");
+        $raisesCreditNoteLine = str_contains($source, '->describeAs(');
+
+        if (! $raisesInvoiceLine && ! $raisesCreditNoteLine) {
             continue;
         }
 
         $checked++;
 
-        if (str_contains($source, "'description_key' =>") || isset(LINE_PROSE_EXEMPT[$relative])) {
+        if (isset(LINE_PROSE_EXEMPT[$relative])) {
             continue;
         }
 
-        $offenders[] = $relative;
+        // Per CALL, not per FILE. `CamReconciliationService` raises three lines — two invoice, one
+        // credit note — and a file-wide `str_contains` let its two converted sites vouch for the
+        // third, which was still resolving `__()` at write time.
+        $invoiceCalls = substr_count($source, "'description' =>");
+        $keyed = substr_count($source, "'description_key' =>");
+
+        if ($raisesInvoiceLine && $keyed < $invoiceCalls) {
+            $offenders[] = "{$relative}: {$invoiceCalls} invoice line(s), {$keyed} keyed";
+        }
+
+        // Per CALL for the credit-note seam too, by slicing each `->describeAs(` argument list on
+        // TOKENS. Counting a variable name (`$narrativeKey`) instead missed the call site that
+        // passes its key as a literal — a detector that only sees one spelling of the right answer
+        // reports the other as broken.
+        foreach (describeAsCalls($source) as $call) {
+            $namesAKey = false;
+
+            foreach (array_keys(LineNarrative::KEYS) as $key) {
+                if (str_contains($call, "'{$key}'")) {
+                    $namesAKey = true;
+                    break;
+                }
+            }
+
+            // …or hands one through, which is what a branch on the line's shape looks like.
+            if (! $namesAKey && ! str_contains($call, '$narrativeKey')) {
+                $offenders[] = "{$relative}: a describeAs() call names no narrative key";
+            }
+        }
     }
 
     expect($checked)->toBeGreaterThan(5, 'The sweep found almost no line-raising service — it is '
@@ -174,4 +282,44 @@ it('keeps no stale exemption', function () {
     }
 
     expect($stale)->toBe([], implode("\n  ", $stale));
+});
+
+it('consumes every placeholder its writers supply', function () {
+    // The tooth whose absence made the worst finding of the review invisible: `billing.cycle`
+    // carried a `pct` its template had no `:pct` in, so a part-quarter line stored the pro-ration
+    // and silently dropped it — and because the PDF renders the narrative, the ENGLISH invoice
+    // lost a clause it used to print. Every gate was green throughout, because all of them look at
+    // the template or at the writer, and never at the two together.
+    $unconsumed = [];
+
+    foreach (LineNarrative::KEYS as $key => $spec) {
+        $declared = array_merge(
+            $spec['text'] ?? [],
+            $spec['month'] ?? [],
+            $spec['date'] ?? [],
+            array_keys($spec['trans'] ?? []),
+            array_keys($spec['catalogue'] ?? []),
+        );
+
+        $template = (string) trans($spec['lang'], [], 'en');
+
+        foreach ($declared as $placeholder) {
+            if (! str_contains($template, ':'.$placeholder)) {
+                $unconsumed[] = "{$key}: declares :{$placeholder}, which the template never prints";
+            }
+        }
+
+        // …and the other direction: a template printing a placeholder the registry does not
+        // declare renders a literal `:name` on a tax invoice.
+        preg_match_all('/:([a-z_]+)/', $template, $matches);
+
+        foreach (array_unique($matches[1]) as $printed) {
+            if (! in_array($printed, $declared, true)) {
+                $unconsumed[] = "{$key}: template prints :{$printed}, which the registry does not declare";
+            }
+        }
+    }
+
+    expect($unconsumed)->toBe([], "A narrative and its template disagree about what the line says:\n  "
+        .implode("\n  ", $unconsumed));
 });

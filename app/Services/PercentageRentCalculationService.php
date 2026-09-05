@@ -789,8 +789,15 @@ class PercentageRentCalculationService
             items: [[
                 'charge_id' => $charge->id,
                 'description' => $label,
-                'description_key' => 'percentage_rent.line',
-                'description_data' => ['label' => $periodLabel],
+                // The DATES, not `periodLabel()` — that is `isoFormat()` in the WRITER's locale,
+                // so an operator billing in Arabic sent an English-reading tenant an Arabic month.
+                'description_key' => $declaration->is($last) ? 'percentage_rent.line' : 'percentage_rent.span',
+                'description_data' => $declaration->is($last)
+                    ? ['period' => $declaration->period_start->toDateString()]
+                    : [
+                        'from' => $declaration->period_start->toDateString(),
+                        'to' => $last->period_end->toDateString(),
+                    ],
                 'type' => 'percentage_rent', // → percentage_rent_revenue in the GL journalizer
                 'amount' => $amount,
                 'vat_rate' => $vatRate,

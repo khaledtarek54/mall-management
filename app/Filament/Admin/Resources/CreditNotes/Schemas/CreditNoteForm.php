@@ -93,6 +93,13 @@ class CreditNoteForm
                                 if (! $hasLines && $invoice->items->isNotEmpty()) {
                                     $rows = $invoice->items->map(fn ($it) => [
                                         'description' => $it->description,
+                                        // …and WHAT the line says, carried with the tax code and
+                                        // the charge code below for exactly their reason (UX-30).
+                                        // Without it a credit note raised from a line that reads
+                                        // in both languages is born frozen in whichever one the
+                                        // operator had open.
+                                        'description_key' => $it->description_key,
+                                        'description_data' => $it->description_data,
                                         // The SOURCE line's tax code, carried across with its rate. A
                                         // credit note reverses a supply at that supply's own treatment,
                                         // so re-resolving from the catalogue here would classify the

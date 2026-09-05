@@ -279,10 +279,28 @@ class CreditUnearnedBillingService
                     $description = ChargeCode::labelFor($part['type']).' — '.$description;
                 }
 
+                // The DATA (UX-30). The prose above froze this line in the language the move-out
+                // was settled in, and the charge label was a CATALOGUE lookup resolved in that
+                // same locale and then GLUED onto the front — one sentence in two languages the
+                // moment the tenant read it in the other. The charge is a placeholder now, worded
+                // for the reader through the same `labelFor()`, and the date is stored as a date.
+                $narrativeKey = $part['type'] !== null ? 'credit.unearned_charge' : 'credit.unearned';
+                $narrativeData = ['invoice' => $invoice->number, 'through' => $periodEnd->toDateString()]
+                    + ($part['type'] !== null ? ['charge' => $part['type']] : []);
+
                 // The source line's own tax code travels onto the credit — a reversal never
                 // re-classifies the supply it reverses. Nor does its charge: `type` is what lets
                 // the CAM pools net this credit off what they billed, by line.
-                $note->describeAs($description, $part['amount'], $part['rate'], $part['vat'], $part['tax_code'], $part['type']);
+                $note->describeAs(
+                    $description,
+                    $part['amount'],
+                    $part['rate'],
+                    $part['vat'],
+                    $part['tax_code'],
+                    $part['type'],
+                    $narrativeKey,
+                    $narrativeData,
+                );
             }
 
             $service = app(CreditNoteService::class);

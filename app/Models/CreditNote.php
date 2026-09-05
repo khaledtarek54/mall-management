@@ -174,11 +174,25 @@ class CreditNote extends Model
      * invoice status, so no status filter could ever have seen one. Null means *not stated*: not
      * netted, rather than guessed.
      */
-    public function describeAs(string $description, float $amount, float $vatRate, float $vatAmount, ?string $taxCode = null, ?string $type = null): CreditNoteItem
-    {
+    public function describeAs(
+        string $description,
+        float $amount,
+        float $vatRate,
+        float $vatAmount,
+        ?string $taxCode = null,
+        ?string $type = null,
+        ?string $narrativeKey = null,
+        ?array $narrativeData = null,
+    ): CreditNoteItem {
         return $this->items()->create([
             'type' => $type,
             'description' => $description,
+            // WHAT the line says, as data (UX-30). Without these two the credit-note half of that
+            // change was inert: the columns existed, both PDFs and the API called `narrative()`,
+            // and no writer could store a key because this — the only seam that creates a
+            // credit-note line — had nowhere to put one.
+            'description_key' => $narrativeKey,
+            'description_data' => $narrativeData,
             'tax_code' => $taxCode,
             'amount' => round($amount, 2),
             'vat_rate' => $vatRate,

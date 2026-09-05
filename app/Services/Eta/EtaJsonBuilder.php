@@ -124,6 +124,11 @@ class EtaJsonBuilder
             $vatAmount = (float) ($item->vat_amount ?? 0);
 
             return [
+                // The STORED column, deliberately, and now the only reader left on it (UX-30).
+                // Every human-facing surface words a line for its reader; a filing does not have
+                // one — it goes to the Tax Authority, whose submission language is fixed, and the
+                // document already filed must keep saying exactly what was filed. Module 16 is in
+                // `Modules::FROZEN` in any case, so nothing here runs today.
                 'description' => $item->description,
                 'itemType' => 'EGS', // Egyptian Goods/Services classification
                 'itemCode' => $this->mapItemCode($item->charge?->type),

@@ -495,6 +495,8 @@ return [
     'utility' => [
         'not_billed' => 'Not billed',
         'recharge_line' => ':type recharge — meter :meter, :consumption :uom (:period)',
+        // A meter with no unit of measurement recorded — nullable, and not required on the form.
+        'recharge_line_no_uom' => ':type recharge — meter :meter, :consumption (:period)',
         'bill_failed_missing' => 'That reading no longer exists.',
         'bill_failed_no_unit' => 'This meter is not assigned to a unit, so there is no tenant to recharge (common-area consumption is a landlord cost).',
         'bill_failed_no_lease' => 'The meter\'s unit has no active lease — there is no tenant to bill.',

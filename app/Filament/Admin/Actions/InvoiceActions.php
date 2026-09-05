@@ -235,7 +235,9 @@ class InvoiceActions
         $items = $all->filter(fn (InvoiceItem $i): bool => $i->isDisputed());
 
         return $items->mapWithKeys(fn (InvoiceItem $i): array => [
-            $i->id => $i->description.' · '.($i->disputed_reason ?? ''),
+            // `narrative()`, not the raw column: on the Arabic panel a stored English line read
+            // as English in an otherwise Arabic picker (UX-30).
+            $i->id => $i->narrative().' · '.($i->disputed_reason ?? ''),
         ])->all();
     }
 
@@ -250,7 +252,7 @@ class InvoiceActions
         $items = $record->items;
 
         return $items->mapWithKeys(fn (InvoiceItem $i): array => [
-            $i->id => $i->description.' · EGP '.number_format((float) $i->total, 2)
+            $i->id => $i->narrative().' · EGP '.number_format((float) $i->total, 2)
                 .($i->isDisputed() ? ' · '.__('admin.reports.disputed') : ''),
         ])->all();
     }
@@ -291,7 +293,7 @@ class InvoiceActions
                 ->native(false)
                 ->required(),
             ...$items->map(fn (InvoiceItem $item): TextInput => TextInput::make("items.{$item->id}")
-                ->label($item->description)
+                ->label($item->narrative())
                 ->prefix('EGP')
                 ->numeric()
                 ->minValue(0)

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\ChargeCode;
 use App\Models\ViolationCategory;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -80,21 +81,60 @@ final class LineNarrative
         'billing.period_arrears' => ['lang' => 'admin.invoice_lines.period_arrears', 'text' => ['name'], 'month' => ['period']],
         'billing.period_prorated' => ['lang' => 'admin.invoice_lines.period_prorated', 'text' => ['name', 'pct'], 'month' => ['period']],
         'billing.period_arrears_prorated' => ['lang' => 'admin.invoice_lines.period_arrears_prorated', 'text' => ['name', 'pct'], 'month' => ['period']],
-        // A cycle spanning more than one month states both ends, so `period` is prose the caller
-        // built from two dates and there is nothing here to re-format.
-        'billing.cycle' => ['lang' => 'admin.invoice_lines.cycle', 'text' => ['name', 'period']],
-        'billing.cycle_arrears' => ['lang' => 'admin.invoice_lines.cycle_arrears', 'text' => ['name', 'period']],
+        // A cycle spanning more than one month states BOTH ENDS as dates, never a pre-built label.
+        // The first version passed `cycleLabel()` through as verbatim text — and that method uses
+        // `format('M Y')`, i.e. `DateTime::format`, which is never localised: an Arabic quarterly
+        // invoice read `Service Charge - Jul–Sep 2026`, the exact half-translated line this class
+        // exists to end, on every quarterly, semi-annual and annual lease. Found by review.
+        'billing.cycle' => ['lang' => 'admin.invoice_lines.cycle', 'text' => ['name'], 'month' => ['from', 'to']],
+        'billing.cycle_arrears' => ['lang' => 'admin.invoice_lines.cycle_arrears', 'text' => ['name'], 'month' => ['from', 'to']],
+        // …and a cycle PRORATES, if it ever can. `$isCycle` was tested first in the writer's
+        // match, so a multi-month row could never reach a prorated key while carrying a `pct` the
+        // `cycle` template had no `:pct` to print — data stored and silently dropped.
+        //
+        // **Honest bound on that**: three routes were driven against the real billing service to
+        // produce a prorated cycle — a mid-quarter commencement, a final quarter truncated at
+        // expiry, and a charge starting mid-cycle — and in every one the WINDOW shrinks instead of
+        // the row prorating, so `$rowFactor` stayed 1. The shape defect was real and is now
+        // impossible (the conformance gate's placeholder-consumed tooth fails on it); the claim
+        // that it was reaching a tenant's invoice is NOT demonstrated, and these two keys are here
+        // so that if the path ever opens the clause words itself instead of vanishing.
+        'billing.cycle_prorated' => ['lang' => 'admin.invoice_lines.cycle_prorated', 'text' => ['name', 'pct'], 'month' => ['from', 'to']],
+        'billing.cycle_arrears_prorated' => ['lang' => 'admin.invoice_lines.cycle_arrears_prorated', 'text' => ['name', 'pct'], 'month' => ['from', 'to']],
 
         // ── The five that already had a key and resolved it too early ─────────────────────────
         'late_fee.line' => ['lang' => 'admin.actions.late_fee_line_description', 'text' => ['percent', 'balance', 'min', 'invoice']],
+        // Two keys, because a meter's unit of measurement is NULLABLE and the form does not
+        // require it. An absent value renders an em dash — right for a missing reference on a
+        // financial statement, wrong here, where a dash straight after the consumption figure on a
+        // tax invoice reads as a missing NUMBER. One template per shape, as everywhere else.
         'utility.recharge' => ['lang' => 'admin.utility.recharge_line', 'text' => ['meter', 'consumption', 'uom'], 'month' => ['period'], 'trans' => ['type' => 'admin.enums.meter_type']],
+        'utility.recharge_no_uom' => ['lang' => 'admin.utility.recharge_line_no_uom', 'text' => ['meter', 'consumption'], 'month' => ['period'], 'trans' => ['type' => 'admin.enums.meter_type']],
         'nsf_fee.line' => ['lang' => 'admin.post_dated_cheques.nsf_fee_line', 'text' => ['cheque', 'bank']],
         'deposit.line' => ['lang' => 'admin.deposits.invoice_line', 'text' => ['ref']],
+
+        // ── Credit-note lines. The tenant reads these beside the invoice they reverse ─────────
+        'credit.cam_recovery' => ['lang' => 'admin.credit_notes.line_cam_recovery', 'text' => ['year']],
+        'credit.unearned' => ['lang' => 'admin.credit_notes.line_unearned', 'text' => ['invoice'], 'date' => ['through']],
+        // The charge being credited was prepended OUTSIDE the sentence — a catalogue label
+        // resolved in the writer's locale, glued to a translated string. One template instead.
+        'credit.unearned_charge' => ['lang' => 'admin.credit_notes.line_unearned_charge', 'text' => ['invoice'], 'date' => ['through'], 'catalogue' => ['charge' => ChargeCode::class]],
 
         // ── The annual recovery, on the document a tenant queries hardest ─────────────────────
         'cam.reconciliation' => ['lang' => 'admin.invoice_lines.cam_reconciliation', 'text' => ['year']],
         'cam.admin_fee' => ['lang' => 'admin.invoice_lines.cam_admin_fee', 'text' => ['year']],
-        'percentage_rent.line' => ['lang' => 'admin.invoice_lines.percentage_rent', 'text' => ['label']],
+        // Both ends as DATES. The first version stored `periodLabel()`, which is
+        // `isoFormat('MMM YYYY')` resolved at BILLING time — so an operator billing in Arabic sent
+        // an English-reading tenant `Percentage rent — سبتمبر ٢٠٢٦`. Half the sentence translated
+        // is the failure this whole class exists to remove.
+        // No `name` placeholder: the words belong to the TEMPLATE. `$charge->name` here is the
+        // frozen label itself (`'Percentage Rent — '.periodLabel()`), so passing it through would
+        // have carried the defect back in under a new key.
+        // One declared month, or a span. Without the first, a single-month overage read
+        // "September 2026 – September 2026" — the same month printed twice, which is worse than
+        // the English line it replaced.
+        'percentage_rent.line' => ['lang' => 'admin.invoice_lines.percentage_rent', 'month' => ['period']],
+        'percentage_rent.span' => ['lang' => 'admin.invoice_lines.percentage_rent_span', 'month' => ['from', 'to']],
         'violation.fine' => ['lang' => 'admin.violations.fine_line', 'text' => ['reference'], 'date' => ['date'], 'catalogue' => ['category' => ViolationCategory::class]],
     ];
 
