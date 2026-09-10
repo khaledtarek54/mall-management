@@ -2438,3 +2438,37 @@ worn as a checkbox. In the receipt freeze AND the settled-account freeze now, an
 fixable-until-drawn-on design and the over-lock control in the test. See
 [CHANGE-IMPACT-PLAN §17](../accounting/CHANGE-IMPACT-PLAN.md); `AMoneyStateMovesThroughAnActTest`,
 mutation-proved.
+
+### A lease is not ENTERED past its own term, and a lease that ended can still be closed out
+
+Two halves of one report ("status still shows Active once the Ends date has passed").
+
+**Entering it.** `leases:expire` is a NIGHTLY sweep, so a lease keyed today for a term that ended
+last year read *Active* until 05:15 — the register, the occupancy figures and the rent roll all
+showing a state the system itself already disagreed with (`hasExpiredTerm()` was true the moment it
+was written). Yardi derives a lease's status from its dates plus explicit acts, so entering a
+historical lease in Voyager shows it as Past immediately. `LeaseForm` therefore stops OFFERING
+`active` once the expiry typed has already passed, reactively, with a helper text saying why — the
+same rule the unit's occupancy follows: do not accept a state you will silently correct later.
+
+**Deliberately at the FORM, not on the model.** A `saving` hook rewriting the column was tried and
+reverted. It makes "active with a past term" impossible — and THREE services still refuse to act on
+a lease that is not `active`: `LeaseRenewalService`, `AssignRentableItemService`, and (until this
+change) `LeaseTerminationService`. Making that state impossible a day earlier than the sweep already
+does turns three latent gaps into immediate ones without fixing any of them. **The other two remain
+open and are recorded here rather than implied: a lease cannot be RENEWED or take a PARKING BAY once
+its term has run out**, which for renewals is the common case, since they are routinely signed late.
+
+**Closing it out.** At the end of a term an operator has three answers — renew, hold over, close out
+— and the sweep projects the whole candidate set to `expired`. Holding over was given its carve-out
+when LE-04 was found unreachable (`awaitsHoldoverDecision()` accepts `expired` for exactly that
+reason); closing out was not, so after 05:15 a tenant who had actually left could not be recorded as
+having left. `LeaseTerminationService` accepts `expired` now, and `Lease::isClosingOutAnExpiredTerm()`
+is the immutability carve-out — the sibling of `isResumingFromExpiry()`, recognised by the SHAPE of
+the write (`expired` → `terminated`, touching no commercial term, which `LeaseForm` cannot produce
+because it withholds `terminated` unless the record is already in it). A tenancy somebody already
+closed stays refused, and an expired lease stays immutable for everything else.
+
+A past-term lease is also never "under notice": notice is a statement about a tenancy that is still
+running, so terminating one that has already expired records a MOVE-OUT and moves it straight to
+`terminated`. (`ALeaseIsNeverEnteredPastItsOwnTermTest`.)

@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'lease_term_has_run_out' => 'This term has already ended, so the lease cannot be made active. Renew it, or record a holdover.',
         'requires_sales_reporting' => 'Leave unset unless the lease says otherwise — a tenant may owe turnover without owing percentage rent.',
         'reversal_reason' => 'This is recorded permanently in the audit trail.',
         'cam_period_year' => 'The calendar year this pool reconciles. One pool per property per year.',

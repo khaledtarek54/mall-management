@@ -399,12 +399,57 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 // terminated lease and changing its rent/status/dates) without freezing housekeeping.
                 $allowed = ['notes', 'metadata', 'updated_at', 'deleted_at'];
                 $blocked = collect($lease->getDirty())->keys()->reject(fn ($k) => in_array($k, $allowed, true));
-                if ($blocked->isNotEmpty() && ! $lease->isResumingFromExpiry()) {
+                if ($blocked->isNotEmpty() && ! $lease->isResumingFromExpiry() && ! $lease->isClosingOutAnExpiredTerm()) {
                     throw new \DomainException(__('admin.refusals.immutable_lease', ['status' => Translate::orHumanized("admin.statuses.lease.{$original}", $original)]));
                 }
             }
         });
     }
+
+    /**
+     * Is this write CLOSING OUT a lease whose term already ran out?
+     *
+     * The sibling of {@see isResumingFromExpiry()}, and it exists for the same reason. At the end of
+     * a term an operator has two answers — hold the tenancy over, or close it out — and `expired` is
+     * in {@see TERMINAL_STATUSES}, so this hook refused BOTH. Holding over was given its carve-out
+     * when LE-04 was found unreachable; closing out was not, and stayed refused: after 05:15 a
+     * tenant who had actually left could not be recorded as having left.
+     *
+     * Recognised by the SHAPE of the write, never by trusting a caller — the same discipline its
+     * sibling follows. The shape is unambiguous and no form can produce it: `expired` → `terminated`,
+     * which `LeaseForm` does not offer (it withholds `terminated` unless the record is already in
+     * it), touching none of the commercial terms.
+     */
+    public function isClosingOutAnExpiredTerm(): bool
+    {
+        if ($this->getOriginal('status') !== 'expired' || $this->status !== 'terminated') {
+            return false;
+        }
+
+        return collect($this->getDirty())
+            ->keys()
+            ->intersect(self::CLOSE_OUT_FORBIDS)
+            ->isEmpty();
+    }
+
+    /**
+     * What a close-out may NOT touch — the resumption denylist minus `expiry_date`.
+     *
+     * A termination MOVES the expiry date: that is when the tenancy actually ended, and it is what
+     * every projection reads. Everything else is the deal, and closing a tenancy out does not
+     * re-negotiate it.
+     */
+    public const CLOSE_OUT_FORBIDS = [
+        'tenant_id',
+        'unit_id',
+        'start_date',
+        'commencement_date',
+        'base_rent_rate_per_sqm_year',
+        'rent_pricing_basis',
+        'security_deposit_months',
+        'previous_lease_id',
+        'deleted_at',
+    ];
 
     /**
      * The commercial terms a resumption may NOT touch — a denylist, deliberately.

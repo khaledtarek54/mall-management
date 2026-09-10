@@ -306,15 +306,27 @@ class LeaseForm
                         // AR and its deposit all stay exactly as they were — which reads as done and
                         // is not. Reached through the Terminate / Renew actions instead. A record
                         // already in one of them is still rendered, so the select is never blank.
+                        // `active` is ALSO withheld once the term typed on the Term tab has already
+                        // run out — the model refuses to store it (see Lease::booted), and offering
+                        // a choice the save will overwrite is the silent-discard failure this panel
+                        // has already been reported for once, on the unit's status. Reactive on the
+                        // expiry date, so entering a historical lease stops offering it the moment
+                        // the dates say so rather than after a save.
                         Select::make('status')
                             ->label(__('admin.tables.common.status'))
-                            ->options(fn (?Lease $record): array => collect(__('admin.statuses.lease'))
+                            ->options(fn (?Lease $record, Get $get): array => collect(__('admin.statuses.lease'))
                                 ->reject(fn ($label, $value) => in_array($value, ['renewed', 'terminated'], true)
                                     && $record?->status !== $value)
+                                ->reject(fn ($label, $value) => $value === 'active'
+                                    && $record?->status !== 'active'
+                                    && self::termHasRunOut($get, $record))
                                 ->all())
                             ->default('draft')
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            ->helperText(fn (?Lease $record, Get $get): ?string => self::termHasRunOut($get, $record)
+                                ? __('admin.helpers.lease_term_has_run_out')
+                                : null),
                         Toggle::make('show_occupied_units')
                             ->label(__('admin.fields.show_occupied_units'))
                             ->helperText(__('admin.helpers.show_occupied_units'))
@@ -978,6 +990,36 @@ class LeaseForm
     private static function isInvoiced(?Lease $record): bool
     {
         return $record !== null && $record->invoices()->exists();
+    }
+
+    /**
+     * Has the term the operator is currently typing already run out?
+     *
+     * Read from the FORM's own expiry date, not from the saved lease, so entering a historical
+     * tenancy stops offering `active` while the dates are being keyed rather than after a save
+     * silently rewrote the choice — which is the failure this whole change exists to end.
+     *
+     * A CONVERTED HOLDOVER is not "run out": its expiry is deliberately in the past and
+     * `holdover_from` is what keeps it billable. Asked of the RECORD, because a holdover is never
+     * created through this form — it is reached through the Convert action.
+     */
+    private static function termHasRunOut(Get $get, ?Lease $record): bool
+    {
+        if ($record?->isConvertedHoldover()) {
+            return false;
+        }
+
+        $expiry = $get('expiry_date') ?: $record?->expiry_date;
+
+        if (blank($expiry)) {
+            return false;   // open-ended, or not typed yet — a term that never ends cannot have ended
+        }
+
+        try {
+            return CarbonImmutable::parse($expiry)->startOfDay()->lessThan(CarbonImmutable::now()->startOfDay());
+        } catch (\Throwable) {
+            return false;   // half-typed: the date field's own rule owns that refusal, not this one
+        }
     }
 
     /**

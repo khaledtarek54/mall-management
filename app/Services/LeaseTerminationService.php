@@ -27,8 +27,22 @@ class LeaseTerminationService
      */
     public function terminate(Lease $lease, array $data): Lease
     {
-        if (! in_array($lease->status, ['active', 'pending_approval'], true)) {
-            throw new InvalidArgumentException("Lease #{$lease->id} is '{$lease->status}'; only active leases can be terminated.");
+        // `expired` is accepted, and that is not a widening of what may be terminated — it is the
+        // same correction `ConvertLeaseToHoldoverService` already carries, applied to the OTHER half
+        // of the same decision. At the end of a term an operator has exactly two answers: hold the
+        // tenancy over, or close it out. `leases:expire` projects every past-term lease to `expired`
+        // at 05:15, so holding over stayed reachable (that service asks `awaitsHoldoverDecision()`,
+        // which accepts `expired` for precisely this reason) while CLOSING IT OUT became reachable
+        // for one morning and never again — the LE-04 shape, through the door nobody checked.
+        //
+        // It is also the market standard: Voyager records a move-out against a lease whether its
+        // status is Current or Past — the move-out is a fact about the tenant, not about a status
+        // column a nightly job maintains.
+        //
+        // A tenancy somebody ALREADY closed is still refused, because `terminated` and `renewed` are
+        // not in the list; so is a `draft`, which has nothing to end.
+        if (! in_array($lease->status, ['active', 'pending_approval', 'expired'], true)) {
+            throw new InvalidArgumentException("Lease #{$lease->id} is '{$lease->status}'; only a running or just-ended lease can be terminated.");
         }
 
         $terminationDate = isset($data['termination_date']) && $data['termination_date']
@@ -67,7 +81,14 @@ class LeaseTerminationService
             // then closes the lease and frees the unit, exactly as it does for a term that runs
             // out, and it reads the termination event to close it as `terminated` rather than
             // `expired`. Yardi's model: notice given, then moved out; two states, not one.
-            $underNotice = $terminationDate->isAfter(CarbonImmutable::today());
+            // …but a lease whose TERM HAS ALREADY RUN OUT is never "under notice". Notice is a
+            // statement about a tenancy that is still running: `leases:expire` has already closed
+            // this one, and leaving it `expired` while claiming a future end date would say the
+            // shop is let until a date the term does not reach. Recording the close-out of a
+            // past-term lease is a MOVE-OUT, which is Yardi's own split — notice given, then moved
+            // out, two states — with only the second one available once the term is over.
+            $underNotice = $terminationDate->isAfter(CarbonImmutable::today())
+                && $lease->status !== 'expired';
 
             // NO note is appended. This used to write `Terminated on 2026-08-30: <reason>` into
             // `leases.notes` — raw English, frozen for ever, read by nothing, and duplicating the
