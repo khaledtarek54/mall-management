@@ -8,8 +8,11 @@
 # enforcing. By the time anything on the box can object, the release has shipped. The push is the
 # last moment where verification is both possible and cheap.
 #
-# It runs the QUICK tiers only — conformance gates, install health, the doors check — because a hook
-# people disable protects nothing. The full suite, the MySQL tier and the gate-integrity audit are
+# It runs the QUICK tiers only — the install check and the doors check, ~13s — because a hook people
+# disable protects nothing, and that is not hypothetical: the conformance gates were in this set for
+# one afternoon and the hook was switched off the first time somebody waited out their 66s. The
+# gates, the suite, the MySQL tier and the gate-integrity audit belong to the deliberate
+# `atriom:stability` run before a release. The full suite, the MySQL tier and the gate-integrity audit are
 # what `atriom:stability` (no --quick) is for, before a release.
 #
 # EXIT CODES, and why 2 is allowed here:

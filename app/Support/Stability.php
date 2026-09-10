@@ -76,7 +76,14 @@ final class Stability
         'gates' => [
             'scope' => self::CODE,
             'title' => 'Conformance gates',
-            'slow' => false,
+            // **SLOW, and that is a measured fact rather than a caution.** The Conformance suite is
+            // 639 checks over 104 files: ~66s on a quiet machine and several minutes under load.
+            // It was in the `--quick` set for one afternoon and the pre-push hook was disabled the
+            // first time somebody waited for it — which is the outcome this file's own comment
+            // predicts ("a hook people disable protects nothing"). So the hook is now genuinely
+            // cheap (doors + install, ~3s) and the gates belong to the deliberate run before a
+            // release. A guard that is merely present is worth less than a smaller one that stays on.
+            'slow' => true,
             'why' => 'The invariants this system is built on — property isolation, the GL registry, deletion policy, posting dates, value sets. A gate is the only thing standing between an invariant and the next person who has not read CLAUDE.md.',
         ],
         'integrity' => [
