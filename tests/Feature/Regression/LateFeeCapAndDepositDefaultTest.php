@@ -98,10 +98,15 @@ it('lets the cap win over the minimum when a clause sets it lower', function () 
     // clause names, which is the one outcome a cap exists to prevent.
     CarbonImmutable::setTestNow('2028-02-01');
 
-    $lease = makeLease(makeUnit(makeAsset()), null, [
-        'late_fee_percent' => 2, 'late_fee_minimum' => 500, 'late_fee_maximum' => 100,
-    ]);
-    $invoice = cappedOverdueInvoice($lease, 1000);
+    // The clause is written PAST the entry guard on purpose (2026-09-10). A minimum above the cap
+    // is refused when an operator types it — no fee can satisfy both, which is Trello H22OkiFa —
+    // but data written before that guard, or arriving through an import, still has to resolve to
+    // something. This pins what the SERVICE does with it, which is the decision above and is
+    // unchanged: the cap is applied last and wins.
+    $lease = makeLease(makeUnit(makeAsset()), null, ['late_fee_percent' => 2]);
+    $lease->forceFill(['late_fee_minimum' => 500, 'late_fee_maximum' => 100])->saveQuietly();
+
+    $invoice = cappedOverdueInvoice($lease->fresh(), 1000);
 
     app(LateFeeService::class)->applyTo($invoice);
 

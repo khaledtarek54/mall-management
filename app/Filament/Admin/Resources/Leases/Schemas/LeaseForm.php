@@ -10,6 +10,7 @@ use App\Models\Unit;
 use App\Models\UnitOwnership;
 use App\Services\ChargeScheduleService;
 use App\Services\MarketingLevyService;
+use App\Services\RentEscalationService;
 use App\Settings\BillingSettings;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
@@ -653,6 +654,31 @@ class LeaseForm
                             ->helperText(__('admin.helpers.escalation_type')),
                         TextInput::make('escalation_rate')
                             ->label(__('admin.fields.escalation_rate'))
+                            // WHAT THIS LEASE WILL ACTUALLY STEP. On a fixed clause the collar below
+                            // CLAMPS this figure — `RentEscalationService::collar()`, the same call
+                            // the sweep and the rent-change reason use — so a stated 10 under a
+                            // floor of 30 steps the rent thirty percent while this field reads 10.
+                            // Reported as the collar being purposeless (Trello kZ77DQa7); it is the
+                            // opposite, and what was missing is that nobody could see it.
+                            ->hintColor('warning')
+                            ->hint(function (Get $get, ?Lease $record): ?string {
+                                if ($get('escalation_type') !== 'fixed_percent' || blank($get('escalation_rate'))) {
+                                    return null;
+                                }
+
+                                $stated = (float) $get('escalation_rate');
+                                $applied = RentEscalationService::collar(
+                                    ($record ?? new Lease)->fill([
+                                        'escalation_floor_rate' => $get('escalation_floor_rate'),
+                                        'escalation_ceiling_rate' => $get('escalation_ceiling_rate'),
+                                    ]),
+                                    $stated,
+                                );
+
+                                return abs($applied - $stated) < 0.005 ? null : __('admin.helpers.escalation_rate_collared', [
+                                    'applied' => rtrim(rtrim(number_format($applied, 2), '0'), '.'),
+                                ]);
+                            })
                             ->numeric()
                             ->suffix('%')
                             ->minValue(0)
@@ -731,7 +757,14 @@ class LeaseForm
                             ->minValue(0)
                             ->maxValue(100)
                             ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
-                            ->helperText(__('admin.helpers.escalation_floor_rate'))
+                            // On a FIXED clause the bound OVERRIDES the stated rate — `collar()`
+                            // clamps it, which is the documented semantic `EscalationCollarTest`
+                            // pins. "The increase never falls below this" reads as vacuous when the
+                            // increase is constant, and reading it that way is exactly what
+                            // produced the card that called these fields purposeless.
+                            ->helperText(fn (Get $get) => $get('escalation_type') === 'fixed_percent'
+                                ? __('admin.helpers.escalation_collar_on_fixed')
+                                : __('admin.helpers.escalation_floor_rate'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_floor_rate')),
                         TextInput::make('escalation_ceiling_rate')
                             ->label(__('admin.fields.escalation_ceiling_rate'))
@@ -743,7 +776,14 @@ class LeaseForm
                             // API write cannot get round it.
                             ->gte('escalation_floor_rate')
                             ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
-                            ->helperText(__('admin.helpers.escalation_ceiling_rate'))
+                            // On a FIXED clause the bound OVERRIDES the stated rate — `collar()`
+                            // clamps it, which is the documented semantic `EscalationCollarTest`
+                            // pins. "The increase never falls below this" reads as vacuous when the
+                            // increase is constant, and reading it that way is exactly what
+                            // produced the card that called these fields purposeless.
+                            ->helperText(fn (Get $get) => $get('escalation_type') === 'fixed_percent'
+                                ? __('admin.helpers.escalation_collar_on_fixed')
+                                : __('admin.helpers.escalation_ceiling_rate'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_ceiling_rate')),
                         // Percent clauses only, like the collar and for the collar's own reason: a
                         // step stated in pounds is a statement about the rent, so there is no
@@ -822,6 +862,21 @@ class LeaseForm
                             ->placeholder(__('admin.fields.proration_method_inherited')),
                         TextInput::make('late_fee_maximum')
                             ->label(__('admin.fields.late_fee_maximum'))
+                            // Inline, so the operator is told at the field rather than on submit —
+                            // and again in the model, so an import or an API write cannot get round
+                            // it. NOT `->gte('late_fee_minimum')`: zero here means NO CAP, the
+                            // meaning every install had before the column existed, so the plain
+                            // rule would refuse the commonest value on the form.
+                            ->rule(fn (Get $get) => function (string $attribute, $value, Closure $fail) use ($get) {
+                                $min = $get('late_fee_minimum');
+
+                                if (filled($value) && (float) $value > 0 && filled($min) && (float) $min > (float) $value) {
+                                    $fail(__('admin.errors.late_fee_minimum_above_cap', [
+                                        'minimum' => number_format((float) $min, 2),
+                                        'maximum' => number_format((float) $value, 2),
+                                    ]));
+                                }
+                            })
                             ->helperText(__('admin.helpers.late_fee_maximum'))
                             ->numeric()
                             ->minValue(0)

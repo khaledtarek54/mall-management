@@ -81,6 +81,8 @@ return [
         'charge_code_system' => 'The billing engine uses this code, so it cannot be switched off or removed.',
         'escalation_amount' => 'The flat monthly increase applied each anniversary — “rent rises by EGP 5,000 a month each year”.',
         'escalation_floor_rate' => 'Optional minimum — the increase never falls below this.',
+        'escalation_collar_on_fixed' => 'On a fixed clause this OVERRIDES the stated rate — the step becomes this bound.',
+        'escalation_rate_collared' => 'The minimum/maximum below overrides this: the rent will actually step :applied% a year.',
         'escalation_ceiling_rate' => 'Optional cap — the increase never rises above this.',
         'posting_map_section' => 'Which chart account this role posts to. Leave the property blank for the global default every mall falls back to, or pick one to override it for that mall only.',
         'posting_role' => 'The role the code posts to by name.',

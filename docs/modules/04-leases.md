@@ -1500,6 +1500,60 @@ the collar is load-bearing rather than decorative:
 - **No index named, or no base value → skip.** An incomplete clause is not a licence to guess, and
   a zero base is not divided into: an infinite step is not a better answer than none.
 
+### ⚠️ THE COLLAR IS NOT PURPOSELESS ON A FIXED CLAUSE — IT IS INVISIBLE (2026-09-10)
+
+Trello kZ77DQa7 (High) reports Minimum/Maximum increase as having *"no functional purpose"* when
+Escalation Type is Fixed %. **The opposite is true, and the truth is worse:**
+`RentEscalationService::collar()` deliberately applies to whatever rate is about to be used, so a
+stated **10%** under a floor of **30%** steps the rent thirty percent a year, unattended, while
+Annual Escalation goes on reading 10.
+
+**Refusing that combination was tried and REVERTED, and the reasons are the useful part.** The clamp
+is the documented semantic: `EscalationCollarTest` pins *"caps the increase at the ceiling"*, *"lifts
+the increase to the floor"*, *"states the rate it actually applied, not the one on the lease"*, and —
+as the control inside its own inversion test — *"equal bounds are a fixed step, not a contradiction"*.
+`ServiceChargeEscalatesWithRentTest` pins the collared rate reaching the service charge, and
+`docs/qa/scripts/11_leasing_lifecycle.php` has a whole section headed *"the collar clamps a mistyped
+rate"*. A refusal broke five regression cases, fatalled the pre-staging QA harness before its summary
+ever printed, and — because `LeaseRenewalService` rebuilds every fillable column — made such a lease
+impossible to renew.
+
+So the clause stays legal and **the fix is visibility**: the rate field carries a live warning naming
+the step the lease will actually take, and the collar's own helper says it OVERRIDES the stated rate
+rather than *"the increase never falls below this"*, which is vacuous when the increase is constant
+and is precisely how the field came to be read as pointless. Same answer as the term-vs-expiry card
+on the same board: show the truth, do not force the values.
+
+### ⚠️ A MINIMUM LATE FEE ABOVE ITS CAP IS REFUSED (Trello H22OkiFa, High, 2026-09-10)
+
+The sibling card, and the one place the pair really is unsatisfiable. `LateFeeService` applies
+`max($min, …)` and then `min($fee, $max)`, so a minimum of 1,000 under a cap of 100 charges 100 —
+the tester's own words, *"no single fee value can satisfy both rules"*. Unlike the collar, nothing
+documents a meaning for it: a minimum that can never be reached is not a term.
+
+Refused on the MODEL, asked of the **resolved** clause rather than the two columns, because these are
+three-tier settings and a lease stating only a minimum, above a cap it inherits from the property, is
+the same contradiction. **Zero is NO CAP at every tier** — the meaning every install had before the
+column existed — so it can never be the smaller bound, which is why the form's inline rule is a
+closure rather than a plain `gte()`.
+
+**On UPDATE only, and that is deliberate.** The create doors are the lease form, which carries the
+inline rule, and the services that COPY an existing clause — `LeaseRenewalService` rebuilds every
+fillable column, so without this a lease already carrying the contradiction could not be renewed at
+all, refused with a message about late fees. `LeaseImporter` carries no late-fee columns, so an
+import reaches neither guard.
+
+**The clamp ORDER is untouched and still correct.** `LateFeeCapAndDepositDefaultTest` pins that the
+cap wins, and it must: data written before this guard still has to resolve to something. That
+fixture now builds the contradictory clause past the entry guard and says why — the refusal and the
+resolution are complements, not alternatives.
+
+**Still open, found and not fixed:** `billing.late_fee_minimum` and `late_fee_maximum` are also
+portfolio and per-property settings, and neither the Settings screen nor Property overrides carries
+a cross-field rule — so the state can be recreated one tier up, silently, for every lease that
+inherits it. The refusal even tells the operator to lower a minimum that may live there. It wants
+its own change. (`ALeaseClauseCannotContradictItselfTest`, six teeth mutation-proved.)
+
 ### A falling index does not cut the rent, and does not move the base
 
 The clause says the rent increases by the index movement; nothing in it says it decreases. So a

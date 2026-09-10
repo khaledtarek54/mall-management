@@ -525,6 +525,7 @@ return [
         'unit_area_use_remeasure' => 'A unit’s area is a dated record, not a field. Use “Remeasure” so the change carries the date it takes effect from — otherwise past periods would be re-apportioned on a measurement that was not true at the time.',
         'unit_area_not_after_current' => 'This measurement starts on or before the one it would replace, which would leave two areas claiming the same day. Date it after the current measurement began.',
         'escalation_collar_inverted' => 'The minimum increase cannot be above the maximum. As written the cap would always win, so the minimum you set is the one increase that could never happen.',
+        'late_fee_minimum_above_cap' => 'The minimum late fee (:minimum) is above the cap (:maximum), and no fee can be both — the cap is applied last, so the minimum is the one amount that could never be charged. Lower the minimum, raise the cap, or set the cap to 0 for no cap.',
         'lease_expiry_before_commencement' => 'A lease cannot end (:expiry) before it starts (:commencement). Check the year — a lease with a backwards term never bills again, and its charges end before they begin.',
         'option_notice_window_inverted' => 'The notice window closes (:latest) before it opens (:earliest). As written the option could never be exercised — it would read as closed on every day it was supposed to be open.',
         'negative_security_deposit' => 'A security deposit cannot be negative. Enter 0 for a deposit-free lease.',

@@ -15,6 +15,7 @@ use App\Models\Concerns\Lease\HasLeaseTermState;
 use App\Models\Concerns\Lease\HasRenewalLineage;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\ChargeScheduleService;
+use App\Services\RentEscalationService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
@@ -210,16 +211,73 @@ class Lease extends Model implements BillableAgreement, HasMedia
             }
         });
 
-        // ── The escalation collar must be a range, not a contradiction ─────────────────────────
-        // A floor above the ceiling has no reading: `RentEscalationService::collar()` applies the
-        // floor and then the ceiling, so the ceiling silently wins and the "minimum" the operator
-        // typed is the one thing that cannot happen. Refused at the model so an import or an API
-        // write is covered too — the form's `gte()` only guards the screen.
+        // ── A FLOOR ABOVE ITS OWN CEILING HAS NO READING, AND THIS LEASE HAS THREE SUCH PAIRS ──
+        //
+        // One rule, three places it applies. The first was guarded; the other two were reported
+        // from the panel on 2026-09-10 (Trello kZ77DQa7 and H22OkiFa) and are the same sentence
+        // about different columns: whichever bound is applied LAST silently wins, and the figure
+        // the operator typed becomes the one thing that can never happen. Refused at the MODEL so
+        // an import or an API write is covered too — the form's inline rules only guard the screen.
         static::saving(function (self $lease) {
-            if ($lease->escalation_floor_rate !== null
+            // ── ONLY ON A DIRTY WRITE OF THE CLAUSE ITSELF ────────────────────────────────
+            //
+            // Every one of these is refused only when the operator is TOUCHING that clause, for the
+            // reason the bank-account chart rule states: a lease already carrying the contradiction
+            // — and staging has one, which is where these cards came from — would otherwise become
+            // unsaveable for any reason at all, including the edit that fixes it. A guard that
+            // blocks its own remedy protects nothing.
+            $clauseTouched = $lease->isDirty([
+                'escalation_type', 'escalation_rate', 'escalation_floor_rate', 'escalation_ceiling_rate',
+            ]);
+
+            // **A fixed rate OUTSIDE its collar is not refused, and that was tried and reverted
+            // (2026-09-10).** Trello kZ77DQa7 reports the collar as purposeless on a Fixed % clause;
+            // it is the opposite — `RentEscalationService::collar()` CLAMPS the stated rate, which
+            // is a documented, tested semantic: `EscalationCollarTest` pins "caps the increase at
+            // the ceiling", "lifts the increase to the floor" and, as its own control, "equal bounds
+            // are a fixed step, not a contradiction". Refusing the combination broke five
+            // regression cases, the pre-staging QA harness and the renewal path.
+            //
+            // So the clause stays legal and the fix is VISIBILITY: the rate field shows the step
+            // the lease will actually take. Same answer as the term-vs-expiry card — show the
+            // truth, do not force the values.
+
+            // 1. The collar itself. `RentEscalationService::collar()` applies the floor and then
+            //    the ceiling, so an inverted pair resolves to the ceiling every time.
+            if ($clauseTouched
+                && $lease->escalation_floor_rate !== null
                 && $lease->escalation_ceiling_rate !== null
                 && (float) $lease->escalation_floor_rate > (float) $lease->escalation_ceiling_rate) {
                 throw new \DomainException(__('admin.errors.escalation_collar_inverted'));
+            }
+
+            // 2. The late-fee minimum above the late-fee cap. `LateFeeService` applies
+            //    `max($min, …)` and THEN `min($fee, $max)`, so the cap wins and a minimum of 1,000
+            //    under a cap of 100 charges 100 — the tester's words, "no single fee value can
+            //    satisfy both rules".
+            //
+            //    Asked of the RESOLVED clause, not the two columns, because these are three-tier
+            //    settings: a lease stating only a minimum, above a cap it inherits from the
+            //    property, is the same contradiction and reads identically to the operator. Only
+            //    when one of them is being written, so an ordinary lease save pays nothing for it.
+            //    **Zero is NO CAP at every tier** — the meaning every install had before the column
+            //    existed — so it can never be the smaller bound.
+            // `exists`, so a CREATE never trips it. The only create doors are the lease form —
+            // which carries its own inline rule — and the services that COPY an existing clause:
+            // `LeaseRenewalService` rebuilds every fillable column, so on a renewal all of them are
+            // dirty, and without this a lease already carrying the contradiction could not be
+            // renewed at all. The same lockout as the collar's, one door over.
+            if ($lease->exists && $lease->isDirty(['late_fee_minimum', 'late_fee_maximum'])) {
+                $terms = $lease->lateFeeTerms();
+                $min = (float) $terms['minimum'];
+                $max = (float) $terms['maximum'];
+
+                if ($max > 0 && $min > $max) {
+                    throw new \DomainException(__('admin.errors.late_fee_minimum_above_cap', [
+                        'minimum' => number_format($min, 2),
+                        'maximum' => number_format($max, 2),
+                    ]));
+                }
             }
         });
 
