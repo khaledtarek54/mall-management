@@ -43,6 +43,7 @@ return [
         'lease_under_ownership' => 'The owner lets this unit himself. He still owes the service charge.',
         'due_date_derived' => 'Derived from the issue date and the lease’s payment terms. Override only for a one-off arrangement.',
         'expiry_date_derived' => 'Derived from the commencement date and the term. Override only when the contract states a different end date.',
+        'expiry_date_mismatch' => 'Does not match the term: :months month(s) from the start ends :derived. Correct either field.',
         'tax_code_section' => 'Every tax this system applies, with its rates and the dates they came into force. The rate is resolved from the DOCUMENT\'s date: an invoice dated before a rate change bills the rate that was in force when it was raised, and a rate entered in advance starts applying by itself on the day.',
         'tax_code_code' => 'Upper-case letters, digits and underscores.',
         'tax_family' => 'Which Egyptian tax this is.',

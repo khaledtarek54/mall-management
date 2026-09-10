@@ -146,6 +146,19 @@ class LeaseTerm
         return null;
     }
 
+    /**
+     * The `Y-m-d` a value normalises to — null when there is nothing readable yet.
+     *
+     * Exists so a caller comparing a LIVE FORM DATE against {@see expiryFrom()}'s string does not
+     * have to parse it itself. A `DatePicker`'s state is already normalised by Filament, but the
+     * same field carries a `CarbonImmutable` when the form is filled from a record, and a
+     * comparison that handled only one of the two would be right on Create and wrong on Edit.
+     */
+    public static function asDateString(mixed $value): ?string
+    {
+        return self::date($value)?->toDateString();
+    }
+
     private static function date(mixed $value): ?CarbonImmutable
     {
         if ($value instanceof \DateTimeInterface) {

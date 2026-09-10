@@ -246,9 +246,11 @@ class LeaseImporter extends Importer
     /**
      * Make the imported term and expiry agree — or refuse the row.
      *
-     * The lease FORM derives these both ways (`App\Support\LeaseTerm`), so an operator cannot type
-     * "36 months" spanning twelve. **The importer could still create one**, and at a hundred rows a
-     * time: it took a commencement, an optional expiry and an optional term with no relationship
+     * The lease FORM derives these both ways (`App\Support\LeaseTerm`) and, since 2026-09-10, WARNS
+     * when they still disagree — it does not force them to agree. A bespoke end date leaves the
+     * term standing on purpose, and the operator is shown the date the term would have produced and
+     * left to correct whichever field is wrong. **The importer has nobody to show it to**, and
+     * writes a hundred rows at a time: it took a commencement, an optional expiry and an optional term with no relationship
      * between them. A migrated lease whose `term_months` contradicts its `expiry_date` carries that
      * contradiction into renewal and option exercise, which both read the term.
      *

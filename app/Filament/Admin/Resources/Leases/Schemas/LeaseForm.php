@@ -384,7 +384,15 @@ class LeaseForm
                             ->helperText(__('admin.helpers.term_months'))
                             ->suffix(__('admin.fields.months'))
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveExpiry($get, $set)),
+                            // ONLY when the term actually moved. Livewire's blur modifier commits
+                            // unconditionally and Filament then calls `afterStateUpdated` whether
+                            // or not the value changed — so merely clicking into this field to
+                            // READ it and tabbing out re-derived the expiry and silently destroyed
+                            // a negotiated end date. The new warning points the operator straight
+                            // at this field, which is what turned a latent hazard into a likely one.
+                            ->afterStateUpdated(fn ($state, $old, Get $get, Set $set) => $state === $old
+                                ? null
+                                : self::deriveExpiry($get, $set)),
                         DatePicker::make('expiry_date')
                             ->label(__('admin.fields.expiry_date'))
                             ->required()
@@ -395,7 +403,29 @@ class LeaseForm
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveTerm($get, $set))
                             ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
                                 ? __('admin.helpers.expiry_date_locked')
-                                : __('admin.helpers.expiry_date_derived')),
+                                : __('admin.helpers.expiry_date_derived'))
+                            // The warning the form never had. A hint rather than helper text
+                            // because it is a CONDITION, not a description — it has to look
+                            // different from the sentence sitting under it, or it reads as more
+                            // guidance and is skipped.
+                            ->hintColor('warning')
+                            ->hint(function (?Lease $record, Get $get): ?string {
+                                // Only once all three are present: a half-typed form must not
+                                // accuse the operator of a mismatch they are mid-way through
+                                // typing, and a locked record cannot be corrected anyway.
+                                if (self::isInvoiced($record)
+                                    || blank($get('commencement_date'))
+                                    || blank($get('expiry_date'))
+                                    || blank($get('term_months'))
+                                    || self::termMatchesTheDates($get)) {
+                                    return null;
+                                }
+
+                                return __('admin.helpers.expiry_date_mismatch', [
+                                    'months' => (int) $get('term_months'),
+                                    'derived' => LeaseTerm::expiryFrom($get('commencement_date'), $get('term_months')) ?? '—',
+                                ]);
+                            }),
                     ])->columns(3),
 
                     FormTab::make('admin.sections.financial_terms', [
@@ -1068,7 +1098,17 @@ class LeaseForm
      * `monthsBetween()` returns null unless the range is a whole number of months, and null leaves
      * the term untouched on purpose: an expiry aligned to a financial year or another tenant's
      * fit-out is a real negotiated date, and rounding it to a tidy term would restate the contract.
-     * The operator then sees a term and an expiry that genuinely differ, which is the truth.
+     *
+     * **Flooring it instead was tried on 2026-09-10 and reverted, and the reasons are worth keeping**
+     * — `monthsSpanning()` looked like the honest descriptor, and it broke four things at once: a
+     * range SHORTER than a month still returns null, so the reported defect survived verbatim for a
+     * ten-day let; a fifteen-year lease derived 173 and hit the field's own `maxValue(120)`, turning
+     * a wrong save into a dead end on a number nobody typed; `LeaseImporter::afterValidate()`
+     * defines agreement as strict equality, so the form would have written pairs its own importer
+     * refuses on re-import; and `DerivedDateFieldsTest` pins this behaviour deliberately.
+     *
+     * So the term still stands, and what was actually missing is that the operator was never TOLD
+     * the two disagree — see {@see termMatchesTheDates()}.
      */
     private static function deriveTerm(Get $get, Set $set): void
     {
@@ -1077,6 +1117,31 @@ class LeaseForm
         if ($months !== null) {
             $set('term_months', $months);
         }
+    }
+
+    /**
+     * Do the typed term and the typed expiry describe the same tenancy?
+     *
+     * Asked as the FORWARD rule — *does this term, from this start, end on this date?* — because
+     * that is the only relationship the system actually has, and it is the one
+     * `LeaseImporter::afterValidate()` refuses a CSV row over. Reading it any other way would be a
+     * second opinion about the same pair, which is what `LeaseTerm` exists to prevent.
+     *
+     * Reported from the panel: commencement 10 Sep 2026, term 1 month, expiry overridden to
+     * 1 Oct 2028 — saved with nothing on screen to say the record contradicted itself, under a
+     * helper text reading *"Derived from the commencement date and the term."* `term_months` is
+     * logged on the lease, copied by every renewal and read by the option-exercise service, so the
+     * contradiction travels into the next contract.
+     *
+     * A WARNING and not a refusal, because a bespoke end date is a real thing this market signs —
+     * which is exactly why the override exists. The importer refuses the same pair only because a
+     * CSV cannot be asked which of the two is wrong; here the operator is present, so they are
+     * shown the derived date and left to decide.
+     */
+    private static function termMatchesTheDates(Get $get): bool
+    {
+        return LeaseTerm::expiryFrom($get('commencement_date'), $get('term_months'))
+            === LeaseTerm::asDateString($get('expiry_date'));
     }
 
     /**

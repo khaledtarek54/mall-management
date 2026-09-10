@@ -1704,6 +1704,30 @@ foreach lease in unit.allLeases():
 > negotiated end date (aligned to a financial year, or to another tenant's fit-out) is never
 > rounded into a tidy term — and an expiry at or before the commencement derives nothing, which
 > leaves the `after()` validation rule free to refuse it. See `DerivedDateFieldsTest`.
+
+> **⚠️ …AND THE PAIR THAT CANNOT AGREE NOW SAYS SO (2026-09-10).** Leaving the term alone is right,
+> and for two years it was also SILENT: commencement 10 Sep 2026, term 1 month, expiry overridden
+> to 1 Oct 2028 saved without a word, under a helper text reading *"Derived from the commencement
+> date and the term."* `term_months` is logged on the lease, copied by every renewal and read by
+> the option-exercise service, so the contradiction travels into the next contract. The expiry
+> field now carries a live **warning hint** naming the date the typed term would have produced, so
+> the operator can see WHICH field is wrong rather than only that something is.
+>
+> **A warning, not a refusal, and not a forced value.** Flooring the term to the whole months the
+> range covers (`monthsSpanning()`) was built, measured and reverted: a range SHORTER than a month
+> still returns null so the reported defect survived verbatim for a ten-day pop-up let; a
+> fifteen-year lease derived 173 against the field's own `maxValue(120)`, turning a wrong save into
+> a dead end refused on a number nobody typed; and `LeaseImporter::afterValidate()` defines
+> agreement as strict equality, so the form would have written pairs its own importer rejects on
+> re-import. The importer refuses the identical pair only because a CSV cannot be asked which of
+> the two is wrong — the operator can, which is the whole difference.
+>
+> **And blurring the term no longer destroys a negotiated expiry.** Livewire's blur modifier commits
+> unconditionally and Filament calls `afterStateUpdated` whether or not the value moved, so merely
+> clicking into the term field to READ it and tabbing out re-derived the expiry over the date just
+> negotiated. It now fires only when the term actually changed — a latent hazard the new warning
+> would otherwise have made likely, because the warning points straight at that field.
+> (`ALeasesTermNeverContradictsItsDatesTest`, five teeth mutation-proved.)
 >
 > **The IMPORT obeys the same rule.** It took a commencement, an optional expiry and an optional
 > term with no relationship between them, so the bulk path could create the disagreement the form
