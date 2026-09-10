@@ -220,6 +220,7 @@ rows in this order:
 | `admin_access` | **OK** | Nobody holds `super_admin`; the login page will simply reject everyone. |
 | `mobile_reset_url` | **OK** | Set `APP_MOBILE_RESET_URL`, or mobile reset mail 404s for every tester. |
 | `runtime_drivers` | **OK** | Still on the `database` driver — staging is then not rehearsing the production topology. |
+| `redis_memory` | **OK** | `maxmemory 0` (no cap), an eviction policy, or ≥80% of the cap. The box shipped with no cap: set `maxmemory 256mb` + `noeviction` in `redis.conf` (INFRASTRUCTURE.md §5, OPS-09). Red until that is done — deliberately. |
 | `php_extensions` | **OK** | An extension is in `php-cli` and not in `php-fpm`. Everything installs and schedules; every money column throws. Read it over HTTP — the console cannot see this. |
 | `demo_payments` | **OK** | `DEMO_PAYMENTS_ENABLED` is set. Unset it. See §2. |
 | `queue` (depth) | **OK** | Horizon is not processing. `horizon:status` reporting "running" does NOT mean it has a supervisor — an `APP_ENV` with no entry in `horizon.environments` provisions none, silently. Check `php artisan horizon:list`. |

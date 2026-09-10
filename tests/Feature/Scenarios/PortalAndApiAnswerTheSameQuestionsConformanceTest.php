@@ -33,9 +33,18 @@ function portalFieldsIn(string $directory): array
     $fields = [];
 
     foreach ($files as $file) {
-        preg_match_all("/(?:TextEntry|TextColumn|IconEntry|IconColumn|RepeatableEntry)::make\(\s*'([^']+)'/", file_get_contents($file), $m);
+        // `PrivateAttachments::entry('collection', …)` is this project's own entry for a private
+        // media collection — it builds its `TextEntry` inside `app/Support/Filament`, so a regex
+        // over the schema file never saw it: both `attachments` and `resolution_evidence` reached
+        // the portal through it and this gate matched nothing for either, which is how SW-249
+        // (the API missing the evidence the portal showed) was found by hand rather than here.
+        preg_match_all(
+            "/(?:TextEntry|TextColumn|IconEntry|IconColumn|RepeatableEntry)::make\(\s*'([^']+)'|PrivateAttachments::entry\(\s*'([^']+)'/",
+            file_get_contents($file),
+            $m,
+        );
 
-        foreach ($m[1] as $path) {
+        foreach (array_filter(array_merge($m[1], $m[2])) as $path) {
             // A payload answers at the granularity of its own key, so compare the LAST segment:
             // the portal flattens `pool.period_year` where the API nests, and the question both
             // are answering is the same one.

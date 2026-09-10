@@ -133,7 +133,7 @@ round changed the reading.
 
 ## 3 · Ops hygiene (XS each)
 
-- **OPS-09** — give Redis a `maxmemory` and an eviction policy before production. Measured on the
+- ~~**OPS-09**~~ — **DECIDED and gated 2026-09-10 — in the direction INFRASTRUCTURE.md §5 already argued, not the one this row proposed.** `noeviction` STAYS (every `Cache::lock()` lives in this store; `allkeys-lru` — and `volatile-lru`, since a lock key carries a TTL — can evict one mid-run), and the missing half is the CAP: `maxmemory 256mb` in `redis.conf`, so a runaway ends in a refused write rather than the OOM-killer. `atriom:health` now carries `redis_memory` (red with no cap, red on any eviction policy, red at 80%; four mutations proved), so the staging box reads red on it until the cap is set on the box — which is the point. The second-instance-for-the-queue idea was declined: it moves the queue and leaves the locks evictable. Was: give Redis a `maxmemory` and an eviction policy before production. Measured on the
   staging box 2026-09-10: healthy (1.66 MB used, peak 1.84, 0 evicted, 0 rejected, queue depth 0,
   last bgsave OK) but `maxmemory` is **0** — no cap — with `maxmemory-policy noeviction`. That pair
   means an unbounded cache does not shed old keys, it starts **refusing writes**; and since
@@ -182,7 +182,7 @@ round changed the reading.
   width gate because both doors agree about the LENGTH. Fixing it is a decision about which phone
   formats an Egyptian operator's data actually contains, not a width, so it wants the operator's
   real file.
-- **SW-249** — show the tenant proof of the fix on MOBILE too. SW-246 gave a maintenance request a
+- ~~**SW-249**~~ — **FIXED 2026-09-10.** `resolutionEvidence[]` on every request (same shape as `attachments`, always present), and the stream endpoint serves both tenant-visible collections — it used to look in `attachments` alone, so the URL the resource would have handed out 404'd its own owner. MOBILE-API §4.7, the sync brief (task 19), module 20 and `openapi.json` in the same commit; four API cases, three teeth mutation-proved — including the stream endpoint's collection gate, which the first cut called unexercisable and the review measured as the only security clause in the change (an unregistered collection lands on the fail-open `public` disk and streamed 200 without it). The review also found four endpoints (cancel/confirm/dispute/rate) returning the request without `media`, so both file lists were ABSENT on exactly the responses an app replaces its model with — fixed at the controllers. Was: show the tenant proof of the fix on MOBILE too. SW-246 gave a maintenance request a
   `resolution_evidence` collection and surfaced it in the tenant PORTAL's Resolution section, which
   is where the requirement earns its keep — a rule the person who reported the fault cannot see is
   worth little. `Api\V1\TenantRequestResource` serialises `getMedia('attachments')` by NAME, so the

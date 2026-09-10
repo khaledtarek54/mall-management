@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **Backend** | ✅ Complete. 67 live endpoints. **Nothing is pending on our side.** |
-| **App** | ⏳ The 18 tasks in §1. Until those land, the two are out of step. |
-| **Last backend change** | 2026-09-02 |
+| **App** | ⏳ The 19 tasks in §1. Until those land, the two are out of step. |
+| **Last backend change** | 2026-09-10 — `resolutionEvidence` on requests (task 19) |
 
 **What the backend gained on 2026-09-02** — this is the sync record; each line is an app task above.
 
@@ -41,6 +41,7 @@
 | Profile | The language push and e-mail are written in | **`locale`** on `GET`/`PATCH /me` |
 | Sales | Which shop a declaration is for | **`lease.unit`** |
 | Billing | A chase letter no longer goes out for a debt just paid | fixed |
+| Requests *(2026-09-10)* | Proof of the fix, apart from the tenant's own photo | **`resolutionEvidence[]`** on every request; the stream endpoint serves it |
 
 Two gates now keep the surfaces together, so this list should not grow again on its own:
 `PortalAndApiAnswerTheSameQuestionsConformanceTest` (the web portal and `/api/v1` must answer the
@@ -49,7 +50,7 @@ renderable in Arabic).
 
 ---
 
-## 1. The work — 18 tasks
+## 1. The work — 19 tasks
 
 Each row links to the detail. **Do 1–7 first: without them the app is showing wrong numbers today.**
 
@@ -73,6 +74,7 @@ Each row links to the detail. **Do 1–7 first: without them the app is showing 
 | 16 | Route **every notification tap through `link`** — never infer from `type` | Notifications | [§6](#6-notifications) |
 | 17 | Wire the language toggle to **`PATCH /me {locale}`** as well as `Accept-Language` | Settings | [rule 9](#4-the-rules-that-are-not-obvious) |
 | 18 | Add the missing screens: signed lease, receipt PDF, mall news, devices, confirm/dispute | Various | [§2](#2-every-endpoint-67) |
+| 19 | Show **`resolutionEvidence[]`** on a request — "what was done", apart from `attachments` ("what you reported"); same stream URL shape *(backend 2026-09-10)* | Request detail | [MOBILE-API §4.7](MOBILE-API.md#47-requests-tenant-requests--any-type) |
 
 **Do NOT build:** an ETA / tax-filing badge (module 16 is frozen), an in-app "dispute this charge"
 form (operator-only — use `POST /me/requests` with `requestType: "billing"`), or a demo-pay button

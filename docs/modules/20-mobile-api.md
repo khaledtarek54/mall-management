@@ -306,7 +306,7 @@ However, **key validation & business logic** is shared via:
   - `TenantResource`: id, name, legal_name, type, email, phone, whatsapp, contact_person, status, tax_id (re-exposed for ETA).
   - `InvoiceResource`: id, number, status, issue_date, due_date, period_start, period_end, subtotal, vat_amount, total, paid_amount, balance, currency, is_overdue, days_overdue, eta_status, eta_submission_id, items (when eager-loaded), lease (when eager-loaded).
   - `PaymentResource`: id, reference, amount, method, status, payment_date, allocations (pivot data with invoice numbers + amounts).
-  - `TenantRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs).
+  - `TenantRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs — the tenant's own intake files) and, since 2026-09-10 (SW-249), `resolution_evidence` (the operator's proof of the fix, SW-246's collection) in the same shape; both stream through `GET /me/requests/{id}/attachments/{media}`, which serves the two tenant-visible collections.
   - `TenantSalesDeclarationResource`: id, period_start, period_end, period_label, declared_sales (**null until reviewed**), calculated_percentage_rent, status, is_locked, declared_at, locked_at, `attachments` (streamed report URLs), `has_report`, lease (when loaded).
   - `PaymobSessionResource`: payment_token, iframe_url, order_id, payment_id, expires_at, reused, iframe_id.
   - `DeviceTokenResource`: id, platform, device_name, last_used_at.

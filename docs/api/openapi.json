@@ -4085,6 +4085,7 @@
         "/v1/me/requests/{id}/attachments/{media}": {
             "get": {
                 "operationId": "v1.me.requests.attachment",
+                "summary": "Stream one file from your own request \u2014 its `attachments` (what you reported) or its\n`resolutionEvidence` (what was done). A foreign request id, or a file outside those two\nlists, is a 404",
                 "tags": [
                     "ShowTenantRequestAttachment"
                 ],
@@ -4782,7 +4783,8 @@
                         "type": "integer"
                     },
                     "description": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Worded for the CALLER \u2014 see `InvoiceItemResource`."
                     },
                     "amount": {
                         "type": "number"
@@ -4952,7 +4954,8 @@
                         "type": "integer"
                     },
                     "description": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Worded for the CALLER (UX-30). `SetApiLocale` has already resolved\n`Accept-Language`, and on this surface the caller is the recipient."
                     },
                     "type": {
                         "type": "string"
@@ -6563,6 +6566,39 @@
                     "attachments": {
                         "type": "array",
                         "description": "Attachments uploaded by tenant or staff (Spatie media library,\n`attachments` collection). Absolute URLs so the app can render\nimages / open PDFs directly. Only images + PDF are accepted on\nupload, so the app never receives a type it can't preview.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer",
+                                    "description": "id + size are cast explicitly: the media model's props are\nuntyped, so Scramble published them as `string` while the\nwire carried ints \u2014 the client decoded `as String` and\nthrew, taking the whole request list down with it."
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "mimeType": {
+                                    "type": "string"
+                                },
+                                "size": {
+                                    "type": "integer"
+                                },
+                                "url": {
+                                    "type": "string",
+                                    "description": "Authenticated, tenant-scoped stream \u2014 NOT a public URL (H2)."
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "name",
+                                "mimeType",
+                                "size",
+                                "url"
+                            ]
+                        }
+                    },
+                    "resolutionEvidence": {
+                        "type": "array",
+                        "description": "Proof of the FIX (SW-246/SW-249): what the operator attached when resolving a\nmaintenance request \u2014 a different collection from the tenant's own intake photo\nabove, so the app can show \"what you reported\" and \"what was done\" apart. Same\nshape and the same tenant-scoped stream. Empty for the types that owe none.",
                         "items": {
                             "type": "object",
                             "properties": {

@@ -67,8 +67,11 @@ not raised twice.
 > **The money core held** — `billing:reconcile --deep` is 9/9 on real data and nothing found says a
 > figure already in the books is wrong. What the sweep found is the perimeter: a guard on one of two
 > doors, a nightly sweep that fatals on a row shape introduced after it was written, a status with no
-> way out. §9.2 is the order to take them in; §9.3 is the four gates that stop the class rather than
-> the instance.
+> way out. **As of 2026-09-10 the cycle is CLOSED but for two accountant decisions** (§9.2); §9.3's
+> four gates all shipped. What is live now is the **staging soak** —
+> [qa/STAGING-SOAK-2026-09.md](qa/STAGING-SOAK-2026-09.md), a month of the scheduler doing real work
+> on a seeded mall with an acts ledger — and its findings go to
+> [qa/POST-STAGING-BACKLOG.md](qa/POST-STAGING-BACKLOG.md), not to this section.
 
 > **✅ ROUND 3 COMPLETE, 2026-08-18 — all 37 modules gap-analysed → [the gap analysis](gap-analysis/README.md).**
 > The never-audited list round 2 opened is closed. Twelve defects found and fixed, ten on money paths,
@@ -811,32 +814,32 @@ centre is sound and whose perimeter has grown faster than its gates.
 | **Built, and unreachable** | The code is complete and tested and nothing can start it, or nothing can enter the data it needs (`is_portal_user`, the draft purchase request, the disputed declaration, the terminated employee) | `ServiceReachability` covers services and `BillableAgreementIsConfigurable` covers agreements. Neither covers an **auth surface**, a **status**, or a **column no screen writes** |
 | **A row shape the code predates** | `invoices.lease_id` became nullable for unit owners in 2026-08-15 and several services still dereference it, so the nightly sweep fatals on exactly the rows module 37 introduced | Nothing. This is the "the lease is the route to the property" class the 2026-08-18 round found eleven of |
 
-### 9.2 What is left — tranches A–D are CLOSED (updated 2026-09-05)
+### 9.2 What is left — TWO rows, both the accountant's (updated 2026-09-10)
 
-**236 of 257 rows are closed.** The five tranches this section used to order the work by no longer
-describe it: the nightly runs that fatalled, the money that could move twice, the statuses with no
-way out and the tenant/contractor surfaces are all done, and most of the ~150 medium-and-low tail
-went with them. What follows is the actual remaining **21**, which are not a smaller version of the
-old list — they are the residue that resisted, and they group differently.
+**256 of 258 rows are closed**, and the number is DERIVED — `python3 docs/qa/scripts/sweep-tally.py`
+recomputes it from the evidence file's own status column, which is why this paragraph now quotes it
+rather than restating it. **This section said "21 open" from 2026-09-05 until 2026-09-10 while the
+evidence file it cites said 2**, naming SW-009c/d/e, SW-163/164, SW-014 and SW-016 as open when every
+one carried a fix commit (`e44fb738`, `83b12b75`, `962090fe`, `741f879d`) — the second document of one
+launch going stale, exactly as STATUS.md's own preamble warns. Read the tally, not this prose.
 
-**Four decisions, not code.** `SW-237` is the largest: *should re-pointing a posting role restate
+**Two decisions, not code.** `SW-237` is the larger: *should re-pointing a posting role restate
 history at all?* Yardi's answer is that a GL mapping change is **prospective**, and honouring it means
 freezing the resolved account onto the journal line — a design change touching all 24 journalizers,
 which is why it has not been slipped into a sweep. `SW-236` is its other half and is blocked on it.
-`SW-238` is the credit-note twin of the deposit mistake SW-210 fixed, and carries the same
-prospective requirement. 🔴 **Ask the accountant before building any of them.**
+🔴 **Ask the accountant before building either.** (`SW-238`, listed here before as their credit-note
+twin, shipped in `b3ce3c2a`.)
 
-**Three lock-order cycles** (`SW-009c/d/e`). Real, and each needs MySQL with two connections to prove
-— sqlite compiles `lockForUpdate()` to nothing, so the ordinary suite is structurally incapable of
-saying whether a reorder is correct. One was already found UNSAFE as designed (it took a whole-table
-exclusive lock on `units`). These belong in `tests/Mysql/` with `docs/qa/scripts/race.sh`, as a piece
-of work in their own right rather than a sweep row. 🟠 **P1, effort M.**
+**The three lock-order cycles are CLOSED** (`SW-009c/d/e`, `e44fb738`) — proved on MySQL with two
+connections, deadlock 1213 at HEAD and serialised after, and the canonical order (leases → units,
+invoices → payment) is written into `ConcurrencyPolicy`.
 
-**Fourteen ordinary rows** — the sales-declaration VAT pair (`SW-163`/`SW-164`, both money that
-reaches a tenant), an unscoped picker that deletes a property-isolation write guard (`SW-014`), a
-portal filter that lies about what it filters (`SW-016`), and a tail of registers missing a filter or
-a column. Nothing here is blocked; they are simply the ones nobody has reached yet. 🟡 **P2, mostly
-XS–S.**
+**The post-staging findings that came AFTER the sweep live in
+[qa/POST-STAGING-BACKLOG.md](qa/POST-STAGING-BACKLOG.md)**, not here — SW-242…SW-251 and OPS-09 were
+all raised from the staging soak or from the reviews of its fixes, and as of 2026-09-10 every one of
+them is closed except `SW-243(b)` (phone FORMAT, wants the operator's real file). Two older rows on
+that file stay open by design: `D2-13/H3` (measure the wildcard search on a posture-B box) and
+`D2-04` (one manual CI run before the cutover commit).
 
 **What the sweep actually taught, which is worth more than the rows.** An adversarial review pass —
 a second agent told to read the code and try to break the change — found something real in

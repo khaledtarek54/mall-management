@@ -421,7 +421,32 @@ Only DB-backed relational data now leaves the box. After changing drivers, re-ru
 > **`Cache::lock`** (`MonthlyBillingService`, 900s — one of 14 in `app/`), so on the `database`
 > driver the lock would live inside the very instance it is arbitrating writes against.
 > `maxmemory-policy` must stay **`noeviction`** for that reason — under `allkeys-lru` Redis can
-> evict a lock key mid-run and the guard silently stops guarding.
+> evict a lock key mid-run and the guard silently stops guarding (and `volatile-lru` is no safer:
+> a lock key carries a TTL).
+>
+> **AND A CAP (OPS-09, 2026-09-10).** Measured on the staging box: `maxmemory 0` — no cap. That is
+> the wrong half of the same decision, and the asymmetry is exact: at the cap under `noeviction`
+> Redis **refuses writes** — every `Cache::lock()` (`SET NX`; the billing run's lock answers false
+> and the run SKIPS, it does not double-bill), session writes, the queue's push and its pop
+> script — which is loud, reversible and loses nothing; with no cap the OOM-killer takes the
+> process, and with `appendonly no` + `save 3600 1` (the phase-2 note below) up to an hour of
+> queued jobs goes with it. So:
+>
+> ```
+> maxmemory 256mb            # generous against 1.7 MB of real use; size to the BOX, not the cache
+> maxmemory-policy noeviction
+> ```
+>
+> in `/etc/redis/redis.conf` (then `systemctl restart redis-server`, or `CONFIG SET` both and
+> `CONFIG REWRITE`). `atriom:health` carries a `redis_memory` row: red with no cap, red on any
+> eviction policy, red at 80% of the cap — before the refusals start. **A cap is per SERVER**, and
+> the plan above is for production to share this box's Redis on separate DB numbers: one cap then
+> covers both environments, a staging runaway refuses production's writes, and the health row reads
+> the same figure on both boxes. That is an argument for a second Redis instance (or a second port)
+> the day production joins — recorded here rather than decided, because the topology is the
+> owner's. The proposal recorded on the backlog (`allkeys-lru` for the cache, a second instance for
+> the queue) was declined: it moves the queue and leaves the locks evictable, which is the failure
+> §5 exists to prevent.
 >
 > **THE PHASE-2 ITEM: turn on AOF before production shares this box.** Redis ships
 > `appendonly no` with `save 3600 1 …`, so a restart can lose up to an hour of queued jobs — and

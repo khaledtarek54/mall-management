@@ -25,7 +25,7 @@ class ConfirmTenantRequestController extends ApiController
         $tenantRequest = $action->handle($tenantRequest, Portal::user());
 
         return $this->ok(
-            new TenantRequestResource($tenantRequest->load('unit')),
+            new TenantRequestResource($tenantRequest->load('unit', 'media')),
             __('api.request_confirmed'),
         );
     }

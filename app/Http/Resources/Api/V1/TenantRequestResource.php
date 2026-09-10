@@ -6,6 +6,7 @@ use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection;
 
 /**
  * @mixin TenantRequest
@@ -90,20 +91,35 @@ class TenantRequestResource extends JsonResource
             // `attachments` collection). Absolute URLs so the app can render
             // images / open PDFs directly. Only images + PDF are accepted on
             // upload, so the app never receives a type it can't preview.
-            'attachments' => $this->whenLoaded('media', fn () => $this->getMedia('attachments')
-                ->map(fn ($media) => [
-                    // id + size are cast explicitly: the media model's props are
-                    // untyped, so Scramble published them as `string` while the
-                    // wire carried ints — the client decoded `as String` and
-                    // threw, taking the whole request list down with it.
-                    'id' => (int) $media->id,
-                    'name' => $media->file_name,
-                    'mime_type' => $media->mime_type,
-                    'size' => (int) $media->size,
-                    // Authenticated, tenant-scoped stream — NOT a public URL (H2).
-                    'url' => route('api.v1.me.requests.attachment', ['id' => $this->id, 'media' => $media->id]),
-                ])
-                ->values()),
+            'attachments' => $this->whenLoaded('media', fn () => $this->files('attachments')),
+            // Proof of the FIX (SW-246/SW-249): what the operator attached when resolving a
+            // maintenance request — a different collection from the tenant's own intake photo
+            // above, so the app can show "what you reported" and "what was done" apart. Same
+            // shape and the same tenant-scoped stream. Empty for the types that owe none.
+            'resolution_evidence' => $this->whenLoaded('media', fn () => $this->files('resolution_evidence')),
         ];
+    }
+
+    /**
+     * One media collection, in the shape the app renders.
+     *
+     * @return Collection<int, array{id: int, name: string, mime_type: string, size: int, url: string}>
+     */
+    private function files(string $collection): Collection
+    {
+        return $this->getMedia($collection)
+            ->map(fn ($media) => [
+                // id + size are cast explicitly: the media model's props are
+                // untyped, so Scramble published them as `string` while the
+                // wire carried ints — the client decoded `as String` and
+                // threw, taking the whole request list down with it.
+                'id' => (int) $media->id,
+                'name' => $media->file_name,
+                'mime_type' => $media->mime_type,
+                'size' => (int) $media->size,
+                // Authenticated, tenant-scoped stream — NOT a public URL (H2).
+                'url' => route('api.v1.me.requests.attachment', ['id' => $this->id, 'media' => $media->id]),
+            ])
+            ->values();
     }
 }

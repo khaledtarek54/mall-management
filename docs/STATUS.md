@@ -39,6 +39,9 @@ credential, a piece of infrastructure, or a decision only you can make.
 | Conformance-gate audit | **69 of 72 gates mutation-proven**; 5 holes found and fixed | 2026-08-24 |
 | Pre-staging findings (F-01 … F-13) | **all closed** | 2026-08-24 |
 | **Final verification** — 8 lenses, 16 agents, every finding adversarially verified | **82 raised · 80 confirmed · 14 fixed · rest backlogged**; nothing blocking | 2026-08-24 |
+| **Post-staging deep sweep** (23 agents, every finding refuted by a second) | **256 of 258 closed** — the two open are accountant decisions (SW-236/237); derived by `sweep-tally.py`, not typed | 2026-09-10 |
+| **Conformance-gate coverage** — every gate proved able to fail | **104 of 104**, kept there by `StabilityVerdictConformanceTest`; `atriom:stability` is the one verdict (exit 0 / 1 / 2 — INCOMPLETE is not a pass) | 2026-09-10 |
+| **Staging soak** — a seeded mall under the real scheduler for a month, checked daily | Running since 2026-09-05; books tie out every morning; 11 findings raised from doing the operator's job or from the reviews of its fixes (SW-242…251, OPS-09), **all closed but SW-243(b)** (see [qa/POST-STAGING-BACKLOG.md](qa/POST-STAGING-BACKLOG.md)) | 2026-09-10 |
 
 **Since that round — an authorization pass on 2026-08-26.** Four defects, two of them holes rather
 than gaps, all found by sweeping rather than by report:
@@ -85,7 +88,8 @@ Two things worth knowing about that table:
 **All 72 gates now run.** `FixtureColumnsExist` was the last one switched off, pending pre-existing
 ghost fixture keys; the 72 of them were cleared and the gate turned back on the same afternoon
 (`7335552f`). This paragraph said otherwise for a few hours, which is how a re-verified document goes
-stale — corrected here rather than left as a footnote.
+stale — corrected here rather than left as a footnote. *(There are 104 gates as of 2026-09-10, and
+the number that matters is that 104 of 104 have a mutation proving they bite — see the table.)*
 
 ---
 

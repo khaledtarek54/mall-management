@@ -14,7 +14,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -81,6 +83,7 @@ class Health
             'demo_payments' => self::checkDemoPayments(),
             'mobile_reset_url' => self::checkMobileResetUrl(),
             'runtime_drivers' => self::checkRuntimeDrivers(),
+            'redis_memory' => self::checkRedisMemory(),
             'php_extensions' => self::checkPhpExtensions(),
             'translations' => self::checkTranslations(),
         ];
@@ -1055,6 +1058,141 @@ class Health
         }
 
         return ['ok' => true, 'detail' => 'cache/session/queue off the database'];
+    }
+
+    /**
+     * Redis has a memory CAP, keeps `noeviction`, and is not near the cap (OPS-09, 2026-09-10).
+     *
+     * Measured on the staging box: 1.66 MB used, `maxmemory 0` — no cap — with
+     * `maxmemory-policy noeviction`. The policy is right and INFRASTRUCTURE.md §5 says why: every
+     * `Cache::lock()` in `app/` (the monthly-billing double-bill guard among them) lives in this
+     * store, and ANY LRU policy can evict a lock key mid-run (`volatile-lru` is no safer — a lock
+     * carries a TTL), so the guard silently stops guarding. What `0` gets wrong is the OTHER end,
+     * and the asymmetry is worth stating exactly, because the first draft here got it wrong. At
+     * the cap under `noeviction` Redis REFUSES writes: `SET NX` (every lock — the billing run's
+     * `get()` answers false and the run skips, it does not double-bill), session writes, `LPUSH`
+     * and the queue's pop script. Loud, reversible, nothing LOST. With no cap the OOM-killer takes
+     * the process, and with `appendonly no` + `save 3600 1` (§5's own phase-2 note) up to an hour
+     * of queued jobs goes with it — `RunMonthlyBilling` is a job. The backlog row's own proposal
+     * (`allkeys-lru` for the cache, a second instance for the queue) was the wrong half: it moves
+     * the queue and leaves the locks evictable.
+     *
+     * So: a cap (sized to the BOX — 256mb is generous against 1.66 MB of real use), `noeviction`
+     * kept, and this row turning red at 80% of the cap, before the refusals start. A cap is per
+     * SERVER, and the plan (§5, `.env.example`) is for production to share the staging box's
+     * Redis on separate DB numbers — so one cap covers both, a staging runaway refuses
+     * production's writes, and this row reads the same figure on both boxes; INFRASTRUCTURE.md §5
+     * says so. Deployed boxes only, and only where any of cache, session or queue IS redis — the
+     * lock store follows the cache store, but a queue on redis with the cache on `file` is
+     * still a queue that stops at the cap. The verdict is a pure function of three facts so the
+     * tests can drive every branch without a Redis; the facts come from `INFO memory` and
+     * `CONFIG GET`, and a managed Redis that disables CONFIG reports "not readable" as ok, with
+     * the error's own words, rather than a row that is red for ever.
+     */
+    private static function checkRedisMemory(): array
+    {
+        if (! Deployment::isDeployed()) {
+            return ['ok' => true, 'detail' => 'not checked on a workstation'];
+        }
+
+        $onRedis = array_keys(array_filter([
+            'cache' => config('cache.default') === 'redis',
+            'session' => config('session.driver') === 'redis',
+            'queue' => config('queue.default') === 'redis',
+        ]));
+
+        if ($onRedis === []) {
+            return ['ok' => true, 'detail' => 'nothing runs on redis here — see runtime_drivers'];
+        }
+
+        try {
+            $facts = self::redisMemoryFacts();
+        } catch (Throwable $e) {
+            // Stated as ok rather than red for ever on a managed Redis that disables CONFIG — but
+            // with the error's own words, so a missing `ext-redis` or a refused connection can be
+            // told apart from that case by whoever reads the row.
+            return ['ok' => true, 'detail' => 'maxmemory not readable — '.class_basename($e).': '
+                .Str::limit($e->getMessage(), 80).' — CONFIG may be disabled on a managed Redis; verify the cap by hand'];
+        }
+
+        return self::redisMemoryVerdict($facts, Deployment::name());
+    }
+
+    /**
+     * @return array{maxmemory: int, policy: string, used: int}
+     */
+    private static function redisMemoryFacts(): array
+    {
+        // The cache store's connection when the cache is on redis (that is where the locks live),
+        // else the default connection — `maxmemory` is a SERVER fact, so either answers for both.
+        $redis = Redis::connection(config('cache.default') === 'redis'
+            ? (string) config('cache.stores.redis.connection', 'cache')
+            : 'default');
+
+        $max = $redis->command('CONFIG', ['GET', 'maxmemory']);
+        $policy = $redis->command('CONFIG', ['GET', 'maxmemory-policy']);
+        $info = $redis->command('INFO', ['memory']);
+
+        // phpredis answers CONFIG GET as ['maxmemory' => '0'] and INFO as a keyed array; predis
+        // answers CONFIG GET as ['maxmemory', '0'] and INFO as a nested ['Memory' => [...]].
+        $pick = fn ($answer, string $key) => is_array($answer)
+            ? (array_key_exists($key, $answer) ? $answer[$key] : ($answer[1] ?? null))
+            : null;
+        $used = is_array($info)
+            ? ($info['used_memory'] ?? $info['Memory']['used_memory'] ?? null)
+            : null;
+
+        if ($used === null) {
+            throw new \RuntimeException('INFO memory carried no used_memory');
+        }
+
+        return [
+            'maxmemory' => (int) $pick($max, 'maxmemory'),
+            'policy' => (string) $pick($policy, 'maxmemory-policy'),
+            'used' => (int) $used,
+        ];
+    }
+
+    /**
+     * The rule, apart from how the facts were read.
+     *
+     * @param  array{maxmemory: int, policy: string, used: int}  $facts
+     * @return array{ok: bool, detail: string}
+     */
+    public static function redisMemoryVerdict(array $facts, string $env): array
+    {
+        $mb = fn (int $bytes): string => number_format($bytes / 1_048_576, 1).' MB';
+
+        if ($facts['policy'] !== 'noeviction') {
+            return [
+                'ok' => false,
+                'detail' => "maxmemory-policy is `{$facts['policy']}` on {$env} — INFRASTRUCTURE.md §5 requires "
+                    .'`noeviction`: this store holds every Cache::lock(), and an evicted lock key is a guard that '
+                    .'silently stopped guarding',
+            ];
+        }
+
+        if ($facts['maxmemory'] <= 0) {
+            return [
+                'ok' => false,
+                'detail' => 'Redis has NO maxmemory cap on '.$env.' ('.$mb($facts['used']).' used) — a runaway '
+                    .'cache ends in the OS OOM-killer taking sessions, the queue and every lock, instead of a '
+                    .'refused write. Set a cap (`maxmemory 256mb` in redis.conf) and keep `noeviction`.',
+            ];
+        }
+
+        $pct = (int) round($facts['used'] * 100 / $facts['maxmemory']);
+
+        if ($pct >= 80) {
+            return [
+                'ok' => false,
+                'detail' => $mb($facts['used']).' of '.$mb($facts['maxmemory'])." ({$pct}%) — under `noeviction` "
+                    .'Redis starts REFUSING writes at 100%, which takes sessions and the queue down; raise the cap '
+                    .'or find what is growing (`redis-cli --bigkeys`)',
+            ];
+        }
+
+        return ['ok' => true, 'detail' => $mb($facts['used']).' of '.$mb($facts['maxmemory'])." ({$pct}%), noeviction"];
     }
 
     /** @return array{ok: bool, detail: string} */

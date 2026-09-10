@@ -44,6 +44,9 @@ const EXPECTED_HEALTH_CHECKS = [
     'paymob_hmac_rotation',
     'php_extensions',
     'queue',
+    // OPS-09: a memory cap under `noeviction`, and not near it — the topology decision the
+    // staging soak recorded, made readable by the daily check instead of the OOM-killer.
+    'redis_memory',
     'runtime_drivers',
     'scheduler',
     'storage',

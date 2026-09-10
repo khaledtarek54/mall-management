@@ -7,7 +7,7 @@
 
 > ### 👉 The mobile developer starts at [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md)
 >
-> That brief is short and derived from the code: the sync status, the work as 18 tasks, all 67
+> That brief is short and derived from the code: the sync status, the work as 19 tasks, all 67
 > endpoints, all 16 payload shapes, and the 15 rules that are not obvious. **Where the two documents
 > disagree, the brief is right.**
 >
@@ -591,9 +591,24 @@ Query: `status`, `page`, `per_page`.
   "targetResolutionAt": "...", "resolutionNotes": null,
   "requiresDecision": false, "decision": null, "decisionReason": null, "decidedAt": null,
   "validFrom": null, "validTo": null, "scheduledFrom": null, "scheduledTo": null,
-  "unit": { "id": 4, "code": "A-01", "floor": "G" } } ],
+  "unit": { "id": 4, "code": "A-01", "floor": "G" },
+  "attachments": [ { "id": 31, "name": "before.jpg", "mimeType": "image/jpeg", "size": 48213,
+    "url": "https://…/api/v1/me/requests/12/attachments/31" } ],
+  "resolutionEvidence": [ { "id": 40, "name": "after.jpg", "mimeType": "image/jpeg", "size": 51002,
+    "url": "https://…/api/v1/me/requests/12/attachments/40" } ] } ],
   "meta": { ... }, "links": { ... } }
 ```
+`attachments` is what the TENANT uploaded when reporting (the problem);
+**`resolutionEvidence` is what the operator attached when resolving (the fix)** —
+*new 2026-09-10*, always present on every endpoint that returns a request
+(list, detail, create, cancel, confirm, dispute, rate), `[]` where nothing was
+attached. Only a maintenance request must carry proof of the work before it can
+be resolved, and **not when the work went through a work order** — that job's
+own evidence is what the operator attached, and it is not published here yet,
+so a maintenance request that became a contractor job can legitimately show `[]`.
+Show the two lists apart: "what you reported" and "what was done". Both stream
+through the same authenticated URL shape below; nothing here is a public file URL.
+
 `requestType` ∈ `maintenance`, `complaint`, `inquiry`, `access`, `billing`,
 `document`, `permit`, `other`. `status` ∈ `submitted`, `acknowledged`, `in_progress`,
 `awaiting_tenant`, `resolved`, `closed`, `cancelled`. `priority` ∈ `low`,
@@ -659,6 +674,12 @@ the created request, auto-routed to the type's default team, which is notified.
 Adds `comments: [{ id, body, authorKind: "tenant"|"staff", authorName, createdAt }]`.
 **Internal staff notes are never returned.** Staff identities are shown
 generically as "Property team".
+
+#### 🔒 `GET /me/requests/{id}/attachments/{media}` — stream a file
+Streams one file from the request's `attachments` OR `resolutionEvidence` (the
+`url` each item carries). Gated to your own requests — a foreign request id, or
+a media id not in a tenant-visible collection, is a `404` (no cross-tenant
+disclosure). Inline `Content-Disposition`, so an image renders and a PDF opens.
 
 #### 🔒 `POST /me/requests/{id}/comments`
 ```json

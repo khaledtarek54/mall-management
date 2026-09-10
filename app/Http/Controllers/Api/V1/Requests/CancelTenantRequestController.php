@@ -24,7 +24,7 @@ class CancelTenantRequestController extends ApiController
         $tenantRequest = $action->handle($tenantRequest);
 
         return $this->ok(
-            new TenantRequestResource($tenantRequest->load('unit')),
+            new TenantRequestResource($tenantRequest->load('unit', 'media')),
             __('api.request_cancelled'),
         );
     }
