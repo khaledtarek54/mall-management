@@ -223,6 +223,7 @@ Everything else moved. Module 11 (tenant requests) → `requests.*` permissions,
 - **`/new-module`** — scaffold a module the Atriom way (model+migration, service, RBAC + property-scoped Filament resource, permissions, doc, tests).
 - **`/qa-sweep [mode]`** — multi-agent QA: `scenario` · `adversarial` · `field-audit` · `concurrency` · `security` · `e2e` (default `full`).
 - **`/safe-change`** — definition-of-done for changing a module's business logic (read doc → service → invariants → test → regression → update doc → commit).
+- **`/trello`** — the bug board (`IbN0VGAt`): credentials, the lists that ARE the severities, reading a card WITH its screenshot, and closing one. **It is only the Trello half — a card runs `/safe-change` first.**
 
 ## Demo logins (password `password`)
 `admin@mall.test` (super_admin) · `manager@/viewer@/leasing@/operations@/accounting@/marketing@/hr@mall.test` · `owner@atriom.test` (owner) · portal `tenant1@atriomwalk.test` (admin) / `staff1@atriomwalk.test` (read-only).
