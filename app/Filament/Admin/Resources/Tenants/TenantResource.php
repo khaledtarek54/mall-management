@@ -2,8 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Tenants;
 
-use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
+use App\Filament\Admin\RelationManagers\TenantActivitiesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantInvoicesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantLedgerRelationManager;
@@ -145,7 +145,8 @@ class TenantResource extends Resource
             TenantViolationsRelationManager::class,
             TenantSalesDeclarationsRelationManager::class,
             TenantNotesRelationManager::class,
-            ActivitiesRelationManager::class,
+            // The tenant's own history PLUS its portal logins, leases and documents — see the class.
+            TenantActivitiesRelationManager::class,
         ];
     }
 

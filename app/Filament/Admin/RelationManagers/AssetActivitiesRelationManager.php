@@ -2,11 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\ShowsItsChildrensActivity;
 use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\RentableItem;
 use App\Models\Unit;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -35,47 +35,18 @@ use Spatie\Activitylog\Models\Activity;
  */
 class AssetActivitiesRelationManager extends ActivitiesRelationManager
 {
+    use ShowsItsChildrensActivity;
+
     /**
-     * The models whose activity belongs to the PROPERTY's history rather than only their own.
-     *
-     * @var array<int, class-string>
+     * A property's SPATIAL make-up. Staff and owners are absent deliberately: `PropertyRoster`
+     * records those against the ASSET itself, so they arrive through the parent's own rows.
      */
-    public const CHILDREN = [
-        Unit::class,
-        Floor::class,
-        RentableItem::class,
-    ];
-
-    public function getTableQuery(): Builder
+    protected function activityChildren(): array
     {
-        /** @var Asset $asset */
-        $asset = $this->getOwnerRecord();
-
-        // Built from Activity directly rather than from `parent::getTableQuery()`, which returns
-        // NULL on a relation manager — Filament falls back to the relationship, whose
-        // `subject = this asset` constraint is exactly what has to widen here. Composing an
-        // `orWhere` onto an already-constrained query would bind AND-before-OR and let the child
-        // branch escape the property scope entirely, which is the trap this codebase keeps
-        // recording; stating both sides inside one closure is what keeps them grouped.
-        return Activity::query()
-            ->where(function (Builder $query) use ($asset): void {
-                $query
-                    ->where(fn (Builder $q) => $q
-                        ->where('subject_type', $asset->getMorphClass())
-                        ->where('subject_id', $asset->getKey()))
-                    ->orWhere(fn (Builder $q) => $q->where(function (Builder $q) use ($asset): void {
-                        foreach (self::CHILDREN as $child) {
-                            /** @var Model $model */
-                            $model = new $child;
-
-                            $q->orWhere(fn (Builder $inner) => $inner
-                                ->where('subject_type', $model->getMorphClass())
-                                ->whereIn('subject_id', $child::query()
-                                    ->withoutGlobalScopes()
-                                    ->where('asset_id', $asset->getKey())
-                                    ->select('id')));
-                        }
-                    }));
-            });
+        return [
+            Unit::class => 'asset_id',
+            Floor::class => 'asset_id',
+            RentableItem::class => 'asset_id',
+        ];
     }
 }

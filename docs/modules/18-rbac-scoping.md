@@ -1054,3 +1054,29 @@ blocking relation (nine on a Lease) and the button reads it three times per rend
 memoised per request — and all six `DeletableWhenUnused` models compose Delete on the RECORD PAGE
 with none on a table row, so this is never the per-row N+1 it would be on a list.
 (`ADeleteButtonMatchesWhatDeletingWillDoTest`.)
+
+### A record's Activity tab covers the record AND what makes it up
+
+Reported twice — once for a property, once for a tenant — so the query lives in
+`App\Filament\Admin\RelationManagers\Concerns\ShowsItsChildrensActivity` rather than being copied
+a second time. A host declares `activityChildren()` as *model => the foreign key it hangs off the
+host by*; the host's own rows are always included.
+
+**A PORTAL LOGIN WAS AUDITED NOWHERE IN THE SYSTEM** until 2026-09-10, and that is the sharp half of
+the tenant report. A `TenantUser` is a credential — since the 2026-09-05 unification one row opens
+both the tenant portal and the mobile API, and `is_admin` decides whether that person may WRITE — so
+creating a login, promoting somebody to admin or moving their email left no trace at all: an
+unrecorded grant of access to a company's own billing. `password` is fillable there and is in
+`ActivityLogging::CREDENTIALS`, so the trail records THAT a credential changed and never what to.
+
+**CHILDREN is a short, explicit list per host and must stay one.** Almost everything hangs off a
+property or a tenant, so deriving the set would put the entire operational history — invoices,
+payments, credit notes, work orders — on one tab. A property's list is its SPATIAL make-up; a
+tenant's is the RELATIONSHIP: who may sign in, what they have signed, what they hold. The money
+registers are deliberately absent and a test asserts that absence so it cannot drift.
+
+**Note for anyone reading the trail in a test:** spatie writes a model diff to `attribute_changes`
+and only what a caller passes to `withProperties()` to `properties`. Asserting on `properties` reads
+EMPTY for every audited model in the system and looks exactly like a defect that is not one —
+`ActivityLogChangeRenderer` documents the split and reads both.
+(`ATenantsActivityLogShowsWhatChangedAboutItTest`.)

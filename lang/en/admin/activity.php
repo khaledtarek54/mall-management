@@ -49,6 +49,7 @@ return [
             'account_mapping' => 'Posting map row',
             'floor' => 'Floor',
             'unit' => 'Unit',
+            'tenant_user' => 'Portal login',
             'rentable_item' => 'Rentable item',
             'marketing_post' => 'Marketing post',
             'lease' => 'Lease',

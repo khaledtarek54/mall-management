@@ -795,6 +795,7 @@ return [
         'leasable_area_sqm_helper' => 'The lettable part only. Occupancy and area-based recoveries are measured against it.',
         'area_sqm' => 'Area (m²)',
         'staff' => 'Staff member',
+        'is_admin' => 'Can make changes',
     ],
 
 ];

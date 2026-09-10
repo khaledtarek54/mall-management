@@ -230,6 +230,10 @@ final class ActivityLogging
         // `area_sqm` is included even though `RemeasureUnitService` is the only thing that may
         // move it: the dated `unit_areas` register records WHAT it became, and the trail records
         // that the current-measurement column moved with it.
+        // A portal LOGIN, audited nowhere until 2026-09-10 — creating one, promoting somebody to
+        // admin or moving their email left no trace. `password` is excluded globally by
+        // CREDENTIALS, so the trail says THAT it changed and never what to.
+        'TenantUser' => ['email', 'is_admin', 'name', 'tenant_id'],
         'Unit' => ['area_id', 'area_sqm', 'asset_id', 'category', 'code', 'description', 'floor_id', 'status'],
         'UnitOwnership' => ['assessment_basis', 'ended_at', 'fee_basis', 'management_fee_pct', 'management_mode', 'ownership_share_pct', 'participation_pct', 'reference', 'started_at', 'status', 'tenant_id', 'tenure_type', 'unit_id'],
         'User' => ['email', 'email_verified_at', 'name', 'status', 'suspended_reason'],

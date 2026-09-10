@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Filament\Models\Contracts\FilamentUser;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * A portal login that belongs to a Tenant company (req #9). One tenant may have
@@ -27,7 +30,7 @@ use Laravel\Sanctum\HasApiTokens;
 #[PortfolioShared]
 class TenantUser extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference
 {
-    use CanResetPassword, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use CanResetPassword, HasApiTokens, HasFactory, LogsActivity, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -79,5 +82,23 @@ class TenantUser extends Authenticatable implements CanResetPasswordContract, Fi
     public function preferredLocale(): ?string
     {
         return $this->locale;
+    }
+
+    /**
+     * Every column an operator can change on a portal login, recorded.
+     *
+     * A `TenantUser` is a LOGIN — since the 2026-09-05 unification one row opens both the tenant
+     * portal and the mobile API, and `is_admin` is what decides whether that person may WRITE. None
+     * of it was audited anywhere in the system: creating a login, promoting somebody to admin or
+     * moving their email address left no trace at all. That is the same class of hole the property
+     * roster had, and the sharper version of it, because this grants access to a company's own
+     * billing rather than to a mall's operations.
+     *
+     * `password` is fillable here and is in `ActivityLogging::CREDENTIALS`, so the trail records
+     * THAT it changed and never what it changed to.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return ActivityLogging::for($this, 'tenant_user');
     }
 }

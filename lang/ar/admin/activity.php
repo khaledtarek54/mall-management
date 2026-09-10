@@ -49,6 +49,7 @@ return [
             'account_mapping' => 'سطر خريطة الترحيل',
             'floor' => 'طابق',
             'unit' => 'وحدة',
+            'tenant_user' => 'حساب البوابة',
             'rentable_item' => 'عنصر مؤجَّر',
             'marketing_post' => 'منشور تسويقي',
             'lease' => 'عقد إيجار',
