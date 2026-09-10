@@ -125,7 +125,19 @@ class AssetUnitsRelationManager extends RelationManager
             ->defaultSort('code')
             ->recordActions([
                 EditAction::make()
-                    ->url(fn (Unit $record) => UnitResource::getUrl('edit', ['record' => $record])),
+                    // THE TENANT IS PASSED EXPLICITLY, and on this page that is not a nicety.
+                    // `AssetResource` is portfolio-wide on purpose (`$isScopedToTenant = false`), so
+                    // the property being LOOKED AT is very often not the one SELECTED in the
+                    // switcher — while `getUrl()` fills the `{tenant}` segment from the switcher.
+                    // Without this the link named mall A and pointed at mall B's unit, and
+                    // `UnitResource` is `ScopesToProperty`, so it resolved no record: a 404 off a
+                    // row the operator is looking at. The relation manager already knows the
+                    // property it belongs to.
+                    ->url(fn (Unit $record) => UnitResource::getUrl(
+                        'edit',
+                        ['record' => $record],
+                        tenant: $this->getOwnerRecord(),
+                    )),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

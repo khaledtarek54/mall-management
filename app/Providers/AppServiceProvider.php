@@ -32,6 +32,7 @@ use App\Support\Filament\IdentifiedExportAction;
 use App\Support\Filament\IdentifiedExportBulkAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\Filament\NavigationItemMemo;
+use App\Support\Filament\PropertyLink;
 use App\Support\Filament\TableViewDefaultMemo;
 use App\Support\LedgerRealtimeSync;
 use App\Support\MorphMap;
@@ -114,6 +115,10 @@ class AppServiceProvider extends ServiceProvider
         // time). `scoped`, never `singleton`: a queue worker outlives the request, and a badge
         // count memoised across one would be answered from whenever that worker booted.
         $this->app->scoped(NavigationItemMemo::class);
+        // Which property a row belongs to — asked TWICE per row (the href, and whether the
+        // control renders at all) and answered once per request. Same reasoning as above: a
+        // static memo would be answered from whenever the worker booted.
+        $this->app->scoped(PropertyLink::class);
 
         // Same reasoning, different question: `TableView::defaultFor()` is asked twice per admin
         // list. `scoped`, never `singleton` — a queue worker outlives the request and an answer

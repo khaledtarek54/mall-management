@@ -823,6 +823,25 @@ The `lease_unit.is_master=true` row is mirrored into `leases.unit_id` for backwa
    - **Fix:** LeaseObserver::updated() now calls `units()->detach($original)` when `unit_id` changes.
    - **Test:** `tests/Feature/Scenarios/MultiUnitLeaseDataScenarioTest.php:296–312` — verifies old unit freed and no orphan pivot rows.
 
+5. **A Unit Opened From Its Property's Page 404'd (2026-09-10)**
+   - **Issue:** Reported as `/admin/VP/units/13/edit` → 404. The Units tab on a property's own page
+     linked with `UnitResource::getUrl('edit', …)` and no tenant, so `Resource::getUrl()` filled the
+     `{tenant}` segment from the property SWITCHER. `AssetResource` is portfolio-wide by design
+     (`$isScopedToTenant = false`), so the mall you are looking at is routinely not the mall that is
+     selected — and `UnitResource` is `ScopesToProperty`, so the route-bound record resolved through
+     a query that could not contain it. Rentable items had it too; so did four tabs on the TENANT
+     page, where the rows themselves span malls.
+   - **Fix:** where the TAB owns the property it passes it — `tenant: $this->getOwnerRecord()`;
+     where the ROW owns it, `App\Support\Filament\PropertyLink::to()` reads it off the record
+     through the isolation register. `AssetStaffRelationManager` had stated the rule from the day it
+     was written and its two neighbours had not, so it is a gate now, not a third careful call site.
+   - **Standard:** Yardi's persistent scope selector means the context follows the record you
+     opened, and `docs/benchmarks/yardi/08` UX-12 already says *"No dead-end numbers — if a figure
+     can be drilled, it links."*
+   - **Tests:** `tests/Feature/Regression/APropertysOwnRecordsOpenInThatPropertyTest.php` and
+     `tests/Feature/Scenarios/ALinkOffAPortfolioWidePageNamesItsOwnPropertyConformanceTest.php`.
+     Full reasoning in [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md).
+
 ## 10. Tests & related modules
 
 ### Core Property & Unit Tests

@@ -5,6 +5,7 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\TenantSalesDeclaration;
+use App\Support\Filament\PropertyLink;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -67,6 +68,10 @@ class TenantSalesDeclarationsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // `lease.unit` is the chain `PropertyLink` walks to answer which mall each row belongs
+            // to, and the Open action below asks that PER ROW — so without this the fix for a
+            // cross-property 404 would ship two queries a row in its place.
+            ->modifyQueryUsing(fn ($query) => $query->with(['lease.unit']))
             // No search box: a declaration is identified by its PERIOD, which is a date column, and
             // `TenantSalesDeclaration` carries no search blob. TableDefaults would otherwise render
             // a box that matches nothing — indistinguishable from "no such declaration", which is
@@ -114,8 +119,18 @@ class TenantSalesDeclarationsRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.open'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (TenantSalesDeclaration $record): string => TenantSalesDeclarationResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (TenantSalesDeclaration $record): bool => TenantSalesDeclarationResource::canEdit($record)),
+                    // THE PROPERTY COMES FROM THE ROW. This tab is NOT scoped to a property at all
+                    // — a tenant's declarations are listed wherever they trade — so with the switcher on
+                    // another mall `getUrl()` named that mall while pointing at this row, and the
+                    // target resource is `ScopesToProperty`: a 404 off a row on screen. Measured on
+                    // the box as `/admin/VP/units/13/edit` for a Nile Gate unit, through the
+                    // property page's own version of this defect.
+                    ->url(fn (TenantSalesDeclaration $record): ?string => PropertyLink::to(TenantSalesDeclarationResource::class, $record))
+                    // A ROW WITH NO PROPERTY GETS NO BUTTON, and one in a mall this operator cannot
+                    // enter gets none either — `PropertyLink::to()` answers null for both, and an
+                    // *Open* that goes nowhere is worse than no *Open*.
+                    ->visible(fn (TenantSalesDeclaration $record): bool => TenantSalesDeclarationResource::canEdit($record)
+                        && PropertyLink::to(TenantSalesDeclarationResource::class, $record) !== null),
             ])
             ->defaultSort('period_start', 'desc')
             ->emptyStateIcon('heroicon-o-chart-bar')

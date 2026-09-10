@@ -8,12 +8,12 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\Channels\BellChannel;
+use App\Support\Filament\PropertyLink;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Collection;
 use Throwable;
 
 /**
@@ -33,8 +33,9 @@ use Throwable;
  *     that actually owns it.
  *  2. **The property must be passed, never inferred.** `/admin` is tenanted, so its routes need a
  *     property slug and `Filament::getTenant()` is null out here. We derive it from the record
- *     itself, through {@see PropertyIsolation::owned()} — the registry that already knows every
- *     model's route to its `asset_id`, whether direct or via `lease.unit`. Nothing is guessed.
+ *     itself, through {@see PropertyLink::assetOf()} over the isolation registry, which already
+ *     knows every model's route to its `asset_id`, whether direct or via `lease.unit`. Nothing is
+ *     guessed.
  *  3. **Authorization is checked against the READER, not the session.** `Resource::canView()` is
  *     no use here: it reads `Auth::user()`, which is null, so it would answer "no" for everyone
  *     and every link would vanish. We ask the recipient object directly.
@@ -281,39 +282,17 @@ final class NotificationLink
     }
 
     /**
-     * The property a record belongs to, resolved through the isolation registry rather than by
-     * guessing at an `asset_id` column — `Invoice` reaches its property via `lease.unit`, and half
-     * a dozen other models are indirect the same way.
+     * The property a record belongs to.
+     *
+     * The resolution itself now lives in {@see PropertyLink::assetOf()} — extracted when the panel
+     * grew a second caller that has to answer exactly this question, because a link off a property
+     * page names a mall the switcher is not on. Two readings of "which property is this row" are
+     * two answers waiting to disagree; this class keeps the wrapper so its own reasoning stays
+     * where its callers read it.
      */
     private static function assetOf(Model $record): ?Asset
     {
-        if ($record instanceof Asset) {
-            return $record;
-        }
-
-        if (! PropertyIsolation::isOwned($record::class)) {
-            return null;   // a shared master — it has no property of its own
-        }
-
-        $node = $record;
-
-        foreach (array_filter(explode('.', (string) PropertyIsolation::linkageFor($record::class))) as $relation) {
-            $node = $node?->{$relation};
-
-            // A to-many hop (Payment → invoices → lease.unit): any of them names the same
-            // property, because a payment cannot span two malls.
-            if ($node instanceof Collection) {
-                $node = $node->first();
-            }
-
-            if ($node === null) {
-                return null;
-            }
-        }
-
-        $assetId = $node?->asset_id;
-
-        return $assetId ? Asset::find($assetId) : null;
+        return PropertyLink::assetOf($record);
     }
 
     /** The tenant a portal-visible record belongs to — the same two paths the portal itself scopes on. */

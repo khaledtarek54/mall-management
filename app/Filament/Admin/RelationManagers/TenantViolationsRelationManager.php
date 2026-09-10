@@ -6,6 +6,7 @@ use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Models\Violation;
 use App\Models\ViolationCategory;
+use App\Support\Filament\PropertyLink;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -86,8 +87,18 @@ class TenantViolationsRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.open'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (Violation $record): string => ViolationResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (Violation $record): bool => ViolationResource::canEdit($record)),
+                    // THE PROPERTY COMES FROM THE ROW. This tab is NOT scoped to a property at all
+                    // — a tenant's violations are listed wherever they trade — so with the switcher on
+                    // another mall `getUrl()` named that mall while pointing at this row, and the
+                    // target resource is `ScopesToProperty`: a 404 off a row on screen. Measured on
+                    // the box as `/admin/VP/units/13/edit` for a Nile Gate unit, through the
+                    // property page's own version of this defect.
+                    ->url(fn (Violation $record): ?string => PropertyLink::to(ViolationResource::class, $record))
+                    // A ROW WITH NO PROPERTY GETS NO BUTTON, and one in a mall this operator cannot
+                    // enter gets none either — `PropertyLink::to()` answers null for both, and an
+                    // *Open* that goes nowhere is worse than no *Open*.
+                    ->visible(fn (Violation $record): bool => ViolationResource::canEdit($record)
+                        && PropertyLink::to(ViolationResource::class, $record) !== null),
             ])
             // Newest first: this is a LEDGER of dated events, and the recent ones are the ones a
             // leasing decision turns on (App\Support\TableSortPolicy).

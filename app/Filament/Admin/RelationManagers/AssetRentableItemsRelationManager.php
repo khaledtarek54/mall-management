@@ -88,7 +88,13 @@ class AssetRentableItemsRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.open'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (RentableItem $record): string => RentableItemResource::getUrl('edit', ['record' => $record]))
+                    // The TENANT is passed explicitly — see AssetUnitsRelationManager for why this
+                    // page in particular cannot let `getUrl()` read it off the switcher.
+                    ->url(fn (RentableItem $record): string => RentableItemResource::getUrl(
+                        'edit',
+                        ['record' => $record],
+                        tenant: $this->getOwnerRecord(),
+                    ))
                     ->visible(fn (RentableItem $record): bool => RentableItemResource::canEdit($record)),
             ])
             ->defaultSort('code')

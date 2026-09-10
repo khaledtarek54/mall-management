@@ -238,6 +238,93 @@ command and the screens cannot disagree; a second hand-written list here would c
 until people stopped reading it. It is read-only and never repairs a row — the correction for a
 posted entry is a reversing entry, which is not a decision a sweep should take on money.
 
+## A LINK NAMES THE PROPERTY OF THE RECORD, NOT THE ONE IN THE SWITCHER (2026-09-10)
+
+Isolation had been read as one question — *which rows come back* — and it has a second half nobody
+had asked: **which property a link out of a screen names.**
+
+Every `/admin` route carries a `{tenant}` segment (slug = `assets.code`) and `Resource::getUrl()`
+fills it from `Filament::getTenant()` — the **switcher**. On most screens that is right by
+construction: the row on your screen belongs to the selected mall or you could not have opened the
+list. Two kinds of screen break that assumption:
+
+- **the owner record is portfolio-wide.** `AssetResource` lists the operator's whole portfolio on
+  purpose (`$isScopedToTenant = false`) — managing the malls themselves sits above the per-property
+  context, and a newly created mall is never the active one — so its Units and Rentable-items tabs
+  are showing mall B while the switcher says mall A.
+- **the ROWS span properties.** A tenant's page IS narrowed to the selected mall, but its TABS are
+  not all alike, and the difference is worth stating because a review caught the first version of
+  this paragraph getting it wrong. The **violations** and **sales-declaration** tabs are scoped by
+  *nothing at all* — a tenant's compliance history is listed wherever they trade — so those rows
+  really do span malls. The **invoices** and **requests** tabs narrow with
+  `TenantScope::visibleAssetIds()`, and that method answers the **SELECTED** property for any real
+  tenant (super_admin included, since All-Properties was removed), so no away row can reach those
+  screens. All four are written the same way regardless: the answer to *which mall is this row in*
+  should not depend on a scoping decision made in another file, and the gate then needs no
+  exemption list of the tabs that happen to be narrow this week.
+
+The targets are `ScopesToProperty`, and Filament resolves a route-bound record through the
+resource's own scoped query, so a link naming the wrong mall resolves **no record**: a **404** off a
+row on screen, not a refusal anybody can act on. Reported from the panel as
+`/admin/VP/units/13/edit`. **Yardi's rule is the one this broke**, and it is already written down
+here — `docs/benchmarks/yardi/08` UX-12: *"No dead-end numbers. If a figure can be drilled, it
+links"*, under a persistent scope selector where the context follows the record you opened.
+
+**Two right answers, because they are two different questions.** Where the TAB owns the property,
+the relation manager already knows it and passes it — `tenant: $this->getOwnerRecord()`, free and
+exact. Where the ROW owns it, `App\Support\Filament\PropertyLink::to()` reads it from the record
+through this document's own register (`PropertyIsolation::linkageFor()` — `Invoice` is direct,
+`TenantRequest` via `unit`, `TenantSalesDeclaration` via `lease.unit`).
+
+**Null rather than a fallback to the switcher** — that fallback *is* the defect. It is
+`NotificationLink`'s rule, arrived at independently for the identical reason and written there in
+full: *"A link that 404s (wrong property) or 403s (no permission) is worse than no link: it reads as
+a broken system rather than as a boundary."* `PropertyLink::assetOf()` is that class's own resolver,
+**extracted on its second real call site rather than copied** — two readings of *which property does
+this row belong to* are two answers waiting to disagree, and one of them is building a URL where the
+other is building a query.
+
+**The OWNER side of the gate is a UNION, and getting it wrong is how its own first version skipped
+two of the six resources it most needed to read.** A screen's rows are the selected mall's only when
+the resource is BOTH property-owned AND narrows itself to the selected property. Asking only *"is
+the model `#[PropertyOwned]`"* skips `DepartmentResource` and `OwnerRequestResource` — both carry
+`#[PropertyOwned(portfolioRowsWhenNull: true)]` models and still list the operator's whole assigned
+set, because they declare `$isScopedToTenant = false` and scope themselves that way deliberately.
+Asking only *"does it use a scoping trait"* skips `TenantResource`, which uses one. **And a scoped
+OWNER does not make its TABS scoped** — `TenantResource` is caught here only because a `Tenant` is
+`#[PortfolioShared]`, so a future property-owned, trait-scoped resource with a tab reaching across
+malls would not be swept. That limit is stated in `Tests\Support\PropertyLinks` rather than implied
+away, along with the other one: **admin Pages and Widgets are not swept**, and six of them already
+pass `tenant:` explicitly, which is direct evidence the same defect class lives there.
+
+**THE RULE WAS ALREADY WRITTEN DOWN AND STILL MISSED, WHICH IS WHY IT IS A GATE.**
+`AssetStaffRelationManager` states it in full — *"The TENANT is passed explicitly … a relation
+manager already knows the property it belongs to"* — and the two managers registered beside it in
+the same `getRelations()` array did not follow it. A sentence is not a gate.
+[`ALinkOffAPortfolioWidePageNamesItsOwnPropertyConformanceTest`](../tests/Feature/Scenarios/ALinkOffAPortfolioWidePageNamesItsOwnPropertyConformanceTest.php)
+**derives both halves from this register** — an owner whose model is not `#[PropertyOwned]` can be
+showing another mall's rows; a target whose model is `#[PropertyOwned]` 404s under the wrong one —
+so screen sixty-seven is covered by being what it is. It **tokenises and drops comments first**,
+because the fix's own docblock names `getUrl()` and `tenant`, and a grep-based gate reads the
+sentence explaining the rule as a call site obeying it: the prose false-positive that has weakened
+three gates in this repo already, pinned by its own probe test.
+
+**An unresolvable row gets no button, and so does one in a mall the reader cannot enter.** `to()`
+answers null for both and each `Open` hides itself on that answer — a control that goes nowhere is
+worse than no control. The access check is the one `NotificationLink::adminUrl()` makes against its
+own reader: `IdentifyTenant` answers 404 for a mall you may not enter, so without it the link is a
+dead end wearing the look of a working control, and its href names another mall's slug on the page.
+
+The no-property branch is recorded as **unexercised** rather than implied to be covered:
+`visibleAssetIds()` answers the SELECTED property even for a super_admin, so the invoices tab
+narrows with `whereIn('asset_id', [id])` and `whereIn` never matches null — a property-less invoice
+is not on the screen to be clicked — and the other three resolve through NOT NULL columns
+(`violations.asset_id`, `tenant_requests.unit_id`, `leases.unit_id`). It is proved at the seam
+instead. **The whole resolution sits inside the guard, not just the URL build** — walking a
+`via:` chain is the part that throws, and `NotificationLink` wraps it for that reason; guarding only
+the `getUrl()` call would turn a missing parent into a 500 on the tab rather than one dropped
+button.
+
 ## The self-enforcing gate
 
 **[`tests/Feature/Scenarios/PropertyIsolationConformanceTest.php`](../tests/Feature/Scenarios/PropertyIsolationConformanceTest.php)**
