@@ -37,6 +37,22 @@ SHAPE, never work from the card alone** — on this board every card so far has 
 report of a wider defect. Enumerate the doors onto the thing by grepping the thing, never from the
 diff you just wrote.
 
+**Run the doors, do not remember them** — `php artisan atriom:doors <Model>` lists every screen,
+importer, exporter, API resource and service that writes that record. This is the most-repeated
+defect in this codebase's history (the deposit modal that never got the bank field its six sibling
+doors got; the fifteenth document-number allocator in the file below the fourteenth), and a
+sentence telling you to enumerate them is not a gate — the command is.
+
+## 2b. Before you commit, ask what the change did NOT touch
+
+`php artisan atriom:doors --check-diff` reads your actual diff and names every door onto a record
+you touched that you left alone. It exits non-zero when there is one.
+
+**A non-zero exit is a question, not a verdict.** Leaving a sibling alone is very often right — an
+operator's form and a tenant's portal form for one record differ by twenty fields, every one of
+them a field a tenant must not be able to set. What is never right is not knowing. Say in the
+commit message which doors you left and why; that sentence is the deliverable of this step.
+
 ## 3. Implement — one seam, no overengineering
 
 - Business logic in **single-action services** (`app/Services`); pages and controllers stay thin.
