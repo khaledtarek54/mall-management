@@ -325,6 +325,75 @@ instead. **The whole resolution sits inside the guard, not just the URL build** 
 the `getUrl()` call would turn a missing parent into a 500 on the tab rather than one dropped
 button.
 
+## OPENING A MALL PUTS YOU IN THAT MALL (2026-09-10)
+
+The Properties register is the one screen where a RECORD and the SWITCHER can name different malls,
+and it did. `/admin/VP/assets/{Nile Gate}/edit` answered **200** with *"Nile Gate Mall"* six times in
+the page and *"Val Plaza"* eight, and nothing on screen saying which one you were in.
+
+It was reported twice, as two different bugs: first a unit on that page linking to a **404**, then —
+once the link named the row's own mall — the same click reading as *"it opens another property"*.
+Both are this. The operator was already looking at Nile Gate; only the URL and the switcher
+disagreed.
+
+**Yardi is the standard and this file's own benchmark already claimed we met it** —
+`docs/benchmarks/yardi/08` scores the *persistent scope selector*, *"everything you see is scoped,
+always, visibly"*, as ✅ *"Atriom already does this well."* True of every screen but this one.
+
+`AssetResource` cannot be narrowed to the selected mall: it is how you reach the OTHER malls, and a
+mall you have just created is never the active one. So the answer is to name the property on the way
+IN — which is what `App\Support\Filament\PropertyLink` already does for every other cross-property
+link in the panel.
+
+### FOUR doors, and the register was only the first
+
+Enumerated by grepping the shape, and three of the four were found by review rather than by the fix:
+
+| Door | Was | Now |
+|---|---|---|
+| the register's **Edit** link / row click | `/admin/VP/assets/{NG}/edit` | opens in NG |
+| **creating** a mall | landed on `/admin/VP/assets/{new}/edit` | lands in the new mall |
+| **global search** (⌘K → *Nile*) | `getUrl()` with no tenant | opens in NG |
+| **deleting** a mall | `/admin/NG/assets` → **404** | a mall still enterable |
+
+That last one is the sharp one, and it is worth recording why. **The register's fix CAUSED it**: once
+Edit opens a mall in its own segment, archiving from there redirects to the archived mall's own
+index, and `IdentifyTenant` refuses a trashed tenant. It was reachable before only if the switcher
+already sat on that mall; the fix made it the default path.
+
+### Two rejected designs, and the cost that ruled each out
+
+**A redirect on the record page** (`EditAsset::mount()`). Measured worse three ways: it handed back a
+null Livewire component to any test mounting the page for a foreign record, breaking one; it left
+deleting a property on a 404; and it fired on every ordinary open to correct a link nobody had
+fixed. Reverted in full.
+
+**Narrowing the list to the selected mall** — the operator's own first instinct, and a reasonable
+one, since it removes the confusing path outright. Measured cost: a trashed mall can never BE the
+selected tenant (`getTenants()` excludes soft-deleted, `canAccessTenant()` refuses one), so an
+archived property would appear in **no list at all**, while this table ships `TrashedFilter` and the
+page a `RestoreAction` precisely to bring one back.
+
+**And the first version of the accepted fix shipped that same cost anyway**, by a different route in
+the same screen: naming the record's property unconditionally made an archived mall's row link
+`/admin/NG/…` → 404, where the old link → 200, because
+`getRecordRouteBindingEloquentQuery()` strips `SoftDeletingScope` exactly so an archived mall stays
+openable. `PropertyLink::to()` refuses a mall the reader cannot enter and returns null, and
+`CanOpenUrl::getUrl()` is `evaluate($this->url) ?? getDefaultActionUrl()` — so null falls through to
+the current-tenant link, which is the right answer for a mall nobody can enter and the reason no
+fallback is hand-written at any of the four doors.
+
+**Use the seam, do not re-derive it.** A hand-written copy of that decision drifted from
+`PropertyLink` within an hour of being written — the default guard instead of the panel guard, and
+no `try`. All four doors call `PropertyLink::to()`.
+
+**Still open, reported not fixed:** `AccountMappingResource` has the same shape (documented above —
+no `getEloquentQuery()`, so the posting map lists override rows from every mall). It is **less
+severe**, because the destination is not property-scoped so it resolves 200 rather than 404, and it
+is **not the same fix**: `AccountMapping` is `#[PortfolioShared]` and a global-default row has no
+property to name. `PropertyLink::to()` would handle it correctly out of the box, which is a further
+argument for the seam.
+
 ## A RECORD-PAGE TAB IS A THIRD SURFACE, AND IT WAS THE UNSWEPT ONE (2026-09-10)
 
 Isolation was being proved on two surfaces and there are three. `PropertyIsolationConformanceTest`

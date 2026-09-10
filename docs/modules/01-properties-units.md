@@ -842,6 +842,20 @@ The `lease_unit.is_master=true` row is mirrored into `leases.unit_id` for backwa
      `tests/Feature/Scenarios/ALinkOffAPortfolioWidePageNamesItsOwnPropertyConformanceTest.php`.
      Full reasoning in [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md).
 
+6. **Opening a Mall From the Properties Register Showed a Different Mall (2026-09-10)**
+   - **Issue:** `/admin/VP/assets/3/edit` rendered Nile Gate's page while the URL and the switcher
+     said Val Plaza — measured 200, "Nile Gate Mall" ×6, "Val Plaza" ×8. Reported twice: as a unit
+     link that 404'd, then as *"it opens another property"*. `AssetResource` is portfolio-wide by
+     design, so `getUrl()` filled the `{tenant}` segment from the switcher.
+   - **Fix:** all FOUR doors onto a property record — the register's Edit link, creating a mall,
+     global search, and the post-delete redirect — name the mall through
+     `App\Support\Filament\PropertyLink`. An archived mall is deliberately NOT named (it cannot be
+     entered), which is what keeps `RestoreAction` reachable.
+   - **Standard:** Yardi's persistent scope selector — *"everything you see is scoped, always,
+     visibly"*, `docs/benchmarks/yardi/08`.
+   - **Tests:** `tests/Feature/Regression/AOpeningAPropertyPutsYouInThatPropertyTest.php`.
+     Full reasoning, including the two rejected designs, in [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md).
+
 ## 10. Tests & related modules
 
 ### Core Property & Unit Tests

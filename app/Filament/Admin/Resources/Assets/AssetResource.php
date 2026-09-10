@@ -18,6 +18,7 @@ use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Asset;
 use App\Support\AssignedAssets;
+use App\Support\Filament\PropertyLink;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -156,6 +157,20 @@ class AssetResource extends Resource
         return [
             'search_text',
         ];
+    }
+
+    /**
+     * **A SEARCH RESULT OPENS THE MALL IT NAMES.**
+     *
+     * `HasGlobalSearch::getGlobalSearchResultUrl()` calls `getUrl('edit', …)` with no tenant, so
+     * ⌘K → *"Nile"* → click produced `/admin/VP/assets/{Nile Gate}/edit` — the same URL-says-one-
+     * mall, record-is-another defect the register's Edit link exists to end, through a door that
+     * link does not reach. Found by review; the fix reaches for the same seam so the two answers
+     * cannot drift.
+     */
+    public static function getGlobalSearchResultUrl(Model $record): ?string
+    {
+        return PropertyLink::to(static::class, $record) ?? parent::getGlobalSearchResultUrl($record);
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

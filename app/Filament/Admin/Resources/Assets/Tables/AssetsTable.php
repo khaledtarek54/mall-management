@@ -9,6 +9,7 @@ use App\Services\AssetStatementPdfService;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\PdfDownloadAction;
+use App\Support\Filament\PropertyLink;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -138,8 +139,45 @@ class AssetsTable
                 ViewAction::make()
                     ->visible(fn ($record) => AssetResource::canView($record))
                     ->authorize(fn ($record) => AssetResource::canView($record)),
+                // **OPENING A MALL PUTS YOU IN THAT MALL.**
+                //
+                // `AssetResource` is portfolio-wide on purpose (`$isScopedToTenant = false`) —
+                // managing the malls themselves sits ABOVE the per-property context, and a mall you
+                // have just created is never the active one — so this list shows every mall you
+                // hold. `getUrl()` fills the `{tenant}` segment from the SWITCHER, so clicking Nile
+                // Gate while Val Plaza was selected opened `/admin/VP/assets/{Nile Gate}/edit`:
+                // measured **200**, with *"Nile Gate Mall"* six times in the page and *"Val Plaza"*
+                // eight, and nothing on screen saying which mall you were in.
+                //
+                // Reported twice as two different bugs — first a unit on that page linking to a
+                // 404, then, once the link was honest, the same click reading as *"it opens another
+                // property"*. Both are this: the operator was ALREADY looking at Nile Gate and only
+                // the URL and the switcher disagreed. **Yardi is the standard and this repo already
+                // claimed to meet it** — the *persistent scope selector*, *"everything you see is
+                // scoped, always, visibly"*, is scored ✅ in `docs/benchmarks/yardi/08`.
+                //
+                // **`PropertyLink::to()` IS this decision**, and reaching for it rather than
+                // re-deriving it is the point: it answers `$record` for an `Asset`, refuses a mall
+                // the reader cannot enter, and wraps the URL build. A hand-written copy here drifted
+                // from it in two ways within an hour of being written — the default guard instead of
+                // the panel guard, and no `try`. **Null falls through to Filament's own default URL**
+                // (`CanOpenUrl::getUrl()` is `evaluate($this->url) ?? getDefaultActionUrl()`), which
+                // is the current-tenant link — exactly the right answer for a mall that cannot be
+                // entered, and the reason no fallback is written here.
+                //
+                // **An ARCHIVED mall is that case, and it is not hypothetical.** `canAccessTenant()`
+                // refuses a trashed asset, so naming it would 404 — while
+                // `getRecordRouteBindingEloquentQuery()` strips `SoftDeletingScope` precisely so an
+                // archived mall stays openable and `RestoreAction` on that page stays reachable.
+                // Measured: the first version of this fix named it unconditionally and turned
+                // restore into a dead end.
+                //
+                // NOT narrowing this list to the selected mall, which was the other candidate: a
+                // trashed mall can never BE the selected tenant, so an archived property would then
+                // appear in no list at all.
                 EditAction::make()
-                    ->visible(fn ($record) => AssetResource::canEdit($record)),
+                    ->visible(fn ($record) => AssetResource::canEdit($record))
+                    ->url(fn (Asset $record): ?string => PropertyLink::to(AssetResource::class, $record)),
 
                 // The owner-facing PROPERTY STATEMENT — 12 months trailing, invoice + payment
                 // rollups and the ten most delinquent tenants.
