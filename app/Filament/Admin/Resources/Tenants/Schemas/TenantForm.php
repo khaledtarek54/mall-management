@@ -8,6 +8,9 @@ use App\Support\EgyptGovernorates;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\FormTab;
 use App\Support\Pdf\DocumentLocale;
+use App\Support\ScriptCheck;
+use App\Support\WebAddress;
+use Closure;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -171,12 +174,33 @@ class TenantForm
                             ->hiddenLabel()
                             ->content(__('admin.sections.store_directory_description'))
                             ->columnSpanFull(),
+                        // THE SHOPPER-FACING PAIR IS READ BY DIFFERENT PEOPLE, so each half has to be
+                        // in the language its label promises: these feed the visitor app, and an
+                        // Arabic-speaking shopper opening it to a Latin-only name is the one outcome
+                        // the pair exists to prevent. Asks for PRESENCE, never purity — a real
+                        // register is full of «زارا ZARA» and «H&M مصر», and demanding a single
+                        // script would refuse most of it. See ScriptCheck.
                         TextInput::make('trade_name')
                             ->label(__('admin.fields.trade_name'))
                             ->helperText(__('admin.fields.trade_name_hint'))
+                            ->rules([
+                                fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                    if (filled($value) && ! ScriptCheck::carriesNoLetters($value) && ! ScriptCheck::hasLatin($value)) {
+                                        $fail(__('admin.validation.expects_latin_script'));
+                                    }
+                                },
+                            ])
                             ->maxLength(255),
                         TextInput::make('trade_name_ar')
                             ->label(__('admin.fields.trade_name_ar'))
+                            ->helperText(__('admin.fields.trade_name_ar_hint'))
+                            ->rules([
+                                fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                    if (filled($value) && ! ScriptCheck::carriesNoLetters($value) && ! ScriptCheck::hasArabic($value)) {
+                                        $fail(__('admin.validation.expects_arabic_script'));
+                                    }
+                                },
+                            ])
                             ->maxLength(255),
                         Select::make('retail_category')
                             ->label(__('admin.fields.retail_category'))
@@ -199,9 +223,22 @@ class TenantForm
                             ->label(__('admin.fields.public_description_ar'))
                             ->rows(2)
                             ->maxLength(500),
+                        // `->url()` maps to Laravel's `url` rule, which REQUIRES a scheme — so
+                        // `www.zara.com`, which is how a retailer writes their own address, was
+                        // refused while `https://zara.com` was accepted. Normalised rather than
+                        // refused: every browser and CRM supplies the scheme itself, and making the
+                        // operator do it by hand is work the machine does reliably. See WebAddress.
                         TextInput::make('website_url')
                             ->label(__('admin.fields.website_url'))
-                            ->url()
+                            ->helperText(__('admin.fields.website_url_helper'))
+                            ->rules([
+                                fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                    if (filled($value) && ! WebAddress::isValid((string) $value)) {
+                                        $fail(__('admin.validation.website_url_invalid'));
+                                    }
+                                },
+                            ])
+                            ->dehydrateStateUsing(fn (?string $state) => WebAddress::normalise($state))
                             ->maxLength(255),
                         TextInput::make('instagram_handle')
                             ->label(__('admin.fields.instagram_handle'))

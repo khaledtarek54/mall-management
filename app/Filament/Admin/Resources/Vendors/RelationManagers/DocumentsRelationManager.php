@@ -53,8 +53,13 @@ class DocumentsRelationManager extends RelationManager
             TextInput::make('issuer')
                 ->label(__('admin.vendors.documents.issuer'))
                 ->maxLength(200),
+            // An ISSUE date is when an authority actually issued the paper, so it cannot be in the
+            // future — a document dated next month has not been issued and the compliance clock
+            // built on it (`alertStage()`, the expiry sweep) would be measuring from a day that has
+            // not happened. Both document registers carry the same field and the same hole.
             DatePicker::make('issued_on')
                 ->label(__('admin.vendors.documents.issued_on'))
+                ->maxDate(today())
                 ->native(false),
             DatePicker::make('expires_on')
                 ->label(__('admin.vendors.documents.expires_on'))

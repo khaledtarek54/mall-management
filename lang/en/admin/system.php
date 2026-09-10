@@ -581,6 +581,9 @@ return [
         'relief_no_schedule' => 'This lease has no active :type schedule to relieve — there is nothing to reduce.',
     ],
     'validation' => [
+        'website_url_invalid' => 'That does not look like a web address. Type the site as it appears on their card — for example zara.com or www.zara.com; https:// is added for you.',
+        'expects_latin_script' => 'This is the name Latin-script shoppers see, so write it in Latin letters. A mixed name like “زارا ZARA” is fine — the Arabic version belongs in the field beside it.',
+        'expects_arabic_script' => 'This is the name Arabic-speaking shoppers see, so write it in Arabic letters. A mixed name like “زارا ZARA” is fine — the Latin version belongs in the field beside it.',
         'import_lease_term_disagrees' => 'A term of :term months from this commencement ends on :derived, but the row says :expiry. One of the two is wrong — correct the spreadsheet rather than letting the lease carry both.',
         'tax_code_needs_rate' => 'Tax code :code has no rate yet, so it cannot be switched on. Add a rate to its ladder first — otherwise it would appear in the pickers and bill nothing.',
         'tax_code_last_rate' => 'Tax code :code is switched on and this is its only rate. Removing it would leave every supply under :code billing the standard VAT rate instead. Add the replacement rate first, or switch the code off.',

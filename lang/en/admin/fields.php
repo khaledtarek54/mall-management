@@ -796,6 +796,8 @@ return [
         'area_sqm' => 'Area (m²)',
         'staff' => 'Staff member',
         'is_admin' => 'Can make changes',
+        'website_url_helper' => 'Type it as it appears on their card — https:// is added for you.',
+        'trade_name_ar_hint' => 'The name Arabic-speaking shoppers see in the visitor app.',
     ],
 
 ];
