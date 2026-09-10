@@ -302,6 +302,105 @@ Marking an occupied unit `maintenance` is deliberately not possible: the project
 closed for a refit mid-lease is recorded against the lease or a work order, not by misstating whether
 the unit is occupied. (`AUnitsOccupancyIsDerivedNotTypedTest`.)
 
+### An exported cell is a VALUE, never a record (2026-09-10)
+
+The units CSV printed this in its Floor column, on every row:
+
+```
+{"id":2,"asset_id":2,"code":"G","name":"Ground","level":0,"created_at":"…","updated_at":"…"}
+```
+
+`UnitExporter` had `ExportColumn::make('floor')` — the name of a **BelongsTo relation**, not of an
+attribute on it. Filament enters its relationship branch only when the name **contains a dot**
+(`HasCellState::getRelationship()` returns null early otherwise), so a bare relation name skips
+relation resolution entirely and falls through to `data_get($record, 'floor')`, which is the `Floor`
+**model**. Nothing downstream rejects it: the writer stringifies whatever it is handed, and
+`Model::__toString()` is `toJson()`. So the export **succeeded**, the completion notification said
+so, and the damage was one column of every row.
+
+It is `floor.code` now — what the units table itself shows in that column, and the value a
+re-import joins on.
+
+**Why nothing caught it.** `EveryRegisterCanBeExportedTest` asserts column **names** — `code` first,
+`tax_id` present — which is the gate-checks-a-weaker-property shape this codebase keeps finding:
+`floor` is a perfectly good name. Nothing resolved a cell. Two gates now do, because neither can see
+what the other does: `ExportedCellsAreValuesConformanceTest` walks every exporter's dotted path with
+**no data at all** (so it covers an exporter whose model has nothing seeded, where a live sweep can
+only report "unverified"), and `AnExportedCellIsAValueNotARecordTest` renders the reported column
+through the exporter's own `__invoke()` — the seam `ExportCsv` calls per record. **A test on a
+column's `getState()` proves nothing here**: it skips the formatting the writer applies and passes
+against a `Model` just as happily. And assert the **whole cell**, not a substring — `G` is contained
+in the JSON blob too, so `toContain('G')` passes on exactly the output being refused.
+
+**The rule is about the TERMINAL segment**, and there are two ways it is not a value: it names a
+relation (BelongsTo → one JSON object, HasMany → an array of them), or it is cast to
+`array`/`json`/`object`/`collection`. Two things are deliberately not defects — a column with its
+own `state()`/`formatStateUsing()` closure answers for itself (`CreditNoteExporter::on_the_books`
+returns a translated yes/no), and `custom_fields.<key>` indexes **into** an array-returning
+accessor, where the terminal segment is a KEY. That carve-out is the gate's one blind spot, so it is
+closed from the other end: every `CustomField::TYPES` member is put through the real
+`castCustomFieldValue()` and must come back scalar, so adding a multi-value type turns the gate red
+and forces a decision rather than silently exporting JSON in all five extensible registers at once.
+
+**And the round-trip claim sent me to the other door, which was worse.** `floor.code` is chosen
+partly because it is the value a re-import joins on — and `UnitImporter`'s `floor` column had been
+dead since `2026_08_10_160000_create_floors_and_move_units_onto_them` dropped `units.floor`. It had
+no `fillRecordUsing` and no `relationship()`, so `ImportColumn::fillRecord()` fell through to
+`data_set($record, 'floor', $state)`; a Model is `ArrayAccess`, so that set an **attribute** named
+for a column that no longer exists, and the insert died with a raw
+`SQLSTATE[42S22]: Unknown column 'floor'` — on **every** row, and on a **blank cell too**, because
+`isBlankStateIgnored()` defaults to false so the fill still runs. Mapping the column at all put a
+database error string in front of the operator where a field message belongs (the SW-243 shape).
+
+**The export fix is what made it reachable.** Filament writes the export header row from the column
+**labels**, and `ImportColumn::getGuesses()` unshifts its own label — both sides resolve `Floor` /
+«الطابق», so the mapping screen auto-guesses the exported Floor column straight onto the broken one.
+Fixing one door and leaving the other is how a file that exports cleanly fails 100% of its rows
+going back in.
+
+It resolves the floor **register** by code now, scoped to the row's own property — `floors` is
+`unique(asset_id, code)`, so the code is its identity there — matched case-insensitively, since an
+operator's spreadsheet says `g` as readily as `G`. Three details earn their place:
+
+- It is a **`DataAwareRule`, not a closure.** `getColumns()` is static, so `$this->data` in a closure
+  declared there is unbound — which is why the area-ceiling rule beside it was already an anonymous
+  class, and the first draft of this fix repeated the mistake it documents.
+- A floor the property does not have is **refused, in both languages** (`import_floor_not_found`),
+  not created: a floor carries a `level` that orders every plan and report, so inventing one from a
+  spreadsheet cell would guess at that ordinal. The refusal deliberately stays silent when the
+  `asset_code` rule has already failed the row, so one mistake is not reported twice.
+- Blank **clears** the floor rather than being ignored. A re-import is the operator restating the
+  row, and silently keeping a floor they blanked would make the column unsettable-back through the
+  same door that set it.
+
+Driven in tests through `Importer::__invoke()` — the per-row seam `ImportCsv` calls, which remaps,
+casts, **validates**, resolves the record and saves. Setting `floor_id` by hand would be a fixture
+writing a column no door writes, i.e. green over dead code.
+
+**Swept, so the claim is measured rather than asserted:** all nine exporters (279 cells over 27
+demo records), all 20 deliverable reports (~15,600 cells, `ActivityLog` alone 2,110 rows) and all
+six register CSVs render scalars. `ClauseRegister` has no demo rows, so it is structurally covered
+and live-unverified. Exactly five screen columns name a bare relation and all five carry an explicit
+`->state()`, so nothing on the table layer renders a record today — though the resolver could not
+attribute 186 Filament files (relation managers outside resource directories, array-fed pages), so
+that is a statement about what was reachable rather than about the whole panel.
+
+**And the round trip was still broken at a DIFFERENT column.** A review of the fix found the file did
+not re-import at all, at its one **required** mapping: the export emitted `asset.name` (labelled
+*Asset*) while `UnitImporter::asset_code` is `requiredMapping()` and resolves a CODE —
+`resolveVisibleAsset('Atriom Walk')` is NULL and only `'AW'` resolves. `ImportColumn::getSelect()` is
+`->required($this->isMappingRequired())`, so the mapping modal cannot even be submitted with it
+blank, and an operator picking the only plausible header fails every row. Six of seven columns
+auto-guessed; the seventh was the one that had to.
+
+**Filament maps by LABEL, so the label is the contract** — an export's header row *is* its column
+labels, and `ImportColumn::getGuesses()` unshifts its own — so `asset.code` was added under the key
+the importer guesses on. `ExportedCellsAreValuesConformanceTest` now owns the property, derived over
+every exporter/importer pair and checked **in every supported locale**, because a pair that matches
+in English can drift in Arabic while every English-run test stays green. It found the same defect in
+`LeaseExporter` on its first run, and the sibling gate then caught the fix for it — `Lease` has no
+`asset` relation, reaching its property `via: 'unit'` — which is the pair working.
+
 ### Area: zero is refused, blank is not
 
 `total_area_sqm` and `leasable_area_sqm` are both nullable columns and both refuse **0** on the

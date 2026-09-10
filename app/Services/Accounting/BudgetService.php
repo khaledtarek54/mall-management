@@ -5,6 +5,7 @@ namespace App\Services\Accounting;
 use App\Models\BudgetLine;
 use App\Models\LedgerAccount;
 use App\Support\CsvAmount;
+use App\Support\ReportCsv;
 use App\Support\StatementSection;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -237,7 +238,7 @@ class BudgetService
                 ? array_map('trim', explode("\t", $line))
                 : (str_contains($line, ';')
                     ? array_map('trim', explode(';', $line))
-                    : array_map(fn ($c) => trim((string) $c), str_getcsv($line, ',', '"', '\\')));
+                    : ReportCsv::parse($line));
 
             if (count($cells) < 2 || ! preg_match('/^[0-9][0-9.\-]*$/', $cells[0])) {
                 continue;   // blank, or a header row — detected by shape, since the sheet may be Arabic

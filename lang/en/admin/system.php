@@ -602,6 +602,7 @@ return [
         'sales_exclusions_exceed_gross' => 'The deductions come to more than the gross turnover they are taken from. Check the figures against the tenant’s certificate.',
         'locked_declaration_is_evidence' => 'This declaration is locked, so :field can no longer be changed — the overage was computed from it and billed. Void the lock first, which reverses the invoice and lets the month be re-declared.',
         'import_asset_out_of_scope' => 'This property code is not found or is outside the properties you can manage.',
+        'import_floor_not_found' => 'No floor with the code ":code" exists for this property. Add it to the property\'s floors first.',
         'lease_terminal_immutable' => 'This lease is terminated/expired/cancelled and can no longer be edited. Reverse or renew it instead.',
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
         'leasable_area_exceeds_gross' => 'The leasable area (:leasable m²) is larger than the gross building area (:gross m²), so this property would let more space than it has. Correct whichever of the two is wrong.',

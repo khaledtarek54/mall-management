@@ -7,7 +7,7 @@ use Filament\Actions\ExportAction;
 /**
  * Filament's `ExportAction`, refusing an export that could not say which rows it is about.
  *
- * Bound in `AppServiceProvider` so `ExportAction::make()` returns this at all thirteen call sites
+ * Bound in `AppServiceProvider` so `ExportAction::make()` returns this at all nine call sites
  * and the fourteenth before anyone remembers it — the argument that put the CRUD authorization in
  * the container. See {@see IdentifiedExport} for the rule, and for why it refuses rather than
  * silently switching the column back on.

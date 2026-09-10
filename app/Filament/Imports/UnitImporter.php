@@ -3,6 +3,7 @@
 namespace App\Filament\Imports;
 
 use App\Models\Asset;
+use App\Models\Floor;
 use App\Models\Unit;
 use App\Support\AreaFitsTheProperty;
 use App\Support\DataTransferNotice;
@@ -46,6 +47,37 @@ class UnitImporter extends Importer
         return ($visible === null || in_array($asset->id, $visible, true)) ? $asset : null;
     }
 
+    /**
+     * A floor of this property, by the code the register holds — `floors` is `unique(asset_id,
+     * code)`, so the code is its identity within a property and is what `UnitExporter` emits.
+     *
+     * Case-insensitively, because an operator's spreadsheet says `g` as readily as `G` and the
+     * register is a fixed handful of rows. Global scopes are off for the same reason
+     * {@see resolveVisibleAsset()} turns them off: the row names its own property and the import
+     * runs outside a panel tenant.
+     */
+    public static function resolveFloor(Asset $asset, string $code): ?Floor
+    {
+        $code = trim($code);
+
+        if ($code === '') {
+            return null;
+        }
+
+        // DELIBERATELY NOT memoised in a static, though the rule and the fill each ask and so this
+        // costs ~4 queries a row against a 5,000-row ceiling. CLAUDE.md's rule: a queue worker
+        // OUTLIVES the request, so a static would serve one import's floors to the next one — and
+        // since the key would be an `asset_id`, it would serve them ACROSS PROPERTIES. Trading a
+        // background job's query count for a cross-property write is the wrong direction, and the
+        // request-scoped container binding the rule states instead is not reachable from the
+        // anonymous rule class this is called from. Filament's own `$resolvedRelatedRecords` is
+        // per-IMPORTER-instance, which is the shape that would be safe here.
+        return Floor::withoutGlobalScopes()
+            ->where('asset_id', $asset->id)
+            ->whereRaw('lower(code) = ?', [mb_strtolower($code)])
+            ->first();
+    }
+
     public static function getColumns(): array
     {
         return [
@@ -69,9 +101,83 @@ class UnitImporter extends Importer
                 ->requiredMapping()
                 ->rules(['required', 'max:20']),
 
+            // `units.floor` was DROPPED by `2026_08_10_160000_create_floors_and_move_units_onto_them`
+            // and this column was never moved onto the register that replaced it — so it had no
+            // `fillRecordUsing` and no `relationship()`, and `ImportColumn::fillRecord()` fell
+            // through to `data_set($record, 'floor', $state)`. A Model is `ArrayAccess`, so that
+            // sets an ATTRIBUTE named for a column that does not exist, and the insert failed with
+            // a raw `SQLSTATE[42S22]: Unknown column 'floor'` — on EVERY row, and on a BLANK cell
+            // too, because `isBlankStateIgnored()` defaults to false so the fill still runs. Mapping
+            // the column at all put a database error string in front of the operator where a field
+            // message belongs (the SW-243 shape).
+            //
+            // It resolves the FLOOR REGISTER by code now, scoped to the row's own property —
+            // `floors` is `unique(asset_id, code)`, so the code is the identity — which is also
+            // what `UnitExporter` emits as `floor.code`, so a file exported here re-imports.
+            // A floor that does not exist is REFUSED rather than created: a floor is property
+            // master data with a `level` that orders every plan and report, and inventing one from
+            // a spreadsheet cell would guess at that ordinal.
             ImportColumn::make('floor')
                 ->label(__('admin.tables.unit.floor'))
-                ->rules(['nullable', 'max:20']),
+                // A `DataAwareRule` rather than a plain closure, for the reason the area ceiling
+                // below is one: the floor has to be looked for in the property THIS ROW names, and
+                // `getColumns()` is static — `$this->data` in a closure declared here is unbound.
+                // `max:16`, not the unit code's 20: this cell is a LOOKUP KEY on `floors.code`,
+                // which is `varchar(16)`. The SW-243 width gate cannot see it — it resolves widths
+                // against the importer's own model, and `units` has no `floor` column, so the width
+                // comes back null and the column is skipped. Consequence today is only which
+                // message the operator reads, since a 17-character code cannot exist; the shape —
+                // an importer column keyed on ANOTHER table — is what the gate is blind to.
+                ->rules(['nullable', 'max:16', new class implements DataAwareRule, ValidationRule
+                {
+                    /** @var array<string, mixed> */
+                    protected array $data = [];
+
+                    /** @param  array<string, mixed>  $data */
+                    public function setData(array $data): static
+                    {
+                        $this->data = $data;
+
+                        return $this;
+                    }
+
+                    public function validate(string $attribute, mixed $value, Closure $fail): void
+                    {
+                        if (blank($value)) {
+                            return;
+                        }
+
+                        $code = $this->data['asset_code'] ?? null;
+                        $asset = UnitImporter::resolveVisibleAsset(is_string($code) ? $code : null);
+
+                        // The asset_code rule already failed this row; do not report it twice.
+                        if ($asset === null) {
+                            return;
+                        }
+
+                        if (UnitImporter::resolveFloor($asset, (string) $value) === null) {
+                            $fail(__('admin.validation.import_floor_not_found', ['code' => $value]));
+                        }
+                    }
+                }])
+                ->fillRecordUsing(function (Unit $record, ?string $state): void {
+                    // Blank CLEARS the floor rather than being ignored — a re-import is the
+                    // operator restating the row, and silently keeping a floor they blanked would
+                    // make the column un-clearable through the door they used to set it.
+                    if (blank($state)) {
+                        $record->floor_id = null;
+
+                        return;
+                    }
+
+                    // `asset_id` is already stamped: Filament fills columns in declaration order
+                    // and `asset_code` is declared first.
+                    $asset = $record->asset_id ? Asset::withoutGlobalScopes()->find($record->asset_id) : null;
+
+                    if ($asset !== null) {
+                        $record->floor_id = self::resolveFloor($asset, $state)?->id;
+                    }
+                }),
 
             ImportColumn::make('category')
                 ->label(__('admin.tables.unit.category'))

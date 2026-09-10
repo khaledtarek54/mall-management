@@ -5,6 +5,7 @@ namespace App\Services\Accounting;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Support\CsvAmount;
+use App\Support\ReportCsv;
 use Carbon\CarbonImmutable;
 use DomainException;
 
@@ -226,7 +227,8 @@ class ImportOpeningBalancesService
      * and a 1.25m opening balance silently read as 1. The separator is a property of the LINE, so
      * it is decided once per line, most-specific first.
      *
-     * Comma lines go through `str_getcsv`, which honours the quoting a real CSV export uses for a
+     * Comma lines go through `ReportCsv::parse()` — the read half of the writer's own control,
+     * so the escape character cannot disagree between the two — which honours the quoting a real CSV export uses for a
      * value containing a comma. An UNQUOTED `1,250,000.50` in a comma-separated line stays
      * genuinely ambiguous — nothing can tell it from three fields — and is left to fail loudly in
      * validation rather than be guessed at.
@@ -243,7 +245,7 @@ class ImportOpeningBalancesService
             return array_map('trim', explode(';', $line));
         }
 
-        return array_map(fn ($c) => trim((string) $c), str_getcsv($line, ',', '"', '\\'));
+        return ReportCsv::parse($line);
     }
 
     /**

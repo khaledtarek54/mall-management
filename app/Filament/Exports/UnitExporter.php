@@ -18,7 +18,21 @@ class UnitExporter extends Exporter
         return [
             ExportColumn::make('code')->label(__('admin.tables.unit.code')),
             ExportColumn::make('asset.name')->label(__('admin.filters.asset')),
-            ExportColumn::make('floor')->label(__('admin.pdf.floor')),
+            // The property CODE as well as its name, because `UnitImporter::asset_code` is
+            // `requiredMapping()` and resolves a code — `resolveVisibleAsset('Atriom Walk')` is
+            // NULL, only 'AW' resolves. Without this the export was a ONE-WAY DOOR at its one
+            // required column: the mapping modal cannot be submitted with `asset_code` blank, and
+            // an operator picking the only plausible header ("Asset") fails every row. Labelled
+            // from the key the importer guesses on, so the mapping is automatic. Same reasoning as
+            // the vendor and property exporters, which lead with `code` for exactly this.
+            ExportColumn::make('asset.code')->label(__('admin.tables.asset.code')),
+            // `floor.code`, never `floor` — the bare relation name has no dot, so Filament skips
+            // its relationship resolution entirely and `data_get()` hands back the Floor MODEL,
+            // which the CSV writer stringifies through `Model::__toString()` into a JSON blob of
+            // the whole row. The operator's floor column read
+            // `{"id":2,"asset_id":2,"code":"G",...}`. `code` is what the units table itself shows
+            // and what a re-import would join on.
+            ExportColumn::make('floor.code')->label(__('admin.pdf.floor')),
             ExportColumn::make('category')->label(__('admin.tables.unit.category')),
             ExportColumn::make('area_sqm')->label(__('admin.tables.unit.area')),
             ExportColumn::make('activeLease.tenant.name')->label(__('admin.tables.unit.tenant')),

@@ -5,6 +5,7 @@ namespace App\Services\Banking;
 use App\Models\BankStatement;
 use App\Models\BankStatementLine;
 use App\Support\CsvAmount;
+use App\Support\ReportCsv;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -117,7 +118,7 @@ class ImportBankStatementService
 
         $header = array_map(
             fn ($h) => mb_strtolower(trim((string) $h, " \t\n\r\0\x0B\"'")),
-            str_getcsv((string) array_shift($lines))
+            ReportCsv::parse((string) array_shift($lines))
         );
 
         $find = function (array $names) use ($header): ?int {
@@ -149,7 +150,7 @@ class ImportBankStatementService
                 continue;
             }
 
-            $cells = str_getcsv($line);
+            $cells = ReportCsv::parse($line);
             $get = fn (?int $i) => $i === null ? null : trim((string) ($cells[$i] ?? ''));
 
             if ($amountAt !== null && $get($amountAt) !== '') {

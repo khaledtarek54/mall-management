@@ -409,7 +409,38 @@ report now exports to **CSV**:
 
 - **`App\Support\ReportCsv::stream(filename, headers, rows)`** — the one streaming primitive. Prepends
   a **UTF-8 BOM** (Excel needs it to render Arabic), quotes via `fputcsv`, streams so a large GL never
-  loads into memory.
+  loads into memory. **The escape character is switched OFF** (`fputcsv($out, $row, ',', '"', '')`,
+  2026-09-10), and that is a correctness fix rather than tidying up a deprecation: PHP's default
+  `$escape` is a backslash, which is not RFC 4180 and produces a file that does not read back as
+  what was written — measured, the field `a\"b` was written with its enclosure left undoubled,
+  because the backslash was taken as escaping it, and `fgetcsv` returned `a\\b"`. A backslash
+  reaches these cells through ordinary operator-typed text (an address, a note), and a report an
+  accountant re-imports has to survive the round trip. It also settles the PHP 8.4 deprecation,
+  whose own message says only that *"its default value will change"* in PHP 9 **without saying to
+  what** — so stating it is what makes this independent of that change either way, rather than a bet
+  on the direction. (Read by `fgetcsv` at its own backslash default the bad file comes back
+  correctly, which is precisely why the defect hides: the writer and the matching reader agree with
+  each other and with nobody else.) One private `put()` for both the header and the rows, or the two
+  disagree.
+  **`ReportCsv::parse()` is the read half of the same control**, and it was the half nobody had
+  done: two importers hard-coded `'\\'` (`ImportOpeningBalancesService`, `BudgetService`) and two
+  more passed nothing at all (`ImportBankStatementService`, twice — a live PHP 8.4 deprecation), so
+  fixing only the writer would have left the two ends disagreeing on exactly the round trip this
+  claims. One function each way, or the pair drifts.
+
+  **Scope, because it reads wider than it is: the nine Filament exporters do NOT use this writer.**
+  `ExportCsv`/`PrepareCsvExport` build `League\Csv\Writer::from(new SplTempFileObject)` and set only
+  the delimiter, and Filament v4.11.8 has no reference to `escape` anywhere under `Exports/` — the
+  writer is a local inside two `handle()` methods totalling 242 lines, reachable only by subclassing
+  both jobs and wiring `->job()` at all 17 export call sites. Both obvious guesses about the shape
+  were wrong when measured: a **trailing** backslash is fine (`"C:\path\"` reads back correctly in
+  Excel and in `parse()`), what breaks is a backslash immediately **before a quote**, and it
+  round-trips through League's *own* reader — so testing that writer against its matching reader
+  shows nothing, and only an RFC reader sees it. With exposure measured at **zero** backslashes
+  anywhere in the demo tenant/unit/vendor/property/invoice/request text, it is **pinned with two
+  controls rather than forked** (the `FilamentActionDispatchContractTest` idiom), and the test goes
+  red the day it closes upstream.
+  (`AnExportedCellIsAValueNotARecordTest`.)
 - **`App\Services\Reports\ReportCsvExporter`** — flattens each computed report into `[headers, rows]`
   (kept out of the Filament pages so the row shape is unit-testable; a streamed response is not).
   Account names follow the locale; amounts are plain numbers (no separators/symbol) so a spreadsheet
