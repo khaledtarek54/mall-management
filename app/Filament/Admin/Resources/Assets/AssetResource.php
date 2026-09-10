@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Assets;
 
 use App\Filament\Admin\RelationManagers\AssetActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\AssetAreasRelationManager;
 use App\Filament\Admin\RelationManagers\AssetFloorsRelationManager;
 use App\Filament\Admin\RelationManagers\AssetOwnersRelationManager;
 use App\Filament\Admin\RelationManagers\AssetRentableItemsRelationManager;
@@ -71,6 +72,9 @@ class AssetResource extends Resource
     {
         return [
             AssetFloorsRelationManager::class,
+            // How the mall is DIVIDED — zones route a request or work order to whoever covers
+            // that part of the building. Beside Floors because both are its spatial make-up.
+            AssetAreasRelationManager::class,
             AssetUnitsRelationManager::class,
             AssetRentableItemsRelationManager::class,
             AssetStaffRelationManager::class,

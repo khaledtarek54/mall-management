@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -74,6 +75,17 @@ class Area extends Model
     }
 
     /** Staff responsible for this zone (FR routing, later slice). */
+    /**
+     * The units standing in this zone — `units.area_id`, the other half of what a zone is for.
+     *
+     * Added with the property's Zones tab, which reports the count: a zone with no units in it is
+     * usually one somebody set up and never assigned, and that is worth seeing at a glance.
+     */
+    public function units(): HasMany
+    {
+        return $this->hasMany(Unit::class);
+    }
+
     public function supervisors(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'area_user')->withTimestamps();

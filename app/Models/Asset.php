@@ -203,6 +203,21 @@ class Asset extends Model implements HasMedia
             ->withTimestamps();
     }
 
+    /**
+     * The facility ZONES this property is divided into (module 30) — Food Court, Parking, Roof
+     * Plant. Each carries a code unique within the property and a set of supervisors, which is what
+     * routes an incoming request or work order to the people responsible for that part of the mall.
+     *
+     * Absent until 2026-09-10 even though `Area` has carried `asset_id` since module 30 shipped, so
+     * zones could only be reached from their own Setup register and `AssetFloorsRelationManager`'s
+     * docblock asserted — in writing — that *"units and zones are already managed this way"*. A
+     * comment describing a screen nobody built is how an absence stays invisible.
+     */
+    public function areas(): HasMany
+    {
+        return $this->hasMany(Area::class);
+    }
+
     public function utilityMeters(): HasMany
     {
         return $this->hasMany(UtilityMeter::class);

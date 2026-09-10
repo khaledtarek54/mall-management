@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\ShowsItsChildrensActivity;
+use App\Models\Area;
 use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\RentableItem;
@@ -45,6 +46,7 @@ class AssetActivitiesRelationManager extends ActivitiesRelationManager
     {
         return [
             Unit::class => 'asset_id',
+            Area::class => 'asset_id',
             Floor::class => 'asset_id',
             RentableItem::class => 'asset_id',
         ];

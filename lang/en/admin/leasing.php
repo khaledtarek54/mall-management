@@ -498,6 +498,10 @@ return [
     ],
 
     'areas' => [
+        'active_hint' => 'An inactive zone stays on its units and stops being offered for new ones.',
+        'actions' => [
+            'add' => 'Add zone',
+        ],
         'singular' => 'Area',
         'plural' => 'Areas',
         'code_hint' => 'Unique within this property, e.g. GF, FC, PKG.',

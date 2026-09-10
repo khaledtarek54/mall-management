@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Model;
  * eight rows typed once when the mall is created, then never touched. A top-level nav entry would
  * spend a permanent slot on a screen an operator visits twice a year, and it would separate the
  * floors from the property they describe — which is the click-budget rule (UX rule 1) working
- * against itself. Units and zones are already managed this way.
+ * against itself. Units, zones and parking are managed this way too.
  */
 class AssetFloorsRelationManager extends RelationManager
 {

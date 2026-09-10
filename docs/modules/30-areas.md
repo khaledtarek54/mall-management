@@ -212,3 +212,28 @@ Each row's full claim is in [docs/qa/DEEP-SWEEP-2026-09-01.md](../qa/DEEP-SWEEP-
 
 **A ZONE FOLLOWS THE UNIT IT WAS INHERITED FROM (SW-155, 2026-09-04).** `TenantRequest` and `FacilityWorkOrder` both derived `area_id` from `units.area_id` in a `creating` hook and neither ever looked again, so correcting the unit on the Edit page — the ordinary fix for a request logged against the wrong shop — left the zone pointing at the previous unit, under a field the request form renders DISABLED with the placeholder *"auto"* beside a comment saying "the derivation owns the value". **The zone is routing, not decoration:** `NotifyAreaSupervisorsService` tells that zone's supervisors, both lists carry an `area.name` column and an area filter, and a corrective work order copies the REQUEST's zone — so a stale one sends a technician to the wrong part of the mall. Measured on the QA baseline (2026-09-04): **10 of 10 tenant requests and 3 of 3 unit-bearing work orders** carried a zone disagreeing with their unit's. `App\Models\Concerns\InheritsAreaFromUnit` is the one seam and it supplies `zoneOfUnit()` to BOTH creating hooks as well, so intake and correction cannot disagree about what "the unit's zone" is. **It re-inherits only what it gave** — the stored zone must be the OLD unit's, or nothing at all — because the creating hook's own rule is that an explicitly targeted zone is never overridden and an area-scoped PPM order carries the SERVICE PLAN's zone; **a null is NOT STATED, not a choice**, so it is filled. **Assignment is deliberately not re-derived**: routing an unassigned record to a zone's single supervisor is intake, and re-running it on a correction would take a live job away from whoever is working it. The hook is `updating` and never `saving` — a trait's boot runs during `bootTraits()`, before the model's own terminal freeze. Two doors were found by grepping `area_id`, not from the row; `WorkPermit` carries both columns, derives neither, and is correctly not an instance. Still open: a unit RE-ZONED underneath existing records (the cause of all ten baseline rows) is a cascade over another table's write and is not attempted here.
 
+### A property is divided into zones from the property's own page
+
+Asked for by the tester: *"Add a Zones setting in Property edit/create to divide the property into
+zones."* Zones already existed — `Area` has carried `asset_id`, a per-property unique code and a set
+of supervisors since this module shipped — and were reachable ONLY from their own register under
+Setup. Nothing new was invented: what was missing is the door, on the record the zones belong to.
+
+`AssetAreasRelationManager` sits beside Floors on the property, because both are its spatial
+make-up, and a zone's changes now appear on the property's Activity Log for the same reason.
+`Asset::areas()` and `Area::units()` are the two relations that had never been written.
+
+**It had already been claimed in a comment.** `AssetFloorsRelationManager`'s docblock stated that
+*"units and zones are already managed this way"* — describing a screen nobody had built, which is
+how an absence stays invisible until someone goes looking for the feature. Corrected with this
+change.
+
+**The supervisor picker is deliberately NOT on this tab.** It is scoped to the property's own roster
+through `AreaForm::applySupervisorScope()`, which reads the property from that form's own field — a
+field this manager pins rather than shows — so wiring it here would mean a second, weaker copy of a
+scope that exists to stop one mall's picker offering another's staff. Zones are created and named on
+the property; who covers them is set on the zone's own screen, one click away.
+
+**A zone is not a share of the GLA.** Floors carry the area arithmetic (`Floor::areaFigures()`); a
+zone routes work. A second thing that looked like it apportioned space would be a second answer to a
+question CAM already settles. (`APropertyIsDividedIntoZonesFromItsOwnPageTest`.)
