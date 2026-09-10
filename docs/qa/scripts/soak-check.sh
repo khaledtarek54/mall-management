@@ -111,7 +111,13 @@ note() { problems+=("$1"); }
   echo '```'
   cat storage/logs/ops-*.log 2>/dev/null | awk -v s="${SINCE:0:10} ${SINCE:11:8}" '{ ts=substr($1,2,10)" "substr($2,1,8); if (ts >= s) print }' \
     | grep -vE 'Work-order SLA scan complete \{"overdue":0,"penalties_assessed":0,"alerted":0\}|Tenant-request SLA scan complete.*"breached":0' \
+    | grep -v 'notification.delivery_failed' \
     | cut -c1-220 | tail -80
+  # Delivery failures are COUNTED, never listed. One per recipient per scan, and the permit scan is
+  # HOURLY — during exactly the mail outage this section exists to see through, they would push the
+  # one line that matters (a scan's FINDING) out of the tail above. Learned from SW-244's review.
+  n_delivery="$(cat storage/logs/ops-*.log 2>/dev/null | awk -v s="${SINCE:0:10} ${SINCE:11:8}" '{ ts=substr($1,2,10)" "substr($2,1,8); if (ts >= s) print }' | grep -c 'notification.delivery_failed' || true)"
+  [[ "${n_delivery:-0}" != "0" ]] && echo "(+ ${n_delivery} notification.delivery_failed — deliveries that failed and were logged rather than crashing their scan)"
   echo '```'
   echo
 

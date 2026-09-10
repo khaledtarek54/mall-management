@@ -587,9 +587,16 @@ class Invoice extends Model
     /**
      * **Past due and still owed — the ONE definition of overdue.**
      *
-     * `status = 'overdue'` is a STAMP the nightly `billing:scan-overdue-invoices` writes, not the
-     * question. It lags by up to a day, and `partially_paid` can never carry it at all, so reading
-     * the column answers a narrower question than the one every collections surface is asking.
+     * `status = 'overdue'` is a STORED value, not the question. **Nothing sweeps the register** —
+     * it is written only as a side effect of touching ONE invoice: by `recomputeTotals()` when a
+     * settlement lands, and by `LateFeeService` on the invoices it penalises. So it does not lag by
+     * a day, it lags INDEFINITELY on an invoice neither of those reaches. (This said the nightly
+     * `billing:scan-overdue-invoices` writes the stamp until 2026-09-10 — that command writes
+     * `owner_overdue_notified_at` and nothing else — and the first correction then claimed
+     * `recomputeTotals()` was the only writer, which was wrong the same way. Measured on the staging
+     * soak: six invoices two days past due and still reading `issued`.) `partially_paid` can never carry
+     * it at all, so reading the column answers a narrower question than every collections surface
+     * is asking — which is why they ask this instead.
      * Measured on the QA baseline: 4 invoices carry the status where **11** are genuinely past due
      * and still owed, and 108 merely have something left on them.
      *

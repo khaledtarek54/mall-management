@@ -5,10 +5,10 @@ namespace App\Services;
 use App\Models\Lease;
 use App\Models\PostDatedCheque;
 use App\Notifications\ChequeCoverageEndingNotification;
+use App\Support\BestEffortNotification;
 use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Which tenants are about to run out of lodged cheques while their lease still has term to run.
@@ -106,15 +106,20 @@ class ScanChequeCoverageService
             ];
         }
 
-        foreach ($ending as $row) {
-            $this->notify($row);
-        }
-
+        // THE FINDING IS RECORDED BEFORE ANY OF IT IS DELIVERED, and the order is the fix.
+        // Written the other way round, a transport failure on the FIRST lease unwound the loop and
+        // took this line with it — so the one durable record of "coverage is running out" never
+        // existed, on the scan whose result is the ABSENCE of a row and which therefore has no
+        // other way of being noticed. Measured on the staging soak, 2026-09-10.
         if ($ending !== []) {
             OpsLog::warning('pdc.coverage_ending', [
                 'count' => count($ending),
                 'as_of' => $today->toDateString(),
             ]);
+        }
+
+        foreach ($ending as $row) {
+            $this->notify($row);
         }
 
         return [
@@ -146,10 +151,12 @@ class ScanChequeCoverageService
             return;
         }
 
-        Notification::send($recipients, new ChequeCoverageEndingNotification(
-            $lease,
-            $row['covered_to'],
-            $row['uncovered_months'],
-        ));
+        // Best effort: one lease's recipients failing must not stop the lease behind it being
+        // told, nor fail the command. See App\Support\BestEffortNotification.
+        BestEffortNotification::send(
+            $recipients,
+            new ChequeCoverageEndingNotification($lease, $row['covered_to'], $row['uncovered_months']),
+            ['scan' => 'pdc:scan-coverage', 'lease_id' => $lease->getKey()],
+        );
     }
 }

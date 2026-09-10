@@ -166,8 +166,10 @@ class InvoicesTable
                 // …and this one is the OVERDUE subset, the set behind the "Overdue invoices" count.
                 // `Invoice::scopeOverdue()` is the single definition the admin filter, the sidebar
                 // badge, the dashboard card, the delinquency test and this share — never the raw
-                // `status = 'overdue'` stamp, which the nightly sweep has not written yet on a
-                // freshly-lapsed invoice and can never write on a `partially_paid` one.
+                // `status = 'overdue'` stamp. THERE IS NO NIGHTLY SWEEP (this comment said there
+                // was until 2026-09-10): the stamp is written only as a side effect of touching one
+                // invoice — a settlement, or a late fee — so on a freshly-lapsed invoice it may
+                // never be written at all, and it can never be written on a `partially_paid` one.
                 Filter::make('overdue_only')
                     ->label(__('admin.filters.overdue_only'))
                     ->query(fn (Builder $query) => $query->overdue()),

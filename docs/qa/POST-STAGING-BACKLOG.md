@@ -133,6 +133,16 @@ round changed the reading.
 
 ## 3 · Ops hygiene (XS each)
 
+- **OPS-09** — give Redis a `maxmemory` and an eviction policy before production. Measured on the
+  staging box 2026-09-10: healthy (1.66 MB used, peak 1.84, 0 evicted, 0 rejected, queue depth 0,
+  last bgsave OK) but `maxmemory` is **0** — no cap — with `maxmemory-policy noeviction`. That pair
+  means an unbounded cache does not shed old keys, it starts **refusing writes**; and since
+  `QUEUE_CONNECTION=redis` points at the same server, the queue would go down with the cache rather
+  than the cache degrading on its own. The usual answer is a cap with `allkeys-lru` for the cache and
+  a separate database or instance for the queue left `noeviction` (a queue must never evict a job).
+  Not urgent on staging at 1.66 MB — it is a production-topology decision, so it is recorded here
+  rather than changed quietly on the box.
+
 - ~~**OPS-03**~~ — **DONE 2026-09-05.** The §2 delta block now carries `IMPORT_QUEUE_CONNECTION`
   as well as `EXPORT_QUEUE_CONNECTION` — the row named only the export half and both default to
   `sync`, so a box built from the docs ran every transfer INLINE and the topology production uses
@@ -172,6 +182,54 @@ round changed the reading.
   width gate because both doors agree about the LENGTH. Fixing it is a decision about which phone
   formats an Egyptian operator's data actually contains, not a width, so it wants the operator's
   real file.
+- **SW-247** — `GeneratePreventiveWorkOrdersService::notifyRaised()` (~:183) has SW-244's shape and
+  a wider blast radius: its single `try/catch` wraps the WHOLE `->each()`, so an inline-send failure
+  on the first raised order aborts iteration and orders 2..N are never belled — nightly, on
+  `facility:generate-preventive`. The work orders themselves are durable so no finding is erased, but
+  `Log::warning` names only the first error and nothing records which orders went unannounced. Fix is
+  the one SW-244 established: move `BestEffortNotification::send()` INSIDE the closure and delete the
+  outer catch. Found by the review of SW-244, 2026-09-10.
+- **SW-248** — two nightly commands send mail INSIDE a database transaction, under `lockForUpdate`,
+  BEFORE writing their idempotency stamp: `RemindOverdueTenantsCommand` (~:153) and
+  `RemindExpiringLeasesCommand` (~:80). Two distinct faults. **(a)** The first holds an exclusive lock
+  on an `invoices` row across a synchronous MailerSend round-trip per recipient — and its own sibling
+  `ScanOverdueInvoicesCommand` (~:78) carries the comment explaining why that is wrong (*"`invoices`
+  is the most contended table in the system"*). **(b)** Because the send precedes the stamp, a throw
+  on the third recipient rolls back `tenant_overdue_notified_at` and `dunning_level` while the first
+  two e-mails have already left — so the next run chases those tenants again. That is verbatim the
+  duplicate-notification bug `ScanWorkOrderSlaBreachesCommand` (~:359) documents having fixed, so the
+  correct shape is already written down in this codebase. Fix: stamp first, then
+  `DB::afterCommit(fn () => BestEffortNotification::send(...))`. **NOTE the SW-244 precondition** —
+  these DO write an idempotency stamp, so the seam must not simply be dropped in front of the
+  existing order or a swallowed failure would leave the stamp standing and the tenant never chased.
+  Found by the review of SW-244, 2026-09-10.
+- **SW-245** — `invoices.status` goes stale and only DISPLAY depends on it. `overdue` is a function of
+  today and nothing sweeps it: `Invoice::recomputeTotals()` is the only writer and it runs when a
+  SETTLEMENT touches the invoice, so an issued invoice nobody touches after its due date reads
+  `issued` indefinitely. Measured on the staging soak 2026-09-10 — six NG invoices two days past due
+  with money on all six, all still `issued`; the four that DID say `overdue` said it only because the
+  late-fee run had touched them. **No money is affected**: SW-135 routed every collections surface
+  through `stillOwed()` + a date predicate precisely because the column was already known to lag. What
+  reads the column is the register's status filter and tabs and the tenant's own view, which
+  understate. The registry's stated reason (that `billing:scan-overdue-invoices` re-stamps it — that
+  command writes `owner_overdue_notified_at` and nothing else) is corrected; what is left is the
+  DECISION: a nightly sweep would move a money document's status without an act, which CLAUDE.md has
+  a standing rule about (SW-238/240), and the cheap alternative — having the overdue scan call
+  `recomputeTotals()` on the rows it already locks — reaches each invoice only once, because it
+  filters on `whereNull('owner_overdue_notified_at')`.
+- **SW-246** — the tenant-request evidence gate is wrong in BOTH directions, and blocks two request
+  types outright. `TenantRequestService::transition()` refuses `resolved` unless the request has a
+  linked work order or `hasMedia('attachments')` — applied to all EIGHT `TenantRequestType` cases,
+  though the gate immediately below it (`requiresDecision()`) is type-aware, so the vocabulary to fix
+  it already exists. Found by doing the operator's job on the soak, 2026-09-10: a noise COMPLAINT and
+  a parking-permit ACCESS request could not be resolved at all — *"Attach a photo of the completed
+  work, or raise a work order for it"* — and there is no photograph of having spoken to the neighbours.
+  **The other direction is worse**: `attachments` is the collection the TENANT uploads to on the
+  portal's own submission form, i.e. a photo of the PROBLEM. So the gate is satisfied by the tenant's
+  intake photo and lets a maintenance request be resolved with no evidence of the FIX — vacuous on
+  exactly the type it was written for (FR-USR-06). The maintenance path via a linked work order was
+  driven end-to-end on the box and is correct. Fix wants a per-type answer plus a collection that
+  means *proof of work*, not *proof of problem*.
 - **D2-13 / H3** — measure the leading-wildcard `LIKE` search on a posture-B staging box before
   optimising anything. H3's own instruction, and staging is the first place it can be measured.
 - ~~**OPS-06**~~ — **DONE 2026-09-06**, on the first genuinely quiet tree. It had grown from 30

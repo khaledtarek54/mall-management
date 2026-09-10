@@ -5,10 +5,10 @@ namespace App\Console\Commands;
 use App\Models\WorkPermit;
 use App\Notifications\WorkPermitOverdueNotification;
 use App\Services\AssetStaffRecipients;
+use App\Support\BestEffortNotification;
 use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Permits whose window has passed and which nobody closed out.
@@ -70,7 +70,14 @@ class ScanOpenWorkPermitsCommand extends Command
             $staff = $recipients->for((int) $assetId, ['manager', 'operations']);
 
             if ($staff->isNotEmpty()) {
-                Notification::send($staff, new WorkPermitOverdueNotification($permits->count(), (int) $assetId));
+                // Best effort, for the reason the coverage scan records: one mall's recipients
+                // failing must not stop the next mall being told. This command already writes its
+                // finding to the ops log BEFORE this loop, so the finding itself was never at risk.
+                BestEffortNotification::send(
+                    $staff,
+                    new WorkPermitOverdueNotification($permits->count(), (int) $assetId),
+                    ['scan' => 'facility:scan-open-permits', 'asset_id' => (int) $assetId],
+                );
             }
         }
 
