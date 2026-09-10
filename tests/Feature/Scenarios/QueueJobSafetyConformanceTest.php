@@ -64,6 +64,13 @@ it('keeps retry_after longer than the longest job timeout', function () {
     // The arithmetic nobody owned. `retry_after` is when the queue decides a reserved job has died;
     // if a job may legitimately run longer than that, the queue hands it to a second worker while
     // the first is still going, and the only symptom is load.
+    //
+    // THIS IS THE JOB HALF. A THIRD file now decides the same thing: `config/horizon.php`, whose
+    // supervisor `timeout` governs every job that declares none of its own — `Worker::timeoutForJob()`
+    // prefers the job's `$timeout` and falls back to the worker's. That half is asserted by
+    // `AQueueRunsWhereverItIsDeployedTest`, deliberately there and not duplicated here: two copies
+    // of one rule are how the two settings this file exists to connect drifted apart in the first
+    // place.
     $longest = collect(glob(app_path('Jobs/*.php')))
         ->map(fn (string $f): string => 'App\\Jobs\\'.basename($f, '.php'))
         ->map(fn (string $c) => property_exists($c, 'timeout') ? (int) (new $c)->timeout : 0)

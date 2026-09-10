@@ -96,6 +96,20 @@ EXPORT_QUEUE_CONNECTION=redis    # these runs every import and export INLINE, so
 BACKUP_DISKS=backups             # staging is disposable on posture A; on posture B, treat as prod
 ```
 
+> **`IMPORT_QUEUE_CONNECTION` was missing from the real box for its whole life** — found 2026-09-10.
+> This file has listed it since the file was written; `.env.example` had not, and the box was built
+> from `.env.example`. `config/imports.php` defaults it to `sync`, so every import on staging ran
+> inline in the request, which is precisely the topology the comment above says it exists to
+> rehearse. Both files carry the key now. Check the box, not the runbook: a delta documented in one
+> place and absent from the file people copy is a delta nobody applies.
+
+**The worker is Horizon (2026-09-10), not a bare `queue:work`.** Nothing in `.env` needs setting for
+it — `config/horizon.php` names a supervisor for `staging` explicitly, and `HORIZON_PREFIX` already
+carries the environment so that staging and production sharing one Redis server (§3) cannot
+interleave metrics or `horizon:terminate` commands. The unit is in
+[INFRASTRUCTURE.md §3](INFRASTRUCTURE.md#3-one-box-two-environments-native-separation); the
+dashboard is at `/horizon` and is **super_admin only**.
+
 **On phase 1, `BACKUP_DISKS=backups` is the whole backup and the database is on the same disk as
 the archive.** That is defensible on posture A and on nothing else — see
 [INFRASTRUCTURE.md §7](INFRASTRUCTURE.md). It is also why `mysqldump` resolves for free here and
@@ -208,6 +222,7 @@ rows in this order:
 | `runtime_drivers` | **OK** | Still on the `database` driver — staging is then not rehearsing the production topology. |
 | `php_extensions` | **OK** | An extension is in `php-cli` and not in `php-fpm`. Everything installs and schedules; every money column throws. Read it over HTTP — the console cannot see this. |
 | `demo_payments` | **OK** | `DEMO_PAYMENTS_ENABLED` is set. Unset it. See §2. |
+| `queue` (depth) | **OK** | Horizon is not processing. `horizon:status` reporting "running" does NOT mean it has a supervisor — an `APP_ENV` with no entry in `horizon.environments` provisions none, silently. Check `php artisan horizon:list`. |
 | `scheduler` | red until cron is installed, then **OK** | A dead scheduler silently takes billing, GL sync and backups with it. |
 | `two_factor` | red unless `SECURITY_FORCE_2FA_ROLES` is set | **Expected on posture A. Not acceptable on posture B.** |
 | `demo_accounts` | red on posture A | **Expected on A** (that is what `DemoSeeder` is). **On B, delete or rotate them.** |

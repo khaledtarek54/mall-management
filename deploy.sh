@@ -183,6 +183,29 @@ step "Restarting workers"
 php artisan queue:restart
 ok "workers signalled to restart"
 
+# `queue:restart` IS NOT ENOUGH WHERE HORIZON IS THE SUPERVISOR, and the shortfall is silent in
+# exactly the way this script's header describes. The restart flag reaches Horizon's WORKER
+# processes, so they do pick up the new code — but the MASTER that spawned them keeps the previous
+# release's `config/horizon.php` for as long as it lives. Change a supervisor's queue, its `tries`
+# or its `maxProcesses` and the deploy reports clean while the box goes on running the old
+# provisioning plan, indefinitely. `horizon:terminate` ends the master; systemd's `Restart=always`
+# brings it straight back on the new release.
+#
+# Exit codes are `horizon:status`'s own: 0 running, 1 paused, 2 inactive. Only the first two mean a
+# master is there to terminate — on a box whose queue is not Horizon's, the step says so rather
+# than failing, and on a box where Redis is genuinely unreachable it aborts the deploy, which is
+# the right outcome for a release whose money jobs have nowhere to run.
+if [[ -f config/horizon.php ]]; then
+  HORIZON_STATE=0
+  php artisan horizon:status >/dev/null 2>&1 || HORIZON_STATE=$?
+  if [[ $HORIZON_STATE -le 1 ]]; then
+    php artisan horizon:terminate
+    ok "Horizon master terminated — its supervisor restarts it on this release"
+  else
+    ok "Horizon is not supervising this box — nothing to terminate"
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 step "Lifting maintenance mode"
 php artisan up

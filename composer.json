@@ -17,6 +17,7 @@
         "filament/filament": "^4.0",
         "filament/spatie-laravel-media-library-plugin": "^4.0",
         "laravel/framework": "^13.7",
+        "laravel/horizon": "^5.49",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "mailersend/laravel-driver": "^3.2",

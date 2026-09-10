@@ -278,19 +278,42 @@ php_admin_value[memory_limit] = 256M
 
 ### Queue worker (systemd, per env) — money flows depend on it
 
+**The worker is Horizon (2026-09-10).** The unit runs `artisan horizon`, which is itself the
+supervisor: it reads `config/horizon.php` and spawns the workers. The values there are the flags
+this unit used to pass — `--tries=3 --max-time=3600 --sleep=3` — and every one of them is written
+down in that file with the reason it is not Horizon's published default.
+
 ```ini
 # /etc/systemd/system/atriom-worker-prod.service
 [Service]
 User=atriom-prod
 WorkingDirectory=/var/www/atriom-prod/current
-ExecStart=/usr/bin/php artisan queue:work redis --tries=3 --max-time=3600 --sleep=3
+ExecStart=/usr/bin/php artisan horizon
 Restart=always
 StartLimitIntervalSec=0
 [Install]
 WantedBy=multi-user.target
 ```
-`systemctl enable --now atriom-worker-prod atriom-worker-staging`. (The runbook's supervisor recipe
-also works — pick one. On redeploy, `php artisan queue:restart` lets the workers pick up new code.)
+`systemctl enable --now atriom-worker-prod atriom-worker-staging`.
+
+**Exactly one supervisor per environment.** Horizon and a bare `queue:work` both pop from the same
+Redis list, so leaving the old unit enabled beside this one does not double-process — it does
+something quieter and worse: an unknown share of jobs is taken by the process Horizon cannot see,
+and the dashboard under-reports throughput while looking healthy. Disable the old unit, do not just
+stop it.
+
+**On redeploy, `queue:restart` is not enough.** It reaches Horizon's worker processes, but the
+MASTER keeps the previous release's `config/horizon.php` for as long as it lives, so a change to a
+supervisor's queue, `tries` or `maxProcesses` never takes effect and nothing reports it.
+`deploy.sh` runs `horizon:terminate` for this; `Restart=always` brings the master back on the new
+release. If you deploy by hand, run it by hand.
+
+**`APP_ENV` must have an entry in `horizon.environments`.** `ProvisioningPlan::deploy()` returns
+silently when none matches, so Horizon starts, `horizon:status` says "running", and not one job is
+processed. `config/horizon.php` names `production`, `staging`, `local` and a `*` catch-all so an
+unanticipated environment still runs the queue; `AQueueRunsWhereverItIsDeployedTest` keeps that
+true. The dashboard at `/horizon` is super_admin-only (`App\Providers\HorizonServiceProvider`) —
+it lists job payloads, which name tenants and amounts, and it can retry a money job.
 
 ### Scheduler (cron, per env)
 
