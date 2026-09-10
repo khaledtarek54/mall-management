@@ -83,6 +83,8 @@ return [
         'escalation_floor_rate' => 'Optional minimum — the increase never falls below this.',
         'escalation_collar_on_fixed' => 'On a fixed clause this OVERRIDES the stated rate — the step becomes this bound.',
         'escalation_rate_collared' => 'The minimum/maximum below overrides this: the rent will actually step :applied% a year.',
+        'rent_starts_before_possession' => 'Rent starts before the tenant took possession on :date — check which date is wrong.',
+        'deposit_longer_than_term' => 'More months than the term itself (:term) — that is :amount held. Check the figure.',
         'escalation_ceiling_rate' => 'Optional cap — the increase never rises above this.',
         'posting_map_section' => 'Which chart account this role posts to. Leave the property blank for the global default every mall falls back to, or pick one to override it for that mall only.',
         'posting_role' => 'The role the code posts to by name.',

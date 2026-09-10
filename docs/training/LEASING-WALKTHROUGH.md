@@ -421,12 +421,18 @@ written.*
 - **What it is.** The day the tenant took the keys and fit-out could begin — routinely **before** the
   term commences, and the date a handover dispute turns on.
 - **What it changes.** Nothing in billing. It is recorded because it is the fact people argue about.
+- **The warning you may see.** If rent starts *before* this date, the rent-commencement field below
+  says so in amber. It is **not** refused — a landlord who handed over late has rent running from a
+  day the tenant could not trade, and that is exactly the fact a relief claim is built on. Check
+  which of the two dates is wrong; if both are right, ignore it.
 
 #### `rent_commencement_date` — Rent commencement
 - **What it is.** The day rent starts. Leave it **blank if there is no rent-free period** — the lease
   then bills from its commencement month.
 - **What it refuses.** A date on or before the commencement is treated as no grace, so a mis-key
   cannot pull the first billable month backwards.
+- **The warning you may see.** Amber, when rent starts before the possession date above — including
+  when this box is **blank**, since rent then starts at the lease's commencement.
 - **When it locks.** Once invoiced.
 
 #### `fit_out_scope` — What the grace abates *(appears once a rent-commencement is set)*
@@ -460,6 +466,11 @@ written.*
   security shrinks by nearly a quarter over a term, silently, exactly as the tenant becomes more
   likely to default. Stating the multiple makes the deposit track the rent through every escalation.
 - **Blank = a flat sum** that never moves. That is a real deal too, so blank is respected.
+- **The warning you may see.** Amber, and quoting the SUM, when the deposit is worth **more months
+  than the term itself AND more than a year's rent** — the shape a typo makes (the term keyed in
+  here, or 24 for 2.4). It is **not** refused: a weak covenant or a brand new to the market really is
+  asked for security beyond the term. A short let with the house three months against a one-month
+  term says nothing — that is the ordinary short covenant, not a mistake.
 
 #### `security_deposit` — Deposit amount
 - **Read-only once a multiple is stated** — it is derived (3 × 60,000 = 180,000).

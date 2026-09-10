@@ -1554,6 +1554,67 @@ a cross-field rule — so the state can be recreated one tier up, silently, for 
 inherits it. The refusal even tells the operator to lower a minimum that may live there. It wants
 its own change. (`ALeaseClauseCannotContradictItselfTest`, six teeth mutation-proved.)
 
+### ⚠️ TWO TERMS THAT ARE LEGAL, SURPRISING AND WERE SILENT (Trello M6scQfGu + pqvmFQa9, Medium, 2026-09-10)
+
+Both arrived from the tester as QUESTIONS rather than defects — *should possession have to come
+before rent commencement?*, *is a 24-month deposit on a 12-month lease valid?* — and the answer to
+both is the same as the escalation collar and the term/expiry pair on the same board: **legal, so
+warn rather than refuse.**
+
+**Rent starting before possession.** The asymmetry decides it. The date rent starts DRIVES billing —
+`firstBillableMonth()` opens there and `graceAbates()` decides what the fit-out grace covers — while
+`possession_date` is computed on by NOTHING: a full sweep of `app/`, `database/`, `routes/` and
+`resources/` finds it only in `Lease::$fillable`, `$casts` and `RENEWAL_RESETS`. So the wrong order
+costs no money and breaks no rule, and it is a real thing an operator must be able to record: a
+landlord who handed over LATE has rent running from a day the tenant could not trade, which is the
+basis of the relief claim that follows. Yardi does not enforce it either — its lease-administration
+model calls rent commencement *usually* after possession, describing the ordinary deal rather than
+constraining the record.
+
+**The note reads the date rent ACTUALLY starts, and that is the whole check.**
+`rent_commencement_date` is nullable and **blank is the ordinary state** — it means no grace, so
+billing opens at commencement (`DemoSeeder` leaves it null on three leases in four and says in
+writing that this *"is the normal case"*). A note reading only the grace field was therefore silent
+on most of the book while firing on the one spelling where an operator had set that field equal to
+commencement: **the same situation, written two ways, warned in the rarer one.** It is
+`rent_commencement_date ?: commencement_date`.
+
+**A deposit longer than its term.** Twenty-four months' security on a twelve-month lease is unusual
+and entirely real — a weak covenant, a new foreign brand, a first-time operator — and neither Yardi
+nor MRI constrains the deposit against the term. Nothing downstream misbehaves: the months are a
+multiplier on the rent and `security_deposit` is the sum actually held.
+
+**Three clauses, and two of them exist to keep it QUIET.** The SUM has to be known — the deposit is
+derived from the rent, so on a create form where no rent has been typed it is still 0, and this
+repo has already recorded what a warning naming zero money reads as (the unallocated-entries
+notice): not a caution, a broken field. And **exceeding the term is not on its own remarkable**: a
+kiosk or seasonal pop-up let for one month against the house default of three months' security
+exceeds its term threefold, and the operator typed nothing. What is startling is more than a YEAR's
+rent held (`LeaseForm::DEPOSIT_MONTHS_WORTH_SAYING`), which no house default reaches and which is
+what a term keyed into the months box, or 24 for 2.4, produces. The tester's own case is the
+boundary and fires. The note quotes the **SUM**, because that is the figure the tenant is asked to
+hand over.
+
+**`hintColor` also paints the field's question-mark icon** — `HasHint::setUpHint()` builds that icon
+with `->color(fn () => $parentComponent->getHintColor())` — so an unconditional amber marks the
+informational hint on every ordinary lease as though something were wrong. Both fields carry such an
+icon; the three older warning hints in this form carry none, which is why the file's own precedent
+never showed it. Colour and text read ONE predicate each.
+
+**`possession_date` had to become `->live()`**, or the note is invisible in exactly the direction it
+exists for. Filament binds a field DEFERRED unless told otherwise, so typing possession onto a lease
+that already carries its rent dates never round-trips and never re-renders — and a `hint()` is not
+validation, so Save says nothing either. **No Livewire test can see that**: `fillForm()` fires the
+update hook for every key it sets, so under the harness every field behaves as though it were live.
+It is asserted on the component (`isLive()`), which is the only layer that can.
+
+**The note deliberately still fires on an INVOICED lease**, where the term/expiry note beside it
+bails: both dates it reads are locked there, but `possession_date` stays editable, so the correction
+it asks for is still available.
+
+(`ALeaseSaysWhenItsTermsLookWrongTest` — seven teeth mutation-proved, and half the file is controls,
+because a note on a correct form is read as an error and then ignored on the form where it matters.)
+
 ### A falling index does not cut the rent, and does not move the base
 
 The clause says the rent increases by the index movement; nothing in it says it decreases. So a

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Charge;
+use App\Models\Concerns\Lease\DeterminesFitOutGrace;
 use App\Models\Lease;
 use App\Models\RentIndex;
 use App\Models\Tenant;
@@ -40,6 +41,13 @@ use Filament\Support\Icons\Heroicon;
 
 class LeaseForm
 {
+    /**
+     * Above how many months of security the form says something, when the deposit also outruns the
+     * term. A year's rent held: above the reach of any house default, and what a term typed into
+     * the months box or a misplaced decimal produces. {@see depositOutrunsItsTerm()}.
+     */
+    private const DEPOSIT_MONTHS_WORTH_SAYING = 12.0;
+
     public static function configure(Schema $schema): Schema
     {
         // Thirty fields across six concerns is a scroll, not a form. Each concern is now a tab —
@@ -527,12 +535,47 @@ class LeaseForm
                         DatePicker::make('possession_date')
                             ->label(__('admin.fields.possession_date'))
                             ->native(false)
+                            // Live because the note below is computed from it. Without a
+                            // round-trip the field binds DEFERRED, so recording a late handover —
+                            // the case the note exists for — would never re-render and the warning
+                            // would be invisible in exactly that direction.
+                            ->live(onBlur: true)
                             ->helperText(__('admin.helpers.possession_date'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.possession_date')),
                         DatePicker::make('rent_commencement_date')
                             ->label(__('admin.fields.rent_commencement_date'))
                             ->native(false)
                             ->live()
+                            // ── RENT STARTING BEFORE THE TENANT HAD THE KEYS ─────────────────
+                            //
+                            // Asked by the tester before logging it (Trello M6scQfGu): should
+                            // possession <= rent commencement be enforced? WARNED, not refused, and
+                            // the asymmetry between the two fields is the reason. The date rent
+                            // starts DRIVES billing — `firstBillableMonth()` opens there and
+                            // `graceAbates()` decides what the grace covers — while
+                            // `possession_date` is computed on by NOTHING; it is a recorded fact
+                            // about when the keys changed hands.
+                            //
+                            // So the wrong order costs no money and breaks no rule. It is also a
+                            // real thing an operator may need to record: a landlord who handed over
+                            // LATE has rent running from a day the tenant could not trade, and that
+                            // fact is the basis of the relief claim that follows — refusing it would
+                            // leave the system unable to describe the dispute. Yardi does not
+                            // enforce the order either: its own lease-administration model calls
+                            // rent commencement *usually* after possession — a description of the
+                            // ordinary deal, not a constraint on the record.
+                            //
+                            // The note fires on an INVOICED lease too, deliberately, where the
+                            // term/expiry note beside it bails: both dates it reads are locked
+                            // there, but `possession_date` stays editable, so the correction the
+                            // note asks for is still available.
+                            //
+                            // Colour on the same predicate as the text — `hintColor` also paints
+                            // the field's question-mark icon (`HasHint::setUpHint()` hands it
+                            // `getHintColor()`), so an unconditional amber marks every ordinary
+                            // lease as if something were wrong.
+                            ->hintColor(fn (Get $get): ?string => self::rentStartsBeforePossession($get) === null ? null : 'warning')
+                            ->hint(fn (Get $get): ?string => self::rentStartsBeforePossession($get))
                             // Earlier than commencement is not a grace period, and the model guards
                             // against it pulling the first billable month backwards; refused here too
                             // so the operator gets an inline error rather than a silent no-op.
@@ -603,6 +646,24 @@ class LeaseForm
                             ->step('0.5')
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
+                            // ── A DEPOSIT LONGER THAN THE TERM IT SECURES ────────────────────
+                            //
+                            // The tester's other question (Trello pqvmFQa9): is 24 months' deposit
+                            // on a 12-month lease valid? It IS — a weak covenant, a new foreign
+                            // brand or a first-time operator is routinely asked for security beyond
+                            // the term, and neither Yardi nor MRI constrains the deposit against it.
+                            // Nothing downstream misbehaves: the months are a multiplier on the
+                            // rent and `security_deposit` is the sum actually held.
+                            //
+                            // But it is far more often a typo — the term typed into the months box,
+                            // or 24 for 2.4 — and the figure that matters is the SUM the tenant is
+                            // asked to hand over. So it is said out loud and left to the operator,
+                            // which is the answer the collar and the term/expiry pair on this board
+                            // also got: show the truth, do not forbid the value. (The 24-month
+                            // ceiling above is the FIELD's own bound and predates this; the point
+                            // here is that nothing between 0 and it is refused.)
+                            ->hintColor(fn (Get $get): ?string => self::depositOutrunsItsTerm($get) === null ? null : 'warning')
+                            ->hint(fn (Get $get): ?string => self::depositOutrunsItsTerm($get))
                             ->suffix(__('admin.fields.months'))
                             ->helperText(__('admin.helpers.security_deposit_months'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.security_deposit_months')),
@@ -1197,6 +1258,70 @@ class LeaseForm
     {
         return LeaseTerm::expiryFrom($get('commencement_date'), $get('term_months'))
             === LeaseTerm::asDateString($get('expiry_date'));
+    }
+
+    /**
+     * Rent running from a day before the tenant had the keys — the note, or null.
+     *
+     * ONE definition, read by the hint and by its colour, so the two cannot say different things
+     * about the same lease.
+     *
+     * The date rent starts is `rent_commencement_date` **or the lease's own commencement**, and
+     * that fallback is the whole of the check: the grace field is nullable and null is the ORDINARY
+     * state — it means no fit-out grace, so billing opens at commencement
+     * ({@see DeterminesFitOutGrace::firstBillableMonth()}). Reading
+     * only the grace field left the note silent on most of the book, and firing on the one spelling
+     * where the field is set to commencement — the same situation, written differently, with no
+     * grace either way.
+     */
+    private static function rentStartsBeforePossession(Get $get): ?string
+    {
+        $possession = LeaseTerm::asDateString($get('possession_date'));
+        $rentStart = LeaseTerm::asDateString($get('rent_commencement_date'))
+            ?? LeaseTerm::asDateString($get('commencement_date'));
+
+        if ($possession === null || $rentStart === null || $rentStart >= $possession) {
+            return null;
+        }
+
+        return __('admin.helpers.rent_starts_before_possession', [
+            'date' => CarbonImmutable::parse($possession)->format('d/m/Y'),
+        ]);
+    }
+
+    /**
+     * A deposit worth more months than the term it secures — the note, or null.
+     *
+     * Three clauses, and the last two are what keep it off a correct form.
+     *
+     * **The SUM has to be known.** `security_deposit` is derived from the rent, so on a create form
+     * where no rent has been typed it is still 0 — and this repo has already recorded what a
+     * warning naming zero money reads as (the unallocated-entries notice): not a caution, a broken
+     * field.
+     *
+     * **And exceeding the term is not on its own remarkable.** A kiosk or a seasonal pop-up let for
+     * one month against the house default of three months' security is the ordinary short covenant
+     * — the operator typed nothing and did nothing wrong. What is startling is more than a YEAR's
+     * rent held, which no house default is set to and which is what a term keyed into the months
+     * box, or 24 for 2.4, actually produces. The tester's own case (24 against 12) is the boundary
+     * and fires.
+     */
+    private static function depositOutrunsItsTerm(Get $get): ?string
+    {
+        $months = (float) $get('security_deposit_months');
+        $term = (float) $get('term_months');
+        $amount = (float) $get('security_deposit');
+
+        if ($months <= 0 || $term <= 0 || $amount <= 0
+            || $months <= $term
+            || $months <= self::DEPOSIT_MONTHS_WORTH_SAYING) {
+            return null;
+        }
+
+        return __('admin.helpers.deposit_longer_than_term', [
+            'term' => rtrim(rtrim(number_format($term, 1), '0'), '.'),
+            'amount' => 'EGP '.number_format($amount, 2),
+        ]);
     }
 
     /**
