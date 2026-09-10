@@ -291,9 +291,9 @@ return [
         // the structure has to match the traversal.
         'approval_tier' => [
             'approvals' => [
-                'tier_1' => 'مشرف (المستوى ١)',
-                'tier_2' => 'مدير (المستوى ٢)',
-                'tier_3' => 'إدارة عليا (المستوى ٣)',
+                'tier_1' => 'مشرف (المستوى 1)',
+                'tier_2' => 'مدير (المستوى 2)',
+                'tier_3' => 'إدارة عليا (المستوى 3)',
             ],
         ],
         'tenant_document_type' => [

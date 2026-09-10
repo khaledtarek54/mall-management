@@ -46,12 +46,19 @@ strings to `LIKE`:
 | مصطفى | مصطفي | `مصطفي` (alef maqsura → yeh) |
 | مُحَمَّد | محمد | `محمد` (tashkeel stripped) |
 | ٢٠٢٦ | 2026 | `2026` (Arabic-Indic digits → ASCII) |
+| ۲۰۲۶ | 2026 | `2026` (extended Arabic-Indic — Persian/Urdu keyboards) |
 | `INV-AW-202607-0110` | `INVAW2026070110` | `invaw2026070110` (punctuation stripped) |
 
 Punctuation is stripped **without** leaving a space — that is what makes `INV2026` match `INV-2026`.
 Whitespace is preserved, so multi-word names still match word by word (terms are split and **ANDed**, so more
 words narrow rather than widen). A query that folds to nothing (`---`) yields `[]`, which callers must read as
 *do not search* — never as *match everything*.
+
+The digit rows are **not** `SearchText`'s own map — they are `App\Support\LatinNumerals::DIGITS`, the one
+place this system says which codepoints are digits. It **writes** Latin everywhere and **reads** both, and
+that asymmetry is the whole rule: `SalesExclusions::amount()` is the other reader, and while it kept a copy
+of the map covering only the basic range, an exclusion typed `۱٬۲۰۰` folded to nothing and deducted **0.00**.
+Changing the map rewrites every stored blob — `php artisan atriom:rebuild-search`.
 
 Deliberately **not** done: stemming or Arabic root extraction. An ERP searches proper nouns and document
 numbers, not prose.

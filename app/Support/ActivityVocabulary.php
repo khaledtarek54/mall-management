@@ -881,7 +881,7 @@ class ActivityVocabulary
         return match ($base) {
             'bool', 'boolean' => $this->bool((bool) $value),
             // number_format is locale-independent, so figures stay in Latin digits under
-            // `ar` — the project-wide rule pinned by LatinNumeralsTest.
+            // `ar` — the project-wide rule pinned by LatinNumeralsConformanceTest.
             'decimal' => number_format((float) $value, (int) (explode(':', (string) $cast)[1] ?? 2)),
             'float', 'double', 'real' => number_format((float) $value, 2),
             'int', 'integer' => number_format((int) $value),

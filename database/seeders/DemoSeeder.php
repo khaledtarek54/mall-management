@@ -2738,10 +2738,10 @@ class DemoSeeder extends Seeder
         $post([
             'tenant_id' => $cafe->id,
             'title' => '20% off all coffee, all week',
-            'title_ar' => 'خصم ٢٠٪ على كل القهوة طوال الأسبوع',
+            'title_ar' => 'خصم 20% على كل القهوة طوال الأسبوع',
             'summary' => 'Every hot and iced drink, dine-in or takeaway.',
             'discount_label' => '20% OFF',
-            'discount_label_ar' => 'خصم ٢٠٪',
+            'discount_label_ar' => 'خصم 20%',
             'terms' => 'Excludes beans and merchandise. One per customer per visit.',
             'status' => MarketingPost::STATUS_PUBLISHED,
             'published_at' => now()->subDays(2),
@@ -2787,7 +2787,7 @@ class DemoSeeder extends Seeder
             'tenant_id' => $fashion->id,
             'created_by' => null,
             'title' => 'Flash sale this Friday — up to 50% off',
-            'title_ar' => 'تخفيضات الجمعة — حتى ٥٠٪',
+            'title_ar' => 'تخفيضات الجمعة — حتى 50%',
             'discount_label' => 'UP TO 50% OFF',
             'status' => MarketingPost::STATUS_PENDING,
             'starts_at' => now()->addDays(3),
@@ -3007,7 +3007,7 @@ class DemoSeeder extends Seeder
 
         $send([
             'title' => 'Fire drill — Thursday 3pm',
-            'title_ar' => 'تجربة إخلاء — الخميس ٣ مساءً',
+            'title_ar' => 'تجربة إخلاء — الخميس 3 مساءً',
             'body' => 'A full evacuation drill runs at 3pm on Thursday. Staff should follow the marshals to the assembly point in the north car park.',
             'body_ar' => 'تجرى تجربة إخلاء كاملة الساعة الثالثة مساء الخميس. على الموظفين اتباع المنظمين إلى نقطة التجمع في الموقف الشمالي.',
             'category' => Announcement::CATEGORY_EMERGENCY,
@@ -3018,7 +3018,7 @@ class DemoSeeder extends Seeder
             'title' => 'Summer trading hours start Monday',
             'title_ar' => 'مواعيد العمل الصيفية تبدأ الاثنين',
             'body' => 'From Monday the mall opens 10:00–01:00 daily. Please update your own signage and staffing rotas.',
-            'body_ar' => 'اعتبارًا من الاثنين يفتح المول يوميًا من ١٠:٠٠ إلى ٠١:٠٠. يُرجى تحديث لافتاتكم وجداول العمل.',
+            'body_ar' => 'اعتبارًا من الاثنين يفتح المول يوميًا من 10:00 إلى 01:00. يُرجى تحديث لافتاتكم وجداول العمل.',
             'category' => Announcement::CATEGORY_HOURS,
         ], readShare: 1.0);
 
@@ -3027,9 +3027,9 @@ class DemoSeeder extends Seeder
             'asset_id' => $asset->id,
             'created_by' => $marketingLead?->id,
             'title' => 'Eid decorations go up on the 20th',
-            'title_ar' => 'تركيب زينة العيد يوم ٢٠',
+            'title_ar' => 'تركيب زينة العيد يوم 20',
             'body' => 'Contractors will be working in the atrium overnight from the 20th. Shopfronts stay accessible throughout.',
-            'body_ar' => 'سيعمل المقاولون في البهو ليلًا اعتبارًا من يوم ٢٠. تبقى واجهات المحال متاحة طوال الوقت.',
+            'body_ar' => 'سيعمل المقاولون في البهو ليلًا اعتبارًا من يوم 20. تبقى واجهات المحال متاحة طوال الوقت.',
             'category' => Announcement::CATEGORY_EVENT,
             'status' => Announcement::STATUS_SCHEDULED,
             'publish_at' => now()->addDays(9),
@@ -3975,7 +3975,7 @@ class DemoSeeder extends Seeder
                 ['CH-01-CMP', 'Compressor', 'الضاغط'],
             ]],
             ['AHU-01', 'Air handling unit — atrium', 'وحدة مناولة الهواء — البهو', 'hvac', 'Plant room 2', null, []],
-            ['GEN-01', 'Backup diesel generator 250kVA', 'مولد ديزل احتياطي ٢٥٠ ك.ف.أ', 'generator', 'Basement, plant room 1', 'FA-GEN-01', [
+            ['GEN-01', 'Backup diesel generator 250kVA', 'مولد ديزل احتياطي 250 ك.ف.أ', 'generator', 'Basement, plant room 1', 'FA-GEN-01', [
                 ['GEN-01-BAT', 'Starter battery bank', 'بنك بطاريات البدء'],
             ]],
             ['FP-01', 'Fire pump', 'مضخة الحريق', 'fire-safety', 'Basement, pump room', null, []],

@@ -261,7 +261,7 @@ The house idiom already existed on **28 call sites** and its reasoning is writte
 `BillingForecastRelationManager::periodLabel()`: `->locale(app()->getLocale())->isoFormat('MMM YYYY')`.
 This screen was one of four operator-facing sites that never got it. Measured for 2026-10-01:
 `format('M Y')` is `Oct 2026` in every locale; `->locale('ar')->isoFormat('MMM YYYY')` is the Arabic
-month with the year in **Latin digits**, which is what `LatinNumeralsTest` pins app-wide. For
+month with the year in **Latin digits**, which is what `LatinNumeralsConformanceTest` pins app-wide. For
 English `isoFormat('MMM YYYY')` is byte-identical to what the line printed before, so the English
 panel cannot move.
 

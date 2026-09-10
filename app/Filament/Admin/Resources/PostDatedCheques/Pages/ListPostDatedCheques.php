@@ -116,7 +116,7 @@ class ListPostDatedCheques extends ListRecords
                             // tenant's cheques. Measured 2026-09-05: for 2026-10-01,
                             // `format('M Y')` gives `Oct 2026` under `ar`, while
                             // `->locale('ar')->isoFormat('MMM YYYY')` gives the Arabic month with
-                            // the year in LATIN digits (the app-wide rule LatinNumeralsTest pins).
+                            // the year in LATIN digits (the app-wide rule LatinNumeralsConformanceTest pins).
                             // For English the two are byte-identical, so nothing an English reader
                             // sees changes.
                             //

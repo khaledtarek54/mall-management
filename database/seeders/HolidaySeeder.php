@@ -26,11 +26,11 @@ class HolidaySeeder extends Seeder
     /** month => day => [en, ar]. Fixed Gregorian dates only. */
     private const FIXED = [
         [1, 7, 'Coptic Christmas', 'عيد الميلاد المجيد'],
-        [1, 25, 'Revolution Day / Police Day', 'عيد ثورة ٢٥ يناير وعيد الشرطة'],
+        [1, 25, 'Revolution Day / Police Day', 'عيد ثورة 25 يناير وعيد الشرطة'],
         [4, 25, 'Sinai Liberation Day', 'عيد تحرير سيناء'],
         [5, 1, 'Labour Day', 'عيد العمال'],
-        [6, 30, 'June 30 Revolution Day', 'ثورة ٣٠ يونيو'],
-        [7, 23, 'Revolution Day', 'عيد ثورة ٢٣ يوليو'],
+        [6, 30, 'June 30 Revolution Day', 'ثورة 30 يونيو'],
+        [7, 23, 'Revolution Day', 'عيد ثورة 23 يوليو'],
         [10, 6, 'Armed Forces Day', 'عيد القوات المسلحة'],
     ];
 

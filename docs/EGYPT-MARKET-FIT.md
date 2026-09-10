@@ -111,7 +111,7 @@ that works. Each of these was verified in code during this audit.
 | **Bank reconciliation** | `app/Services/Banking/*` | Candidates derive from the *ledger*, so every money source is included the day it ships |
 | **Import column mapping** | Filament's stock header→column mapper, fully exposed (no `columnMapping` override anywhere) | The operator maps their own CSV headings per upload |
 | **AR/EN parity + RTL PDFs** | 11,977 keys each way, zero mismatch; mPDF `xbriyaz` with OTL shaping | Gated by conformance tests |
-| **Arabic-Indic digit folding on search input** | `app/Support/Search/SearchText.php:82-90` | Typing `٢٠٢٦` finds invoice 2026 — while output stays Latin, which is the Egyptian commercial norm. **Do not "fix" the output** |
+| **Latin digits everywhere, both directions** | `app/Support/LatinNumerals.php` | The system **writes** Latin (`100`, the Egyptian commercial norm — bank statement, tax invoice, POS receipt) and **reads** both, so typing `٢٠٢٦` still finds invoice 2026. One map, read by `SearchText` and `SalesExclusions::amount()`. **Do not "fix" the output into Arabic-Indic.** Corrected 2026-09-10: the row used to claim output *stayed* Latin, which was true only of FORMATTED numbers — 1,008 typed codepoints in `lang/ar`, the seeded holiday and tax catalogues and the Arabic handbook said `٣٠ يومًا`. `LatinNumeralsConformanceTest` now sweeps the strings as well as the formatters |
 | **Fiscal year start, document prefixes, AR ageing buckets** | `AccountingSettings`, `BillingSettings`, `DocumentNumbering` | All shipped by the CFG cycle; see `ROADMAP.md` §8.3 |
 
 ---

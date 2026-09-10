@@ -22,7 +22,7 @@ class MarketingPostFactory extends Factory
             'status' => MarketingPost::STATUS_DRAFT,
             'audience' => MarketingPost::AUDIENCE_VISITORS,
             'title' => '20% off everything',
-            'title_ar' => 'خصم ٢٠٪ على كل شيء',
+            'title_ar' => 'خصم 20% على كل شيء',
             'summary' => 'This weekend only.',
             'discount_label' => '20% OFF',
             // Deliberately a LIVE window by default, so a test that publishes without setting dates

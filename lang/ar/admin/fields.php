@@ -661,7 +661,7 @@ return [
         'tax_direction' => 'تُطبَّق على',
         'invoice_label' => 'المسمّى على الفواتير',
         'tax_override_reason' => 'سبب اختلاف النسبة',
-        'tax_percent' => 'الضريبة ٪',
+        'tax_percent' => 'الضريبة %',
         'tax_total' => 'الضريبة',
         'tax_treatment' => 'المعالجة الضريبية',
         'statutory_reference' => 'السند القانوني',

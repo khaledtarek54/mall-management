@@ -829,7 +829,7 @@ prominently), `reviewedAt`, `publishedAt`, `viewCount`, `clickCount`.
 
 #### 🔒 `POST /me/marketing-posts` — create a draft (multipart)
 ```
-assetId=12  title="20% off everything"  titleAr="خصم ٢٠٪ على كل شيء"
+assetId=12  title="20% off everything"  titleAr="خصم 20% على كل شيء"
 discountLabel="20% OFF"  startsAt=2026-09-01T00:00:00Z  endsAt=2026-09-07T23:59:59Z
 hero=<file>   gallery[]=<file>…
 ```

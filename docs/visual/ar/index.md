@@ -12,19 +12,19 @@
 
 <div class="flow">
   <div class="step hl">
-    <span class="n">١</span>
+    <span class="n">1</span>
     <span class="t">الصورة الكاملة</span>
     <span class="d">النظام كله في صفحة واحدة — الوحدات وما يغذّي كل واحدة منها.</span>
   </div>
   <span class="arrow">→</span>
   <div class="step">
-    <span class="n">٢</span>
+    <span class="n">2</span>
     <span class="t">شهر في حياة المول</span>
     <span class="d">من إصدار الفواتير إلى التحصيل إلى الإقفال، بالترتيب الذي يحدث به فعلًا.</span>
   </div>
   <span class="arrow">→</span>
   <div class="step">
-    <span class="n">٣</span>
+    <span class="n">3</span>
     <span class="t">كل الوحدات</span>
     <span class="d">المرجع: ماذا تُرحِّل كل وحدة إلى الدفاتر، وما الذي يمكن تعديله بعد الترحيل.</span>
   </div>

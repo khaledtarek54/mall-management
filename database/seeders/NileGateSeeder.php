@@ -1335,9 +1335,9 @@ class NileGateSeeder extends Seeder
         Announcement::create([
             'asset_id' => $this->asset->id,
             'title' => 'Fire drill — Wednesday 11:00',
-            'title_ar' => 'تجربة إخلاء — الأربعاء الساعة ١١ صباحًا',
+            'title_ar' => 'تجربة إخلاء — الأربعاء الساعة 11 صباحًا',
             'body' => 'A full evacuation drill will run on Wednesday at 11:00. Please brief your staff; the alarm will sound for about ten minutes.',
-            'body_ar' => 'ستُجرى تجربة إخلاء كاملة يوم الأربعاء الساعة ١١ صباحًا. يُرجى إبلاغ فريقكم؛ سيعمل جرس الإنذار لنحو عشر دقائق.',
+            'body_ar' => 'ستُجرى تجربة إخلاء كاملة يوم الأربعاء الساعة 11 صباحًا. يُرجى إبلاغ فريقكم؛ سيعمل جرس الإنذار لنحو عشر دقائق.',
             'category' => 'operations',
             'status' => Announcement::STATUS_SCHEDULED,
             'publish_at' => $this->today->addDays(4)->setTime(12, 0),

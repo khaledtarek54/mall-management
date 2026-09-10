@@ -644,20 +644,6 @@
     "new": ""
   },
   {
-    "name": "LatinNumerals — a typed Arabic-Indic digit in the Arabic catalogue",
-    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
-    "path": "lang/ar/admin/reports.php",
-    "old": "(نموذج 41)",
-    "new": "(نموذج ٤١)"
-  },
-  {
-    "name": "LatinNumerals — Filament's money locale falls back to config('app.locale')",
-    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
-    "path": "app/Support/LatinNumerals.php",
-    "old": "        Table::configureUsing(fn (Table $table) => $table->defaultNumberLocale('en'));\n",
-    "new": ""
-  },
-  {
     "name": "ChartOfAccounts — an account's type stops matching its leading code digit",
     "gate": "tests/Feature/Accounting/ChartOfAccountsConformanceTest.php",
     "path": "database/seeders/ChartOfAccountsSeeder.php",
@@ -761,5 +747,33 @@
     "path": "app/Filament/Admin/Resources/AccountMappings/Tables/AccountMappingsTable.php",
     "old": "namespace App\\Filament\\Admin\\Resources\\AccountMappings\\Tables;\n\nuse App\\Filament\\Admin\\Resources\\AccountMappings\\AccountMappingResource;\nuse App\\Models\\AccountMapping;\nuse App\\Support\\PostingRoles;\nuse Filament\\Actions\\CreateAction;\nuse Filament\\Actions\\EditAction;\nuse Filament\\Actions\\ViewAction;\nuse Filament\\Tables\\Columns\\TextColumn;\nuse Filament\\Tables\\Filters\\SelectFilter;\nuse Filament\\Tables\\Filters\\TernaryFilter;\nuse Filament\\Tables\\Table;\n\nclass AccountMappingsTable\n{\n    public static function configure(Table $table): Table\n    {",
     "new": "namespace App\\Filament\\Admin\\Resources\\AccountMappings\\Tables;\n\nuse App\\Filament\\Admin\\Resources\\Units\\UnitResource;\n\nuse App\\Filament\\Admin\\Resources\\AccountMappings\\AccountMappingResource;\nuse App\\Models\\AccountMapping;\nuse App\\Support\\PostingRoles;\nuse Filament\\Actions\\CreateAction;\nuse Filament\\Actions\\EditAction;\nuse Filament\\Actions\\ViewAction;\nuse Filament\\Tables\\Columns\\TextColumn;\nuse Filament\\Tables\\Filters\\SelectFilter;\nuse Filament\\Tables\\Filters\\TernaryFilter;\nuse Filament\\Tables\\Table;\n\nclass AccountMappingsTable\n{\n    public static function configure(Table $table): Table\n    {\n        $leak = UnitResource::getUrl('edit', ['record' => 1]);"
+  },
+  {
+    "name": "LatinNumerals — a typed Arabic-Indic digit in the Arabic catalogue",
+    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
+    "path": "lang/ar/admin/reports.php",
+    "old": "(نموذج 41)",
+    "new": "(نموذج ٤١)"
+  },
+  {
+    "name": "LatinNumerals — Filament's money locale falls back to config('app.locale')",
+    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
+    "path": "app/Support/LatinNumerals.php",
+    "old": "        Table::configureUsing(fn (Table $table) => $table->defaultNumberLocale('en'));\n",
+    "new": ""
+  },
+  {
+    "name": "LatinNumerals — an en-dash range an RTL reader sees backwards",
+    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
+    "path": "lang/ar/admin/widgets.php",
+    "old": "'1-30 يومًا'",
+    "new": "'1–30 يومًا'"
+  },
+  {
+    "name": "LatinNumerals — a chart axis follows the browser's locale",
+    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
+    "path": "app/Filament/Admin/Widgets/EnergyConsumptionTrend.php",
+    "old": "            'locale' => 'en',\n",
+    "new": ""
   }
 ]

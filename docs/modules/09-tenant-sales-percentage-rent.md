@@ -946,6 +946,15 @@ separators included**, because the panel is bilingual and a number typed on an A
 number. A leading minus is dropped rather than honoured: an exclusion is an amount deducted, so the
 sign is the operation and not the figure.
 
+**And it had SW-164's own defect through the other door until 2026-09-10.** The fold was a private copy
+of the digit map covering only the basic Arabic-Indic range, while `SearchText`'s copy had covered the
+extended Persian/Urdu range (`۰-۹`) since the day it was written. So `۱٬۲۰۰` survived the fold intact,
+was stripped to `''` by the numeric filter, and deducted **0.00** — a deduction silently worth nothing
+and the tenant billed percentage rent on turnover that was never theirs, which is exactly what SW-164
+was raised for. Two copies of one map is how that happens. There is one now,
+`App\Support\LatinNumerals::DIGITS`, and the system's rule is that it **writes** Latin digits
+everywhere and **reads** both — see [modules/34](34-search.md) and `LatinNumeralsConformanceTest`.
+
 **The VAT deduction did not follow its gross (SW-163).** It is computed once, when the toggle is
 flipped, from the gross at that instant — so CORRECTING the gross afterwards left a deduction taken
 from a figure that no longer existed, and it flowed straight into the charge basis. Measured: a gross

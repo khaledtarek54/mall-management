@@ -433,7 +433,7 @@ answers that question and a second reading of it would be a second answer.
 ## And "how many" (B1c)
 
 *"How many units, by status?"* → **12 units — vacant 11, occupied 1**, and in Arabic
-«شاغرة: ١١، مشغولة: ١».
+«شاغرة: 11، مشغولة: 1».
 
 **Structured, never a string.** The resource comes from retrieval; the only other input is a
 group-by column, and it must be one already registered in `ValueSets::forTable()`. That registry

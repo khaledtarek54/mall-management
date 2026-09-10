@@ -34,6 +34,7 @@ use App\Support\Filament\LocalizedNotification;
 use App\Support\Filament\NavigationItemMemo;
 use App\Support\Filament\PropertyLink;
 use App\Support\Filament\TableViewDefaultMemo;
+use App\Support\LatinNumerals;
 use App\Support\LedgerRealtimeSync;
 use App\Support\MorphMap;
 use App\Support\SealedPeriod;
@@ -64,7 +65,6 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -221,11 +221,13 @@ class AppServiceProvider extends ServiceProvider
         // boots. See App\Support\MorphMap; MorphMapConformanceTest fails on an unmapped model.
         Relation::enforceMorphMap(MorphMap::MAP);
 
-        // Numbers are ALWAYS in Western/Latin digits (0-9), even in the Arabic
-        // UI — the Laravel Number helper (and Filament ->money(), which uses it)
-        // otherwise emits Arabic-Indic digits under the 'ar' locale. Carbon's
-        // bundled 'ar' locale already uses Western digits for dates.
-        Number::useLocale('en');
+        // Numbers are ALWAYS in Western/Latin digits (0-9), even in the Arabic UI. This used to be
+        // a bare `Number::useLocale('en')`, which pins the Laravel helper's DEFAULT and does not
+        // reach Filament's money/numeric columns or infolist entries — those pass an explicit
+        // locale and fall through to `config('app.locale')`. See App\Support\LatinNumerals for
+        // all three seams, for what `APP_LOCALE=ar_EG` measurably does without them, and for the
+        // typed digits no formatting seam can reach.
+        LatinNumerals::register();
 
         // Absolute URLs must be https in production. TLS terminates at the proxy, so PHP sees a
         // plain http request and every route()/url() call — the tenant payment link, password

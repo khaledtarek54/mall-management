@@ -17,14 +17,14 @@
    ```ts
    { text: t.utilityMeters, link: `${p}/operations/meters` },
    ```
-3. **اكتب الصفحة العربية أيضًا** — `docs/visual/ar/operations/meters.md`، ثم أضف رابطها إلى قائمة `only` في لغة `ar`. **هذه القائمة مقصودة:** فالقائمة الجانبية العربية تعرض ما تُرجم بالضبط، فلا يشير عنصر قائمة إلى صفحة غير موجودة. الصفحة غير المترجمة تعني قائمةً أقصر؛ أمّا المدرجة والمفقودة فتعني خطأ ٤٠٤ لن يراه أبدًا من يقرأ الإنجليزية.
+3. **اكتب الصفحة العربية أيضًا** — `docs/visual/ar/operations/meters.md`، ثم أضف رابطها إلى قائمة `only` في لغة `ar`. **هذه القائمة مقصودة:** فالقائمة الجانبية العربية تعرض ما تُرجم بالضبط، فلا يشير عنصر قائمة إلى صفحة غير موجودة. الصفحة غير المترجمة تعني قائمةً أقصر؛ أمّا المدرجة والمفقودة فتعني خطأ 404 لن يراه أبدًا من يقرأ الإنجليزية.
 4. **شاهده حيًّا** — شغّل `npm run docs:dev` وافتح الرابط المحلي. يُحدَّث فورًا أثناء الكتابة.
 
 هذا كل شيء. ولتغيير الألوان أو الخطوط للموقع كله، عدّل `docs/visual/.vitepress/theme/custom.css`.
 
 ## القواعد التي تُبقيه جديرًا بالثقة
 
-<div class="rule"><span class="lbl">قواعد البيت</span><b>١. أسنِد كل حقيقة إلى الكود.</b> أنهِ الصفحة بالملف الذي جاءت منه (<code>مصدر الحقيقة: app/…</code>) ليتمكن القارئ من التحقق. <b>٢. استخدم أكواد الحسابات الحقيقية</b> — وهي في <code>database/seeders/ChartOfAccountsSeeder.php</code>. <b>٣. أبقِ كود كل مكوّن في سطر واحد</b> (بلا فواصل أسطر داخل كتلة <code>&lt;div class="flow"&gt;…&lt;/div&gt;</code>) — فالسطر الفارغ داخل HTML الخام يكسر عارض الماركداون. <b>٤. لا تكتب يدويًا أبدًا عددًا أو قائمة يحملها سجلٌّ بالفعل</b> — بل استخدم مكوّنًا مولَّدًا. فقد تقادمت خمس عبارات في هذا الدليل قبل وجود هذه القاعدة: قنوات السداد، وعدد المُرحِّلات مرتين، وعدد الوحدات، ولوحة كانت قد أُزيلت.</div>
+<div class="rule"><span class="lbl">قواعد البيت</span><b>1. أسنِد كل حقيقة إلى الكود.</b> أنهِ الصفحة بالملف الذي جاءت منه (<code>مصدر الحقيقة: app/…</code>) ليتمكن القارئ من التحقق. <b>2. استخدم أكواد الحسابات الحقيقية</b> — وهي في <code>database/seeders/ChartOfAccountsSeeder.php</code>. <b>3. أبقِ كود كل مكوّن في سطر واحد</b> (بلا فواصل أسطر داخل كتلة <code>&lt;div class="flow"&gt;…&lt;/div&gt;</code>) — فالسطر الفارغ داخل HTML الخام يكسر عارض الماركداون. <b>4. لا تكتب يدويًا أبدًا عددًا أو قائمة يحملها سجلٌّ بالفعل</b> — بل استخدم مكوّنًا مولَّدًا. فقد تقادمت خمس عبارات في هذا الدليل قبل وجود هذه القاعدة: قنوات السداد، وعدد المُرحِّلات مرتين، وعدد الوحدات، ولوحة كانت قد أُزيلت.</div>
 
 <div class="rule"><span class="lbl">الاتجاه من اليمين · استخدم الخصائص المنطقية</span>يعكس القالب نفسه للعربية <b>بلا أي إضافة برمجية</b>، لأنه يستخدم <code>border-inline-start</code> و<code>margin-inline-end</code> و<code>text-align: start/end</code> بدل left/right. فإن أضفت CSS، فالتزم بالخصائص المنطقية — إذ إن <code>left</code> أو <code>right</code> واحدة هي ما سيُعيد <code>postcss-rtlcss</code> إلى البناء.</div>
 
@@ -36,20 +36,20 @@
 
 ### العناوين الصغيرة
 
-<p class="eyebrow">صورة ١ · تدفق</p>
+<p class="eyebrow">صورة 1 · تدفق</p>
 <p class="sub">عنوان فرعي مائل يمهّد للصورة التي تحته.</p>
 
 ```html
-<p class="eyebrow">صورة ١ · تدفق</p>
+<p class="eyebrow">صورة 1 · تدفق</p>
 <p class="sub">عنوان فرعي مائل يمهّد للصورة التي تحته.</p>
 ```
 
 ### تدفق (خطوات متتابعة)
 
-<div class="flow"><div class="step"><span class="n">٠١</span><span class="t">الأولى</span><span class="d">ما يحدث هنا.</span></div><span class="arrow">→</span><div class="step"><span class="n">٠٢</span><span class="t">التالية</span><span class="d">ثم هذا.</span></div><span class="arrow">→</span><div class="step hl"><span class="n">٠٣</span><span class="t">النهاية</span><span class="d">أبرِز الوجهة بالصنف <code>step hl</code>.</span></div></div>
+<div class="flow"><div class="step"><span class="n">01</span><span class="t">الأولى</span><span class="d">ما يحدث هنا.</span></div><span class="arrow">→</span><div class="step"><span class="n">02</span><span class="t">التالية</span><span class="d">ثم هذا.</span></div><span class="arrow">→</span><div class="step hl"><span class="n">03</span><span class="t">النهاية</span><span class="d">أبرِز الوجهة بالصنف <code>step hl</code>.</span></div></div>
 
 ```html
-<div class="flow"><div class="step"><span class="n">٠١</span><span class="t">الأولى</span><span class="d">ما يحدث هنا.</span></div><span class="arrow">→</span><div class="step"><span class="n">٠٢</span><span class="t">التالية</span><span class="d">ثم هذا.</span></div><span class="arrow">→</span><div class="step hl"><span class="n">٠٣</span><span class="t">النهاية</span><span class="d">أبرِز الوجهة بالصنف hl.</span></div></div>
+<div class="flow"><div class="step"><span class="n">01</span><span class="t">الأولى</span><span class="d">ما يحدث هنا.</span></div><span class="arrow">→</span><div class="step"><span class="n">02</span><span class="t">التالية</span><span class="d">ثم هذا.</span></div><span class="arrow">→</span><div class="step hl"><span class="n">03</span><span class="t">النهاية</span><span class="d">أبرِز الوجهة بالصنف hl.</span></div></div>
 ```
 
 ### دورة حياة (كبسولات حالات ملوّنة)
@@ -64,10 +64,10 @@
 
 ### بطاقة حساب (قيد في الدفتر)
 
-<div class="tcard"><div class="cap">الواقعة — ما الذي حدث</div><p class="say">جملة واحدة بسيطة عن الواقعة.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">شيء تملكه</span><br><small>11101001 · الخزينة الرئيسية</small></td><td class="amt dr">مدين ١٬٠٠٠</td></tr><tr><td class="acc"><span class="crc">إيراد تحقق</span><br><small>42101001 · إيرادات متنوعة</small></td><td class="amt crc">دائن ١٬٠٠٠</td></tr></table></div>
+<div class="tcard"><div class="cap">الواقعة — ما الذي حدث</div><p class="say">جملة واحدة بسيطة عن الواقعة.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">شيء تملكه</span><br><small>11101001 · الخزينة الرئيسية</small></td><td class="amt dr">مدين 1,000</td></tr><tr><td class="acc"><span class="crc">إيراد تحقق</span><br><small>42101001 · إيرادات متنوعة</small></td><td class="amt crc">دائن 1,000</td></tr></table></div>
 
 ```html
-<div class="tcard"><div class="cap">الواقعة — ما الذي حدث</div><p class="say">جملة واحدة بسيطة عن الواقعة.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">شيء تملكه</span><br><small>11101001 · الخزينة الرئيسية</small></td><td class="amt dr">مدين ١٬٠٠٠</td></tr><tr><td class="acc"><span class="crc">إيراد تحقق</span><br><small>42101001 · إيرادات متنوعة</small></td><td class="amt crc">دائن ١٬٠٠٠</td></tr></table></div>
+<div class="tcard"><div class="cap">الواقعة — ما الذي حدث</div><p class="say">جملة واحدة بسيطة عن الواقعة.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">شيء تملكه</span><br><small>11101001 · الخزينة الرئيسية</small></td><td class="amt dr">مدين 1,000</td></tr><tr><td class="acc"><span class="crc">إيراد تحقق</span><br><small>42101001 · إيرادات متنوعة</small></td><td class="amt crc">دائن 1,000</td></tr></table></div>
 ```
 
 لفّ بطاقتين داخل `<div class="books">…</div>` لوضعهما جنبًا إلى جنب. واستخدم الصنف `dr` (فيروزي) للسطور المدينة و`crc` (كهرماني) للدائنة.

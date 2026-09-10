@@ -121,11 +121,17 @@ class SalesExclusions
             return 0.0;
         }
 
-        $text = strtr($text, [
-            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
-            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
-            '٫' => '.', '٬' => '',
-        ]);
+        // App\Support\LatinNumerals::DIGITS, never a copy of it. This method had its own,
+        // covering the basic range only — so `۱٬۲۰۰` typed on a Persian/Urdu keyboard survived the
+        // fold intact, was stripped to '' by the numeric filter below, and deducted **0.00**: this
+        // method's own defect (a deduction silently worth nothing, the tenant billed percentage
+        // rent on turnover that was never theirs) through the other door. The search fold had
+        // covered both ranges since the day it was written.
+        //
+        // The thousands mark is dropped rather than mapped to ',' — the filter below strips a comma
+        // anyway, and `LatinNumerals::MARKS` is about how a number READS, which is the opposite
+        // question from how one PARSES.
+        $text = strtr($text, LatinNumerals::DIGITS + ['٫' => '.', '٬' => '']);
 
         // Strip grouping and anything that is not part of a decimal number. A minus is dropped with
         // it: an exclusion is an amount deducted, and the sign is the operation, not the figure —

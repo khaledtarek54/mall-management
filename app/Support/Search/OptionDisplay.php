@@ -1164,7 +1164,7 @@ class OptionDisplay
      * picker subtitles an operator reads while choosing: an invoice's due date on the
      * payment-allocation and cheque-linking pickers, and a vendor bill's date. `DD MMM YYYY` keeps
      * the English output byte-identical to the zero-padded `d M Y` it replaces; the digits stay
-     * Latin, which `LatinNumeralsTest` pins app-wide.
+     * Latin, which `LatinNumeralsConformanceTest` pins app-wide.
      */
     protected static function dayDate(mixed $date): ?string
     {
@@ -1181,7 +1181,7 @@ class OptionDisplay
      * start→end and an announcement's window — i.e. the subtitle of every lease, vendor-contract
      * and announcement `EntitySelect` in BOTH panels. So the Arabic picker read `Jan 2026 –
      * Dec 2028`. `isoFormat()` on a localised instance is the panel's idiom; the year stays in
-     * Latin digits, which `LatinNumeralsTest` pins app-wide, and the English output is
+     * Latin digits, which `LatinNumeralsConformanceTest` pins app-wide, and the English output is
      * byte-identical to what this printed before.
      */
     protected static function dateRange(mixed $from, mixed $to): ?string

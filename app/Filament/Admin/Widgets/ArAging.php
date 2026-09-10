@@ -113,8 +113,15 @@ class ArAging extends ChartWidget
     {
         $invoiceLabel = __('admin.widgets.ar_aging.invoices');
 
+        // Chart.js formats every axis tick and default tooltip through
+        // `new Intl.NumberFormat(options.locale)`, and Filament never sets `options.locale` —
+        // so unset it falls to the BROWSER's locale, and an `ar-EG` browser renders the y-axis
+        // `١٬٢٣٤٬٥٦٧٫٥` while every other number on the page is Latin. Pinned per widget
+        // because a widget's options are its own seam: Filament has no `configureUsing` for
+        // them. See App\Support\LatinNumerals; ChartWidgetsPinTheirNumberLocale gates it.
         return RawJs::make(<<<JS
         {
+            locale: 'en',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {

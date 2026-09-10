@@ -119,7 +119,7 @@ it('writes both maturities in Arabic for a reader working in Arabic', function (
         // The half that was wrong: `format('M Y')` emits these whatever the locale is.
         ->and($text)->not->toContain('Oct 2026')
         ->and($text)->not->toContain('Sep 2027')
-        // Latin digits, never Arabic-Indic — the app-wide rule LatinNumeralsTest pins. A localised
+        // Latin digits, never Arabic-Indic — the app-wide rule LatinNumeralsConformanceTest pins. A localised
         // Carbon instance is exactly where that could regress.
         ->and(preg_match('/[\x{0660}-\x{0669}\x{06F0}-\x{06F9}]/u', $text))->toBe(0);
 });
@@ -247,7 +247,7 @@ it('renders an Arabic month in the pickers the one shared seam feeds', function 
     $subtitle = (new ReflectionMethod(OptionDisplay::class, 'dateRange'))
         ->invoke(null, CarbonImmutable::parse('2026-01-01'), CarbonImmutable::parse('2028-12-01'));
 
-    // The months are Arabic; the YEARS stay in Latin digits, which `LatinNumeralsTest` pins app-wide.
+    // The months are Arabic; the YEARS stay in Latin digits, which `LatinNumeralsConformanceTest` pins app-wide.
     expect($subtitle)->toContain('2026')->toContain('2028')
         ->and($subtitle)->not->toContain('Jan')->not->toContain('Dec');
 

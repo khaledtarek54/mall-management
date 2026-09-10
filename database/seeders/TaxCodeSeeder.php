@@ -150,7 +150,7 @@ class TaxCodeSeeder extends Seeder
             $rows[] = [
                 'code' => 'VAT_14'.$suffix,
                 'en' => $sales ? 'VAT 14%' : 'Input VAT 14%',
-                'ar' => 'ضريبة القيمة المضافة ١٤٪'.($sales ? '' : ' — مشتريات'),
+                'ar' => 'ضريبة القيمة المضافة 14%'.($sales ? '' : ' — مشتريات'),
                 'family' => TaxCode::FAMILY_VAT, 'direction' => $direction,
                 'treatment' => TaxCode::STANDARD,
                 'role' => $sales ? 'vat_payable' : 'vat_recoverable',
@@ -180,7 +180,7 @@ class TaxCodeSeeder extends Seeder
             // ── Stamp — ضريبة الدمغة ─────────────────────────────────────────────────────────
             $rows[] = [
                 'code' => 'STAMP_20'.$suffix,
-                'en' => 'Stamp 20%', 'ar' => 'ضريبة الدمغة ٢٠٪',
+                'en' => 'Stamp 20%', 'ar' => 'ضريبة الدمغة 20%',
                 'family' => TaxCode::FAMILY_STAMP, 'direction' => $direction,
                 'treatment' => TaxCode::STANDARD,
                 // Output = a liability we collect and remit. Input = an EXPENSE, not a recoverable

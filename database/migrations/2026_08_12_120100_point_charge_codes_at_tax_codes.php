@@ -72,7 +72,7 @@ return new class extends Migration
 
         $standardRate = $this->configuredStandardRate();
 
-        $this->ensureTaxCode('VAT_14', 'VAT 14%', 'ضريبة القيمة المضافة ١٤٪', 'standard', 'vat_payable', 'VAT 14%', 10, $standardRate);
+        $this->ensureTaxCode('VAT_14', 'VAT 14%', 'ضريبة القيمة المضافة 14%', 'standard', 'vat_payable', 'VAT 14%', 10, $standardRate);
         $this->ensureTaxCode('VAT_0', 'Zero Rated 0%', 'خاضعة بنسبة صفر', 'zero_rated', null, 'Zero Rated 0%', 20, 0.0);
         $this->ensureTaxCode('VAT_EXEMPT', 'Exempt', 'معفاة', 'exempt', null, 'Exempt', 30, 0.0);
 
@@ -189,7 +189,7 @@ return new class extends Migration
         $code = "VAT_{$suffix}";
         $label = 'VAT '.rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.').'%';
 
-        $this->ensureTaxCode($code, $label, "ضريبة القيمة المضافة {$rate}٪", 'standard', 'vat_payable', $label, 40, $rate);
+        $this->ensureTaxCode($code, $label, "ضريبة القيمة المضافة {$rate}%", 'standard', 'vat_payable', $label, 40, $rate);
 
         return $code;
     }

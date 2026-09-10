@@ -12,17 +12,17 @@
 
 ## ماذا تُرحِّل كل حركة
 
-<p class="sub">استلام ١٠٠ وحدة بسعر ٥٠ للوحدة (٥٬٠٠٠)، ثم استهلاك إصلاحٍ لعشر وحدات (٥٠٠).</p>
+<p class="sub">استلام 100 وحدة بسعر 50 للوحدة (5,000)، ثم استهلاك إصلاحٍ لعشر وحدات (500).</p>
 
-<div class="books"><div class="tcard"><div class="cap">الاستلام — دخول المخزون</div><p class="say">تنتقل القيمة إلى المخزون؛ ويُودَع الطرف «غير المفوتر بعد» في حساب وسيط.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">مخزون متاح</span><br><small>11301001 · المخزون</small></td><td class="amt dr">مدين ٥٬٠٠٠</td></tr><tr><td class="acc"><span class="crc">مستحق، لم تصل فاتورته</span><br><small>21701001 · بضاعة مستلمة لم تُفوتَر</small></td><td class="amt crc">دائن ٥٬٠٠٠</td></tr></table></div><div class="tcard"><div class="cap">الاستهلاك — استخدام قطعة</div><p class="say">يخرج المخزون ويصبح تكلفة صيانة.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">تكلفة الصيانة</span><br><small>51102001 · إصلاحات وصيانة</small></td><td class="amt dr">مدين ٥٠٠</td></tr><tr><td class="acc"><span class="crc">مخزون متاح</span><br><small>11301001 · المخزون</small></td><td class="amt crc">دائن ٥٠٠</td></tr></table></div></div>
+<div class="books"><div class="tcard"><div class="cap">الاستلام — دخول المخزون</div><p class="say">تنتقل القيمة إلى المخزون؛ ويُودَع الطرف «غير المفوتر بعد» في حساب وسيط.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">مخزون متاح</span><br><small>11301001 · المخزون</small></td><td class="amt dr">مدين 5,000</td></tr><tr><td class="acc"><span class="crc">مستحق، لم تصل فاتورته</span><br><small>21701001 · بضاعة مستلمة لم تُفوتَر</small></td><td class="amt crc">دائن 5,000</td></tr></table></div><div class="tcard"><div class="cap">الاستهلاك — استخدام قطعة</div><p class="say">يخرج المخزون ويصبح تكلفة صيانة.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">تكلفة الصيانة</span><br><small>51102001 · إصلاحات وصيانة</small></td><td class="amt dr">مدين 500</td></tr><tr><td class="acc"><span class="crc">مخزون متاح</span><br><small>11301001 · المخزون</small></td><td class="amt crc">دائن 500</td></tr></table></div></div>
 
 <div class="plain"><b>بضاعة مستلمة لم تُفوتَر</b> هي اللمسة الذكية: فحين يصل المخزون قبل فاتورة المورّد، تقبع قيمته في هذا الالتزام الوسيط — <em>لا</em> في الذمم الدائنة — فتبقى ذممك الدائنة مطابقة دائمًا لفواتير موردين حقيقية. وحين تصل الفاتورة، تُقفل ذلك الحساب.</div>
 
 ## تصحيح جرد
 
-<p class="sub">تنقص وحدتان عند الجرد (فَقْد) — يُعدَم ١٠٠.</p>
+<p class="sub">تنقص وحدتان عند الجرد (فَقْد) — يُعدَم 100.</p>
 
-<div class="tcard"><div class="cap">تسوية — فَقْد</div><p class="say">تستقر الخسارة في بند مصروف خاص بها، فيبقى الاستهلاك الحقيقي نظيفًا.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">خسارة مخزون</span><br><small>51108001 · تسوية مخزون</small></td><td class="amt dr">مدين ١٠٠</td></tr><tr><td class="acc"><span class="crc">مخزون متاح</span><br><small>11301001 · المخزون</small></td><td class="amt crc">دائن ١٠٠</td></tr></table></div>
+<div class="tcard"><div class="cap">تسوية — فَقْد</div><p class="say">تستقر الخسارة في بند مصروف خاص بها، فيبقى الاستهلاك الحقيقي نظيفًا.</p><table class="t"><tr><th>الحساب</th><th class="cr">مدين / دائن</th></tr><tr><td class="acc"><span class="dr">خسارة مخزون</span><br><small>51108001 · تسوية مخزون</small></td><td class="amt dr">مدين 100</td></tr><tr><td class="acc"><span class="crc">مخزون متاح</span><br><small>11301001 · المخزون</small></td><td class="amt crc">دائن 100</td></tr></table></div>
 
 <div class="legend"><span>المخزون الذي يُعثر عليه يعكس هذا — <b class="dr">مدين</b> المخزون / <b class="crc">دائن</b> تسوية المخزون.</span></div>
 

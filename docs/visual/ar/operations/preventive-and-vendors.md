@@ -8,7 +8,7 @@
 
 <p class="sub">الخطة الدورية تصدر أمر شغل عند استحقاقها — تلقائيًا، في كل دورة.</p>
 
-<div class="flow"><div class="step"><span class="n">٠١</span><span class="t">الخطة</span><span class="d">«خدمة فلاتر التكييف، شهريًا» — مع قائمة فحص.</span></div><span class="arrow">→</span><div class="step"><span class="n">٠٢</span><span class="t">الاستحقاق</span><span class="d">يرى المسح الليلي أن موعد الاستحقاق التالي قد حلّ.</span></div><span class="arrow">→</span><div class="step"><span class="n">٠٣</span><span class="t">أمر الشغل</span><span class="d">يصدر عمل واحد (الحالة: مفتوح)، وتُنسَخ قائمة الفحص إليه.</span></div><span class="arrow">→</span><div class="step hl"><span class="n">٠٤</span><span class="t">الإنجاز</span><span class="d">ينهي الفريق قائمة الفحص؛ وتنتقل الخطة إلى الدورة التالية.</span></div></div>
+<div class="flow"><div class="step"><span class="n">01</span><span class="t">الخطة</span><span class="d">«خدمة فلاتر التكييف، شهريًا» — مع قائمة فحص.</span></div><span class="arrow">→</span><div class="step"><span class="n">02</span><span class="t">الاستحقاق</span><span class="d">يرى المسح الليلي أن موعد الاستحقاق التالي قد حلّ.</span></div><span class="arrow">→</span><div class="step"><span class="n">03</span><span class="t">أمر الشغل</span><span class="d">يصدر عمل واحد (الحالة: مفتوح)، وتُنسَخ قائمة الفحص إليه.</span></div><span class="arrow">→</span><div class="step hl"><span class="n">04</span><span class="t">الإنجاز</span><span class="d">ينهي الفريق قائمة الفحص؛ وتنتقل الخطة إلى الدورة التالية.</span></div></div>
 
 ## دورة حياة أمر الشغل
 
