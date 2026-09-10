@@ -285,16 +285,32 @@ down in that file with the reason it is not Horizon's published default.
 
 ```ini
 # /etc/systemd/system/atriom-worker-prod.service
+[Unit]
+After=network.target redis-server.service mysql.service
+# `StartLimitIntervalSec` IS A [Unit] KEY. It sat in [Service] in this document and in the real
+# staging unit until 2026-09-10, where systemd ignores it with a warning nobody reads — so the
+# "never rate-limit restarts" this line is here to state had never actually applied.
+StartLimitIntervalSec=0
+
 [Service]
 User=atriom-prod
 WorkingDirectory=/var/www/atriom-prod/current
 ExecStart=/usr/bin/php artisan horizon
 Restart=always
-StartLimitIntervalSec=0
+RestartSec=5
+# systemd SIGKILLs at 90s by default. A supervisor `timeout` of 600 means a job may legitimately
+# still be running then; killing it leaves the job reserved until `retry_after` (900s) releases it.
+TimeoutStopSec=630
+
 [Install]
 WantedBy=multi-user.target
 ```
 `systemctl enable --now atriom-worker-prod atriom-worker-staging`.
+
+**`horizon.memory_limit` is 256, not Horizon's published 64.** The master boots at 83MB here (three
+Filament panels, 66 resources), so on the default it exceeded the limit within a second and
+crash-looped — while printing `INFO Horizon started successfully` on every attempt, which is what
+makes it hard to read in `journalctl`. If the service sits in `activating`, check that line first.
 
 **Exactly one supervisor per environment.** Horizon and a bare `queue:work` both pop from the same
 Redis list, so leaving the old unit enabled beside this one does not double-process — it does

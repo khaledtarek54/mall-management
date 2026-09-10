@@ -197,9 +197,26 @@ return [
     | supervisor may consume before it is terminated and restarted. For
     | configuring these limits on your workers, see the next section.
     |
+    | RAISED FROM HORIZON'S PUBLISHED 64, WHICH CRASH-LOOPS THIS APPLICATION.
+    | Measured on the staging box 2026-09-10: the master boots at 83MB — it loads
+    | the full framework, and this app registers three Filament panels and 66
+    | resources at boot — so it exceeded the limit within a second of starting,
+    | every time. The failure is a nasty one to read: the master prints
+    | "INFO Horizon started successfully", THEN prints the memory line and exits
+    | 12, so `journalctl` shows a successful start on repeat and systemd's
+    | `Restart=always` hides it as a service stuck in `activating`.
+    |
+    | 256 is ~3x the measured boot footprint: enough that a supervisor process
+    | cannot trip it in normal running, low enough that a genuine leak still
+    | terminates and restarts the master rather than growing without bound. The
+    | per-WORKER limit below is a different number and is deliberately left at
+    | 128 — that is what the bare `queue:work` unit ran with (its own default)
+    | for the whole soak, so it is the one figure here with real evidence behind
+    | it, and exceeding it restarts a worker gracefully rather than crash-looping.
+    |
     */
 
-    'memory_limit' => 64,
+    'memory_limit' => 256,
 
     /*
     |--------------------------------------------------------------------------
