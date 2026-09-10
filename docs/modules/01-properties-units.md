@@ -319,7 +319,17 @@ relation resolution entirely and falls through to `data_get($record, 'floor')`, 
 so, and the damage was one column of every row.
 
 It is `floor.code` now — what the units table itself shows in that column, and the value a
-re-import joins on.
+re-import joins on — **with `floor.name` beside it**, the same pairing as the property's name and
+code: an operator reading the spreadsheet wants *Ground*, and a re-import needs *G*.
+
+**Which of the two wears the plain *Floor* label is not cosmetic.** Filament maps an import column
+by **label** (`ImportColumn::getGuesses()` unshifts its own, and an export's header row *is* its
+column labels), and `UnitImporter::floor` is labelled *Floor* and resolves a **code**. Label them
+the other way round — name as *Floor*, code as *Floor code* — and the importer auto-guesses onto the
+NAME column, where every row then fails with *"No floor with the code 'Ground' exists"*. That is the
+one asymmetry with the asset pair, and it is the importer's join key that decides it. Asserted in
+every supported locale, because a pairing that is right in English can invert in Arabic while every
+English-run test stays green.
 
 **Why nothing caught it.** `EveryRegisterCanBeExportedTest` asserts column **names** — `code` first,
 `tax_id` present — which is the gate-checks-a-weaker-property shape this codebase keeps finding:
@@ -377,7 +387,7 @@ Driven in tests through `Importer::__invoke()` — the per-row seam `ImportCsv` 
 casts, **validates**, resolves the record and saves. Setting `floor_id` by hand would be a fixture
 writing a column no door writes, i.e. green over dead code.
 
-**Swept, so the claim is measured rather than asserted:** all nine exporters (279 cells over 27
+**Swept, so the claim is measured rather than asserted:** all nine exporters (282 cells over 27
 demo records), all 20 deliverable reports (~15,600 cells, `ActivityLog` alone 2,110 rows) and all
 six register CSVs render scalars. `ClauseRegister` has no demo rows, so it is structurally covered
 and live-unverified. Exactly five screen columns name a bare relation and all five carry an explicit

@@ -33,6 +33,17 @@ class UnitExporter extends Exporter
             // `{"id":2,"asset_id":2,"code":"G",...}`. `code` is what the units table itself shows
             // and what a re-import would join on.
             ExportColumn::make('floor.code')->label(__('admin.pdf.floor')),
+            // The floor's NAME as well as its code, the same pairing as the property above: an
+            // operator reading the spreadsheet wants *Ground*, and a re-import needs *G*.
+            //
+            // WHICH ONE CARRIES THE PLAIN "Floor" LABEL IS NOT COSMETIC. Filament maps an import
+            // column by LABEL (`ImportColumn::getGuesses()` unshifts its own, and an export's
+            // header row IS its labels), and `UnitImporter::floor` is labelled *Floor* and resolves
+            // a CODE. So the code keeps that label and the name is explicitly *Floor name*: label
+            // them the other way round and the importer auto-guesses onto the NAME column, where
+            // every row then fails with "No floor with the code 'Ground' exists". That is the one
+            // asymmetry with the asset pair, and it is the importer's join key that decides it.
+            ExportColumn::make('floor.name')->label(__('admin.tables.unit.floor_name')),
             ExportColumn::make('category')->label(__('admin.tables.unit.category')),
             ExportColumn::make('area_sqm')->label(__('admin.tables.unit.area')),
             ExportColumn::make('activeLease.tenant.name')->label(__('admin.tables.unit.tenant')),

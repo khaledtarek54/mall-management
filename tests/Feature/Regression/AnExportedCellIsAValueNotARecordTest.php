@@ -3,6 +3,7 @@
 use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Filament\Exports\UnitExporter;
 use App\Filament\Imports\UnitImporter;
+use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\Unit;
@@ -12,6 +13,7 @@ use Filament\Actions\Exports\Models\Export;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\App;
 use Illuminate\Validation\ValidationException;
 use League\Csv\Reader;
 use League\Csv\Writer;
@@ -319,4 +321,49 @@ it('parses a bank statement line whose text ends in a backslash without swallowi
         // The shape the old escape produced, stated so the tooth cannot be mistaken for a tautology.
         expect(str_getcsv($line, ',', '"', '\\'))->toHaveCount(2)
             ->and(ReportCsv::parse($line))->toBe(['2026-09-10', 'C:\\share\\', '1234.50']);
+    });
+
+/**
+ * BOTH the floor's code and its name are exported, and WHICH ONE carries the plain *Floor* label
+ * decides whether the file re-imports.
+ *
+ * An operator reading the spreadsheet wants *Ground*; a re-import needs *G*, because
+ * `UnitImporter::resolveFloor()` joins on `floors.code`. So both ship — the same pairing as the
+ * property's name and code.
+ *
+ * The hazard is the LABEL, not the extra column. Filament maps an import column by label
+ * (`ImportColumn::getGuesses()` unshifts its own, and an export's header row IS its column labels),
+ * and `UnitImporter::floor` is labelled *Floor*. Label the two the other way round — name as
+ * *Floor*, code as *Floor code* — and the importer auto-guesses onto the NAME column, where every
+ * row then fails with *"No floor with the code 'Ground' exists"*. Asserted in EVERY supported
+ * locale, because the labels are translated and a pairing that is right in English can inverted in
+ * Arabic while every English-run test stays green.
+ */
+it('exports the floor code AND its name, with the code under the label the importer guesses on',
+    function () {
+        foreach (SetLocale::SUPPORTED as $locale) {
+            App::setLocale($locale);
+
+            $row = ExportCells::row(UnitExporter::class, $this->unit->refresh());
+            $labels = [];
+
+            foreach (UnitExporter::getColumns() as $column) {
+                $labels[$column->getName()] = (string) $column->getLabel();
+            }
+
+            // Both readings are in the file, and they are genuinely different values.
+            expect($row['floor.code'])->toBe('G', "[{$locale}] the code cell")
+                ->and($row['floor.name'])->toBe('Ground', "[{$locale}] the name cell");
+
+            $floorColumn = collect(UnitImporter::getColumns())
+                ->firstWhere(fn ($column) => $column->getName() === 'floor');
+
+            // The importer's own label must be the CODE column's label, never the name's.
+            expect($labels['floor.code'])->toBe((string) $floorColumn->getLabel(),
+                "[{$locale}] the importer guesses on this label, so it must be the CODE column's")
+                ->and($labels['floor.name'])->not->toBe((string) $floorColumn->getLabel(),
+                    "[{$locale}] the name column must NOT wear the label the importer guesses on");
+        }
+
+        App::setLocale(config('app.locale'));
     });

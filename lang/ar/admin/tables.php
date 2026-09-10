@@ -98,6 +98,7 @@ return [
             'tenant' => 'المستأجر',
             'rent' => 'الإيجار',
             'floor' => 'الطابق',
+            'floor_name' => 'اسم الطابق',
             'lease_expiry' => 'انتهاء العقد',
         ],
         'tenant' => [

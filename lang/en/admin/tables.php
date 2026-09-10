@@ -98,6 +98,7 @@ return [
             'tenant' => 'Tenant',
             'rent' => 'Rent',
             'floor' => 'Floor',
+            'floor_name' => 'Floor name',
             'lease_expiry' => 'Lease Expiry',
         ],
         'tenant' => [
