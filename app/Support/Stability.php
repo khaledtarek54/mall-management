@@ -246,7 +246,10 @@ final class Stability
      * Two numbers, and the second is the one nobody was reading: the audit reports how many
      * mutations were caught, which says nothing about the gates it has no mutation for. Measured on
      * 2026-09-10: 70 of 102 gates had one, 4 more had a definition whose anchor had gone stale — so
-     * the headline "70/74 caught" concealed that 32 gates were never audited at all.
+     * the headline "70/74 caught" concealed that 32 gates were never audited at all. Raised the same
+     * day to 88 of 104, which is why this tier reports COVERAGE and not merely the caught count:
+     * the number that matters is how much of the wall has been tested, not how much of the tested
+     * part passed.
      */
     private static function runIntegrity(): array
     {

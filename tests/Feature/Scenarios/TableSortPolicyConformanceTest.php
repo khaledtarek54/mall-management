@@ -64,7 +64,14 @@ it('classifies every table that owns its row order', function () {
 
     // The premise. A sweep whose discovery silently stopped collecting would report no offenders
     // and pass — the failure this codebase has been bitten by more than any other.
-    expect($files)->toHaveCount(147);
+    //
+    // **A FLOOR, not an exact count.** An exact 147 caught the collapse it is for AND fired on every
+    // legitimate new table, which is a false red — and the fix people reach for is to bump the
+    // number, after which nobody reads it. It sat red on `main` for exactly that reason: a zone tab
+    // was added, the count went to 148, and the gate reported a defect that was not one. A floor
+    // still goes red the moment discovery starts collecting less, which is the property that
+    // matters.
+    expect(count($files))->toBeGreaterThanOrEqual(147);
 
     $unclassified = [];
 

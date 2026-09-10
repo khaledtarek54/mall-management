@@ -112,6 +112,33 @@ it('states a reason for every exemption', function () {
     }
 })->skip(ServiceReachability::EXEMPT === [], 'No exemptions registered — nothing to check.');
 
+it('does not keep an exempt METHOD for something that no longer exists', function () {
+    // **`EXEMPT_METHODS` was read as a lookup and never validated**, so an entry naming a service
+    // or a method that has since been renamed away sat there exempting nothing while reading as a
+    // reviewed decision — found by the gate audit, which injected `NoSuchServiceAtAll::run` and
+    // watched this file stay green. Its sibling `EXEMPT` has had this check since the start; the
+    // two lists just never got the same treatment.
+    //
+    // Deliberately NOT skipped when the list is empty: the two checks above are, and that is how
+    // both went dormant. An empty list makes this loop a no-op, which costs nothing and cannot
+    // rot into a false reassurance.
+    foreach (array_keys(ServiceReachability::EXEMPT_METHODS) as $key) {
+        [$class, $method] = array_pad(explode('::', $key, 2), 2, '');
+
+        expect(class_exists($class))->toBeTrue(
+            "ServiceReachability::EXEMPT_METHODS names {$class}, which does not exist. Remove the stale entry.",
+        );
+
+        expect(method_exists($class, $method))->toBeTrue(
+            "ServiceReachability::EXEMPT_METHODS names {$key}, and {$class} has no such method. Remove the stale entry.",
+        );
+
+        expect(strlen(trim(ServiceReachability::EXEMPT_METHODS[$key])))->toBeGreaterThan(20,
+            "{$key}'s exemption reason is too thin to review.",
+        );
+    }
+});
+
 // ───────────── A reachable CLASS is not a reachable METHOD (2026-08-28) ─────────────
 
 /**

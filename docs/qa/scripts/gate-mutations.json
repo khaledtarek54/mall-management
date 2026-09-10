@@ -1,520 +1,646 @@
 [
   {
-    "name": "GlRegistry \u2014 drop a source's entry-date column",
+    "name": "GlRegistry — drop a source's entry-date column",
     "gate": "tests/Feature/Scenarios/GlRegistryConformanceTest.php",
     "path": "app/Support/LedgerRealtimeSync.php",
     "old": "        Payment::class => 'payment_date',",
     "new": ""
   },
   {
-    "name": "DeletionPolicy \u2014 unclassify a money model",
+    "name": "DeletionPolicy — unclassify a money model",
     "gate": "tests/Feature/Scenarios/DeletionPolicyConformanceTest.php",
     "path": "app/Models/Invoice.php",
     "old": "#[NeverDeletable(correction: 'cancel the invoice, or issue a credit note')]\n",
     "new": ""
   },
   {
-    "name": "MediaPrivacy \u2014 publish a private collection to the webroot",
+    "name": "MediaPrivacy — publish a private collection to the webroot",
     "gate": "tests/Feature/Scenarios/MediaPrivacyConformanceTest.php",
     "path": "app/Models/Announcement.php",
     "old": "->useDisk('local')->singleFile()",
     "new": "->useDisk('public')->singleFile()"
   },
   {
-    "name": "MorphMap \u2014 remove an alias",
+    "name": "MorphMap — remove an alias",
     "gate": "tests/Feature/Scenarios/MorphMapConformanceTest.php",
     "path": "app/Support/MorphMap.php",
     "old": "        'budget_line' => BudgetLine::class,\n",
     "new": ""
   },
   {
-    "name": "PostingDateGuard \u2014 drop a GL source's guard declaration",
+    "name": "PostingDateGuard — drop a GL source's guard declaration",
     "gate": "tests/Feature/Scenarios/PostingDateGuardConformanceTest.php",
     "path": "app/Models/CreditNote.php",
     "old": "#[PostingDateGuardedBy(guard: CreditNoteService::class)]\n",
     "new": ""
   },
   {
-    "name": "ConcurrencyPolicy \u2014 remove a registered lock",
+    "name": "ConcurrencyPolicy — remove a registered lock",
     "gate": "tests/Feature/Scenarios/ConcurrencyPolicyConformanceTest.php",
     "path": "app/Services/LateFeeService.php",
     "old": "Invoice::query()->lockForUpdate()->find($invoice->id)",
     "new": "Invoice::query()->find($invoice->id)"
   },
   {
-    "name": "PropertyIsolation \u2014 unclassify a property-owned model",
+    "name": "PropertyIsolation — unclassify a property-owned model",
     "gate": "tests/Feature/Scenarios/PropertyIsolationConformanceTest.php",
     "path": "app/Models/Area.php",
     "old": "#[PropertyOwned]\n",
     "new": ""
   },
   {
-    "name": "SearchPolicy \u2014 search a raw column instead of the folded blob",
+    "name": "SearchPolicy — search a raw column instead of the folded blob",
     "gate": "tests/Feature/Scenarios/SearchPolicyConformanceTest.php",
     "path": "app/Filament/Admin/Resources/Tenants/TenantResource.php",
     "old": "            'search_text',",
     "new": "            'name',"
   },
   {
-    "name": "RecordStateRefresh \u2014 drop the trait from a money Edit page",
+    "name": "RecordStateRefresh — drop the trait from a money Edit page",
     "gate": "tests/Feature/Scenarios/RecordStateRefreshConformanceTest.php",
     "path": "app/Filament/Admin/Resources/CreditNotes/Pages/EditCreditNote.php",
     "old": "    use RefreshesRecordState;\n",
     "new": ""
   },
   {
-    "name": "PropertyFieldPinned \u2014 unpin the property field",
+    "name": "PropertyFieldPinned — unpin the property field",
     "gate": "tests/Feature/Scenarios/PropertyFieldPinnedConformanceTest.php",
     "path": "app/Filament/Admin/Resources/Areas/Schemas/AreaForm.php",
     "old": "            PropertyField::make()",
     "new": "            PropertyField::make()->disabled(false)"
   },
   {
-    "name": "ScreenGuide \u2014 unregister a screen",
+    "name": "ScreenGuide — unregister a screen",
     "gate": "tests/Feature/Scenarios/ScreenGuideConformanceTest.php",
     "path": "app/Support/ScreenGuides.php",
     "old": "        UnitResource::class => 'units',\n",
     "new": ""
   },
   {
-    "name": "ValueSetCoverage \u2014 unregister a classification column",
+    "name": "ValueSetCoverage — unregister a classification column",
     "gate": "tests/Feature/Scenarios/ValueSetCoverageConformanceTest.php",
     "path": "app/Support/ValueSets.php",
     "old": "        'ledger_accounts.cash_flow_section' => [CashFlowSection::class, 'SECTIONS'],\n",
     "new": ""
   },
   {
-    "name": "ValueSetCoverage \u2014 let the suffix list drift behind the registry",
+    "name": "ValueSetCoverage — let the suffix list drift behind the registry",
     "gate": "tests/Feature/Scenarios/ValueSetCoverageConformanceTest.php",
     "path": "tests/Feature/Scenarios/ValueSetCoverageConformanceTest.php",
     "old": "    'section', 'timing', 'result', 'recipient', 'decision', 'pool',\n",
     "new": ""
   },
   {
-    "name": "ActionAuthz \u2014 remove BOTH gates from a write action",
+    "name": "ActionAuthz — a write action loses its declared gate",
     "gate": "tests/Feature/Scenarios/ActionAuthzConformanceTest.php",
-    "path": "app/Filament/Admin/Resources/Invoices/Pages/EditInvoice.php",
-    "old": "                ->authorize(fn () => Auth::user()?->can('invoices.edit') ?? false)\n                ->visible(fn () => filled($this->record->payment_link_token)\n                    && (Auth::user()?->can('invoices.edit') ?? false))\n                ->action(function (): void {\n                    abort_unless(Auth::user()?->can('invoices.edit') ?? false, 403);\n",
-    "new": "                ->visible(fn () => filled($this->record->payment_link_token))\n                ->action(function (): void {\n"
+    "path": "app/Filament/Admin/Actions/DepartmentActions.php",
+    "old": "                ->authorize(fn ($record) => DepartmentResource::canEdit($record))\n",
+    "new": ""
   },
   {
-    "name": "ChangeImpact \u2014 unclassify a REFUSED field on a posted document",
+    "name": "ChangeImpact — unclassify a REFUSED field on a posted document",
     "gate": "tests/Feature/Scenarios/ChangeImpactConformanceTest.php",
     "path": "app/Support/ChangeImpact.php",
     "old": "                'issue_date' => 'it IS the entry date, so it decides which period recognises the revenue',\n",
     "new": ""
   },
   {
-    "name": "ProjectedState \u2014 point a derived column at a sweep that does not exist",
+    "name": "ProjectedState — point a derived column at a sweep that does not exist",
     "gate": "tests/Feature/Scenarios/ProjectedStateConformanceTest.php",
     "path": "app/Support/ProjectedState.php",
     "old": "            'sweep' => 'leases:expire',\n            'stale_when' => 'a future-dated expansion or give-back reaches its effective date, or a '.",
     "new": "            'sweep' => 'leases:does-not-exist',\n            'stale_when' => 'a future-dated expansion or give-back reaches its effective date, or a '."
   },
   {
-    "name": "ScheduledModuleGate \u2014 point a scheduled command at a module key that does not exist",
+    "name": "ScheduledModuleGate — point a scheduled command at a module key that does not exist",
     "gate": "tests/Feature/Scenarios/ScheduledModuleGateConformanceTest.php",
     "path": "app/Support/ScheduledModules.php",
     "old": "        'cam:reconcile' => 'cam',",
     "new": "        'cam:reconcile' => 'cam_typo',"
   },
   {
-    "name": "DashboardLayout \u2014 rename a role out of the widget registry",
+    "name": "DashboardLayout — rename a role out of the widget registry",
     "gate": "tests/Feature/Scenarios/DashboardLayoutConformanceTest.php",
     "path": "app/Support/DashboardLayout.php",
     "old": "        'viewer' => [",
     "new": "        'viewer_typo' => ["
   },
   {
-    "name": "EntitySelect \u2014 downgrade a record picker to a bare Select",
+    "name": "EntitySelect — downgrade a record picker to a bare Select",
     "gate": "tests/Feature/Scenarios/EntitySelectConformanceTest.php",
     "path": "app/Filament/Admin/Resources/Areas/Schemas/AreaForm.php",
     "old": "            EntitySelect::make('supervisors')",
     "new": "            \\Filament\\Forms\\Components\\Select::make('supervisors')"
   },
   {
-    "name": "QueueJobSafety \u2014 unclassify a serialised job",
+    "name": "QueueJobSafety — unclassify a serialised job",
     "gate": "tests/Feature/Scenarios/QueueJobSafetyConformanceTest.php",
     "path": "app/Support/QueueJobSafety.php",
     "old": "        RunMonthlyBilling::class => 'A manually-dispatched run racing the scheduled one would double-bill: the '.\n            'already-billed existence check is not yet behind a DB unique constraint.',\n",
     "new": ""
   },
   {
-    "name": "ResourceTenancy \u2014 drop a shared catalogue's tenancy opt-out",
+    "name": "ResourceTenancy — drop a shared catalogue's tenancy opt-out",
     "gate": "tests/Feature/Scenarios/ResourceTenancyConformanceTest.php",
     "path": "app/Filament/Admin/Resources/AccountingPeriods/AccountingPeriodResource.php",
     "old": "    use BypassesFilamentTenantAutoScope;\n",
     "new": ""
   },
   {
-    "name": "OwnerVisibility \u2014 unclassify an owner-visible group",
+    "name": "OwnerVisibility — unclassify an owner-visible group",
     "gate": "tests/Feature/Scenarios/OwnerVisibilityConformanceTest.php",
     "path": "app/Support/OwnerVisibility.php",
     "old": "        'assets' => 'The property they own.',\n",
     "new": ""
   },
   {
-    "name": "CatalogueWidensItsColumns \u2014 a catalogue-governed column stops being widened",
+    "name": "CatalogueWidensItsColumns — a catalogue-governed column stops being widened",
     "gate": "tests/Feature/Scenarios/CatalogueWidensItsColumnsConformanceTest.php",
     "path": "app/Support/ValueSets.php",
     "old": "        'disbursements.method' => [PaymentMethod::class, 'outboundCodes'],\n",
     "new": ""
   },
   {
-    "name": "ChargeCodeGlMapping \u2014 a posting role a journalizer asks for leaves the registry",
+    "name": "ChargeCodeGlMapping — a posting role a journalizer asks for leaves the registry",
     "gate": "tests/Feature/Scenarios/ChargeCodeGlMappingConformanceTest.php",
     "path": "app/Support/PostingRoles.php",
     "old": "        'accounts_receivable' => self::GROUP_ASSET,\n",
     "new": ""
   },
   {
-    "name": "NullLeaseChain \u2014 a stale lease-bound exemption",
+    "name": "NullLeaseChain — a stale lease-bound exemption",
     "gate": "tests/Feature/Scenarios/NullLeaseChainConformanceTest.php",
     "path": "tests/Feature/Scenarios/NullLeaseChainConformanceTest.php",
-    "old": "    'app/Console/Commands/ScanLeaseOptionWindowsCommand.php' => 'A lease OPTION is a clause of a lease by definition \u2014 `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n",
-    "new": "    'app/Console/Commands/ThisFileDoesNotExist.php' => 'A lease OPTION is a clause of a lease by definition \u2014 `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n"
+    "old": "    'app/Console/Commands/ScanLeaseOptionWindowsCommand.php' => 'A lease OPTION is a clause of a lease by definition — `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n",
+    "new": "    'app/Console/Commands/ThisFileDoesNotExist.php' => 'A lease OPTION is a clause of a lease by definition — `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n"
   },
   {
-    "name": "DerivedMoney \u2014 a fillable money column left unclassified (and so untested)",
+    "name": "DerivedMoney — a fillable money column left unclassified (and so untested)",
     "gate": "tests/Feature/Scenarios/DerivedMoneyConformanceTest.php",
     "path": "app/Support/DerivedMoney.php",
     "old": "            'credit_applied_amount' => 'the SECOND settlement channel.",
     "new": "            'zz_not_a_column' => 'the SECOND settlement channel."
   },
   {
-    "name": "DerivedMoney \u2014 the invoice guard stops reverting a tampered settlement column",
+    "name": "DerivedMoney — the invoice guard stops reverting a tampered settlement column",
     "gate": "tests/Feature/Scenarios/DerivedMoneyConformanceTest.php",
     "path": "app/Models/Invoice.php",
     "old": "$invoice->isDirty(['balance', 'paid_amount', 'credit_applied_amount'])",
     "new": "$invoice->isDirty(['balance', 'paid_amount'])"
   },
   {
-    "name": "DerivedMoney \u2014 the credit-note guard stops holding applied_amount to its rows",
+    "name": "DerivedMoney — the credit-note guard stops holding applied_amount to its rows",
     "gate": "tests/Feature/Scenarios/DerivedMoneyConformanceTest.php",
     "path": "app/Models/CreditNote.php",
     "old": "            if ($note->isDirty('applied_amount')) {",
     "new": "            if (false) {"
   },
   {
-    "name": "SettingsReach \u2014 a setting nothing reads",
+    "name": "SettingsReach — a setting nothing reads",
     "gate": "tests/Feature/Scenarios/SettingsReachConformanceTest.php",
     "path": "app/Settings/AccountingSettings.php",
     "old": "    public int $activity_log_retention_days = 1825;",
     "new": "    public int $activity_log_retention_days = 1825;\n\n    public int $orphan_setting_nobody_reads = 0;"
   },
   {
-    "name": "ChargeCodeVatTreatment \u2014 the exempt floor loses a type",
+    "name": "ChargeCodeVatTreatment — the exempt floor loses a type",
     "gate": "tests/Feature/Scenarios/ChargeCodeVatTreatmentConformanceTest.php",
     "path": "app/Support/Vat.php",
     "old": "        'percentage_rent',\n",
     "new": ""
   },
   {
-    "name": "HealthChecksAreWired \u2014 a registered check disappears",
+    "name": "HealthChecksAreWired — a registered check disappears",
     "gate": "tests/Feature/Scenarios/HealthChecksAreWiredConformanceTest.php",
     "path": "app/Support/Health.php",
     "old": "            'scheduler' => self::checkScheduler(),\n",
     "new": ""
   },
   {
-    "name": "CatalogueBackedSurfaces \u2014 a form resolves the rail lang group directly",
+    "name": "CatalogueBackedSurfaces — a form resolves the rail lang group directly",
     "gate": "tests/Feature/Scenarios/CatalogueBackedSurfacesConformanceTest.php",
     "path": "app/Filament/Admin/Resources/DepositTransactions/Schemas/DepositTransactionForm.php",
     "old": "->options(fn () => DepositTransaction::methodOptions())",
     "new": "->options(fn () => __('admin.enums.method'))"
   },
   {
-    "name": "UnresolvedClassReference \u2014 a named class loses its import",
+    "name": "UnresolvedClassReference — a named class loses its import",
     "gate": "tests/Feature/Scenarios/UnresolvedClassReferenceConformanceTest.php",
     "path": "app/Services/LateFeeService.php",
     "old": "use App\\Models\\Invoice;\n",
     "new": ""
   },
   {
-    "name": "ReportCatalogue \u2014 a report leaves the catalogue",
+    "name": "ReportCatalogue — a report leaves the catalogue",
     "gate": "tests/Feature/Scenarios/ReportCatalogueConformanceTest.php",
     "path": "app/Support/ReportCatalogue.php",
-    "old": "        BalanceSheet::class => ['category' => self::FINANCIAL, 'key' => 'balance_sheet', 'keywords' => ['assets', 'liabilities', 'equity']],\n",
+    "old": "        BalanceSheet::class => ['category' => self::FINANCIAL, 'key' => 'balance_sheet', 'keywords' => ['assets', 'liabilities', 'equity', 'الميزانية', 'المركز المالي', 'الأصول', 'الخصوم', 'حقوق الملكية']],\n",
     "new": ""
   },
   {
-    "name": "TranslationKey \u2014 an Arabic key disappears",
+    "name": "TranslationKey — an Arabic key disappears",
     "gate": "tests/Feature/Scenarios/TranslationKeyConformanceTest.php",
     "path": "lang/ar/admin/statuses.php",
-    "old": "                'elevator' => '\u0645\u0635\u0639\u062f',\n",
+    "old": "                'elevator' => 'مصعد',\n",
     "new": ""
   },
   {
-    "name": "RelationManagerCrudIsGated \u2014 a relation-manager action loses its gate",
+    "name": "RelationManagerCrudIsGated — a relation-manager action loses its gate",
     "gate": "tests/Feature/Scenarios/RelationManagerCrudIsGatedConformanceTest.php",
     "path": "app/Filament/Admin/Resources/TaxCodes/RelationManagers/RatesRelationManager.php",
     "old": "                EditAction::make()\n                    ->authorize(fn () => auth()->user()?->can('tax_codes.edit') ?? false),\n",
     "new": "                EditAction::make(),\n"
   },
   {
-    "name": "SettingsPage \u2014 a setting loses its field",
+    "name": "SettingsPage — a setting loses its field",
     "gate": "tests/Feature/Scenarios/SettingsPageConformanceTest.php",
     "path": "app/Filament/Admin/Pages/Settings.php",
     "old": "                    TextInput::make('accounting.activity_log_retention_days')",
     "new": "                    TextInput::make('accounting.zz_no_such_setting')"
   },
   {
-    "name": "HandbookData \u2014 a generated dataset drifts from its registry",
+    "name": "HandbookData — a generated dataset drifts from its registry",
     "gate": "tests/Feature/Scenarios/HandbookDataConformanceTest.php",
     "path": "docs/visual/.vitepress/data/posting-roles.json",
     "old": "        \"role\": \"bank\",\n        \"label\": \"Bank\",\n",
     "new": "        \"role\": \"bank\",\n        \"label\": \"Banque\",\n"
   },
   {
-    "name": "GeneratedDocs \u2014 a generated doc block drifts from its registry",
+    "name": "GeneratedDocs — a generated doc block drifts from its registry",
     "gate": "tests/Feature/Scenarios/GeneratedDocsConformanceTest.php",
     "path": "docs/PROPERTY-ISOLATION.md",
-    "old": "<!-- GENERATED:isolation-classification \u2014 do not edit by hand; run `php artisan atriom:dump-registries` -->\n",
-    "new": "<!-- GENERATED:isolation-classification \u2014 do not edit by hand; run `php artisan atriom:dump-registries` -->\n| Drifted | row | that | nothing | generated |\n"
+    "old": "<!-- GENERATED:isolation-classification — do not edit by hand; run `php artisan atriom:dump-registries` -->\n",
+    "new": "<!-- GENERATED:isolation-classification — do not edit by hand; run `php artisan atriom:dump-registries` -->\n| Drifted | row | that | nothing | generated |\n"
   },
   {
-    "name": "FieldHelp \u2014 helper text blows the word budget",
+    "name": "FieldHelp — helper text blows the word budget",
     "gate": "tests/Feature/Scenarios/FieldHelpConformanceTest.php",
     "path": "app/Support/FieldHelp.php",
     "old": "    public const WORD_BUDGET = 18;",
     "new": "    public const WORD_BUDGET = 3;"
   },
   {
-    "name": "ManufacturedLabel \u2014 a screen manufactures a label from a column value",
+    "name": "ManufacturedLabel — a screen manufactures a label from a column value",
     "gate": "tests/Feature/Scenarios/ManufacturedLabelConformanceTest.php",
     "path": "app/Filament/Admin/Resources/Expenses/Tables/ExpensesTable.php",
     "old": "->formatStateUsing(fn (?string $state) => ExpenseCategory::labelFor($state))",
     "new": "->formatStateUsing(fn (?string $state) => Str::headline((string) $state))"
   },
   {
-    "name": "ArabicPanelHasNoEnglishChrome \u2014 a table label is hardcoded English",
+    "name": "ArabicPanelHasNoEnglishChrome — a table label is hardcoded English",
     "gate": "tests/Feature/Scenarios/ArabicPanelHasNoEnglishChromeConformanceTest.php",
     "path": "app/Filament/Admin/Resources/Expenses/Tables/ExpensesTable.php",
     "old": "                TextColumn::make('category')\n                    ->label(__('admin.fields.category'))",
     "new": "                TextColumn::make('category')\n                    ->label('Category')"
   },
   {
-    "name": "SeededCategories \u2014 a shipped category value loses its Arabic label",
+    "name": "SeededCategories — a shipped category value loses its Arabic label",
     "gate": "tests/Feature/Scenarios/SeededCategoriesReadInArabicConformanceTest.php",
     "path": "lang/ar/admin/statuses.php",
-    "old": "                'generator' => '\u0645\u0648\u0644\u062f \u0643\u0647\u0631\u0628\u0627\u0626\u064a',\n",
+    "old": "                'generator' => 'مولد كهربائي',\n",
     "new": ""
   },
   {
-    "name": "ActivityLogVocabulary \u2014 a foreign key points at a model that does not exist",
+    "name": "ActivityLogVocabulary — a foreign key points at a model that does not exist",
     "gate": "tests/Feature/Scenarios/ActivityLogVocabularyConformanceTest.php",
     "path": "app/Support/ActivityVocabulary.php",
     "old": "        'area_id' => Area::class,",
     "new": "        'area_id' => \\App\\Models\\ZzNoSuchModel::class,"
   },
   {
-    "name": "EveryFloorCodeIsOffered \u2014 a floor code leaves the accepted set",
+    "name": "EveryFloorCodeIsOffered — a floor code leaves the accepted set",
     "gate": "tests/Feature/Scenarios/EveryFloorCodeIsOfferedConformanceTest.php",
     "path": "app/Support/ValueSets.php",
     "old": "        'deposit_transactions.method' => ['cash', 'bank'],",
     "new": "        'deposit_transactions.method' => ['cash'],"
   },
   {
-    "name": "TestHelperUniqueness \u2014 two files declare the same file-scope helper",
+    "name": "TestHelperUniqueness — two files declare the same file-scope helper",
     "gate": "tests/Feature/Scenarios/TestHelperUniquenessConformanceTest.php",
     "path": "tests/Feature/Scenarios/CategorySuggestionsTest.php",
     "old": "<?php\n",
     "new": "<?php\n\nfunction makeInvoice(): void {}\n"
   },
   {
-    "name": "PhpExtensions \u2014 a required extension leaves the register",
+    "name": "PhpExtensions — a required extension leaves the register",
     "gate": "tests/Feature/Scenarios/PhpExtensionsConformanceTest.php",
     "path": "app/Support/PhpExtensions.php",
-    "old": "        'zip' => 'no XLSX export and no owner pack \u2014 and backup:run writes nothing, though that one fails in the CLI',\n",
+    "old": "        'zip' => 'no XLSX export and no owner pack — and backup:run writes nothing, though that one fails in the CLI',\n",
     "new": ""
   },
   {
-    "name": "AdminSmokeManifest \u2014 the manifest drifts from the panel",
+    "name": "AdminSmokeManifest — the manifest drifts from the panel",
     "gate": "tests/Feature/Scenarios/AdminSmokeManifestConformanceTest.php",
     "path": "tests/e2e/filament-admin-manifest.json",
     "old": "            \"class\": \"AccountMappingResource\",\n            \"slug\": \"account-mappings\",\n",
     "new": "            \"class\": \"AccountMappingResource\",\n            \"slug\": \"account-mappings-drifted\",\n"
   },
   {
-    "name": "UniqueRuleScope \u2014 a unique rule is scoped by a raw client value",
+    "name": "UniqueRuleScope — a unique rule is scoped by a raw client value",
     "gate": "tests/Feature/Scenarios/UniqueRuleScopeConformanceTest.php",
     "path": "app/Filament/Admin/Resources/ExpenseCategories/Schemas/ExpenseCategoryForm.php",
     "old": "                    fn ($record) => Rule::unique('expense_categories', 'code')->ignore($record?->id),",
     "new": "                    fn ($record) => Rule::unique('expense_categories', 'code')->ignore($record?->id),\n                ])\n                ->unique(modifyRuleUsing: fn ($rule, $get) => $rule->where('asset_id', $get('asset_id')))\n                ->rules(["
   },
   {
-    "name": "PermissionReach \u2014 a permission nothing checks",
+    "name": "PermissionReach — a permission nothing checks",
     "gate": "tests/Feature/Scenarios/PermissionReachConformanceTest.php",
     "path": "database/seeders/RolesPermissionsSeeder.php",
     "old": "            'units.view' => 'View units',",
     "new": "            'units.view' => 'View units',\n            'units.teleport' => 'A right nothing checks',"
   },
   {
-    "name": "BillableAgreementIsConfigurable \u2014 an agreement loses its charges screen",
+    "name": "BillableAgreementIsConfigurable — an agreement loses its charges screen",
     "gate": "tests/Feature/Scenarios/BillableAgreementIsConfigurableConformanceTest.php",
     "path": "app/Filament/Admin/Resources/UnitOwnerships/UnitOwnershipResource.php",
     "old": "UnitOwnershipChargesRelationManager::class,",
     "new": ""
   },
   {
-    "name": "ReorderableColumns \u2014 a custom table page ships a blank-label column",
+    "name": "ReorderableColumns — a custom table page ships a blank-label column",
     "gate": "tests/Feature/Scenarios/ReorderableColumnsConformanceTest.php",
     "path": "app/Filament/Concerns/RendersNotificationCentre.php",
     "old": "->reorderableColumns(false)",
     "new": "->reorderableColumns(true)"
   },
   {
-    "name": "DocumentSeriesOrdering \u2014 an allocator drops its LENGTH ordering",
+    "name": "DocumentSeriesOrdering — an allocator drops its LENGTH ordering",
     "gate": "tests/Feature/Scenarios/DocumentSeriesOrderingConformanceTest.php",
     "path": "app/Models/Concerns/AllocatesPartyCode.php",
     "old": "->orderByRaw('LENGTH(code) DESC, code DESC')",
     "new": "->orderByDesc('code')"
   },
   {
-    "name": "ActivitySubjectLabel \u2014 an audited model loses its English name",
+    "name": "ActivitySubjectLabel — an audited model loses its English name",
     "gate": "tests/Feature/Scenarios/ActivitySubjectLabelConformanceTest.php",
     "path": "lang/en/admin/activity.php",
     "old": "            'holiday' => 'Holiday',\n",
     "new": ""
   },
   {
-    "name": "DocumentsCarryTheMallLogo \u2014 a PDF template drops the issuer logo",
+    "name": "DocumentsCarryTheMallLogo — a PDF template drops the issuer logo",
     "gate": "tests/Feature/Scenarios/DocumentsCarryTheMallLogoConformanceTest.php",
-    "path": "resources/views/pdf/credit-note.blade.php",
-    "old": "                    @include('partials.issuer-logo')\n",
+    "path": "resources/views/pdf/_issuer.blade.php",
+    "old": "@include('partials.issuer-logo')",
     "new": ""
   },
   {
-    "name": "DerivedFields \u2014 a form's derivable group loses its classification",
+    "name": "DerivedFields — a form's derivable group loses its classification",
     "gate": "tests/Feature/Scenarios/DerivedFieldsConformanceTest.php",
     "path": "app/Support/DerivedFields.php",
     "old": "        LeaseForm::class => [\n            'lease_term' => [\n",
     "new": "        LeaseForm::class => [\n            'zz_unclassified' => [\n"
   },
   {
-    "name": "Navigation \u2014 a screen is placed that does not exist",
+    "name": "Navigation — a screen is placed that does not exist",
     "gate": "tests/Feature/Scenarios/NavigationConformanceTest.php",
     "path": "app/Support/Navigation.php",
     "old": "        NotificationCenter::class,\n",
     "new": "        NotificationCenter::class,\n        \\App\\Filament\\Admin\\Pages\\ZzNoSuchPage::class,\n"
   },
   {
-    "name": "SavedViewsCoverage \u2014 a list loses its saved-views trait",
+    "name": "SavedViewsCoverage — a list loses its saved-views trait",
     "gate": "tests/Feature/Scenarios/SavedViewsCoverageConformanceTest.php",
     "path": "app/Filament/Admin/Resources/Assets/Pages/ListAssets.php",
     "old": "    use SavesTableViews;\n",
     "new": ""
   },
   {
-    "name": "ModelConstantsMatchValueSets \u2014 a shadowing constant drifts from the registry",
+    "name": "ModelConstantsMatchValueSets — a shadowing constant drifts from the registry",
     "gate": "tests/Feature/Scenarios/ModelConstantsMatchValueSetsConformanceTest.php",
     "path": "app/Models/CustomField.php",
     "old": "public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'boolean'];",
     "new": "public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'boolean'    'zz_not_a_type',\n];"
   },
   {
-    "name": "TaxCatalogue \u2014 the standard rate disagrees with the floor",
+    "name": "TaxCatalogue — the standard rate disagrees with the floor",
     "gate": "tests/Feature/Scenarios/TaxCatalogueConformanceTest.php",
     "path": "app/Support/Vat.php",
     "old": "    public const STANDARD_TAX_CODE = 'VAT_14';",
     "new": "    public const STANDARD_TAX_CODE = 'VAT_ZZ';"
   },
   {
-    "name": "PdfDocument \u2014 a template hardcodes the issuing entity",
+    "name": "PdfDocument — a template hardcodes the issuing entity",
     "gate": "tests/Feature/Scenarios/PdfDocumentConformanceTest.php",
-    "path": "resources/views/pdf/credit-note.blade.php",
-    "old": "                    @include('partials.issuer-logo')",
-    "new": "                    <span>Atriom</span>\n                    @include('partials.issuer-logo')"
+    "path": "resources/views/pdf/_issuer.blade.php",
+    "old": "@include('partials.issuer-logo')",
+    "new": "Atriom"
   },
   {
-    "name": "NotificationDeepLink \u2014 a notification points at the other panel",
+    "name": "NotificationDeepLink — a notification points at the other panel",
     "gate": "tests/Feature/Scenarios/NotificationDeepLinkConformanceTest.php",
     "path": "app/Support/NotificationTargets.php",
     "old": "        InvoiceIssuedNotification::class => [\n            'record' => [Invoice::class, 'invoice_id'],\n            'admin' => InvoiceResource::class,",
     "new": "        InvoiceIssuedNotification::class => [\n            'record' => [Invoice::class, 'invoice_id'],\n            'admin' => \\App\\Filament\\Portal\\Resources\\Invoices\\InvoiceResource::class,"
   },
   {
-    "name": "ApiResourceField \u2014 the wire emits a field the model does not have",
+    "name": "ApiResourceField — the wire emits a field the model does not have",
     "gate": "tests/Feature/Scenarios/ApiResourceFieldConformanceTest.php",
     "path": "app/Http/Resources/Api/V1/DeviceTokenResource.php",
     "old": "            'platform' => $this->platform,",
     "new": "            'platform' => $this->platform,\n            'zz_no_such_field' => $this->zz_no_such_field,"
   },
   {
-    "name": "ApiResourceField \u2014 the sweep resolves nothing (the original vacuous state)",
+    "name": "ApiResourceField — the sweep resolves nothing (the original vacuous state)",
     "gate": "tests/Feature/Scenarios/ApiResourceFieldConformanceTest.php",
     "path": "tests/Feature/Scenarios/ApiResourceFieldConformanceTest.php",
     "old": "    foreach ($candidates as $candidate) {",
     "new": "    foreach ([] as $candidate) {"
   },
   {
-    "name": "NotificationLocale \u2014 a bell row is written as resolved prose",
+    "name": "NotificationLocale — a bell row is written as resolved prose",
     "gate": "tests/Feature/Scenarios/NotificationLocaleConformanceTest.php",
     "path": "app/Notifications/AreaWorkOrderRaisedNotification.php",
-    "old": "            'title' => __('admin.notifications.area_work_order_raised_title', [\n                'area' => $this->order->areaName() ?? '\u2014',\n            ]),",
-    "new": "            'title' => 'Work order raised in '.($this->order->areaName() ?? '\u2014'),"
+    "old": "            'title' => __('admin.notifications.area_work_order_raised_title', [\n                'area' => $this->order->areaName() ?? '—',\n            ]),",
+    "new": "            'title' => 'Work order raised in '.($this->order->areaName() ?? '—'),"
   },
   {
-    "name": "ReportFilter \u2014 a report hand-rolls a shared filter",
+    "name": "ReportFilter — a report hand-rolls a shared filter",
     "gate": "tests/Feature/Scenarios/ReportFilterConformanceTest.php",
     "path": "app/Filament/Admin/Pages/ArAging.php",
     "old": "                        ReportFilters::asOf(fn () => null),",
     "new": "                        \\Filament\\Forms\\Components\\DatePicker::make('asOf')->label('As of'),"
   },
   {
-    "name": "OfferedValuesAreAcceptedValues \u2014 allowed() widens where forTable() does not",
+    "name": "OfferedValuesAreAcceptedValues — allowed() widens where forTable() does not",
     "gate": "tests/Feature/Scenarios/OfferedValuesAreAcceptedValuesConformanceTest.php",
     "path": "app/Support/ValueSets.php",
     "old": "        $byTable[$onTable][$column] = self::widen($key, self::expand($values));",
     "new": "        $byTable[$onTable][$column] = self::expand($values);"
   },
   {
-    "name": "LoggedValuesResolve \u2014 a logged code column loses its vocabulary",
+    "name": "LoggedValuesResolve — a logged code column loses its vocabulary",
     "gate": "tests/Feature/Scenarios/LoggedValuesResolveConformanceTest.php",
     "path": "app/Support/ActivityVocabulary.php",
     "old": "        'holiday.kind' => 'admin.facility.holiday.kinds',\n",
     "new": ""
   },
   {
-    "name": "ResourceLink \u2014 a widget emits a dead Filament v3 query key",
+    "name": "ResourceLink — a widget emits a dead Filament v3 query key",
     "gate": "tests/Feature/Scenarios/ResourceLinkConformanceTest.php",
     "path": "app/Filament/Admin/Widgets/MarketingPerformance.php",
     "old": "        $url = MarketingBudgetResource::getUrl('index');",
     "new": "        $url = MarketingBudgetResource::getUrl('index', ['filters' => ['status' => 'open']]);"
   },
   {
-    "name": "TenantFacingWordingIsTheOperators \u2014 a registered block loses its picker label",
+    "name": "TenantFacingWordingIsTheOperators — a registered block loses its picker label",
     "gate": "tests/Feature/Scenarios/TenantFacingWordingIsTheOperatorsConformanceTest.php",
     "path": "lang/en/admin/document-templates-screen.php",
-    "old": "            'invoice_terms' => 'Invoice \u2014 terms',\n",
+    "old": "            'invoice_terms' => 'Invoice — terms',\n",
     "new": ""
   },
   {
-    "name": "NoLeaseShapedPropertyScope \u2014 a self-scoped document is scoped through its lease",
+    "name": "NoLeaseShapedPropertyScope — a self-scoped document is scoped through its lease",
     "gate": "tests/Feature/Scenarios/NoLeaseShapedPropertyScopeConformanceTest.php",
     "path": "app/Models/Invoice.php",
     "old": "            ->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId))",
     "new": "            ->whereHas('lease', fn (Builder $l) => $l->where('asset_id', $unitId))"
   },
   {
-    "name": "BoundedFieldsExplainTheirLimit \u2014 a bounded field stops explaining its limit",
+    "name": "BoundedFieldsExplainTheirLimit — a bounded field stops explaining its limit",
     "gate": "tests/Feature/Scenarios/BoundedFieldsExplainTheirLimitConformanceTest.php",
     "path": "app/Filament/Admin/Resources/JournalEntries/Schemas/JournalEntryForm.php",
     "old": "                                ->prefix('EGP')\n                                ->numeric()\n                                ->minValue(0)\n                                ->default(0)\n                                ->live(onBlur: true)\n                                ->columnSpan(3),\n                            TextInput::make('credit')",
     "new": "                                ->prefix('EGP')\n                                ->numeric()\n                                ->minValue(0)\n                                ->maxValue(999999)\n                                ->default(0)\n                                ->live(onBlur: true)\n                                ->columnSpan(3),\n                            TextInput::make('credit')"
   },
   {
-    "name": "NoDatabaseEnums \u2014 the global saving guard stops refusing out-of-set values",
+    "name": "NoDatabaseEnums — the global saving guard stops refusing out-of-set values",
     "gate": "tests/Feature/Scenarios/NoDatabaseEnumsConformanceTest.php",
     "path": "app/Providers/AppServiceProvider.php",
     "old": "                if ($model instanceof Model) {\n                    ValueSets::guard($model);\n                }",
     "new": "                if (false) {\n                    ValueSets::guard($model);\n                }"
   },
   {
-    "name": "FixtureColumnsExist \u2014 a fixture writes a column that does not exist",
+    "name": "FixtureColumnsExist — a fixture writes a column that does not exist",
     "gate": "tests/Feature/Scenarios/FixtureColumnsExistConformanceTest.php",
     "path": "tests/Feature/Regression/ActivityLogRecordsChangesTest.php",
     "old": "it('records the before and after of a change, in attribute_changes', function () {\n    $vendor = Vendor::create(['name' => 'ProbeCo', 'status' => 'active']);",
     "new": "it('records the before and after of a change, in attribute_changes', function () {\n    $vendor = Vendor::create(['zz_no_such_column' => 1, 'name' => 'ProbeCo', 'status' => 'active']);"
+  },
+  {
+    "name": "TableSortPolicy — a table's row order stops being classified",
+    "gate": "tests/Feature/Scenarios/TableSortPolicyConformanceTest.php",
+    "path": "app/Support/TableSortPolicy.php",
+    "old": "        'Admin/RelationManagers/AssetAreasRelationManager' => self::REGISTER,\n",
+    "new": ""
+  },
+  {
+    "name": "EveryStatusIsReachable — a status written only through a method call",
+    "gate": "tests/Feature/Scenarios/EveryStatusIsReachableAndLeaveableConformanceTest.php",
+    "path": "tests/Feature/Scenarios/EveryStatusIsReachableAndLeaveableConformanceTest.php",
+    "old": "$window .= statusGateFollowCalls($rel, $window);",
+    "new": "$window .= '';"
+  },
+  {
+    "name": "WriteSurfaces — the panel attribution collapses, so parity compares nothing",
+    "gate": "tests/Feature/Scenarios/WriteSurfacesConformanceTest.php",
+    "path": "app/Support/WriteSurfaces.php",
+    "old": "$doors[$path] = array_merge($manager, ['panel' => $panel]);",
+    "new": "$doors[$path] = $manager + ['panel' => $panel];"
+  },
+  {
+    "name": "Stability — an unverified tier is folded into a pass",
+    "gate": "tests/Feature/Scenarios/StabilityVerdictConformanceTest.php",
+    "path": "app/Support/Stability.php",
+    "old": "        foreach ($results as $result) {\n            if ($result['status'] !== self::PASS) {\n                return self::NOT_VERIFIED;\n            }\n        }\n\n",
+    "new": ""
+  },
+  {
+    "name": "RefusalsAreTranslated — a refusal reverts to raw English",
+    "gate": "tests/Feature/Scenarios/RefusalsAreTranslatedConformanceTest.php",
+    "path": "app/Services/StockMovementService.php",
+    "old": "throw new DomainException(__('admin.refusals.stock_movement_quantity_zero'));",
+    "new": "throw new DomainException('Quantity must not be zero.');"
+  },
+  {
+    "name": "ServiceReachability — a stale exemption for a service that does not exist",
+    "gate": "tests/Feature/Scenarios/ServiceReachabilityConformanceTest.php",
+    "path": "app/Support/ServiceReachability.php",
+    "old": "    public const EXEMPT_METHODS = [",
+    "new": "    public const EXEMPT_METHODS = [\n        'App\\\\Services\\\\NoSuchServiceAtAll::run' => 'a deliberately stale exemption',"
+  },
+  {
+    "name": "AnActIsDeclaredOnce — one header strip declares the same act twice",
+    "gate": "tests/Feature/Scenarios/AnActIsDeclaredOnceConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/BankStatements/Pages/EditBankStatement.php",
+    "old": "        return [\n            Action::make('reconciliation')",
+    "new": "        return [\n            Action::make('reconciliation')->action(fn () => null),\n            Action::make('reconciliation')"
+  },
+  {
+    "name": "ExportedCellsAreValues — an export column names a bare relation",
+    "gate": "tests/Feature/Scenarios/ExportedCellsAreValuesConformanceTest.php",
+    "path": "app/Filament/Exports/UnitExporter.php",
+    "old": "ExportColumn::make('floor.code')->label(__('admin.pdf.floor')),",
+    "new": "ExportColumn::make('floor')->label(__('admin.pdf.floor')),"
+  },
+  {
+    "name": "PdfLocale — a document builder stops taking the reader's language",
+    "gate": "tests/Feature/Scenarios/PdfLocaleConformanceTest.php",
+    "path": "app/Services/CreditNotePdfService.php",
+    "old": "public function build(CreditNote $note, ?string $locale = null): string",
+    "new": "public function build(CreditNote $note): string"
+  },
+  {
+    "name": "PdfLayoutBleeds — a full-bleed document loses its bleed",
+    "gate": "tests/Feature/Scenarios/PdfLayoutBleedsConformanceTest.php",
+    "path": "app/Services/InvoicePdfService.php",
+    "old": "            ->bleed()\n",
+    "new": ""
+  },
+  {
+    "name": "RowActionPolicy — a row keeps a write verb with no registered reason",
+    "gate": "tests/Feature/Scenarios/RowActionPolicyConformanceTest.php",
+    "path": "app/Support/RowActionPolicy.php",
+    "old": "        'Admin/Resources/FacilityWorkOrders/Tables/FacilityWorkOrdersTable' => 'technician holds facility.complete and NOT facility.edit. The admin panel IS the '",
+    "new": "        'Admin/Resources/ZZZNoSuchTable' => 'technician holds facility.complete and NOT facility.edit. The admin panel IS the '"
+  },
+  {
+    "name": "RelationManagerCreateButtonsAreNamed — a tab's Create button loses its name",
+    "gate": "tests/Feature/Scenarios/RelationManagerCreateButtonsAreNamedConformanceTest.php",
+    "path": "app/Filament/Admin/RelationManagers/AssetAreasRelationManager.php",
+    "old": "                CreateAction::make()\n                    ->label(__('admin.areas.actions.add'))\n",
+    "new": "                CreateAction::make()\n"
+  },
+  {
+    "name": "EveryStaticSelfCallResolves — a self:: call names a method that does not exist",
+    "gate": "tests/Feature/Scenarios/EveryStaticSelfCallResolvesConformanceTest.php",
+    "path": "app/Support/BillingDay.php",
+    "old": "if (self::dueDayFor($asset->id, $lastDayOfMonth) === (int) $today->day) {",
+    "new": "if (self::dueDayForTypo($asset->id, $lastDayOfMonth) === (int) $today->day) {"
+  },
+  {
+    "name": "NotificationsAreNotSentUnderARowLock — a notification is delivered inside a transaction",
+    "gate": "tests/Feature/Scenarios/NotificationsAreNotSentUnderARowLockConformanceTest.php",
+    "path": "app/Services/StockMovementService.php",
+    "old": "    public function record(",
+    "new": "    public function sendsUnderALock(): void\n    {\n        DB::transaction(function () {\n            Notification::send([], null);\n        });\n    }\n\n    public function record("
+  },
+  {
+    "name": "DocumentColours — a template hardcodes a colour instead of taking the theme's",
+    "gate": "tests/Feature/Scenarios/DocumentColoursComeFromTheThemeConformanceTest.php",
+    "path": "resources/views/pdf/_issuer.blade.php",
+    "old": "<div style=\"margin-bottom:3mm;\">",
+    "new": "<div style=\"margin-bottom:3mm;color:#BADA55;\">"
+  },
+  {
+    "name": "BillingRefusalVocabulary — a refusal code loses its wording",
+    "gate": "tests/Feature/Scenarios/BillingRefusalVocabularyConformanceTest.php",
+    "path": "lang/en/admin/billing.php",
+    "old": "            'lease_ended' => 'Lease had ended',",
+    "new": "            'lease_ended_typo' => 'Lease had ended',"
+  },
+  {
+    "name": "PropertySettings — an overridable key loses its reason",
+    "gate": "tests/Feature/Regression/PropertySettingsConformanceTest.php",
+    "path": "app/Support/PropertySettings.php",
+    "old": "        'billing.monthly_billing_day' => [\n            'class' => BillingSettings::class,\n            'reason' => 'One mall bills on the 1st and another on the 25th, because the day is negotiated with the anchor tenants and follows their own payment cycles. The scheduled run fires DAILY and asks each property whose day it is — a global `->monthlyOn()` would have made this a setting an operator can save and nothing can honour.',\n        ],",
+    "new": "        'billing.monthly_billing_day' => [\n            'class' => BillingSettings::class,\n            'reason' => '',\n        ],"
+  },
+  {
+    "name": "LineNarrative — a line-raising service stops storing its key",
+    "gate": "tests/Feature/Scenarios/LineNarrativeIsAKeyNotProseConformanceTest.php",
+    "path": "app/Services/LateFeeService.php",
+    "old": "                    'description_key' => 'late_fee.line',",
+    "new": ""
   }
 ]

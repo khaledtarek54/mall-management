@@ -301,6 +301,20 @@ function statusGateDerive(): array
         foreach ($sites[0] as [$m, $at]) {
             $window = substr($src, $at, strlen($m) + 800);
 
+            // **A status assigned from a METHOD CALL, followed ONE HOP.** `Lease::booted()` writes
+            // `$lease->status = self::executedStatusFor($lease->commencement_date)`, and the
+            // literals live in the trait that declares that method — so the window saw a call and
+            // no value, and `leases.status = 'future'` read as written by nothing. Yardi's sixth
+            // lease status shipped, was persisted on every executed lease, and this gate reported
+            // it as an orphan.
+            //
+            // **Scoped to the file's OWN code — its own body plus the classes it imports — and
+            // never wider.** This gate's whole attribution rule is that ambiguity means
+            // UNATTRIBUTED, because crediting the wrong writer reports the orphan it exists to find
+            // as covered. Following a call into an arbitrary file would do exactly that; following
+            // it into the trait the model already `use`s cannot, because that IS the model's code.
+            $window .= statusGateFollowCalls($rel, $window);
+
             // Literals in the window.
             preg_match_all("/'([a-z_]+)'/", $window, $lits);
             foreach (array_unique($lits[1]) as $lit) {
@@ -412,6 +426,52 @@ function statusGateDerive(): array
  * `unset()` — is unreadable from here and returns nothing, which pushes the value into the
  * registry where a human states why.
  */
+/**
+ * The bodies of methods this write site calls, resolved ONE hop into the file's own code.
+ *
+ * Candidates are the file itself plus every `App\` class it imports — which for a model is its
+ * traits and concerns. A method defined in several candidates is SKIPPED rather than guessed at,
+ * mirroring the ambiguity rule the literal attribution already follows: an unattributed value is
+ * pushed into the registry where a human must say what writes it, and that is the safe direction.
+ */
+function statusGateFollowCalls(string $rel, string $window): string
+{
+    $sources = statusGateSources();
+
+    if (! preg_match_all('/(?:self|static|\$this)(?:::|->)([a-zA-Z][A-Za-z0-9_]*)\s*\(/', $window, $calls)) {
+        return '';
+    }
+
+    $candidates = [$rel => $sources[$rel] ?? ''];
+
+    foreach (preg_match_all('/^use\s+(App\\\\[A-Za-z0-9_\\\\]+);/m', $sources[$rel] ?? '', $imports) ? $imports[1] : [] as $fqcn) {
+        $path = 'app/'.str_replace('\\', '/', substr($fqcn, strlen('App\\'))).'.php';
+
+        if (isset($sources[$path])) {
+            $candidates[$path] = $sources[$path];
+        }
+    }
+
+    $found = '';
+
+    foreach (array_unique($calls[1]) as $method) {
+        $bodies = [];
+
+        foreach ($candidates as $src) {
+            if (preg_match('/function\s+'.preg_quote($method, '/').'\s*\(/', $src, $m, PREG_OFFSET_CAPTURE)) {
+                $bodies[] = substr($src, $m[0][1], 800);
+            }
+        }
+
+        // Exactly one definition, or nothing — never a guess.
+        if (count($bodies) === 1) {
+            $found .= ' '.$bodies[0];
+        }
+    }
+
+    return $found;
+}
+
 function statusGateFormOffered(string $table, string $model): array
 {
     $hint = class_basename($model);
