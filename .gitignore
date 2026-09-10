@@ -58,3 +58,10 @@ docs/qa/scripts/baseline.sql
 # Race-harness scratch output (docs/qa/scripts/race.sh) — per-run artefacts, never committed
 docs/qa/scripts/race_*.out
 docs/qa/scripts/race_ids.json
+
+# The handbook's build scratch. `npm run build` writes it during a DEPLOY, and `deploy.sh`
+# refuses a dirty tree — so leaving it untracked meant one deploy quietly armed the NEXT one
+# to fail on the box, for a reason unrelated to the release. Found on staging 2026-09-10.
+docs/visual/.vitepress/.temp/
+docs/visual/.vitepress/cache/
+
