@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { expectNoLaravelError } from './helpers.js';
+import { expectNoLaravelError, revealInDropdown } from './helpers.js';
 
 test.use({ storageState: 'storage/playwright-state/admin.json' });
 
@@ -30,7 +30,7 @@ test.describe('Reports module', () => {
   test('AR Aging buckets are clickable from Reports page', async ({ page }) => {
     await page.goto('/admin/AW/reports', { waitUntil: 'networkidle' });
     // Click a bucket link to drill in
-    const bucketLink = page.locator('a[href*="/admin/AW/ar-aging"]').first();
+    const bucketLink = await revealInDropdown(page, page.locator('a[href*="/admin/AW/ar-aging"]'));
     await expect(bucketLink).toBeVisible();
     await bucketLink.click();
     await page.waitForURL(/\/admin\/[A-Z0-9_-]+\/ar-aging/, { timeout: 10000 });

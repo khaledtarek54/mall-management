@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { expectNoLaravelError, captureConsoleErrors } from './helpers.js';
+import { expectNoLaravelError, captureConsoleErrors, revealInDropdown } from './helpers.js';
 
 test.use({ storageState: 'storage/playwright-state/admin.json' });
 
@@ -55,5 +55,7 @@ test('Tenant edit page exposes statement download action', async ({ page }) => {
   await firstEditLink.click();
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 
-  await expect(page.locator('button, a').filter({ hasText: /statement|كشف|بيان/i }).first()).toBeVisible({ timeout: 10000 });
+  // The act lives in a grouped header now: open the dropdown that hides it, then assert.
+  const statement = page.locator('button, a').filter({ hasText: /statement|كشف|بيان/i });
+  await expect(await revealInDropdown(page, statement)).toBeVisible({ timeout: 10000 });
 });

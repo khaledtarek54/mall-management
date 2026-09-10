@@ -5,7 +5,7 @@
  * loads pages) by exercising the things users actually DO.
  */
 import { test, expect } from '@playwright/test';
-import { expectNoLaravelError } from './helpers.js';
+import { expectNoLaravelError, clickHeaderAction } from './helpers.js';
 
 // --------------------------------------------------------------------------
 // Helpers
@@ -43,7 +43,8 @@ test.describe('ADMIN: invoice actions', () => {
   test('Download PDF starts a file download', async ({ page }) => {
     await page.goto('/admin/AW/invoices', { waitUntil: 'networkidle' });
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
-    await page.locator('button:visible, a:visible').filter({ hasText: /^\s*PDF\s*$/ }).first().click();
+    // A row action inside a group, and it asks which language first -- open, press, submit.
+    await clickHeaderAction(page, /^\s*PDF\s*$/, 'downloadPdf');
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
     await expectNoLaravelError(page);
