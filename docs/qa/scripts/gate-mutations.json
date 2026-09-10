@@ -642,5 +642,75 @@
     "path": "app/Services/LateFeeService.php",
     "old": "                    'description_key' => 'late_fee.line',",
     "new": ""
+  },
+  {
+    "name": "LatinNumerals — a typed Arabic-Indic digit in the Arabic catalogue",
+    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
+    "path": "lang/ar/admin/reports.php",
+    "old": "(نموذج 41)",
+    "new": "(نموذج ٤١)"
+  },
+  {
+    "name": "LatinNumerals — Filament's money locale falls back to config('app.locale')",
+    "gate": "tests/Feature/Scenarios/LatinNumeralsConformanceTest.php",
+    "path": "app/Support/LatinNumerals.php",
+    "old": "        Table::configureUsing(fn (Table $table) => $table->defaultNumberLocale('en'));\n",
+    "new": ""
+  },
+  {
+    "name": "ChartOfAccounts — an account's type stops matching its leading code digit",
+    "gate": "tests/Feature/Accounting/ChartOfAccountsConformanceTest.php",
+    "path": "database/seeders/ChartOfAccountsSeeder.php",
+    "old": "        ['111', 'Cash & Banks', 'النقد بالخزينة والبنوك', 'asset', false],",
+    "new": "        ['111', 'Cash & Banks', 'النقد بالخزينة والبنوك', 'expense', false],"
+  },
+  {
+    "name": "ARuleIsOnEveryDoor — a registered door no longer exists",
+    "gate": "tests/Feature/Scenarios/ARuleIsOnEveryDoorConformanceTest.php",
+    "path": "tests/Feature/Scenarios/ARuleIsOnEveryDoorConformanceTest.php",
+    "old": "        'app/Services/SettleMoveOutService.php' => ['tests/Feature/Regression/AMoveOutCannotDisburseTheDepositTwiceTest.php', 'SettleMoveOutService'],",
+    "new": "        'app/Services/NoSuchDepositService.php' => ['tests/Feature/Regression/AMoveOutCannotDisburseTheDepositTwiceTest.php', 'SettleMoveOutService'],"
+  },
+  {
+    "name": "ADoorNeverRefusesWhatAnotherDoorAccepted — a form caps a field below its own importer",
+    "gate": "tests/Feature/Scenarios/ADoorNeverRefusesWhatAnotherDoorAcceptedConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Tenants/Schemas/TenantForm.php",
+    "old": "->maxLength(Tenant::FIELD_MAX['name']),",
+    "new": "->maxLength(100),"
+  },
+  {
+    "name": "ANullableForeignKeyIsHonoured — a nullable relation is dereferenced with no guard",
+    "gate": "tests/Feature/Scenarios/ANullableForeignKeyIsHonouredConformanceTest.php",
+    "path": "app/Services/StockMovementService.php",
+    "old": "    public function record(",
+    "new": "    public function unguardedNullableRead(\\App\\Models\\Invoice $invoice): int\n    {\n        return $invoice->lease->id;\n    }\n\n    public function record("
+  },
+  {
+    "name": "ACatalogueCodeIsOnlyOfferedByABoundField — a catalogue column moves to an unbound field",
+    "gate": "tests/Feature/Scenarios/ACatalogueCodeIsOnlyOfferedByABoundFieldConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Payments/Schemas/PaymentForm.php",
+    "old": "                        Select::make('method')",
+    "new": "                        ToggleButtons::make('method')"
+  },
+  {
+    "name": "AssistantVocabulary — a synonym points at a screen key that does not exist",
+    "gate": "tests/Feature/Scenarios/AssistantVocabularyConformanceTest.php",
+    "path": "lang/en/admin/assistant.php",
+    "old": "            'payments' => 'receipt receipts collection remittance',",
+    "new": "            'payments' => 'receipt receipts collection remittance',\n            'no_such_screen_key' => 'ghost vocabulary',"
+  },
+  {
+    "name": "TheApiSpeaksBothLanguages — a classification the API emits loses its Arabic",
+    "gate": "tests/Feature/Scenarios/TheApiSpeaksBothLanguagesConformanceTest.php",
+    "path": "lang/ar/admin/statuses.php",
+    "old": "            'issued' => 'صادرة',",
+    "new": "            'issued' => 'Issued',"
+  },
+  {
+    "name": "EveryDoorAsksTheSameQuestions — one door stops asking a question its sibling asks",
+    "gate": "tests/Feature/Scenarios/EveryDoorAsksTheSameQuestionsConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/DepositTransactions/Schemas/DepositTransactionForm.php",
+    "old": "BankAccountField::for(",
+    "new": "NoSuchField::for("
   }
 ]
