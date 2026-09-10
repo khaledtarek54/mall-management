@@ -199,6 +199,19 @@ Schedule::command('atriom:prune-transient-data')
     ->name('atriom-prune-transient-data')
     ->withoutOverlapping();
 
+// Horizon's METRICS — throughput and runtime per job class and per queue — exist only because
+// something takes a snapshot on a timer. Nothing in Horizon does it for you: without this line the
+// dashboard still lists jobs and failures correctly, and every graph on it is permanently empty,
+// which reads as "this queue has never done anything" rather than as a missing schedule.
+//
+// Five minutes is Horizon's own documented interval and it is what `trim.recent` (60 minutes) is
+// sized against. `->onOneServer()` is deliberately NOT used: it needs a lock store shared between
+// boxes, and there is one scheduler per environment here, not one per box.
+Schedule::command('horizon:snapshot')
+    ->everyFiveMinutes()
+    ->name('horizon-snapshot')
+    ->withoutOverlapping();
+
 // Daily auto-close pass on resolved maintenance requests older than
 // config('requests.auto_close_after_days') (default 7). Without this
 // resolved tickets accumulate forever — operators occasionally need the
