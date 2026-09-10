@@ -122,6 +122,23 @@ blinding a gate. Counts and lists a registry already holds are never hand-typed.
 **Edit the existing home; never open a parallel one.** If a topic already has a document, add to it.
 Two documents on one subject is how the stale one survives.
 
+## 7b. Before you push — the one command that answers "is it sound?"
+
+`php artisan atriom:stability` runs every check this project has and gives ONE verdict, with an
+explicit list of what it could NOT check. Exit **0** pass · **1** fail · **2** INCOMPLETE.
+
+**Exit 2 is not a pass.** It means nothing broke and something was not checked — a tier that
+examined nothing, a MySQL tier that silently skipped off MySQL, a browser suite that ran zero
+specs. That state is the honest answer for a laptop run and the reason a release must not treat it
+as green.
+
+`composer hooks` installs `.githooks/pre-push`, which runs the fast tiers and refuses a red push.
+That is the ONLY place a bad release can be blocked: the box installs `--no-dev`, so no step there
+can ever run a test.
+
+**Do not run the full suite yourself during ordinary work** — that rule is unchanged. This command
+is what Khaled runs deliberately, and what the hook runs in its `--quick` form.
+
 ## 8. Commit and push
 
 **The tree is SHARED with other sessions.** `git status` first, commit with **explicit pathspecs**

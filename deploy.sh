@@ -15,6 +15,8 @@
 #   ./deploy.sh --yes            # no prompt — for a CI/CD caller
 #   ./deploy.sh --skip-migrate   # code-only release; refuses if migrations are pending
 #   ./deploy.sh --skip-search    # skip the search re-fold (a huge database, and you know this
+#   ./deploy.sh --require-stability  # refuse a commit nobody stamped with atriom:stability
+#   ./deploy.sh --skip-stability     # deploy a commit stamped FAIL anyway (say why)
 #                                # release changed no searchTextSources())
 #
 # Rollback is NOT here on purpose. Restoring a release means restoring its DATABASE too, and
@@ -28,12 +30,16 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 ASSUME_YES=0
 SKIP_MIGRATE=0
 SKIP_SEARCH=0
+SKIP_STABILITY=0
+REQUIRE_STABILITY=${ATRIOM_REQUIRE_STABILITY:-0}
 
 for arg in "$@"; do
   case "$arg" in
     --yes|-y)       ASSUME_YES=1 ;;
     --skip-migrate) SKIP_MIGRATE=1 ;;
     --skip-search)  SKIP_SEARCH=1 ;;
+    --skip-stability)    SKIP_STABILITY=1 ;;
+    --require-stability) REQUIRE_STABILITY=1 ;;
     -h|--help)      sed -n '2,22p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -89,6 +95,48 @@ fi
 step "Fetching the release"
 git pull --ff-only
 ok "now at $(git rev-parse --short HEAD)"
+
+# ---------------------------------------------------------------------------
+# WAS THIS CODE EVER VERIFIED?
+#
+# The box installs with `composer install --no-dev`, so pest does not exist here and no step on
+# this machine can ever run a test. The verification happens on a developer's laptop, and the only
+# thing that can travel with the commit is a RECORD that it happened — a git note written by
+# `atriom:stability --stamp` and pushed with `git push origin refs/notes/atriom-stability`.
+#
+# This is deliberately NOT the same question as the preflight further down. That one asks whether
+# THIS INSTALL is set up and alive, and is reported rather than enforced because a stopped worker
+# must not roll back a correct release. This asks whether the CODE was checked at all, and it runs
+# BEFORE the migrations — the point of refusing is to refuse before the database changes.
+#
+# THREE answers, and only one of them stops the deploy by default:
+#   a stamp saying PASS  -> proceed
+#   a stamp saying FAIL  -> refuse; somebody verified this commit and it was red
+#   no stamp at all      -> WARN and proceed, unless --require-stability
+#
+# The middle case is the one worth having on day one. Refusing on a MISSING stamp would strand
+# every release until stamping is routine, and a gate that has to be bypassed on its first day is
+# one that gets deleted on its second — the same reasoning `ConfigurationHealth` uses for keeping
+# advisory rows out of the exit code. Turn on --require-stability (or ATRIOM_REQUIRE_STABILITY=1)
+# once the notes are flowing.
+step "Stability stamp"
+git fetch origin 'refs/notes/atriom-stability:refs/notes/atriom-stability' --force >/dev/null 2>&1 || true
+STABILITY_NOTE="$(git notes --ref=atriom-stability show HEAD 2>/dev/null || true)"
+
+if printf '%s' "$STABILITY_NOTE" | grep -q '"verdict":"fail"'; then
+  printf '\033[0;31m  ✗ this commit is stamped FAIL by atriom:stability — refusing to deploy it.\033[0m\n'
+  printf '    %s\n' "$STABILITY_NOTE"
+  printf '    Fix it and re-stamp, or re-run with --skip-stability if you know better.\n'
+  [ "${SKIP_STABILITY:-0}" = "1" ] || exit 1
+elif printf '%s' "$STABILITY_NOTE" | grep -q '"verdict":"pass"'; then
+  ok "verified: $STABILITY_NOTE"
+else
+  printf '\033[0;33m  ! no stability stamp for this commit — nobody recorded running the checks.\033[0m\n'
+  if [ "${REQUIRE_STABILITY:-0}" = "1" ]; then
+    printf '    REQUIRE_STABILITY is set; refusing.\n'
+    exit 1
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 step "Installing PHP dependencies"

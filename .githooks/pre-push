@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#
+# Refuse to push code whose fast checks are red.
+#
+# THIS IS THE ONLY PLACE A BAD RELEASE CAN BE BLOCKED. The box installs with
+# `composer install --no-dev`, so pest does not exist there and no deploy-time step can ever run a
+# test; and `deploy.sh` runs its preflight AFTER the release is live, reporting rather than
+# enforcing. By the time anything on the box can object, the release has shipped. The push is the
+# last moment where verification is both possible and cheap.
+#
+# It runs the QUICK tiers only — conformance gates, install health, the doors check — because a hook
+# people disable protects nothing. The full suite, the MySQL tier and the gate-integrity audit are
+# what `atriom:stability` (no --quick) is for, before a release.
+#
+# EXIT CODES, and why 2 is allowed here:
+#   0  PASS        every check ran and held
+#   1  FAIL        something is broken  -> the push is refused
+#   2  INCOMPLETE  nothing broke, something was not checked -> allowed, and SAID
+#
+# A quick run is incomplete by construction, so treating 2 as a refusal would block every push
+# forever. It is printed instead, because the thing that makes this trustworthy is that it never
+# pretends an unchecked tier is a checked one.
+#
+# Install:  git config core.hooksPath .githooks      (or `composer hooks`)
+# Bypass:   git push --no-verify                     (say why, in the commit or the PR)
+
+set -uo pipefail
+
+if [ -n "${ATRIOM_SKIP_STABILITY:-}" ]; then
+  printf '\033[0;33m  ! stability check skipped by ATRIOM_SKIP_STABILITY\033[0m\n'
+  exit 0
+fi
+
+# Nothing to verify when the push deletes a ref or has no new commits.
+if ! git rev-parse --verify --quiet HEAD >/dev/null; then
+  exit 0
+fi
+
+printf '\033[0;36m  Running the fast stability tiers before pushing…\033[0m\n'
+
+php artisan atriom:stability --quick --stamp
+verdict=$?
+
+if [ "$verdict" -eq 1 ]; then
+  printf '\033[0;31m\n  Push refused: the fast checks are RED.\033[0m\n'
+  printf '  Fix them, or push with --no-verify and say why.\n\n'
+  exit 1
+fi
+
+if [ "$verdict" -eq 2 ]; then
+  printf '\033[0;33m\n  Pushing with tiers unchecked (see above). Run `php artisan atriom:stability`\n'
+  printf '  before a release — the box cannot run any of them.\033[0m\n\n'
+fi
+
+exit 0

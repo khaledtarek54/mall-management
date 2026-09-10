@@ -16,6 +16,12 @@
             explicitly and points DB_CONNECTION at it. See tests/Mysql/README.md for why three
             properties of this system cannot be tested on sqlite at all.
         -->
+        <!-- The invariant gates, as their own suite so `atriom:stability` can run them alone:
+             paratest accepts ONE path argument, so 102 file paths is not an option. -->
+        <testsuite name="Conformance">
+            <directory suffix="ConformanceTest.php">tests/Feature</directory>
+            <directory suffix="ConformanceTest.php">tests/Unit</directory>
+        </testsuite>
         <testsuite name="Mysql">
             <directory>tests/Mysql</directory>
         </testsuite>

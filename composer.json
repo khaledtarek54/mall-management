@@ -139,6 +139,10 @@
             "@putenv DB_CONNECTION=mysql",
             "@putenv DB_DATABASE=mall_management_qa",
             "vendor/bin/pest --testsuite=Mysql"
+        ],
+        "hooks": [
+            "git config core.hooksPath .githooks",
+            "@php -r \"echo 'pre-push stability hook installed', PHP_EOL;\""
         ]
     },
     "extra": {
