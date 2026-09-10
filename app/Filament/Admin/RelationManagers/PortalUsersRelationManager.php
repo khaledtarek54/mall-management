@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\TenantUser;
+use Closure;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -16,6 +17,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Unique;
 
 /**
  * Manage a tenant's portal login accounts (req #9). Only admin tenant users may
@@ -40,11 +43,15 @@ class PortalUsersRelationManager extends RelationManager
                 ->label(__('admin.fields.name'))
                 ->required()
                 ->maxLength(150),
+            // A REMOVED LOGIN DOES NOT KEEP THE ADDRESS. `TenantUser` soft-deletes so the history a
+            // portal user left behind goes on resolving, and Laravel's `unique` counts a trashed row
+            // — so deleting somebody and re-adding them answered "the email has already been taken"
+            // about an account nobody could see, with no way forward. Reported by the tester.
             TextInput::make('email')
                 ->label(__('admin.fields.email'))
                 ->email()
                 ->required()
-                ->unique(ignoreRecord: true)
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule) => $rule->whereNull('deleted_at'))
                 ->maxLength(255),
             TextInput::make('password')
                 ->label(__('admin.fields.password'))
@@ -55,6 +62,23 @@ class PortalUsersRelationManager extends RelationManager
                 // edit to keep the current password.
                 ->dehydrated(fn ($state) => filled($state))
                 ->required(fn (string $operation) => $operation === 'create')
+                // A CHANGE HAS TO CHANGE SOMETHING. Re-typing the current password saved happily and
+                // reported success, so an operator resetting a compromised login could believe they
+                // had rotated it and leave the old one live — the failure is that it looks like it
+                // worked. NIST 800-63B and OWASP both require a new secret to differ from the one it
+                // replaces. Only on EDIT: on create there is nothing to differ from, and the field is
+                // deliberately left blank to KEEP the current password, which this must not refuse.
+                ->rules([
+                    fn (?TenantUser $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record): void {
+                        if ($record === null || blank($value)) {
+                            return;
+                        }
+
+                        if (Hash::check((string) $value, (string) $record->getAuthPassword())) {
+                            $fail(__('admin.refusals.password_unchanged'));
+                        }
+                    },
+                ])
                 ->helperText(__('admin.helpers.password_leave_blank'))
                 ->maxLength(255),
             Toggle::make('is_admin')
@@ -96,7 +120,33 @@ class PortalUsersRelationManager extends RelationManager
                     ->label(__('admin.actions.add_portal_user'))
                     ->modalHeading(__('admin.actions.add_portal_user'))
                     ->visible(fn (): bool => Auth::user()?->can('tenants.edit') ?? false)
-                    ->authorize(fn (): bool => Auth::user()?->can('tenants.edit') ?? false),
+                    ->authorize(fn (): bool => Auth::user()?->can('tenants.edit') ?? false)
+                    // RECLAIM, never a second row. `tenant_users.email` carries a DB-level unique
+                    // index with no soft-delete awareness, so relaxing the validation alone would
+                    // move the refusal from a field message to a duplicate-key 500 — and MySQL has
+                    // no partial unique index to scope it with (the same wall `bank_accounts`
+                    // `is_default` met). Restoring the row the address belongs to is the better
+                    // answer anyway: the person's activity trail, their portal history and their id
+                    // all reconnect, where a fresh row would silently orphan them.
+                    ->using(function (array $data, string $model) {
+                        $reclaimable = $model::withTrashed()
+                            ->where('email', $data['email'] ?? null)
+                            ->where('tenant_id', $this->getOwnerRecord()->getKey())
+                            ->whereNotNull('deleted_at')
+                            ->first();
+
+                        if ($reclaimable === null) {
+                            // Includes a trashed login belonging to ANOTHER tenant: the address is
+                            // globally unique because one person has one login across the portal and
+                            // the mobile app, so that stays refused rather than being moved here.
+                            return $model::create($data + ['tenant_id' => $this->getOwnerRecord()->getKey()]);
+                        }
+
+                        $reclaimable->restore();
+                        $reclaimable->update($data);
+
+                        return $reclaimable;
+                    }),
             ])
             ->recordActions([
                 // EDITING A PORTAL ADMIN IS ACCOUNT TAKEOVER, and it was open to every role holding
