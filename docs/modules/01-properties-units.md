@@ -856,6 +856,18 @@ The `lease_unit.is_master=true` row is mirrored into `leases.unit_id` for backwa
    - **Tests:** `tests/Feature/Regression/AOpeningAPropertyPutsYouInThatPropertyTest.php`.
      Full reasoning, including the two rejected designs, in [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md).
 
+7. **A Manager Could Create a Mall They Could Never Open (2026-09-10)**
+   - **Issue:** `assets.create` is held by `manager` and `mall_admin`, and `CreateAsset` did not
+     assign the creator. Measured: mall created, `canAccessTenant()` false, absent from the
+     switcher, 404 from every URL — rescuable only by a super admin.
+   - **Fix:** `Asset::assignTo()`, extracted from `RegisterProperty::handleRegistration()` (which
+     had always done it) onto its second call site. Audited through `PropertyRoster` — an
+     unrecorded attach is an unrecorded grant of access — and skipped for anyone who could already
+     reach the mall, so a super admin no longer joins the Assigned Staff register of every property
+     they create.
+   - **Tests:** `tests/Feature/Regression/AMallYouCreateIsAMallYouCanWorkInTest.php` (six teeth
+     mutation-proved). Reasoning in [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md).
+
 ## 10. Tests & related modules
 
 ### Core Property & Unit Tests

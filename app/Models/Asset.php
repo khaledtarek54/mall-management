@@ -9,6 +9,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyItself;
 use App\Support\Occupancy;
+use App\Support\PropertyRoster;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -215,6 +216,52 @@ class Asset extends Model implements HasMedia
     public function ownershipRecordedOn(mixed $on = null): float
     {
         return round((float) $this->propertyOwnersOn($on)->sum('ownership_percentage'), 2);
+    }
+
+    /**
+     * **WHOEVER CREATES A MALL CAN WORK IN IT.**
+     *
+     * Not a permission — an ASSIGNMENT, and the `asset_user` pivot is where property REACH actually
+     * comes from: `AssignedAssets::idsFor()` reads it and `User::canAccessTenant()` reads it.
+     * `assets.create` is held by `manager` and `mall_admin` as well as super_admin, and neither is
+     * assigned to a mall by creating one — so a manager who added a property could then neither
+     * open it nor switch to it. Measured through the real create page: `canAccessTenant()` false,
+     * absent from the switcher, **404 from every URL**, rescuable only by a super admin.
+     *
+     * **What makes this safe is `AssetResource::canCreate()`, not the role the actor holds.** That
+     * is worth stating exactly, because `08603e36` closed a real escalation here in 2026-07 —
+     * *"eleven of fourteen roles could mint themselves a property they then administered"* — and
+     * closed it AT THE PERMISSION while deliberately keeping the self-attach. Both doors onto
+     * creating a property gate before reaching this. **This method itself gates nothing**: it is a
+     * grant primitive, and a new caller must bring its own authority, which for every other writer
+     * of this pivot is `roles.edit`.
+     *
+     * **Only when it CHANGES what they can reach.** A super admin can already enter every mall, so
+     * assigning them writes a row that grants nothing and puts them in the property's Assigned
+     * Staff register — and in `AssetStaffRecipients` — for every mall they create. Asking
+     * `canAccessTenant()` is the same question the assignment exists to answer, so no role is named
+     * here. (This is a deliberate change for `RegisterProperty` too, which assigned unconditionally:
+     * a first-install super admin no longer collects a staff row for the mall they register, and
+     * still reaches it because `getTenants()` returns every asset for that role.)
+     *
+     * **Recorded, because an unrecorded attach is an unrecorded grant of access** — the rule
+     * `PropertyRoster` states for the staff tab, which writes this same pivot. Laravel's pivot
+     * writes go through the query builder and fire no model event, so nothing else would see it.
+     *
+     * `syncWithoutDetaching` grants and never revokes: re-saving must not disturb who else is
+     * assigned, and re-running for the same person is a no-op.
+     */
+    public function assignTo(User $user): void
+    {
+        if ($user->canAccessTenant($this)) {
+            return;
+        }
+
+        $user->assignedAssets()->syncWithoutDetaching([
+            $this->getKey() => ['assigned_at' => now()],
+        ]);
+
+        PropertyRoster::record($this, PropertyRoster::STAFF, $user, 'attached');
     }
 
     /**

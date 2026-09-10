@@ -387,12 +387,58 @@ fallback is hand-written at any of the four doors.
 `PropertyLink` within an hour of being written — the default guard instead of the panel guard, and
 no `try`. All four doors call `PropertyLink::to()`.
 
-**Still open, reported not fixed:** `AccountMappingResource` has the same shape (documented above —
-no `getEloquentQuery()`, so the posting map lists override rows from every mall). It is **less
-severe**, because the destination is not property-scoped so it resolves 200 rather than 404, and it
-is **not the same fix**: `AccountMapping` is `#[PortfolioShared]` and a global-default row has no
-property to name. `PropertyLink::to()` would handle it correctly out of the box, which is a further
-argument for the seam.
+**And `AccountMappingResource` is NOT the same defect — checked, and the first two readings of it
+were both wrong.** It has the same structural shape (no `getEloquentQuery()`, so the posting map
+lists override rows from every mall and the Edit URL comes from the switcher), and it was twice
+written down here as outstanding. It is not:
+
+- the Assets page failed because **nothing on screen said which mall you were in**. The posting map
+  says: `PropertyField::scope()` adds the row's own property as a **disabled** third option labelled
+  with that mall's name — *shown, not adopted* — and refuses to re-home it on save, with
+  `PropertyScopeControlNeverOffersAnotherMallTest` test C (*"shows a row belonging to another mall,
+  refuses to retarget it, and keeps it on save"*) driving exactly that screen;
+- and `PropertyLink::to()` would **not** have fixed it anyway. `AccountMapping` is
+  `#[PortfolioShared]`, so `assetOf()` answers null for EVERY row — override or global — and the
+  link would fall back to the switcher unchanged. A review suggested it as an out-of-the-box fix;
+  measuring the classification is what refuted that.
+
+## WHOEVER ADDS A PROPERTY CAN WORK IN IT (2026-09-10)
+
+`assets.create` is held by `manager` and `mall_admin` as well as super_admin, and **neither is
+assigned to a mall by creating one.** Measured through the real create page as a `manager`: the mall
+was created, `canAccessTenant()` false, absent from the switcher, **404 from every URL** — a
+property they had just added, invisible and unreachable to them, rescuable only by a super admin.
+
+`RegisterProperty::handleRegistration()` had done this since its first commit, for the first-property
+flow. The register's create page never did, and nothing compared the two. `Asset::assignTo()` is that
+one answer, extracted on its second real call site.
+
+**The `asset_user` pivot is where property REACH comes from** — `AssignedAssets::idsFor()` reads it,
+`User::canAccessTenant()` reads it — so this is a grant, and three things follow.
+
+**It is safe because of `AssetResource::canCreate()`, not because of the role the actor holds.**
+`08603e36` closed a real escalation here in 2026-07 (*"eleven of fourteen roles could mint themselves
+a property they then administered"*) and closed it AT THE PERMISSION, deliberately keeping the
+self-attach. Both doors gate before reaching this; **the method itself gates nothing** and a new
+caller must bring its own authority — which for every other writer of this pivot is `roles.edit`.
+
+**It is RECORDED**, because an unrecorded attach is an unrecorded grant of access — the rule
+`PropertyRoster` states for the staff tab, which writes this same pivot. Laravel's pivot writes go
+through the query builder and fire no model event, so nothing else would have seen it. Review found
+this missing: two writers on one table, one audited and gated on `roles.edit`, the other silent.
+
+**It fires only when it CHANGES what the actor can reach.** A super admin can already enter every
+mall, so assigning them writes a row that grants nothing and puts them in the property's Assigned
+Staff register — and in `AssetStaffRecipients` — for every mall they create. `canAccessTenant()` is
+the same question the assignment exists to answer, so no role is named. This is a deliberate change
+for `RegisterProperty` too: a first-install super admin no longer collects a staff row for the mall
+they register, and still reaches it because `getTenants()` returns every asset for that role.
+
+**It cannot NARROW anyone**, which is the mirror worth checking: `AssignedAssets::idsFor()` answers
+null (unrestricted) for an account with no assignments at all, so a first assignment could in
+principle restrict someone. Measured — such an account gets **404 on `/admin/{any}/assets/create`**,
+because every admin route carries a tenant segment and `canAccessTenant()` refuses every mall. Their
+only door is `RegisterProperty`, which has always assigned. Nobody is narrowed.
 
 ## A RECORD-PAGE TAB IS A THIRD SURFACE, AND IT WAS THE UNSWEPT ONE (2026-09-10)
 
