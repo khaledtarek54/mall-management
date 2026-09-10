@@ -415,6 +415,17 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     }
 
     /**
+     * Who `notifyPortal()` reaches — the company and every portal login — as a set, for a caller
+     * that delivers through `BestEffortNotification::send()` and must name the same people.
+     *
+     * @return Collection<int, object>
+     */
+    public function portalRecipients(): Collection
+    {
+        return collect([$this])->merge($this->users);
+    }
+
+    /**
      * The leases that make this tenant a TENANT — signed and not yet ended.
      *
      * `HOLDS_PREMISES`, because ~20 call sites read this one relation and a lease signed to open

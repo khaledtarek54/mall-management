@@ -1,9 +1,13 @@
 <?php
 
 use App\Filament\Admin\RelationManagers\AssetAreasRelationManager;
+use App\Filament\Admin\Resources\Areas\Pages\CreateArea;
+use App\Filament\Admin\Resources\Areas\Pages\EditArea;
 use App\Filament\Admin\Resources\Assets\Pages\EditAsset;
 use App\Models\Area;
+use App\Support\WriteSurfaces;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 /**
@@ -84,21 +88,21 @@ it('refuses another mall’s staff as a supervisor, even when the id is smuggled
     expect(Area::where('asset_id', $this->asset->id)->where('code', 'FC')->exists())->toBeFalse();
 });
 
-it('strips a smuggled supervisor that slips past validation, and leaves no orphan', function () {
-    // Filament derives `Rule::in` for an ARRAY payload. A SCALAR — `'supervisors' => 5` rather
-    // than `[5]` — passes validation, the row commits, the relationship syncs, and only then does
-    // `->after()` run `assertSupervisorsInScope()`, which strips the pivot and 403s. Found by
+it('refuses a scalar supervisor id — the payload shape that used to slip the array validation', function () {
+    // Filament derives `Rule::in` for a `->multiple()` Select on the array's CHILDREN
+    // (`supervisors.*`), so a SCALAR — `'supervisors' => 5` rather than `[5]` — had none to fail on,
+    // committed the row, synced the pivot, and only then met `->after()`'s guard, which stripped
+    // and 403'd — leaving an EMPTY ZONE behind until the action was made transactional. Found by
     // review with a query log, against a comment claiming this path could not reach the guard.
     //
-    // And that 403 used to leave an EMPTY ZONE behind: `CreateAction` on a relation manager is not
-    // transactional unless told, where the register's `CreateRecord` page always is. So the tab
-    // now declares `->databaseTransaction()`, and the outcome is nothing written at all.
+    // `App\Support\Filament\MultiValueFieldIsAnArray` now puts an `array` rule on every
+    // multi-select in every panel, so the scalar is refused at VALIDATION on the field itself and
+    // nothing is written. The `->after()` guard and the transaction stay as the second layer, and
+    // are UNEXERCISED through any form from here on: no payload reaches them. The guard's own
+    // strip-and-403 is proved by `AreaRoutingScenarioTest`, which attaches a tampered pivot by hand.
     $other = makeAsset(['code' => 'ZTB']);
     $mallBStaff = makeUser('operations', [$other->id]);
 
-    // Livewire's harness records the guard's `abort(403)` as the RESPONSE status rather than
-    // rethrowing it — the first cut expected a thrown HttpException and read "not thrown" as
-    // "guard did not fire", while the zone's absence said it had.
     Livewire::test(AssetAreasRelationManager::class, [
         'ownerRecord' => $this->asset,
         'pageClass' => EditAsset::class,
@@ -109,9 +113,8 @@ it('strips a smuggled supervisor that slips past validation, and leaves no orpha
             'is_active' => true,
             'supervisors' => $mallBStaff->id,
         ])
-        ->assertForbidden();
+        ->assertHasTableActionErrors(['supervisors']);
 
-    // No pivot, and — because the action is transactional — no orphaned zone either.
     expect(Area::where('asset_id', $this->asset->id)->where('code', 'FC')->exists())->toBeFalse();
 });
 
@@ -129,4 +132,88 @@ it('offers the picker only the property’s own staff', function () {
 
     expect($offered)->toContain($mine->id)
         ->and($offered)->not->toContain($theirs->id);
+});
+
+it('edits a zone’s supervisors from the property page, and refuses a smuggled one there too', function () {
+    // The EDIT door had no test at all — deleting its `->after()` or its `->databaseTransaction()`
+    // left the file green. Found by review.
+    $mine = makeUser('operations', [$this->asset->id]);
+    $mallBStaff = makeUser('operations', [makeAsset(['code' => 'ZTD'])->id]);
+    $zone = Area::create(['asset_id' => $this->asset->id, 'code' => 'FC', 'name' => 'Food Court', 'is_active' => true]);
+
+    $component = Livewire::test(AssetAreasRelationManager::class, [
+        'ownerRecord' => $this->asset,
+        'pageClass' => EditAsset::class,
+    ]);
+
+    // The control: a legitimate edit attaches the property's own staff member.
+    $component->callTableAction('edit', $zone, data: ['name' => 'Food Hall', 'supervisors' => [$mine->id]])
+        ->assertHasNoTableActionErrors();
+
+    expect($zone->fresh()->name)->toBe('Food Hall')
+        ->and($zone->supervisors()->pluck('users.id')->all())->toBe([$mine->id]);
+
+    // The refusal: a scalar smuggle is refused at validation (`MultiValueFieldIsAnArray`), so the
+    // rename in the same payload never lands either.
+    $component->callTableAction('edit', $zone, data: ['name' => 'Renamed', 'supervisors' => $mallBStaff->id])
+        ->assertHasTableActionErrors(['supervisors']);
+
+    expect($zone->fresh()->name)->toBe('Food Hall')
+        ->and($zone->supervisors()->pluck('users.id')->all())->toBe([$mine->id]);
+});
+
+it('refuses the scalar on the REGISTER too, and leaves no orphan', function () {
+    // Measured by review before this case existed: the register's Create page, with a scalar
+    // smuggle, answered 403 with the pivot stripped AND THE ZONE LEFT ON DISK — `CreateRecord`
+    // defaults `$hasDatabaseTransactions` to the panel's setting and no panel opts in, so the
+    // guard's own docblock ("the write is rejected") was false on the page it was written for,
+    // and the tab had just been made STRICTER than the register it claimed to mirror. Both pages
+    // declare the transaction now; the `array` rule then closed the payload shape itself, so the
+    // observable outcome on this door is a validation error and nothing written.
+    $mallBStaff = makeUser('operations', [makeAsset(['code' => 'ZTE'])->id]);
+    Filament::setTenant($this->asset);
+
+    Livewire::test(CreateArea::class)
+        ->fillForm(['asset_id' => $this->asset->id, 'code' => 'FC', 'name' => 'Food Court', 'is_active' => true])
+        ->set('data.supervisors', $mallBStaff->id)
+        ->call('create')
+        ->assertHasFormErrors(['supervisors']);
+
+    expect(Area::where('asset_id', $this->asset->id)->where('code', 'FC')->exists())->toBeFalse();
+
+    Filament::setTenant(null, isQuiet: true);
+});
+
+it('refuses the scalar on the REGISTER\'s Edit page, and the rename beside it never lands', function () {
+    $mine = makeUser('operations', [$this->asset->id]);
+    $mallBStaff = makeUser('operations', [makeAsset(['code' => 'ZTF'])->id]);
+    $zone = Area::create(['asset_id' => $this->asset->id, 'code' => 'FC', 'name' => 'Food Court', 'is_active' => true]);
+    $zone->supervisors()->sync([$mine->id]);
+    Filament::setTenant($this->asset);
+
+    Livewire::test(EditArea::class, ['record' => $zone->getRouteKey()])
+        ->fillForm(['name' => 'Renamed'])
+        ->set('data.supervisors', $mallBStaff->id)
+        ->call('save')
+        ->assertHasFormErrors(['supervisors']);
+
+    expect($zone->fresh()->name)->toBe('Food Court')
+        ->and($zone->supervisors()->pluck('users.id')->all())->toBe([$mine->id]);
+
+    Filament::setTenant(null, isQuiet: true);
+});
+
+it('is read by the write-surface gate on BOTH doors, so the parity check can see the field', function () {
+    // The gate compares what the tab asks against what the register asks, and with the two now
+    // equal its answer is EMPTY — the same answer it gives when the field has dropped off BOTH
+    // sides, because nothing is missing from nothing. So the field this change is about is pinned
+    // on both doors: a manager rewritten onto a picker the reader does not list would otherwise
+    // read as parity. (Removing `EntitySelect` from the reader's list is NOT that mutation — its
+    // `Select` entry matches the suffix — which is why this pins the field and not the reader.)
+    $manager = 'app/Filament/Admin/RelationManagers/AssetAreasRelationManager.php';
+    $form = 'app/Filament/Admin/Resources/Areas/Schemas/AreaForm.php';
+
+    expect(WriteSurfaces::fieldsAskedIn($manager))->toContain('supervisors')
+        ->and(WriteSurfaces::fieldsAskedIn($form))->toContain('supervisors')
+        ->and(WriteSurfaces::fieldsMissingFrom(WriteSurfaces::fieldsAskedIn($form), WriteSurfaces::fieldsAskedIn($manager), 'asset_id'))->toBe([]);
 });

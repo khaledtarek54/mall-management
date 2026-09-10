@@ -240,6 +240,20 @@ The corollary caught a real mismatch: the owner-request property picker was buil
 while `assertAssetInScope()` measured against `visibleAssetIds()`, so it **offered properties its own guard
 would 403**. Picker and guard now read the same source.
 
+**And it was only true of a SINGLE-value picker until 2026-09-10 (SW-250).** For a `->multiple()` Select
+Filament attaches the `In` rule to the array's CHILDREN (`{path}.*`) and adds no `array` rule on the path,
+so a SCALAR payload — `'supervisors' => 5` where the form sends `[5]` — has no children to validate,
+passes, is wrapped into an array by the state cast, and syncs. Measured on the property page's Zones tab
+and on `CreateArea`: a staff member from another mall refused as `supervisors.0` when sent as an array
+went straight through when sent bare. `App\Support\Filament\MultiValueFieldIsAnArray` puts an `array`
+rule on every multi-select and `CheckboxList` from one `Select::configureUsing`, which reaches
+`EntitySelect` and `CatalogueAwareSelect` because `ComponentManager::configure()` walks `class_parents()`.
+No unguarded property-owned multi-picker existed (the two unit pickers are re-checked by their services,
+the user form's property grant by `enforceGrantableAssetsRule()`), so this was an options bypass on 31
+fields rather than a measured leak — and the seam is what makes that a property of the panel rather than
+of the audit that happened to check. (`AMultiSelectRefusesAScalarPayloadTest`, proved on a door with no
+post-save guard.)
+
 ### A picker reaches through relations — derived, not re-listed
 
 `HasSearchText`'s invariant is that a blob is a pure function of the row's OWN attributes, so a

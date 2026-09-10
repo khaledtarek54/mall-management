@@ -15,9 +15,10 @@ use Illuminate\Notifications\Notification;
  * tenant to start the renewal conversation. Fired once per lease by the daily
  * leases:remind-expiring command (idempotent via leases.expiry_reminder_notified_at).
  *
- * ShouldQueue: the command dispatches this INSIDE its lock+stamp transaction, so
- * queuing delivery keeps mail/push off that transaction — a delivery failure can
- * no longer roll back the stamp (which would re-notify the tenant next run).
+ * ShouldQueue keeps mail/push off the command's thread. It is dispatched AFTER the
+ * lock+stamp transaction commits (SW-248) — it used to be dispatched inside it, and
+ * queuing was thought to make that safe, but a queued PUSH is only transactional on
+ * the `database` driver; on redis the job left before the stamp was written.
  */
 class LeaseExpiryApproachingNotification extends Notification implements ShouldQueue
 {

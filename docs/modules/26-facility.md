@@ -1942,3 +1942,10 @@ by an external contractor (Livewire's 12 MB temporary-upload default was the ent
 per-door, because "absent means removed" is true on a form hydrated from the record and false in a
 modal that opens empty. Testing note: the shared field does not `preserveFilenames()`, so media
 lands under a generated name — assert the MIME, not the filename.
+
+## Sweep fixes — 2026-09-10
+
+### SW-247
+
+**The preventive round bells every order it raised, and names the ones it could not.** `notifyRaised()` used one `try/catch` around the whole loop, so the first transport failure silenced every order after it, nightly, with nothing recording which. Best effort per order now, through `BestEffortNotification` with the order's id in the ops log; recipient resolution stays loud. The full account is in [19-notifications-scans.md](19-notifications-scans.md) beside SW-248, because the rule is about scans, not about this module.
+

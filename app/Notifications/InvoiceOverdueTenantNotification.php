@@ -24,9 +24,10 @@ use Illuminate\Notifications\Notification;
  * (idempotent via invoices.tenant_overdue_notified_at) — the tenant counterpart
  * to {@see InvoiceOverdueOwnerNotification}, tracked on a separate stamp.
  *
- * ShouldQueue: the command dispatches this INSIDE its lock+stamp transaction, so
- * queuing delivery keeps mail/push off that transaction — a delivery failure can
- * no longer roll back the stamp (which would re-notify already-reached recipients).
+ * ShouldQueue keeps mail/push off the command's thread. It is dispatched AFTER the
+ * lock+stamp transaction commits (SW-248) — it used to be dispatched inside it, and
+ * queuing was thought to make that safe, but a queued PUSH is only transactional on
+ * the `database` driver; on redis the job left before the stamp was written.
  */
 class InvoiceOverdueTenantNotification extends Notification implements ShouldQueue
 {

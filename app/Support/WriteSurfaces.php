@@ -454,15 +454,10 @@ final class WriteSurfaces
         foreach (self::comparablePairs() as [$path, $formPath]) {
             $door = $doors[$path];
 
-            $missing = array_diff(
+            $missing = self::fieldsMissingFrom(
                 self::fieldsAskedIn($formPath),
                 self::fieldsAskedIn($path),
-                // The key that LINKS the child to the record you are standing on. Filament fills it
-                // in from the owner, so a manager not asking for it is a derivation, not a gap —
-                // the same reasoning `MoneyDocumentDoors::DOOR_DERIVES` writes out for the deposit
-                // modal's `lease_id`. Derived rather than registered, because every one of the
-                // sixty-seven managers would otherwise need the same entry saying the same thing.
-                array_filter([$door['via']]),
+                $door['via'],
             );
 
             foreach ($missing as $field) {
@@ -478,6 +473,29 @@ final class WriteSurfaces
         sort($found);
 
         return $found;
+    }
+
+    /**
+     * What a form asks that a creating manager does not — the comparison itself, pure.
+     *
+     * Extracted so it can be PROVED on synthetic input: over the real pairs the answer is empty
+     * (that is the intended state), and an empty answer is indistinguishable from a comparison
+     * that stopped comparing — `parityDisagreements()` returning `[]` unconditionally left every
+     * test in the gate green (review, 2026-09-10).
+     *
+     * `$via` is the key that LINKS the child to the record you are standing on. Filament fills it
+     * in from the owner, so a manager not asking for it is a derivation, not a gap — the same
+     * reasoning `MoneyDocumentDoors::DOOR_DERIVES` writes out for the deposit modal's `lease_id`.
+     * Derived rather than registered, because every one of the sixty-seven managers would
+     * otherwise need the same entry saying the same thing.
+     *
+     * @param  array<int, string>  $formAsks
+     * @param  array<int, string>  $managerAsks
+     * @return array<int, string>
+     */
+    public static function fieldsMissingFrom(array $formAsks, array $managerAsks, ?string $via): array
+    {
+        return array_values(array_diff($formAsks, $managerAsks, array_filter([$via])));
     }
 
     /**

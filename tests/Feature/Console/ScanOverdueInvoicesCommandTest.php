@@ -90,14 +90,18 @@ it('does NOT flag a past-due invoice once its balance is settled', function () {
     ownOverdueAsset($owner, $asset);
     $lease = makeLease(makeUnit($asset));
 
-    // Past due, but fully paid: the balance > 0 guard excludes it.
+    // Past due, but fully paid: the balance > 0 guard excludes it. Paid the way the application
+    // pays one — the hand-written `paid_amount => 1000, balance => 0` this used to carry had no
+    // receipt behind it, and the scan's status re-projection (SW-245) re-derives both figures
+    // through `recomputeTotals()`, so that state read as UNPAID. Status reset to `issued` so the
+    // case still asks about the balance guard rather than the stamp.
     $invoice = makeInvoice($lease, [
         'status' => 'issued',
         'due_date' => now()->subDays(5),
         'total' => 1000,
-        'paid_amount' => 1000,
-        'balance' => 0,
     ]);
+    settleInvoiceInFull($invoice);
+    $invoice->forceFill(['status' => 'issued'])->saveQuietly();
 
     $this->artisan('billing:scan-overdue-invoices')
         ->expectsOutputToContain('No new overdue invoices.')

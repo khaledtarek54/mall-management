@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Notifications\InvoiceOverdueTenantNotification;
 use App\Settings\BillingSettings;
+use App\Support\BestEffortNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -150,11 +151,31 @@ class RemindOverdueTenantsCommand extends Command
                     $next = $level + 1;
                     $isFinal = $maxNotices > 0 && $next >= $maxNotices;
 
-                    $tenant->notifyPortal(new InvoiceOverdueTenantNotification($locked, $next, $isFinal));
                     $locked->forceFill([
                         'tenant_overdue_notified_at' => now(),
                         'dunning_level' => $next,
                     ])->save();
+
+                    // Stamp first, deliver AFTER the commit — never under the lock (SW-213, and
+                    // SW-248 for this command). The notification is `ShouldQueue`, so what ran
+                    // under the lock was never SMTP; it was the PUSH, and on every queue driver
+                    // but `database` a push is not transactional: `after_commit` is false on the
+                    // connections that carry the key and the box runs redis, so the job left for
+                    // Redis before the stamp was written, and a rollback after that point — a
+                    // deadlock, a failed save — chased the tenant with no stamp to say so, and the
+                    // next run chased them again. The atomicity the old order bought held on
+                    // exactly the driver production does not use.
+                    //
+                    // The trade, stated: a push failure after the commit leaves the stamp standing
+                    // and the notice unsent — with the shipped cadence (0) it is not retried — so
+                    // the miss goes to the OPS LOG, named by invoice, where the daily check reads
+                    // it. Not `$this->warn()`: a scheduled command's output is `/dev/null` on the
+                    // box, and a miss nobody can see is the SW-244 shape. Never a duplicate.
+                    DB::afterCommit(fn () => BestEffortNotification::send(
+                        $tenant->portalRecipients(),
+                        new InvoiceOverdueTenantNotification($locked, $next, $isFinal),
+                        ['scan' => 'billing:remind-overdue-tenants', 'invoice_id' => $locked->id, 'notice' => $next],
+                    ));
 
                     return true;
                 });

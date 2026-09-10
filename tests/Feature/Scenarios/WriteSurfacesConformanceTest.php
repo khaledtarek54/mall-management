@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Area;
+use App\Models\Charge;
 use App\Models\User;
 use App\Support\WriteSurfaces;
 
@@ -63,6 +64,37 @@ it('is actually comparing something — the check cannot quietly go vacuous', fu
     // CLOSED, i.e. the day the tool did its job.
     expect(count(WriteSurfaces::parityDisagreements(applyRegistry: false)))
         ->toBeGreaterThanOrEqual(count(WriteSurfaces::PARITY_DIVERGES));
+
+    // ...and BOTH sides of every pair must yield fields the comparison can read. With the registry
+    // empty the two assertions above are satisfied by a comparison that stopped comparing —
+    // `fieldsAskedInSource()` no longer matching `EntitySelect::make(` drops `supervisors` from
+    // both sides of the one real pair and the diff is still empty. Review, 2026-09-10.
+    foreach (WriteSurfaces::comparablePairs() as [$path, $formPath]) {
+        $manager = WriteSurfaces::fieldsAskedIn($path);
+        $form = WriteSurfaces::fieldsAskedIn($formPath);
+
+        expect($manager)->not->toBeEmpty("{$path} yields no fields — the field reader is blind")
+            ->and($form)->not->toBeEmpty("{$formPath} yields no fields — the field reader is blind")
+            ->and(array_intersect($manager, $form))->not->toBeEmpty(
+                "{$path} and {$formPath} share no field at all, which for a creating manager and its "
+                .'own record\'s form means one side is being read wrong',
+            );
+    }
+});
+
+it('says what a form asks that the manager does not — the comparison itself, on synthetic input', function () {
+    // The real pairs answer EMPTY, which is their intended state and is indistinguishable from a
+    // comparison that returns `[]` unconditionally (or diffs its arguments the wrong way round).
+    // So the pure comparison is proved here on input whose answer is not empty.
+    expect(WriteSurfaces::fieldsMissingFrom(['code', 'name', 'supervisors', 'asset_id'], ['code', 'name'], 'asset_id'))
+        ->toBe(['supervisors'])
+        // The linking key is a derivation, never a gap...
+        ->and(WriteSurfaces::fieldsMissingFrom(['code', 'asset_id'], ['code'], 'asset_id'))->toBe([])
+        // ...unless the door has no owner key to derive it from.
+        ->and(WriteSurfaces::fieldsMissingFrom(['code', 'asset_id'], ['code'], null))->toBe(['asset_id'])
+        // A manager asking MORE than its form is not this gate's question (an ATTACH pivot is the
+        // shape that legitimately does), so the direction is one-way.
+        ->and(WriteSurfaces::fieldsMissingFrom(['code'], ['code', 'notes'], null))->toBe([]);
 });
 
 it('does not keep an exemption for a file that is no longer there', function () {
@@ -141,7 +173,7 @@ it('reads a manager that writes through its OWN action as a door, not a read-onl
     // from parity for ever AND printed by `atriom:doors` as *"read-only tab"* — a false statement
     // about a screen that creates records.
     expect($doors['app/Filament/Admin/RelationManagers/ChargeScheduleRelationManager.php']['writes'])
-        ->toBe(App\Models\Charge::class)
+        ->toBe(Charge::class)
         ->and($doors['app/Filament/Admin/RelationManagers/WorkOrderCommentsRelationManager.php']['writes'])
         ->not->toBeNull();
 

@@ -424,7 +424,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 
 - `credit_applied_amount`: Tracks credit notes applied to this invoice durably (separate from payment pivot). Critical for preventing credit erasure during payment recomputes.
 - `balance` = `total - paid_amount` (recomputed after each payment, credit, tenant-credit or deposit application)
-- `status` auto-advances: `issued` → `overdue` (if due_date is past), `partially_paid` (if 0 < paid < total), `paid` (if balance ≤ 0). Manual overrides (disputed, cancelled, credited) are preserved.
+- `status` auto-advances: `issued` → `overdue` (if due_date is past), `partially_paid` (if 0 < paid < total), `paid` (if balance ≤ 0). Manual overrides (disputed, cancelled, credited) are preserved. **`overdue` is a PROJECTION of the calendar and is swept nightly** by `billing:scan-overdue-invoices` (SW-245, registered in `ProjectedState`) — `recomputeTotals()` runs when a settlement lands, so without the sweep an invoice nobody pays reads `issued` for ever.
 - `eta_status`: Egyptian Tax Authority compliance status; initially null, updated via EtaSubmissionService.
 
 ## 3. Business rules & invariants
@@ -933,7 +933,7 @@ moves money.
 | `cancelled` | Manual override | ✓ (irreversible in practice) | Yes | Yes (manual) |
 | `credited` | Manual override (typically after credit note) | ✓ (irreversible) | Yes | Yes (manual) |
 
-**Automatic transitions:** Only issued/partially_paid/overdue → newer status via `recomputeTotals()` after payment/credit changes. Draft/cancelled/disputed/credited/written_off are preserved and never auto-overwritten.
+**Automatic transitions:** Only issued/partially_paid/overdue → newer status via `recomputeTotals()` after payment/credit changes — **and nightly, by `billing:scan-overdue-invoices`, on every row whose stored status disagrees with the calendar** (SW-245; both directions, since an extended due date is the concession path). Draft/cancelled/disputed/credited/written_off are preserved and never auto-overwritten.
 
 **`draft` joined that list on 2026-09-02 (SW-215), and it was promoting the only case that matters.**
 `InvoiceItem::saved` calls `Invoice::syncTotalsFromItems()` → `recomputeTotals()`, so writing a LINE
@@ -2496,3 +2496,10 @@ now appears only when the document has a posted entry — an override on a draft
 nothing reads, under a modal implying the books move. Deploy: run `RolesPermissionsSeeder`
 (`atriom:install --force` does). See [CHANGE-IMPACT-PLAN §17.10](../accounting/CHANGE-IMPACT-PLAN.md);
 `AMoneyStateMovesThroughAnActTest`, five mutations proved.
+
+## Sweep fixes — 2026-09-10
+
+### SW-245
+
+**`invoices.status` IS A PROJECTION OF THE CALENDAR, AND NOW SOMETHING SWEEPS IT (SW-245, 2026-09-10).** `overdue` is derived by `Invoice::recomputeTotals()` from the four settlement channels and the due date — and that method runs when a SETTLEMENT lands, so an issued invoice nobody pays or penalises read `issued` indefinitely. Measured on the staging soak: six invoices two days past due, money on all six, all still `issued`; the four that did say `overdue` said it only because the late-fee run had touched them. **No money read the column** — SW-135 routed every collections surface through `stillOwed()` + the date precisely because the lag was known — which is why `ProjectedState` had carried it under `NOT_PROJECTED` with the question left open. What does read it is the register's status filter and its tabs, and the tenant's own portal view, and a screen that under-reports is the parking-bay finding again: no error, nobody files it. **The standard settles it**: `InvoiceForm` already treats `paid`/`partially_paid`/`overdue` as *"derived — not a choice, the next recompute corrects them"*, so a nightly recompute states nothing new; the SW-238/240 rule that a status past the first is the outcome of an ACT governs the act-statuses (`cancelled`, `credited`, `written_off`, `disputed`), which are the projector's own exclusion list and are never projected over. `billing:scan-overdue-invoices` — the sweep that exists to notice an invoice going past due, as `leases:expire` owns the unit projection — re-runs the projector on every row whose stored status disagrees with `pastDue()`, in BOTH directions: `issued` → `overdue` when the date has passed, and `overdue` → `issued` when a due date was EXTENDED as a concession and nothing recomputed. **The projector is `recomputeTotals()` itself**, so no second rule exists; the candidate set is written against the same predicate the projector reads (`Invoice::scopePastDue()` / `isPastDue()`, now the ONE spelling — `scopeOverdue()` composes it and `isOverdue()`, the mobile contract, reads it), so a second run finds nothing, which `ProjectedStateConformanceTest` requires of every sweep. **The boundary was NOT moved**: an invoice due today reads `overdue` from midnight, as the display scope has always said and as its docblock defends; the two chase sweeps follow Yardi's aging (due today is *current*) with `whereDate('<')`, a separate stated question about the day a fee starts accruing. Each row is re-read under a lock before the recompute, because `recomputeTotals()` also rewrites `paid_amount` and `balance` and every settlement path locks the invoice first. **Two fixtures fell over on it and both were unreachable states**: `paid_amount => 1000, balance => 0` written by hand with no receipt behind it, which the sweep honestly re-derived to unpaid — `settleInvoiceInFull()` now. (`AnInvoiceReadsOverdueOnTheDayItBecomesLateTest` — four mutations red; the under-lock status re-check is a concurrency control the suite cannot open and is recorded as such.)
+

@@ -108,9 +108,16 @@ it('does not alert when the balance is zero (settled, even if status is still is
         'status' => 'issued',
         'due_date' => now()->subDays(5),
         'total' => 1000,
-        'paid_amount' => 1000,
-        'balance' => 0,   // balance > 0 guard excludes it
     ]);
+
+    // Settled the way the application settles one — a captured receipt, allocated. The fixture
+    // used to write `paid_amount => 1000, balance => 0` by hand with no payment behind it, and
+    // since the scan re-projects a stale status (SW-245) through `recomputeTotals()` — which
+    // derives both figures from the settlement channels — that state is one no operator can
+    // produce and it re-derived to "unpaid". The status is then reset to `issued` so the case
+    // still asks its own question: the balance guard, not the stamp.
+    settleInvoiceInFull($invoice);
+    $invoice->forceFill(['status' => 'issued'])->saveQuietly();
 
     $this->artisan('billing:scan-overdue-invoices')->assertSuccessful();
 

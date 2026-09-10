@@ -9,6 +9,7 @@ use App\Models\ServicePlan;
 use App\Models\Vendor;
 use App\Notifications\PreventiveGenerationFailedNotification;
 use App\Notifications\WorkOrderRaisedNotification;
+use App\Support\BestEffortNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -89,8 +90,10 @@ class GeneratePreventiveWorkOrdersService
 
         // FRD MNT-2 — a scheduled service must NOT be raised silently. Notify AFTER the
         // per-plan transactions commit (only committed orders), so a rolled-back generation
-        // never sends a bell. Throwable-guarded per the module's convention: a notification
-        // hiccup must never make the nightly run report a failure it didn't have.
+        // never sends a bell. Delivery is best effort PER ORDER (SW-247) so a transport hiccup
+        // never makes the nightly run report a failure it didn't have; resolving WHO to tell is
+        // deliberately loud — a directory that cannot answer is a fault, not an environment
+        // condition (SW-244's precedent), and on an installed box it cannot throw.
         $this->notifyRaised();
 
         return $created;
@@ -179,24 +182,33 @@ class GeneratePreventiveWorkOrdersService
         }
     }
 
-    /** Bell the property's operations staff for each work order this run actually raised. */
+    /**
+     * Bell the property once per order raised — best-effort PER ORDER (SW-247).
+     *
+     * One `try/catch` used to wrap the whole loop, so the first order whose transport failed
+     * silenced every order after it: nightly, and with `Log::warning` naming only the first error,
+     * nothing said which orders went unannounced. The orders themselves are durable — the finding
+     * is the row, the bell is only how it travels — so this is exactly the shape
+     * `BestEffortNotification` exists for, and its precondition holds in the way that matters: no
+     * stamp is written here, and a miss is logged with the ORDER it missed rather than swallowed.
+     * (The next run does not re-bell it — `raisedOrderIds` is this run's — which was already true.)
+     */
     private function notifyRaised(): void
     {
-        try {
-            if ($this->raisedOrderIds === []) {
-                return;
-            }
-
-            $staff = app(AssetStaffRecipients::class);
-            FacilityWorkOrder::whereKey($this->raisedOrderIds)->get()->each(function (FacilityWorkOrder $order) use ($staff) {
-                $recipients = $staff->for($order->asset_id, ['manager', 'operations']);
-                if ($recipients->isNotEmpty()) {
-                    Notification::send($recipients, new WorkOrderRaisedNotification($order));
-                }
-            });
-        } catch (\Throwable $e) {
-            Log::warning('Preventive generation raised-notification failed', ['error' => $e->getMessage()]);
+        if ($this->raisedOrderIds === []) {
+            return;
         }
+
+        $staff = app(AssetStaffRecipients::class);
+        FacilityWorkOrder::whereKey($this->raisedOrderIds)->get()->each(function (FacilityWorkOrder $order) use ($staff) {
+            $recipients = $staff->for($order->asset_id, ['manager', 'operations']);
+            if ($recipients->isNotEmpty()) {
+                BestEffortNotification::send($recipients, new WorkOrderRaisedNotification($order), [
+                    'scan' => 'facility:generate-preventive',
+                    'facility_work_order_id' => $order->id,
+                ]);
+            }
+        });
     }
 
     private function generateFor(int $planId, string $due): int

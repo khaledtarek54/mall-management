@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Notifications\LateFeeAppliedNotification;
 use App\Settings\BillingSettings;
+use App\Support\BestEffortNotification;
 use App\Support\OpsLog;
 use App\Support\PropertySettings;
 use App\Support\Vat;
@@ -329,14 +330,27 @@ class LateFeeService
             $locked->status = 'overdue';
             $locked->save();
 
-            // Notify the tenant from INSIDE the transaction so the (queued) delivery
-            // commits atomically with the fee — a crash or rollback loses both, so
-            // the tenant can never be charged a late fee without being told. The
-            // notification is ShouldQueue on the database queue, so this only writes
-            // a job row here (no SMTP under the row lock).
+            // Tell the tenant AFTER the commit, never under the lock (SW-213 / SW-248). This used
+            // to dispatch inside the transaction on the reasoning that a queued delivery "commits
+            // atomically with the fee" — true only on the `database` queue driver, where the job
+            // is a row in the same connection. With `after_commit` false on the connections that
+            // carry the key and the box on redis, the push left BEFORE the fee committed, so a
+            // rollback here left a job in Redis naming a fee that was never written: the worker
+            // restores the model with `firstOrFail()` and the job FAILS in Horizon, not a mail to
+            // the tenant — a smaller wrong than it first read, and still one a queue should not
+            // carry. After the commit the failure mode is a fee with no bell, which is what the
+            // best-effort send below turns into a logged miss rather than a FAILED fee: the fee
+            // stands, `mayChargeAgain()` refuses it tomorrow, and reporting it under `failed` would
+            // have the nightly command exit non-zero over money that was correctly charged.
             /** @var Tenant|null $tenant */
             $tenant = $locked->tenant;
-            $tenant?->notifyPortal(new LateFeeAppliedNotification($feeInvoice, $locked));
+            if ($tenant) {
+                DB::afterCommit(fn () => BestEffortNotification::send(
+                    $tenant->portalRecipients(),
+                    new LateFeeAppliedNotification($feeInvoice, $locked),
+                    ['scan' => 'billing:apply-late-fees', 'invoice_id' => $locked->id, 'fee_invoice_id' => $feeInvoice->id],
+                ));
+            }
 
             return true;
         });

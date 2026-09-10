@@ -685,7 +685,16 @@ class Payment extends Model
             // captured (this hook delivers it); the Create/Edit pages allocate
             // AFTER save and re-trigger via notifyReceiptOnce() in their
             // after-hooks. Idempotent through receipt_notified_at.
-            $payment->notifyReceiptOnce();
+            //
+            // AFTER THE COMMIT, never under the lock (SW-213's rule, found here by the review of
+            // SW-248). This hook fires inside `CapturePaymentService::capture()` and the Paymob
+            // callback's transaction — both hold `lockForUpdate()` on the INVOICES, the most
+            // contended table in the system — and `PaymentReceivedNotification` is not
+            // `ShouldQueue`, so the mail went out per portal user with those locks held. A model
+            // event is a door no transaction-closure scan can see, which is why the gate missed
+            // it. With no transaction open `afterCommit()` runs at once, so the non-transactional
+            // paths are unchanged.
+            DB::afterCommit(fn () => $payment->notifyReceiptOnce());
         });
 
         static::deleted(function (self $payment) {

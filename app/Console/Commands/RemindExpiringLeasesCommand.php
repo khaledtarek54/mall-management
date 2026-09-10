@@ -6,6 +6,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Notifications\LeaseExpiryApproachingNotification;
+use App\Support\BestEffortNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -77,8 +78,17 @@ class RemindExpiringLeasesCommand extends Command
                         return false;
                     }
 
-                    $tenant->notifyPortal(new LeaseExpiryApproachingNotification($locked));
                     $locked->forceFill(['expiry_reminder_notified_at' => now()])->save();
+
+                    // Stamp first, deliver after the commit (SW-213 / SW-248) — see
+                    // `RemindOverdueTenantsCommand` for why a queued push under the lock is not
+                    // the atomic pair it reads as on a non-database queue driver, and why a miss
+                    // is logged to the ops log by lease rather than printed to `/dev/null`.
+                    DB::afterCommit(fn () => BestEffortNotification::send(
+                        $tenant->portalRecipients(),
+                        new LeaseExpiryApproachingNotification($locked),
+                        ['scan' => 'leases:remind-expiring', 'lease_id' => $locked->id],
+                    ));
 
                     return true;
                 });

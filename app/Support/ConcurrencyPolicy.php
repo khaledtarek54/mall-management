@@ -193,7 +193,8 @@ final class ConcurrencyPolicy
         // the analogue to the siblings' lockForUpdate + stamp. Registered because the mechanism
         // differs, not the obligation.
         'app/Console/Commands/ScanMissingSalesDeclarationsCommand.php' => 1,
-        'app/Console/Commands/ScanOverdueInvoicesCommand.php' => 1,
+        // Two since SW-245: the owner-alert claim, and the status re-projection's per-row lock.
+        'app/Console/Commands/ScanOverdueInvoicesCommand.php' => 2,
         'app/Console/Commands/ScanTenantDocumentExpiryCommand.php' => 2,
         'app/Console/Commands/ScanTenantRequestSlaBreachesCommand.php' => 1,
         'app/Console/Commands/ScanVendorDocumentExpiryCommand.php' => 2,

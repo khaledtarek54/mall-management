@@ -31,6 +31,7 @@ use App\Support\Filament\CatalogueAwareSelect;
 use App\Support\Filament\IdentifiedExportAction;
 use App\Support\Filament\IdentifiedExportBulkAction;
 use App\Support\Filament\LocalizedNotification;
+use App\Support\Filament\MultiValueFieldIsAnArray;
 use App\Support\Filament\NavigationItemMemo;
 use App\Support\Filament\PropertyLink;
 use App\Support\Filament\TableViewDefaultMemo;
@@ -331,6 +332,11 @@ class AppServiceProvider extends ServiceProvider
         // resource's own configure(), so a resource can still override any of
         // it. See App\Support\TableDefaults for the reasoning per setting.
         TableDefaults::register();
+
+        // A field that collects MANY values refuses a scalar payload — Filament validates a
+        // multi-select's OPTIONS on the array's children, so a bare id had none to fail on.
+        // See App\Support\Filament\MultiValueFieldIsAnArray for the measurement.
+        MultiValueFieldIsAnArray::register();
 
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_END,

@@ -29,12 +29,21 @@ use Throwable;
  * The ops log is where it lands, and the daily report reads that too.
  *
  * **PRECONDITION, and it is the thing to check before reusing this.** Swallowing a delivery
- * failure is only safe where the next run will REPORT THE SAME THING AGAIN. Both call sites qualify:
- * neither writes an idempotency stamp, so tomorrow's scan re-reads the same leases and permits. A
- * scan that stamps a row to say "alerted" — `requests:scan-sla-breaches`, `facility:scan-sla-breaches`
- * and the four expiry scans all do — must NOT use this as-is: the stamp would stand while the alert
- * was silently dropped, and the breach would then never be raised again. There, either stamp AFTER a
- * confirmed send or let the failure be loud.
+ * failure is only safe where the FINDING survives it, in one of two shapes:
+ *
+ *  1. the next run will REPORT THE SAME THING AGAIN — the coverage and open-permit scans write
+ *     no stamp, so tomorrow re-reads the same leases and permits; or
+ *  2. the finding is DURABLE ON ITS OWN RECORD and the miss is logged naming that record — a
+ *     raised work order (SW-247), a late fee that stands on the tenant's statement, a dunning
+ *     notice whose stamp was written before the send (SW-248). There the trade is SW-213's: the
+ *     stamp stands, the miss is one ops-log line by record id, never a duplicate — and the thing
+ *     that makes it acceptable is the LOG LINE, because a scheduled command's own output is
+ *     `/dev/null` on the box. A stamped row with a silently dropped alert is exactly the state
+ *     this class must never produce, so a caller in shape 2 passes the record's id in `$context`.
+ *
+ * What is NOT safe is a stamp written after a swallowed failure: the row says "alerted" and
+ * nothing ever raises it again. `requests:scan-sla-breaches`, `facility:scan-sla-breaches` and the
+ * expiry scans stamp first and deliver after the commit for that reason.
  *
  * **It catches `Throwable`, which is broader than the transport**, so a genuine bug inside a
  * notification degrades to a warning rather than a crash. That is the deliberate trade: the

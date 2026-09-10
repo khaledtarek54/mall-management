@@ -29,6 +29,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -899,4 +900,44 @@ function sourceWithoutCommentsOrStrings(string $path): string
     }
 
     return $out;
+}
+
+/**
+ * Everything `OpsLog` wrote while `$work` ran. `OpsLog::write()` is `Log::channel('ops')->{level}()`,
+ * so the ops channel is replaced with a recorder for the duration.
+ *
+ * Shared because the second test that needed it (SW-247) would otherwise have been a copy of the
+ * first (SW-244), and a parallel worker loads only the files it owns — a file-scope helper in one
+ * test file is a fatal redeclaration the moment a second file declares it too.
+ *
+ * @return list<array{level: string, message: string, context: array<string, mixed>}>
+ */
+function captureOpsLog(callable $work, bool $allowFailure = false, ?Throwable &$caught = null): array
+{
+    $caught = null;
+    $records = [];
+    $channel = Mockery::mock();
+
+    foreach (['info', 'warning', 'error', 'debug', 'critical'] as $level) {
+        $channel->shouldReceive($level)->andReturnUsing(
+            function ($message, $context = []) use (&$records, $level) {
+                $records[] = ['level' => $level, 'message' => $message, 'context' => $context];
+            }
+        );
+    }
+
+    Log::shouldReceive('channel')->with('ops')->andReturn($channel);
+    Log::shouldReceive('channel')->andReturn($channel);
+
+    try {
+        $work();
+    } catch (Throwable $e) {
+        if (! $allowFailure) {
+            throw $e;
+        }
+
+        $caught = $e;
+    }
+
+    return $records;
 }

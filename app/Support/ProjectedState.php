@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Models\Unit;
@@ -123,6 +124,33 @@ final class ProjectedState
             // of such a lease on a field nobody touched.
             'declarable' => ['draft', 'pending_approval', 'active'],
         ],
+
+        // `overdue` is a function of today and `recomputeTotals()` — the ONE derivation of an
+        // invoice's status from its four settlement channels and its due date — runs when a
+        // SETTLEMENT lands, so an issued invoice nobody pays or penalises read `issued` for ever.
+        // Measured on the staging soak (SW-245): six invoices two days past due, all still
+        // `issued`. This entry sat in NOT_PROJECTED below until 2026-09-10, on the reasoning that
+        // no MONEY read the column; what reads it is the register's status filter and tabs and
+        // the tenant's own portal view, and a screen that under-reports is the parking-bay
+        // finding again. The projector is `recomputeTotals()` itself, so the sweep cannot state a
+        // second rule; the candidate set is `pastDue()`/`notPastDue()`, the predicate the
+        // projector reads, so a second run finds nothing.
+        //
+        // DECLARABLE is what a person may state on the form — the born states. `cancelled`,
+        // `credited`, `written_off` and `disputed` are the outcomes of ACTS and are never
+        // projected over (the projector's own exclusion list); `paid`, `partially_paid` and
+        // `overdue` are the projector's, and `InvoiceForm` already drops them from its options
+        // for that reason.
+        'invoice.past_due' => [
+            'model' => Invoice::class,
+            'column' => 'status',
+            'projector' => 'recomputeTotals',
+            'sweep' => 'billing:scan-overdue-invoices',
+            'stale_when' => 'the due date passes on an invoice nothing settles or penalises — a '.
+                'day on which nothing is written — or a due date is extended on an invoice already '.
+                'stamped `overdue`',
+            'declarable' => ['draft', 'issued'],
+        ],
     ];
 
     /**
@@ -134,32 +162,6 @@ final class ProjectedState
      * @var array<string, string>
      */
     public const NOT_PROJECTED = [
-        // NOT because it stays fresh — it does not. `overdue` IS a function of today and NOTHING
-        // SWEEPS THE REGISTER. Two things write it, and both are incidental to touching one invoice:
-        // `recomputeTotals()` when a SETTLEMENT lands on it, and `LateFeeService` on the invoices it
-        // penalises. So an issued invoice that neither touches goes on reading `issued` indefinitely. Measured on the staging soak 2026-09-10: six NG invoices two days
-        // past due, money on all six, all still `issued`; the four that DID say `overdue` said it
-        // only because the late-fee run had touched them.
-        //
-        // This entry read '`billing:scan-overdue-invoices` already re-reads it' until then, and
-        // that command writes `owner_overdue_notified_at` and NOTHING else — a reason that
-        // certified coverage which does not exist, which is worse than no entry at all. (The first
-        // correction then claimed `recomputeTotals()` was the ONLY writer, which the review caught
-        // as the same sin: `LateFeeService` writes it too, and the sentence below had already
-        // observed as much. Name every writer or name none.)
-        //
-        // It is exempt because no reader DEPENDS on it being fresh: SW-135 routed every collections
-        // surface through `stillOwed()` + a date predicate precisely because the column was already
-        // known to lag (`Invoice::scopeWhereOverdue()`'s own docblock measured 4 carrying the status
-        // against 11 genuinely past due). What still reads the column is DISPLAY — the register's
-        // status filter and tabs, and the tenant's own view — and whether that lag is acceptable is
-        // SW-245, open, because making a nightly sweep move a money document's status is a decision
-        // and not a tidy-up (see CLAUDE.md on a status past the first one being an ACT).
-        'invoices.status' => 'Derived from the four settlement channels by `Invoice::recomputeTotals()`, '.
-            'and written for a penalised invoice by `LateFeeService`. `overdue` is date-sensitive and '.
-            'genuinely DOES go stale — neither writer is a sweep — but no reader depends on it: '.
-            'collections ask `stillOwed()` + the date. Display lag is SW-245.',
-
         'vendor_contracts.status' => 'Swept by `vendors:expire-contracts`, which predates this registry '.
             'and is the pattern `leases:expire` was modelled on.',
 

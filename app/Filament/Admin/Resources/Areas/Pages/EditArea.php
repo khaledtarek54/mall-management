@@ -14,6 +14,13 @@ class EditArea extends EditRecord
     protected static string $resource = AreaResource::class;
 
     /**
+     * Transactional for the reason `CreateArea` states: `afterSave()` refuses a smuggled
+     * supervisor with a 403 after the row has already saved, and without a transaction the rest of
+     * the same payload — a rename — stayed on disk while the pivot was stripped.
+     */
+    protected ?bool $hasDatabaseTransactions = true;
+
+    /**
      * Filament only stamps asset_id on create, never on update — so an edit in
      * "All Properties" mode can move a zone to another property. Re-validate the
      * submitted asset_id against the user's visible set.

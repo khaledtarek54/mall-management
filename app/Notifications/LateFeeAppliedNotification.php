@@ -11,11 +11,14 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Tenant-facing alert that a late fee has been charged. Dispatched once from inside
- * {@see LateFeeService::applyTo()}'s transaction, so the notification is committed atomically with
- * the fee (on the database queue the job row rolls back with the fee if the tx fails — no
- * charge-without-notice gap). ShouldQueue keeps the mail/push delivery off the request thread and
- * retriable, and isolates a single recipient's failure from the rest of the fan-out.
+ * Tenant-facing alert that a late fee has been charged. Dispatched once, AFTER
+ * {@see LateFeeService::applyTo()}'s transaction commits (SW-248) — it used to be dispatched from
+ * inside it on the reasoning that the queued job "commits atomically with the fee", which held on
+ * the `database` driver only; on redis the push left before the fee did, and a rollback left a
+ * job naming a fee that was never written (a failed job, once the worker could not restore it).
+ * Delivered best-effort: a push failure is a logged miss, never a FAILED fee. ShouldQueue keeps
+ * the mail/push delivery off the request thread and retriable, and isolates a single recipient's
+ * failure from the rest of the fan-out.
  *
  * **TWO invoices, and the tenant needs both.** Since 2026-08-11 the fee is its own dated document
  * rather than a line appended to the overdue one, so the message has to say what is now owed

@@ -245,7 +245,17 @@ component state after the model saves, and the option list is a convenience, not
 layers refuse a smuggled id: Filament's own `In` rule over the offered options fires first for an
 ARRAY payload (a multi-select reports the rejected ITEM as `supervisors.0`); a SCALAR slips it and
 meets the guard, which strips the pivot and 403s — and because both actions are transactional, no
-orphaned zone is left behind that 403. (`AZoneCreatedFromThePropertyPageHasItsSupervisorsTest`.)
+orphaned zone is left behind that 403.
+
+**The register's pages were NOT transactional, and the tab's own comment said they were.** Filament's
+`CreateRecord`/`EditRecord` default `$hasDatabaseTransactions` to the panel's setting, no panel opts
+in, and only `CreateLease`/`EditLease`/`CreatePayment`/`EditPayment` declare it. Measured by the review
+of this change (2026-09-10): on `CreateArea` the same scalar payload answered 403 with the pivot
+stripped and **the zone left on disk**; on `EditArea` the rename in the same payload stayed while the
+pivot was stripped. So `assertSupervisorsInScope()`'s own promise — *"the write is rejected"* — held on
+the tab and not on the register it was written for. Both pages declare `$hasDatabaseTransactions =
+true` now, and the test drives all four doors. (`AZoneCreatedFromThePropertyPageHasItsSupervisorsTest`,
+eight cases; the tab's EditAction and both register pages each proved by mutation.)
 
 **A zone is not a share of the GLA.** Floors carry the area arithmetic (`Floor::areaFigures()`); a
 zone routes work. A second thing that looked like it apportioned space would be a second answer to a

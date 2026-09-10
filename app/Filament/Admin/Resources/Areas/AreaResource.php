@@ -105,11 +105,15 @@ class AreaResource extends Resource
      * own state AFTER the model saves, so it never passes through the page's mutate hooks. A
      * crafted Livewire request can therefore attach a staff member the property-scoped picker
      * would never have offered (another mall's roster). So we re-validate AFTER the sync, from the
-     * Create/Edit page's afterCreate/afterSave, against the same predicate the picker uses
-     * (AreaForm::applySupervisorScope): assigned to this property, or property-less.
+     * Create/Edit page's afterCreate/afterSave AND from the property page's Zones tab (both of
+     * `AssetAreasRelationManager`'s write actions, via `->after()`), against the same predicate
+     * the picker uses (AreaForm::applySupervisorScope): assigned to this property, or property-less.
      *
-     * Out-of-scope attaches are stripped (the DB is left clean) and the write is rejected with a
-     * 403 — a restricted user must not attach staff who can't service the zone. Never a silent 500.
+     * Out-of-scope attaches are stripped and the write is rejected with a 403 — a restricted user
+     * must not attach staff who can't service the zone. Never a silent 500. **"Rejected" is only
+     * true because every caller is TRANSACTIONAL** — this runs after the row has saved, so on a
+     * page without `$hasDatabaseTransactions` the pivot was stripped and the zone (or its rename)
+     * stayed. Measured 2026-09-10; all four doors declare the transaction now.
      */
     public static function assertSupervisorsInScope(Area $area): void
     {

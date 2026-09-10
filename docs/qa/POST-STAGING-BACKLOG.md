@@ -192,14 +192,14 @@ round changed the reading.
   it was deliberately not folded into SW-246 because the spec is GENERATED and the tree's composer
   state was mid-change (a concurrent session adding Horizon), so regenerating would have produced
   churn nobody could review. Small, self-contained, wants a quiet tree.
-- **SW-247** — `GeneratePreventiveWorkOrdersService::notifyRaised()` (~:183) has SW-244's shape and
+- ~~**SW-247**~~ — **FIXED 2026-09-10.** Best effort per order through `BestEffortNotification`, the order's id in the ops-log record, resolution left loud; five `PreventiveWorkOrderTest` cases had passed only because the old catch swallowed their unseeded roles. `ANightlyRoundBellsEveryOrderItRaisedTest`, mutation-proved. Was: `GeneratePreventiveWorkOrdersService::notifyRaised()` (~:183) has SW-244's shape and
   a wider blast radius: its single `try/catch` wraps the WHOLE `->each()`, so an inline-send failure
   on the first raised order aborts iteration and orders 2..N are never belled — nightly, on
   `facility:generate-preventive`. The work orders themselves are durable so no finding is erased, but
   `Log::warning` names only the first error and nothing records which orders went unannounced. Fix is
   the one SW-244 established: move `BestEffortNotification::send()` INSIDE the closure and delete the
   outer catch. Found by the review of SW-244, 2026-09-10.
-- **SW-248** — two nightly commands send mail INSIDE a database transaction, under `lockForUpdate`,
+- ~~**SW-248**~~ — **FIXED 2026-09-10, and fault (a) below is REFUTED.** All three notifications (the two commands' and `LateFeeService`'s, which had the same shape) are `ShouldQueue`, so nothing held the lock across SMTP — what held was a queued PUSH, which is transactional on the `database` driver only; on redis (the box) the job left before the stamp, so fault (b) stood (for the late fee the rolled-back job named a fee never written and FAILED in Horizon — not a mail, as the first fix note claimed). Stamp then `DB::afterCommit()` at all three, each delivered through `BestEffortNotification` so a miss is an ops-log line by record and never a FAILED fee, and the gate now derives delivery wrappers off `app/Models` so `notifyPortal()` is a hit. `AChaseLetterIsQueuedAfterItsStampCommitsTest`, three teeth + the gate both ways. Was: two nightly commands send mail INSIDE a database transaction, under `lockForUpdate`,
   BEFORE writing their idempotency stamp: `RemindOverdueTenantsCommand` (~:153) and
   `RemindExpiringLeasesCommand` (~:80). Two distinct faults. **(a)** The first holds an exclusive lock
   on an `invoices` row across a synchronous MailerSend round-trip per recipient — and its own sibling
@@ -213,7 +213,27 @@ round changed the reading.
   these DO write an idempotency stamp, so the seam must not simply be dropped in front of the
   existing order or a swallowed failure would leave the stamp standing and the tenant never chased.
   Found by the review of SW-244, 2026-09-10.
-- **SW-245** — `invoices.status` goes stale and only DISPLAY depends on it. `overdue` is a function of
+- ~~**SW-250**~~ — **FIXED 2026-09-10 (found by the review of the zone-supervisors fix).** A SCALAR
+  payload bypassed `Rule::in` on every `->multiple()` Select in the panel: Filament attaches the
+  rule to `{path}.*` and adds no `array` rule, so a bare id had no children to fail on, was wrapped
+  by the state cast and synced. `App\Support\Filament\MultiValueFieldIsAnArray` puts an `array`
+  rule on every multi-select and `CheckboxList` (one `Select::configureUsing`, which reaches
+  `EntitySelect` and `CatalogueAwareSelect` through `class_parents()`). Measured exposure: an
+  options bypass on 31 fields, no unguarded property-owned picker (units are re-checked by their
+  services, the user form's grant by `enforceGrantableAssetsRule()`). Also: `CreateArea`/`EditArea`
+  were not transactional while the tab's comment claimed the register "always is" — a smuggled
+  supervisor left an orphaned zone on the register; both pages declare it now.
+  `AMultiSelectRefusesAScalarPayloadTest`; the zone test drives all four doors.
+- ~~**SW-251**~~ — **FIXED 2026-09-10 (found by the review of SW-248).** `Payment::booted()`'s
+  `saved` hook sent `PaymentReceivedNotification` (not `ShouldQueue`, `mail`+`database`+`push`)
+  inline — inside `CapturePaymentService::capture()` and the Paymob callback's transaction, under
+  the INVOICE locks. Deferred with `DB::afterCommit()` in the hook, as the Create/Edit pages already
+  did for their own call. A model event is a door the transaction-closure gate cannot see; stated.
+  `AReceiptIsMailedAfterTheInvoiceLockIsReleasedTest`. **Inherited and recorded, not fixed:** the
+  nine SW-213 sites report a deferred push failure with `$this->warn()`, which is `/dev/null` under
+  cron on the box — the three SW-248 sites go to the ops log through `BestEffortNotification`; the
+  nine should follow (XS each).
+- ~~**SW-245**~~ — **FIXED 2026-09-10 — decided as a PROJECTION.** `billing:scan-overdue-invoices` re-runs `recomputeTotals()` on every row whose stored status disagrees with `Invoice::pastDue()`, both directions, under a lock; `invoice.past_due` is in `ProjectedState::PROJECTIONS`. The SW-238/240 rule governs act-statuses, which the projector never touches; the form already called `overdue` derived. `AnInvoiceReadsOverdueOnTheDayItBecomesLateTest`. Was: `invoices.status` goes stale and only DISPLAY depends on it. `overdue` is a function of
   today and nothing sweeps it: `Invoice::recomputeTotals()` is the only writer and it runs when a
   SETTLEMENT touches the invoice, so an issued invoice nobody touches after its due date reads
   `issued` indefinitely. Measured on the staging soak 2026-09-10 — six NG invoices two days past due

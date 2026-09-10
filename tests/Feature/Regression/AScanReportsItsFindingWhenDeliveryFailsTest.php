@@ -39,7 +39,6 @@ use App\Services\WorkPermitService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Date;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 beforeEach(function () {
@@ -71,44 +70,13 @@ function sw244LeaseRunningOut($ctx, string $lastChequeDate = '2026-10-01', strin
     return $lease;
 }
 
-/** Everything OpsLog wrote while `$work` ran. `OpsLog::write()` is `Log::channel('ops')->{level}()`. */
-function sw244CaptureOps(callable $work, bool $allowFailure = false, ?Throwable &$caught = null): array
-{
-    $caught = null;
-    $records = [];
-    $channel = Mockery::mock();
-
-    foreach (['info', 'warning', 'error', 'debug', 'critical'] as $level) {
-        $channel->shouldReceive($level)->andReturnUsing(
-            function ($message, $context = []) use (&$records, $level) {
-                $records[] = ['level' => $level, 'message' => $message, 'context' => $context];
-            }
-        );
-    }
-
-    Log::shouldReceive('channel')->with('ops')->andReturn($channel);
-    Log::shouldReceive('channel')->andReturn($channel);
-
-    try {
-        $work();
-    } catch (Throwable $e) {
-        if (! $allowFailure) {
-            throw $e;
-        }
-
-        $caught = $e;
-    }
-
-    return $records;
-}
-
 it('records the finding even when the notification cannot be delivered', function () {
     sw244LeaseRunningOut($this);
 
     Notification::shouldReceive('send')->andThrow(new RuntimeException('[status code] 403 Forbidden'));
 
     $result = null;
-    $ops = sw244CaptureOps(function () use (&$result) {
+    $ops = captureOpsLog(function () use (&$result) {
         $result = app(ScanChequeCoverageService::class)->run();
     });
 
@@ -141,7 +109,7 @@ it('records the finding even when the run DIES resolving who to tell', function 
     });
 
     $died = null;
-    $ops = sw244CaptureOps(
+    $ops = captureOpsLog(
         fn () => app(ScanChequeCoverageService::class)->run(),
         allowFailure: true,
         caught: $died,
@@ -163,7 +131,7 @@ it('survives an ERROR, not just an Exception — which is what Throwable buys', 
     Notification::shouldReceive('send')->andThrow(new TypeError('Argument #1 must be of type Notifiable'));
 
     $result = null;
-    $ops = sw244CaptureOps(function () use (&$result) {
+    $ops = captureOpsLog(function () use (&$result) {
         $result = app(ScanChequeCoverageService::class)->run();
     });
 
@@ -180,7 +148,7 @@ it('still tells the second lease when the first one fails', function () {
     Notification::shouldReceive('send')->twice()->andThrow(new RuntimeException('transport down'));
 
     $result = null;
-    sw244CaptureOps(function () use (&$result) {
+    captureOpsLog(function () use (&$result) {
         $result = app(ScanChequeCoverageService::class)->run();
     });
 
@@ -192,7 +160,7 @@ it('exits SUCCESS rather than failing the scheduled run', function () {
 
     Notification::shouldReceive('send')->andThrow(new RuntimeException('[status code] 403 Forbidden'));
 
-    sw244CaptureOps(function () {
+    captureOpsLog(function () {
         $this->artisan('pdc:scan-coverage')->assertSuccessful();
     });
 });
@@ -223,7 +191,7 @@ it('the permit scan survives a delivery failure too', function () {
 
     Notification::shouldReceive('send')->twice()->andThrow(new RuntimeException('transport down'));
 
-    sw244CaptureOps(function () {
+    captureOpsLog(function () {
         $this->artisan('facility:scan-open-permits')->assertSuccessful();
     });
 

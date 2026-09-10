@@ -150,10 +150,12 @@ class AssetAreasRelationManager extends RelationManager
                     ->modalHeading(__('admin.areas.actions.add'))
                     ->visible(fn (): bool => auth()->user()?->can('assets.edit') ?? false)
                     ->authorize(fn (): bool => auth()->user()?->can('assets.edit') ?? false)
-                    // **Transactional, as the register's CreateRecord page already is.** The
-                    // guard below runs AFTER the row commits, and a payload that reaches it — a
-                    // SCALAR id slips Filament's array validation — is stripped and 403'd; without
-                    // the transaction that 403 left an orphaned zone behind. Found by review.
+                    // **Transactional — and so are `CreateArea`/`EditArea` now.** The guard
+                    // below runs AFTER the row saves, and a payload that reaches it — a SCALAR id
+                    // slips Filament's array validation — is stripped and 403'd; without the
+                    // transaction that 403 left an orphaned zone behind. Found by review, which
+                    // then found the register's pages had the same hole under a comment here
+                    // claiming they did not.
                     ->databaseTransaction()
                     // The option list is not the gate — the ids still arrive in the payload.
                     ->after(fn (Area $record) => AreaResource::assertSupervisorsInScope($record)),

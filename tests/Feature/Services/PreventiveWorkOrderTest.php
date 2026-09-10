@@ -21,7 +21,14 @@ function makePlan(array $attrs = []): ServicePlan
     ], $attrs));
 }
 
-beforeEach(fn () => $this->svc = app(GeneratePreventiveWorkOrdersService::class));
+beforeEach(function () {
+    // Every install has the role catalogue (`atriom:install` seeds it), and `notifyRaised()`
+    // resolves recipients by role. Five cases here ran without it and passed only because the
+    // round's old outer catch swallowed the `RoleDoesNotExist` that resolution threw — the SW-247
+    // fix keeps delivery best-effort and leaves resolution loud, as SW-244 does.
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->svc = app(GeneratePreventiveWorkOrdersService::class);
+});
 
 it('raises a work order with the checklist for a due plan and advances next_due', function () {
     $plan = makePlan(['next_due_date' => '2026-06-01', 'frequency_unit' => 'months', 'frequency_value' => 1]);
@@ -40,7 +47,6 @@ it('raises a work order with the checklist for a due plan and advances next_due'
 });
 
 it('notifies operations when a scheduled work order is raised (FRD MNT-2)', function () {
-    $this->seed(RolesPermissionsSeeder::class);
     Notification::fake();
     $asset = makeAsset();
     $ops = makeUser('operations', [$asset->id]);

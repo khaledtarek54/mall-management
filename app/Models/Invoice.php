@@ -29,7 +29,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -619,7 +618,32 @@ class Invoice extends Model
      */
     public function scopeOverdue(Builder $query): Builder
     {
-        return $query->stillOwed()->where('due_date', '<', now());
+        return $query->stillOwed()->pastDue();
+    }
+
+    /**
+     * The DATE half of overdue, on its own — named once so the display scope above, the row twin
+     * `isPastDue()` that `recomputeTotals()` projects the status from, and the sweep that keeps
+     * that projection honest (`billing:scan-overdue-invoices`, SW-245) cannot drift on the day an
+     * invoice becomes late. Same boundary the scope has always used: due today is past due from
+     * midnight. Yardi's aging calls a document due today *current* and the two chase sweeps follow
+     * that with `whereDate('<')` — a separate, stated question about the day a fee starts accruing.
+     */
+    public function scopePastDue(Builder $query): Builder
+    {
+        return $query->where('due_date', '<', now());
+    }
+
+    /** The complement, for finding a stored `overdue` that the calendar no longer supports. */
+    public function scopeNotPastDue(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q) => $q->whereNull('due_date')->orWhere('due_date', '>=', now()));
+    }
+
+    /** Row twin of {@see scopePastDue()}. */
+    public function isPastDue(): bool
+    {
+        return $this->due_date !== null && $this->due_date->isPast();
     }
 
     /**
@@ -690,7 +714,7 @@ class Invoice extends Model
     {
         return ! in_array($this->status, InvoiceSettlement::relievedStatuses(), true)
             && $this->collectableBalance() > 0
-            && $this->due_date->isPast();
+            && $this->isPastDue();
     }
 
     public function daysOverdue(): int
@@ -1205,7 +1229,11 @@ class Invoice extends Model
                 $this->status = 'paid';
             } elseif ($this->paid_amount > 0) {
                 $this->status = 'partially_paid';
-            } elseif ($this->due_date && Carbon::parse($this->due_date)->isPast()) {
+            } elseif ($this->isPastDue()) {
+                // A PROJECTION of the calendar, not an act — and the one branch here that goes
+                // stale on a day when nothing happens, since this method runs when a SETTLEMENT
+                // lands. `billing:scan-overdue-invoices` re-runs it nightly on the rows whose
+                // stored status disagrees with `pastDue()` (SW-245, `ProjectedState`).
                 $this->status = 'overdue';
             } else {
                 $this->status = 'issued';
