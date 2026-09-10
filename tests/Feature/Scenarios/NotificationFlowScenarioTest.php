@@ -291,7 +291,9 @@ it('a resolved transition payload flips to the success colour + check icon', fun
     $request = notifTenantRequest(['status' => 'in_progress']);
 
     // FR-USR-06 — evidence before resolution.
-    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
+    // `resolution_evidence` since SW-246: `attachments` is what the TENANT sent in (proof of the
+    // PROBLEM), and the gate read it, so a fault photo satisfied a proof-of-WORK rule.
+    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('resolution_evidence');
 
     app(TenantRequestService::class)
         ->transition($request, 'resolved', ['resolution_notes' => 'Compressor replaced']);

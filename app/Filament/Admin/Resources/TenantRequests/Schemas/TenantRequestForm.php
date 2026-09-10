@@ -286,6 +286,23 @@ class TenantRequestForm
                             ->content(__('admin.sections.attachments_description'))
                             ->columnSpanFull(),
 
+                        // Proof of the FIX, read-only here. It is written by the *Attach evidence*
+                        // action (which `technician` can reach and this page they cannot), and
+                        // shown back because an upload the operator cannot review is the write-only
+                        // shape `PrivateAttachments` exists to end — they could not see a colleague
+                        // had already attached one, nor spot a wrong file (SW-246).
+                        SpatieMediaLibraryFileUpload::make('resolution_evidence')
+                            ->label(__('admin.tenant_requests.fields.resolution_evidence'))
+                            ->collection('resolution_evidence')
+                            ->multiple()
+                            ->downloadable()
+                            ->openable()
+                            ->deletable(false)
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->visible(fn ($record) => $record?->hasMedia('resolution_evidence') ?? false)
+                            ->columnSpanFull(),
+
                         SpatieMediaLibraryFileUpload::make('attachments')
                             ->label(__('admin.fields.attachments'))
                             ->collection('attachments')

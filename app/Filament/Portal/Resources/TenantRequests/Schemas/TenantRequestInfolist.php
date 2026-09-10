@@ -84,6 +84,14 @@ class TenantRequestInfolist
                     TextEntry::make('resolution_notes')
                         ->label(__('admin.fields.resolution_notes'))
                         ->columnSpanFull(),
+                    // The tenant sees the proof, not just the claim. A maintenance request cannot
+                    // be resolved without it (SW-246), and showing it here is what makes the
+                    // requirement worth anything to the person who reported the fault — the same
+                    // reason their own `attachments` are shown above.
+                    PrivateAttachments::entry(
+                        'resolution_evidence',
+                        __('admin.tenant_requests.fields.resolution_evidence'),
+                    ),
                 ]),
         ]);
     }

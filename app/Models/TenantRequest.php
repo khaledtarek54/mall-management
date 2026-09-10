@@ -396,7 +396,16 @@ class TenantRequest extends Model implements HasMedia
      */
     public function registerMediaCollections(): void
     {
+        // What the TENANT sent in: a photo of the leak, the notice they were served. Proof of the
+        // PROBLEM, uploaded from the portal's own submission form.
         $this->addMediaCollection('attachments')->useDisk('local');
+
+        // What the OPERATOR sends back: proof of the FIX. A separate collection because the two
+        // answer opposite questions, and conflating them made the completion gate vacuous — it read
+        // `attachments`, so a maintenance request was "evidenced" by the tenant's own photo of the
+        // fault and could be resolved with nothing to show for the work (SW-246, 2026-09-10).
+        // `useDisk('local')`: medialibrary's default disk is fail-open (MediaPrivacyConformanceTest).
+        $this->addMediaCollection('resolution_evidence')->useDisk('local');
     }
 
     public function isOpen(): bool
@@ -476,6 +485,15 @@ class TenantRequest extends Model implements HasMedia
     public function requiresDecision(): bool
     {
         return ($this->request_type ?? TenantRequestType::default())->requiresDecision();
+    }
+
+    /**
+     * Whether resolving this request has to be evidenced. Delegates to the type, so there is one
+     * answer and not one per surface — the same shape as {@see requiresDecision()}.
+     */
+    public function requiresCompletionEvidence(): bool
+    {
+        return ($this->request_type ?? TenantRequestType::default())->requiresCompletionEvidence();
     }
 
     public function wasApproved(): bool

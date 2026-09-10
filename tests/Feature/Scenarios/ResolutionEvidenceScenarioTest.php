@@ -44,7 +44,9 @@ it('refuses to resolve a request with no evidence at all', function () {
 
 it('resolves once a photo is attached', function () {
     $request = inProgressRequest();
-    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
+    // `resolution_evidence` since SW-246: `attachments` is what the TENANT sent in (proof of the
+    // PROBLEM), and the gate read it, so a fault photo satisfied a proof-of-WORK rule.
+    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('resolution_evidence');
 
     $resolved = $this->svc->transition($request, 'resolved', ['resolution_notes' => 'Fixed']);
 
@@ -59,15 +61,15 @@ it('resolves once a work order is raised for it, with no photo', function () {
 
     app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, ['execution_type' => 'internal']);
 
-    expect($this->svc->transition($request->fresh(), 'resolved')->status)->toBe('resolved'); // …but a linked WO
+    expect($this->svc->transition($request->fresh(), 'resolved', ['resolution_notes' => 'Fixed'])->status)->toBe('resolved'); // …but a linked WO
 });
 
 it('lets a resolved request be closed without re-proving evidence', function () {
     // The gate is on RESOLVING (the act of saying "done"), not on the administrative close that
     // follows. A resolved request already cleared it.
     $request = inProgressRequest();
-    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
-    $this->svc->transition($request, 'resolved');
+    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('resolution_evidence');
+    $this->svc->transition($request, 'resolved', ['resolution_notes' => 'Fixed']);
 
     expect($this->svc->transition($request->fresh(), 'closed')->status)->toBe('closed');
 });
@@ -89,5 +91,5 @@ it('applies the same gate whether the linked work order is open or done', functi
     $wo = app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, ['execution_type' => 'internal']);
     $wo->update(['status' => 'done', 'completed_at' => now()]);
 
-    expect($this->svc->transition($request->fresh(), 'resolved')->status)->toBe('resolved');
+    expect($this->svc->transition($request->fresh(), 'resolved', ['resolution_notes' => 'Fixed'])->status)->toBe('resolved');
 });

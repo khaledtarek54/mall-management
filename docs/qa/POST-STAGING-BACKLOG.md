@@ -182,6 +182,16 @@ round changed the reading.
   width gate because both doors agree about the LENGTH. Fixing it is a decision about which phone
   formats an Egyptian operator's data actually contains, not a width, so it wants the operator's
   real file.
+- **SW-249** — show the tenant proof of the fix on MOBILE too. SW-246 gave a maintenance request a
+  `resolution_evidence` collection and surfaced it in the tenant PORTAL's Resolution section, which
+  is where the requirement earns its keep — a rule the person who reported the fault cannot see is
+  worth little. `Api\V1\TenantRequestResource` serialises `getMedia('attachments')` by NAME, so the
+  API shape did NOT change and nothing is broken; the mobile app simply does not show the new
+  collection. Adding it is ~10 lines plus the same-commit obligations CLAUDE.md sets for any
+  `/api/v1` change — MOBILE-API.md, the sync brief, module 20 and a regenerated `openapi.json` — and
+  it was deliberately not folded into SW-246 because the spec is GENERATED and the tree's composer
+  state was mid-change (a concurrent session adding Horizon), so regenerating would have produced
+  churn nobody could review. Small, self-contained, wants a quiet tree.
 - **SW-247** — `GeneratePreventiveWorkOrdersService::notifyRaised()` (~:183) has SW-244's shape and
   a wider blast radius: its single `try/catch` wraps the WHOLE `->each()`, so an inline-send failure
   on the first raised order aborts iteration and orders 2..N are never belled — nightly, on
@@ -217,7 +227,7 @@ round changed the reading.
   a standing rule about (SW-238/240), and the cheap alternative — having the overdue scan call
   `recomputeTotals()` on the rows it already locks — reaches each invoice only once, because it
   filters on `whereNull('owner_overdue_notified_at')`.
-- **SW-246** — the tenant-request evidence gate is wrong in BOTH directions, and blocks two request
+- ~~**SW-246**~~ — **FIXED 2026-09-10.** Was: the tenant-request evidence gate is wrong in BOTH directions, and blocks two request
   types outright. `TenantRequestService::transition()` refuses `resolved` unless the request has a
   linked work order or `hasMedia('attachments')` — applied to all EIGHT `TenantRequestType` cases,
   though the gate immediately below it (`requiresDecision()`) is type-aware, so the vocabulary to fix
@@ -227,9 +237,12 @@ round changed the reading.
   **The other direction is worse**: `attachments` is the collection the TENANT uploads to on the
   portal's own submission form, i.e. a photo of the PROBLEM. So the gate is satisfied by the tenant's
   intake photo and lets a maintenance request be resolved with no evidence of the FIX — vacuous on
-  exactly the type it was written for (FR-USR-06). The maintenance path via a linked work order was
-  driven end-to-end on the box and is correct. Fix wants a per-type answer plus a collection that
-  means *proof of work*, not *proof of problem*.
+  exactly the type it was written for (FR-USR-06). **Both halves fixed**:
+  `TenantRequestType::requiresCompletionEvidence()` (true for Maintenance only, the sibling of
+  `requiresDecision()`) and a new `resolution_evidence` collection that means proof of the WORK, with
+  an *Attach evidence* action shaped like the work order's and the evidence shown to the tenant in
+  the portal's Resolution section. Nothing closes on nothing: every resolve still requires
+  `resolution_notes` and three types still owe an approve/reject. See docs/modules/11.
 - **D2-13 / H3** — measure the leading-wildcard `LIKE` search on a posture-B staging box before
   optimising anything. H3's own instruction, and staging is the first place it can be measured.
 - ~~**OPS-06**~~ — **DONE 2026-09-06**, on the first genuinely quiet tree. It had grown from 30

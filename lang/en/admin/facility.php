@@ -766,7 +766,20 @@ return [
         'portal_create_description' => 'Tell us what you need. Pick a request type, add the details, and the property team will be notified and respond as soon as possible.',
         'urgent_warning' => 'Pick Urgent only for genuine emergencies (safety, flooding, electrical).',
         'attachments_helper' => 'Photos help us understand the problem faster. Max 5 files, up to 10 MB each.',
+        'actions' => [
+            'attach_evidence' => 'Attach evidence',
+            'attach_evidence_heading' => 'Evidence of the work on :ref',
+            'evidence_attached' => 'Evidence attached',
+        ],
+        'fields' => [
+            'resolution_evidence' => 'Evidence of the completed work',
+        ],
+        'help' => [
+            'resolution_evidence' => 'Photos of the finished work. Added to what is already there, never replacing it.',
+            'resolution_needs_evidence_notice' => 'This is a maintenance request, so it needs evidence before it can be resolved: attach a photo of the finished work, or raise a work order to do it. Other request types close on their resolution note alone.',
+        ],
         'errors' => [
+            'resolution_needs_notes' => 'Say what was done before marking this resolved. The tenant reads this, and "resolved" on its own tells them nothing.',
             'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
             'portal_needs_tenant' => 'A portal request must have a tenant. For a walk-in or phone call from someone who is not a registered tenant, pick a staff channel instead.',
             'caller_or_tenant_required' => 'Select the tenant, or record the caller\'s name — a request must say who reported it.',

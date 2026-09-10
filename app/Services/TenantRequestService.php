@@ -331,9 +331,28 @@ class TenantRequestService
         //
         // `resolved`, not `closed`: resolving is the act of saying "done"; closing is the
         // administrative follow-up, and a resolved request already cleared this.
+        // Two corrections, both from the staging soak on 2026-09-10 (SW-246), and it was wrong in
+        // BOTH directions:
+        //
+        //  1. It applied to all EIGHT types. A noise COMPLAINT and a parking-permit ACCESS request
+        //     could not be resolved at all — there is no photograph of having spoken to the
+        //     neighbours. `requiresCompletionEvidence()` asks the type, exactly as the decision
+        //     gate below already did; the other seven still owe `resolution_notes` on every resolve,
+        //     and three of them owe an approve/reject as well, so none of them closes on nothing.
+        //
+        //  2. It read `attachments` — the collection the TENANT uploads to from the portal's own
+        //     submission form, i.e. proof of the PROBLEM. So the gate was satisfied by the tenant's
+        //     photo of the fault and let a maintenance request be resolved with no evidence of the
+        //     WORK: vacuous on the one type it was written for. `resolution_evidence` is what the
+        //     operator puts back.
+        //
+        // The exemption is safe because the guard below refuses ANY resolve with no answer — see
+        // `TenantRequestType::requiresCompletionEvidence()` for why the split is ours rather than a
+        // benchmark's, and for the deviation from `SlaSettings::$require_completion_evidence`.
         if ($next === 'resolved'
+            && $request->requiresCompletionEvidence()
             && ! $request->hasLinkedWorkOrder()
-            && ! $request->hasMedia('attachments')) {
+            && ! $request->hasMedia('resolution_evidence')) {
             throw new DomainException(__('admin.tenant_requests.errors.resolution_needs_evidence'));
         }
 
@@ -361,6 +380,16 @@ class TenantRequestService
 
         if ($decision === 'rejected' && blank($extra['decision_reason'] ?? null)) {
             throw new DomainException(__('admin.tenant_requests.errors.rejection_needs_reason'));
+        }
+
+        // **Nothing closes on nothing, and that has to be true in the SERVICE.** Exempting seven
+        // types from the evidence gate above rests on every resolve owing an ANSWER instead — and
+        // that was required on the admin form only, which is the shape the docblock two screens up
+        // already calls out: *a rule enforced in the UI only is a rule the mobile client skips*.
+        // Guarded here so the exemption is honest on every channel (SW-246).
+        if ($next === 'resolved'
+            && blank($extra['resolution_notes'] ?? $request->resolution_notes)) {
+            throw new DomainException(__('admin.tenant_requests.errors.resolution_needs_notes'));
         }
 
         $payload = ['status' => $next];

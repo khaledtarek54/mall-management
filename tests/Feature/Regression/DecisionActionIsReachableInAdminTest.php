@@ -108,7 +108,9 @@ it('does not ask a maintenance request for an answer', function () {
         'category' => 'plumbing',
         'status' => 'in_progress',
     ]);
-    $request->addMediaFromString('x')->usingFileName('fixed.jpg')->toMediaCollection('attachments');
+    // `resolution_evidence` since SW-246 — `attachments` is the TENANT's own upload (proof of the
+    // PROBLEM) and no longer satisfies a proof-of-WORK gate.
+    $request->addMediaFromString('x')->usingFileName('fixed.jpg')->toMediaCollection('resolution_evidence');
 
     Livewire::test(ListTenantRequests::class)
         ->callAction(TestAction::make('changeStatus')->table($request->refresh()), data: [

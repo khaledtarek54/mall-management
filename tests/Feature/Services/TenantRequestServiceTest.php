@@ -45,7 +45,9 @@ it('walks the happy path: submitted → acknowledged → in_progress → resolve
 
     // FR-USR-06 — evidence before resolution. A photo of the completed work is one of the two
     // accepted forms (a linked work order is the other).
-    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
+    // `resolution_evidence` since SW-246 — `attachments` is the TENANT's own upload (proof of the
+    // PROBLEM) and no longer satisfies a proof-of-WORK gate.
+    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('resolution_evidence');
 
     $svc->transition($request, 'resolved', ['resolution_notes' => 'Fixed.']);
     expect($request->fresh()->resolved_at)->not->toBeNull();

@@ -466,19 +466,36 @@ it('never blanks a label where Filament would derive an English one', function (
     // which is precisely where three of the five instances were.
     $offenders = [];
 
+    // ASK WHAT THE COMPONENT IS, NOT WHICH FOLDER IT IS IN. This swept `/Schemas/` only until
+    // 2026-09-10, on the reasoning that a table COLUMN may legitimately carry `label('')` — a
+    // coloured-dot column wants no header — and that `hiddenLabel()` does not exist on a column, so
+    // "fixing" one is a fatal at render (converting the notification centre's icon column turned
+    // every admin page red in AdminPageSmokeTest). Both halves of that are still true; the
+    // CONCLUSION was too coarse. A form component lives in a `/Tables/` file whenever an ACTION
+    // carries a schema, and SW-246 put a `Placeholder->label('')` in exactly such a modal: it
+    // rendered "Evidence required notice" on the Arabic panel and this gate could not see it.
+    //
+    // So every Filament source is read, and each `->label('')` is attributed to the component that
+    // owns it — the nearest `Something::make(` above it. A `*Column` is exempt; anything else is an
+    // offender wherever it lives.
     foreach (filamentSources() as $file) {
-        // FORM schemas only. A table COLUMN may legitimately carry `label('')` — a coloured-dot
-        // column wants no header — and `hiddenLabel()` does not even exist on a column, so
-        // "fixing" one is a fatal at render. Found the hard way: converting the notification
-        // centre's icon column turned every admin page red in AdminPageSmokeTest.
-        if (! str_contains($file, '/Schemas/')) {
-            continue;
-        }
+        $source = (string) file_get_contents($file);
+        $relative = str_replace(base_path().'/', '', $file);
 
-        if (str_contains((string) file_get_contents($file), "->label('')")) {
-            $offenders[] = str_replace(base_path().'/', '', $file);
+        foreach (mb_str_split_positions_of($source, "->label('')") as $position) {
+            $owner = owning_component_before($source, $position);
+
+            // Unattributable, or a column: leave it. Columns are the stated exemption, and a
+            // `->label('')` nobody can attribute is not evidence enough to fail a build on.
+            if ($owner === null || str_ends_with($owner, 'Column')) {
+                continue;
+            }
+
+            $offenders[] = "{$relative} ({$owner})";
         }
     }
+
+    $offenders = array_values(array_unique($offenders));
 
     expect($offenders)->toBe([], "Use `->hiddenLabel()`; `->label('')` renders a derived English label:\n  "
         .implode("\n  ", $offenders));
@@ -546,3 +563,32 @@ it('names every screen in Arabic', function () {
 
     expect($english)->toBe([], "Sidebar entries reading in English on the Arabic panel:\n  ".implode("\n  ", $english));
 })->skip(fn () => ! class_exists(FilamentIcon::class), 'needs Filament');
+
+/** Byte offsets of every occurrence of `$needle` in `$haystack`. */
+function mb_str_split_positions_of(string $haystack, string $needle): array
+{
+    $positions = [];
+    $offset = 0;
+
+    while (($at = strpos($haystack, $needle, $offset)) !== false) {
+        $positions[] = $at;
+        $offset = $at + 1;
+    }
+
+    return $positions;
+}
+
+/**
+ * The component a chained call at `$position` hangs off — the nearest `Something::make(` before it.
+ * Returns the short class name, or null when nothing plausible precedes it.
+ */
+function owning_component_before(string $source, int $position): ?string
+{
+    $before = substr($source, 0, $position);
+
+    if (preg_match_all('/([A-Za-z_][A-Za-z0-9_]*)::make\s*\(/', $before, $matches) === 0) {
+        return null;
+    }
+
+    return end($matches[1]) ?: null;
+}

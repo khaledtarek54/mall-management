@@ -40,7 +40,10 @@ it('walks every legal hop submitted → acknowledged → in_progress → resolve
     expect($req->fresh()->status)->toBe('in_progress');
 
     // FR-USR-06 — evidence before resolution (a photo here; a linked work order is the alternative).
-    $req->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
+    // `resolution_evidence`, not `attachments`: the latter is what the TENANT sent in, and until
+    // SW-246 the gate read it, so the fault photo satisfied the proof-of-work rule. The intent here
+    // was always the finished work — the file is called `done.jpg` — only the collection was wrong.
+    $req->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('resolution_evidence');
 
     svc()->transition($req, 'resolved', ['resolution_notes' => 'Done.']);
     expect($req->fresh()->status)->toBe('resolved');

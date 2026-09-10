@@ -32,9 +32,39 @@
 
 ### Evidence before resolution (FR-USR-06)
 
-A request cannot be marked **resolved** without evidence the work happened — either **an uploaded
-image** (the `attachments` media collection) **or a linked work order** (the module 11 → 26 link).
-Both are proof; either satisfies.
+A **maintenance** request cannot be marked **resolved** without evidence the work happened — either
+**an uploaded image** (the `resolution_evidence` media collection) **or a linked work order** (the
+module 11 → 26 link). Both are proof; either satisfies.
+
+**Evidence is owed by WORK, and only one of the eight types is work (SW-246, 2026-09-10).** This gate
+applied to all of them until then, and it was wrong in both directions. It **blocked** five types
+outright — measured on the staging soak, a noise COMPLAINT and a parking-permit ACCESS request could
+not be resolved at all, because there is no photograph of having spoken to the neighbours and no
+sense in raising a work order to issue a permit; both sat `in_progress` with no legal way forward.
+And it was **vacuous** on the one type it was written for: it read `attachments`, the collection the
+TENANT uploads to from the portal's own submission form, so a photo of the FAULT satisfied a
+proof-of-WORK rule and a maintenance request could be resolved with nothing to show.
+
+`TenantRequestType::requiresCompletionEvidence()` is the answer, the sibling of `requiresDecision()`
+that was already there. Nothing closes on nothing: **every** resolve requires `resolution_notes`, and
+the three types that ASKED for something (permit · access · document) additionally owe an
+approve/reject, and the notes requirement is refused **in the service**, not merely on the form, so
+the exemption holds on the portal and the mobile API too.
+
+That split — **evidence for work, an answer for a question, a decision for a request** — is an
+**Atriom decision**, not a benchmark citation: `docs/benchmarks/fm/02-servicechannel-contractor-loop.md`
+has check-out require a *resolution* (and, where configured, the tenant's confirmation) — never
+anything type-sensitive — and `docs/benchmarks/yardi/` has no service-request material. It is also
+**stricter than its own sibling**: `SlaSettings::$require_completion_evidence` makes the same demand
+on a WORK ORDER optional and ships it off, while a maintenance request is evidenced always. That is
+deliberate (FR-USR-06 mandates it for requests) and is the kind of thing the forecast `request_types`
+table should settle once, as a per-type column the operator owns.
+
+The two collections answer opposite questions and are deliberately separate:
+`attachments` is **proof of the problem** (the tenant's, from the portal) and `resolution_evidence`
+is **proof of the fix** (the operator's, from the *Attach evidence* action). The tenant SEES the
+second one in the portal's Resolution section — a requirement nobody can read is worth little to the
+person who reported the fault.
 
 - Enforced in `TenantRequestService::transition()`, the single gate for **admin + portal + mobile
   API** — a rule enforced in one UI is a rule the other channels skip.

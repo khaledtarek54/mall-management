@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\TenantRequests\Tables;
 
 use App\Enums\TenantRequestType;
+use App\Filament\Actions\EvidenceUpload;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Exports\TenantRequestExporter;
@@ -24,6 +25,7 @@ use Filament\Actions\ExportAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -257,6 +259,44 @@ class TenantRequestsTable
                     ->authorize(fn ($record) => TenantRequestResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => TenantRequestResource::canEdit($record)),
+                // Evidence is attached AS THE WORK IS DONE, not squeezed into the closing
+                // dialog — the shape `FacilityWorkOrdersTable` already uses (`attachEvidence`
+                // then `complete` checks it), and the shape ServiceChannel and Yardi both take.
+                // It writes `resolution_evidence`: proof of the FIX, kept apart from the
+                // `attachments` the TENANT sent in, which are proof of the PROBLEM (SW-246).
+                //
+                // ON THE ROW rather than the record page, and gated on `canChangeStatus` rather
+                // than `canEdit`, for the reason this table is already in
+                // `RowActionPolicy::IN_ROW_EXCEPTIONS`: **`technician` holds `requests.change_status`
+                // and NOT `requests.edit`**, so the record page 403s for exactly the person who did
+                // the work and took the photograph. Putting the verb where the rule says acts belong
+                // would make it unreachable by its only real user.
+                Action::make('attachEvidence')
+                    ->label(__('admin.tenant_requests.actions.attach_evidence'))
+                    ->icon('heroicon-o-camera')
+                    ->color('gray')
+                    ->visible(fn (TenantRequest $record) => TenantRequestResource::canChangeStatus($record))
+                    ->authorize(fn (TenantRequest $record) => TenantRequestResource::canChangeStatus($record))
+                    ->modalHeading(fn (TenantRequest $record) => __('admin.tenant_requests.actions.attach_evidence_heading', ['ref' => $record->reference]))
+                    ->schema([
+                        // Append-only. `appendFiles()` is the whole reason this is the shared
+                        // definition: a plain upload REPLACES the collection, and the completion
+                        // gate reads what an earlier decision may already have rested on.
+                        EvidenceUpload::make('resolution_evidence')
+                            ->label(__('admin.tenant_requests.fields.resolution_evidence'))
+                            ->helperText(__('admin.tenant_requests.help.resolution_evidence')),
+                    ])
+                    ->action(function (TenantRequest $record): void {
+                        // The upload component writes the media itself; this only refuses an
+                        // unauthorised dispatch and says something, because a modal that closes
+                        // in silence reads as a failure.
+                        abort_unless(TenantRequestResource::canChangeStatus($record), 403);
+
+                        Notification::make()->success()
+                            ->title(__('admin.tenant_requests.actions.evidence_attached'))
+                            ->send();
+                    }),
+
                 Action::make('changeStatus')
                     ->label(__('admin.actions.change_status'))
                     ->icon('heroicon-o-arrow-path-rounded-square')
@@ -307,6 +347,22 @@ class TenantRequestsTable
                             ->rows(3)
                             ->required(fn ($get) => $get('status') === 'resolved')
                             ->visible(fn ($get) => $get('status') === 'resolved'),
+                        // A refusal the operator can see coming. The service will reject this
+                        // resolve, and finding that out from a toast AFTER writing the notes is the
+                        // failure `FieldHelp` exists to prevent — so the modal names both ways out
+                        // while there is still something to do about it.
+                        Placeholder::make('evidence_required_notice')
+                            // `hiddenLabel()`, never `label('')` — a blank label is treated as
+                            // UNSET and Filament kebabs the field name into English, so the Arabic
+                            // panel rendered "Evidence required notice" (CLAUDE.md records this
+                            // trap; this module's own form has the right idiom).
+                            ->hiddenLabel()
+                            ->columnSpanFull()
+                            ->content(__('admin.tenant_requests.help.resolution_needs_evidence_notice'))
+                            ->visible(fn ($get) => $get('status') === 'resolved'
+                                && $record->requiresCompletionEvidence()
+                                && ! $record->hasLinkedWorkOrder()
+                                && ! $record->hasMedia('resolution_evidence')),
                     ])
                     ->action(function (TenantRequest $record, array $data) {
                         abort_unless(TenantRequestResource::canChangeStatus($record), 403);

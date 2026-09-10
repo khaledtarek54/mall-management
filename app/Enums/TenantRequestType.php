@@ -105,6 +105,50 @@ enum TenantRequestType: string
         };
     }
 
+    /**
+     * Whether resolving this request has to be EVIDENCED — a photo of the finished work, or the
+     * work order that did it.
+     *
+     * **Evidence is proof that WORK HAPPENED, so it is owed by the one type where work happens.**
+     * FR-USR-06 asks for it *"before a request can be marked complete"*, and that was written when
+     * this module was maintenance-only; module 11 later generalised Maintenance into eight typed
+     * requests and the rule was never generalised with it. Measured on the staging soak 2026-09-10:
+     * a noise COMPLAINT and a parking-permit ACCESS request could not be resolved AT ALL — there is
+     * no photograph of having spoken to the neighbours, and raising a work order to issue a parking
+     * permit is nonsense. Both sat `in_progress` with no legal way forward.
+     *
+     * The other seven close on something they already owe, so nothing is lost by exempting them:
+     * every resolve requires `resolution_notes` — refused in `TenantRequestService::transition()`
+     * itself, not merely on the form, or the exemption would rest on a rule the portal and the
+     * mobile client skip — and the three that ASKED for something additionally owe an approve/reject
+     * through {@see requiresDecision()}.
+     *
+     * **This split is an ATRIOM decision, not a citation.** The nearest benchmark in
+     * `docs/benchmarks/fm/02-servicechannel-contractor-loop.md` has a contractor's check-out require
+     * A RESOLUTION and, where configured, the tenant's confirmation — configuration-sensitive and
+     * never type-sensitive — and `docs/benchmarks/yardi/` carries no service-request material at all.
+     * So nothing here is copied from either; what is borrowed is the shape they share, that closing
+     * work is evidenced while closing a question is answered.
+     *
+     * **And it is STRICTER than its own sibling, which is worth stating** (CLAUDE.md: a deviation is
+     * a deviation in both directions). `SlaSettings::$require_completion_evidence` makes the same
+     * requirement on a WORK ORDER optional and ships it OFF; a maintenance request is evidenced
+     * always. The asymmetry is deliberate — FR-USR-06 mandates it for requests and the work-order
+     * setting answers a different FR — but on an install that switched the work-order rule off, the
+     * request that spawns the job is the stricter of the two. `docs/modules/11` already forecasts the
+     * `request_types` table where this becomes a per-type column and the question can be settled
+     * once, by the operator, rather than in two places by us.
+     *
+     * @see TenantRequestService::transition()  refuses to resolve one of these unevidenced
+     */
+    public function requiresCompletionEvidence(): bool
+    {
+        return match ($this) {
+            self::Maintenance => true,
+            default => false,
+        };
+    }
+
     /** Whether this type is governed by a resolution SLA (drives target_resolution_at). */
     public function hasSla(): bool
     {
