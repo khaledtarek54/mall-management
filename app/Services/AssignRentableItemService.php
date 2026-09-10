@@ -127,6 +127,23 @@ class AssignRentableItemService
     private function holderCanTakeOn(BillableAgreement $holder): bool
     {
         if ($holder instanceof Lease) {
+            // `expired` is deliberately NOT here, and it is the one case worth writing down —
+            // widening it was tried, measured, and reverted (2026-09-10).
+            //
+            // A bay is not like a lease. `rentable_items.status` is a PROJECTION
+            // (`ProjectedState::PROJECTIONS['rentable_item.occupancy']`) whose stated meaning is
+            // that a term ending RELEASES the space to the market, exactly as the same sweep
+            // vacates the unit — and `isHeldOn()`, the double-let guard, reads the same
+            // `active|pending_approval` list. So a bay attached to an `expired` lease reads
+            // AVAILABLE the instant it is attached, can be let to somebody else with no clash
+            // raised, and bills nothing (`isBillableHoldoverFor()` needs `holdover_from`): three
+            // defects, not a feature.
+            //
+            // It is also what Yardi does. Voyager's month-to-month resident is CURRENT, not Past,
+            // and Atriom's counterpart is the CONVERTED holdover — which is `active` and reaches
+            // this line on the first clause. A Voyager *Past* lease acquires no rentable items
+            // either. So continuing a tenancy stays an explicit act (renew, or hold over), and the
+            // bay follows the tenancy rather than outliving it.
             return in_array($holder->status, ['active', 'pending_approval'], true);
         }
 

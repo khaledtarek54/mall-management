@@ -49,7 +49,11 @@ class AssetAreasRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('admin.navigation.areas');
+        // The key the AREAS REGISTER labels itself from, not a second one for the same noun. The
+        // tab shipped pointing at `admin.navigation.areas`, which exists in neither catalogue, so
+        // it rendered the RAW KEY as its title in both languages — the failure `Lang::has()` cannot
+        // see and `TranslationKeyConformanceTest` exists to catch.
+        return __('admin.areas.plural');
     }
 
     public function form(Schema $schema): Schema

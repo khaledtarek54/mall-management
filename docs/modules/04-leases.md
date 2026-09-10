@@ -153,6 +153,111 @@
 > A re-let shop is excluded from the predicate too, so the card cannot offer work the service will
 > decline. (`AnExpiredLeaseCanStillBeHeldOverTest`, mutation-proved.)
 >
+> **⚠️ THE SAME SWEEP MADE THE RENEWAL UNREACHABLE, AND THAT WAS THE COMMONEST OF THE THREE
+> (2026-09-10).** At the end of a term an operator has exactly three answers — hold the tenancy
+> over, close it out, or **renew** — and `expired` shut all three at once for the reason above. Two
+> were fixed as they were reported: holding over on 2026-09-01, closing out on 2026-09-10. Renewing
+> was not, and it is the one that happens most: a renewal is routinely signed **weeks after the old
+> term ran out**, because the parties negotiate while the tenant keeps trading.
+>
+> The only route left was to **convert to holdover first and renew the resumed lease** — which
+> prices those months at the holdover uplift (150% by default) that the parties never agreed to. A
+> workaround that bills the tenant a penalty is not a workaround.
+>
+> **The market standard is to renew from the lease whatever its status.** Yardi renews a Current or
+> Past lease alike, and so do MRI and Entrata; the renewal is dated back to the day after the old
+> term so the **tenancy has no gap**, and the months already elapsed bill on the next run.
+> `Lease::canBeRenewed()` is the ONE predicate the Renew button and `LeaseRenewalService` both read,
+> so the panel can no longer hide work the service would accept. `terminated`, `cancelled` and
+> `renewed` stay refused — each is a person's act with its own successor document — and
+> `Lease::isRenewingAnExpiredTerm()` lifts the immutability hook for the single `expired` → `renewed`
+> write, recognised by SHAPE exactly as its two siblings are, bounded by
+> `HOLDOVER_RESUMPTION_FORBIDS` (not `CLOSE_OUT_FORBIDS`: a close-out MOVES the expiry date, a
+> renewal must not, because the original's term is precisely what the successor continues from).
+>
+> **`isOpenPastItsTerm()` is the predicate extracted on its second real call site** — *the term ran
+> out and the tenancy is still open* — with `awaitsHoldoverDecision()` now composing it. Still open
+> is DERIVED: a tenancy somebody closed carries an immutable termination event, a shop leasing
+> re-let carries a second active lease.
+>
+> **THE GUARD THAT `active` USED TO GIVE FOR FREE.** An active lease holds its own shops, so a
+> renewal could not collide with anything. A lease past its term holds nothing — the sweep vacated
+> every unit that morning — so leasing may legitimately have re-let one while the renewal was being
+> negotiated, and renewing then puts **two active leases on one shop, both billing**, with
+> `Unit::recomputeStatus()` reporting `occupied` either way. Refused on **two deliberately redundant
+> layers**: the predicate's plain read (the sequential case — re-let days ago) and a LOCKING read
+> inside the transaction (the race — a re-let committed while this renewal was in flight, which a
+> plain read there is answered from before). Neither can be mutation-killed alone because each
+> covers for the other; the regression test asserts BOTH, and the race layer is gated by
+> `ConcurrencyPolicy::AUTHORITATIVE_GUARDS`, which already registers
+> `Unit::isActivelyLeasedForUpdate`. The refusal **names the unit**
+> (`Lease::unitLetToSomebodyElse()` returns the shop rather than a flag, so the predicate that
+> refuses and the sentence that explains it cannot disagree), because the fact the operator needs is
+> on the shop and not on the lease.
+>
+> **AND IT IS EVERY UNIT, NEVER THE MASTER POINTER — the review's first finding.** `syncUnits()`
+> re-attaches the original's WHOLE unit set, so guarding `leases.unit_id` guarded one of N. A lease
+> over A-01 + A-02 is vacated on both, and leasing can then sign a new lease with **A-02 as its own
+> master** — legitimately, because the creation guard asks whether A-02 has an ACTIVE lease and this
+> one is `expired`. The renewal then double-booked A-02, and `Lease::totalAreaSqmForPeriod()` counted
+> that shop **twice in the CAM denominator**, mis-apportioning every other tenant in the pool while
+> Σ allocated = actual expense stayed green. The SQL twin `scopeHoldoverNeedingAction()` was widened
+> the same way — through this lease's own `lease_unit` pivot on both sides — or the dashboard card
+> would offer work the service refuses.
+>
+> **THE BAY CARRY BYPASSED THE ONLY DOUBLE-LET GUARD BAYS HAVE — the review's second.** The loop
+> `attach()`es directly, so none of `AssignRentableItemService`'s guards run, `isHeldOn()` included.
+> That was safe while only an `active` lease could be renewed, because such a lease still held its
+> bays. An `expired` one opens a real window: the sweep frees the bay the morning the term ends, an
+> operator lets it to another tenant a fortnight later, and the renewal re-attaches it open-endedly
+> from the day after the old expiry — **two live holdings on one bay**, and the pivot is keyed on
+> `(holder, item, effective_from)` so nothing in the database catches it. Refused now, naming the
+> bay; asked only when the original is `expired`, because for an `active` one its OWN holding makes
+> `isHeldOn()` true and refusing there would drop every bay on every ordinary renewal.
+>
+> **THE CARVE-OUT'S SHAPE NEEDED A SUCCESSOR — the review's third.** The docblock defended
+> `expired` → `renewed` on the panel being closed, which it is (`LeaseForm` never offers `renewed`,
+> `EditLease` halts on `isTerminal()`). **The IMPORTER is not a panel.** `LeaseImporter` accepts
+> `status: renewed` and `resolveRecord()` does `firstOrNew(['reference' => …])`, so one CSV row
+> against an `expired` lease would have rewritten `base_rent_monthly`, `service_charge_monthly`,
+> `term_months` and `security_deposit` — none of them in the denylist, because none is a column the
+> renewal service writes — and marked it `renewed` **with no successor at all**. The shape now also
+> requires a lease pointing back at this one, which the service creates first and an import row
+> cannot fabricate. (The holdover sibling was always tight for the same reason: it additionally
+> requires `holdover_from` to move null → set, a column no other writer touches.)
+>
+> **AND THE MODAL WAS PROMISING A CATCH-UP THAT NEVER COMES.** It first read *"the months since will
+> be billed on the next run"*. They will not: `RunMonthlyBilling` bills exactly
+> `now()->startOfMonth()` and no caller loops over missed periods, so a renewal keyed in September
+> and dated to 1 July invoices September alone and nothing reports the two missing months — a silent
+> revenue leak the operator had been told to expect. It now says they are **not** billed
+> automatically and names the Billing forecast tab, which raises a past period one at a time. A
+> CONVERTED HOLDOVER is excluded from that sentence altogether: its expiry is always past, and those
+> months have already been invoiced at the uplift, so telling the operator they are unbilled invites
+> a second invoice for the same period.
+>
+> **A PARKING BAY IS DELIBERATELY NOT PART OF THIS, and the reverted attempt is the finding.**
+> Widening `AssignRentableItemService` to an `expired` lease was tried and measured: a bay attached
+> to one reads **AVAILABLE the instant it is attached** (`rentable_items.status` is a projection
+> whose stated meaning is that a term ending RELEASES the space, exactly as the same sweep vacates
+> the unit), can be let to somebody else with **no clash raised** (`isHeldOn()`, the double-let
+> guard, reads the same `active|pending_approval` list), and **bills nothing**
+> (`isBillableHoldoverFor()` needs `holdover_from`). Three defects, not a feature. It is also what
+> Yardi does: a Voyager *Past* lease acquires no rentable items, and Voyager's month-to-month
+> resident — Atriom's CONVERTED holdover, which is `active` — is the one who can. Continuing a
+> tenancy stays an explicit act, and the bay follows the tenancy rather than outliving it.
+>
+> **And the carry filter behind it was wrong in the other direction.** The renewal copies
+> `rentable_item_holdings` and deliberately does not copy `effective_to`, but it read the WHOLE
+> holding history — so **every bay the tenant had already given back was re-attached to the renewal
+> open-endedly** and `rebuildCharge()` billed it again, on a document nobody re-reads item by item.
+> Bounded at the **EARLIER of the old expiry and the renewal's commencement**. Expiry is the right
+> answer for the ordinary case — a holding scoped to the old term ends ON the last day, so a
+> commencement-based bound would drop exactly the bays this loop exists to carry — but
+> `commencement_date` is an unbounded picker and an EARLY re-gear (a new term starting before the
+> old one ended) is ordinary retail practice, where a bay live on the day the new term began was
+> being dropped. (`ARenewalCanBeSignedAfterTheTermHasEndedTest`, twelve teeth mutation-proved.)
+
 > **And the premises field stopped being a second, lossy path.** `EditLease::afterSave()` feeds
 > `additional_unit_ids` to `syncUnits()`, which is a `sync()` — so REMOVING a unit there **detached
 > its `lease_unit` row**. That row carries the `effective_from`/`effective_to` that

@@ -137,6 +137,7 @@ return [
         'renew_modal_heading' => 'Renew lease :ref',
         'renew_from_option' => 'Pre-filled from the exercised option (:basis) — change anything the deal moved on.',
         'renew_modal_description' => 'Current term ends :ends. The renewal will start the day after, mark this lease as renewed, and copy its charges.',
+        'renew_modal_description_ended' => 'This term ended :ends. The renewal starts the day after, so the tenancy has no gap, and it marks this lease as renewed and copies its charges. Months already past are NOT billed automatically — raise them from the Billing forecast tab.',
         'lease_renewed' => 'Lease renewed',
         'lease_renewed_body' => 'Created :ref for :months months starting :start.',
         'change_rent' => 'Change rent',

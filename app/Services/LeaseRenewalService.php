@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Unit;
 use App\Support\LeaseTerm;
+use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +25,29 @@ class LeaseRenewalService
         // Fast fail for the obvious case; the AUTHORITATIVE check is re-run under a row lock
         // inside the transaction below — this one is only here so the common mistake gets a clear
         // error without opening a transaction.
-        if ($original->status !== 'active') {
-            throw new InvalidArgumentException("Only active leases can be renewed (lease #{$original->id} is '{$original->status}').");
+        //
+        // `canBeRenewed()`, not `status === 'active'`. The 05:15 `leases:expire` sweep projects a
+        // lease past its term to `expired`, and a renewal is routinely signed WEEKS after the old
+        // term ran out — so an `active`-only guard made renewing possible on the single morning
+        // after a term ended and never again, leaving the holdover uplift as the only way to keep
+        // a tenancy alive. See {@see Lease::canBeRenewed()} for why the other three terminal
+        // statuses stay refused.
+        //
+        // Translated, because the action catches this and shows it to the operator as a toast: it
+        // is the app talking to a person, not a developer error.
+        if (! $original->canBeRenewed()) {
+            // Say WHICH of the two reasons it is. `canBeRenewed()` is one predicate answering a
+            // question with two quite different answers — *this tenancy is closed* and *somebody
+            // else is trading in the shop* — and a renewal refused with "an expired lease cannot
+            // be renewed" sends the operator to look at the lease when the fact they need is on
+            // the unit. A refusal that does not name its cause is a dead end.
+            throw new InvalidArgumentException(
+                ($relet = $original->status === 'expired' ? $original->unitLetToSomebodyElse() : null)
+                    ? __('admin.refusals.lease_unit_already_relet', ['unit' => $relet->code])
+                    : __('admin.refusals.lease_not_renewable', [
+                        'status' => Translate::orHumanized("admin.statuses.lease.{$original->status}", $original->status),
+                    ])
+            );
         }
 
         $termMonths = (int) $data['new_term_months'];
@@ -67,12 +89,63 @@ class LeaseRenewalService
             // it is simply taken second, and every re-check below runs under BOTH locks.
             $original = Lease::query()->lockForUpdate()->find($original->id);
 
-            Unit::query()->lockForUpdate()->find($original?->unit_id ?? 0);
+            // ── EVERY UNIT THE RENEWAL WILL TAKE, NOT JUST THE MASTER ────────────────────────
+            //
+            // `syncUnits()` below re-attaches the original's WHOLE unit set, so the master pointer
+            // is the wrong thing to guard. A lease over A-01 + A-02 whose term ended is vacated on
+            // both by the sweep, and leasing can then sign a new lease with A-02 as ITS master —
+            // legitimately, because `LeaseCreationService` asks whether A-02 has an ACTIVE lease
+            // and this one is `expired`. Renewing afterwards would put two active leases on A-02,
+            // both billing it, and `Lease::totalAreaSqmForPeriod()` would count that shop twice in
+            // the CAM denominator, mis-apportioning every other tenant in the pool while the pool
+            // still ties out.
+            //
+            // Ordered by id so two concurrent renewals take the rows in the same sequence and
+            // cannot deadlock against each other; the lease is still locked FIRST (SW-009c).
+            $unitIds = collect($original?->units()->pluck('units.id')->all() ?: [$original?->unit_id])
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values();
 
-            if (! $original || $original->status !== 'active') {
+            $units = Unit::query()->whereIn('id', $unitIds)->orderBy('id')->lockForUpdate()->get();
+
+            if (! $original || ! $original->canBeRenewed()) {
+                // The same two answers the fast-fail distinguishes — a genuine race lands here, and
+                // "reload the page" is the wrong advice when the fact the operator needs is that
+                // somebody else is trading in the shop.
                 throw new InvalidArgumentException(
-                    'This lease was renewed by another request a moment ago — reload it before renewing again.'
+                    ($relet = $original?->status === 'expired' ? $original->unitLetToSomebodyElse() : null)
+                        ? __('admin.refusals.lease_unit_already_relet', ['unit' => $relet->code])
+                        : __('admin.refusals.lease_changed_while_renewing')
                 );
+            }
+
+            // ── A LEASE PAST ITS TERM DOES NOT HOLD ITS UNITS ────────────────────────────────
+            //
+            // The `active` guard used to carry this guarantee for free: an active lease holds its
+            // own shops, and `LeaseCreationService` refuses a second active lease on one, so a
+            // renewal could not collide with anything. Renewing an `expired` lease loses that —
+            // the sweep vacated every unit the morning the term ran out.
+            //
+            // The hole is SEQUENTIAL rather than a race, which is why the lock alone is not the
+            // answer: the sweep vacates the shop, leasing legitimately re-lets it to somebody
+            // else, and this lease is renewed weeks later — two active leases on one unit, both
+            // billing it every month, with `Unit::recomputeStatus()` reporting `occupied` either
+            // way so nothing looks wrong. Same shape as the guard
+            // `ConvertLeaseToHoldoverService` needed for the same reason.
+            //
+            // A LOCKING read: under MySQL REPEATABLE READ a plain one inside this transaction is
+            // answered from the snapshot taken before the wait, so the guard would look correct
+            // and see nothing.
+            if ($original->status === 'expired') {
+                $relet = $units->first(fn (Unit $u): bool => $u->isActivelyLeasedForUpdate($original->id));
+
+                if ($relet) {
+                    throw new InvalidArgumentException(__('admin.refusals.lease_unit_already_relet', [
+                        'unit' => $relet->code,
+                    ]));
+                }
             }
 
             // ── The payload is DERIVED from $fillable, never enumerated ───────────────────────
@@ -187,7 +260,59 @@ class LeaseRenewalService
             // Read the pivot columns off the relation rather than the model: `$item->pivot` is only
             // typed when the relation declares it, and PHPStan is right that it is not a property
             // of RentableItem.
-            foreach ($original->rentableItems()->get() as $item) {
+            //
+            // **Only the holdings still LIVE ON THE ORIGINAL'S LAST DAY.** The relation carries the
+            // whole HISTORY — a bay given back in month three still has its row, with `effective_to`
+            // set — and this loop deliberately does not carry `effective_to`, so an unfiltered read
+            // re-attached every released bay to the renewal OPEN-ENDEDLY. `rebuildCharge()` then
+            // sums it, and the tenant is billed again for a bay they handed back a year ago, on a
+            // renewal nobody re-reads item by item.
+            //
+            // The bound is the ORIGINAL'S EXPIRY, not the renewal's commencement, and the
+            // difference is the whole rule: a holding scoped to the old term ends ON the last day,
+            // so a commencement-based filter would drop exactly the bays this loop exists to carry
+            // (that is what the sibling assertion in `LeaseRenewalCarriesTermsTest` pins). A bay
+            // released BEFORE the term ended is the one that must not come with it.
+            // The bound is the EARLIER of the old expiry and the renewal's commencement. Expiry is
+            // the right answer for the ordinary case — a holding scoped to the old term ends ON the
+            // last day, so a commencement-based bound would drop exactly the bays this loop exists
+            // to carry — but `commencement_date` is an unbounded picker on the modal, and an EARLY
+            // re-gear (new term starting before the old one ended) is ordinary retail practice. A
+            // bay live on the day the new term began must come with it.
+            $heldUntil = CarbonImmutable::parse($original->expiry_date ?? $commencement);
+
+            if ($commencement->lessThan($heldUntil)) {
+                $heldUntil = $commencement;
+            }
+
+            $stillHeld = fn ($q) => $q
+                ->whereNull('rentable_item_holdings.effective_to')
+                ->orWhereDate('rentable_item_holdings.effective_to', '>=', $heldUntil->toDateString());
+
+            foreach ($original->rentableItems()->where($stillHeld)->get() as $item) {
+                // ── AND THE BAY MUST NOT HAVE BEEN LET TO SOMEBODY ELSE IN THE MEANTIME ───────
+                //
+                // This loop `attach()`es directly, so NONE of `AssignRentableItemService`'s guards
+                // run — including `isHeldOn()`, which is the only double-let guard a bay has. That
+                // was safe while only an `active` lease could be renewed, because such a lease
+                // still held its bays and nobody else could have taken them.
+                //
+                // An `expired` one opens a real window: the sweep frees the bay the morning the
+                // term ends (`reprojectRentableItems()`), an operator lets it to another tenant a
+                // fortnight later, and the renewal then re-attaches it open-endedly from the day
+                // after the old expiry — two live holdings on one bay, overlapping, with the pivot
+                // keyed on `(holder, item, effective_from)` so nothing in the database catches it
+                // and both tenants carrying a `parking` charge for the same space.
+                //
+                // Only asked when the original is `expired`: for an `active` one its OWN holding
+                // makes `isHeldOn()` true, and refusing there would drop every bay on every
+                // ordinary renewal.
+                if ($original->status === 'expired' && $item->isHeldOn(CarbonImmutable::now())) {
+                    throw new InvalidArgumentException(__('admin.refusals.rentable_item_relet_since_term_ended', [
+                        'code' => $item->code,
+                    ]));
+                }
+
                 /** @var Pivot $pivot */
                 $pivot = $item->getRelationValue('pivot');
 

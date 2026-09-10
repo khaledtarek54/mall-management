@@ -70,11 +70,41 @@ class LeaseActions
                 ->label(__('admin.actions.renew'))
                 ->icon('heroicon-o-arrow-path')
                 ->color('success')
-                ->visible(fn ($record) => $record->status === 'active' && LeaseResource::canEdit($record) && auth()->user()?->can('leases.renew'))
+                // `canBeRenewed()`, not `status === 'active'` — the predicate the SERVICE reads, so
+                // the button cannot offer work the service will refuse, or hide work it would
+                // accept. It was the second: `leases:expire` writes `expired` at 05:15 and this
+                // button vanished on a lease the tenant was still trading in.
+                ->visible(fn (Lease $record) => $record->canBeRenewed() && LeaseResource::canEdit($record) && auth()->user()?->can('leases.renew'))
                 ->authorize(fn () => auth()->user()?->can('leases.renew') ?? false)
                 ->modalHeading(fn (Lease $record) => __('admin.actions.renew_modal_heading', ['ref' => $record->reference]))
                 ->modalDescription(function (Lease $record): string {
-                    $base = __('admin.actions.renew_modal_description', ['ends' => $record->expiry_date->format('d/m/Y')]);
+                    // A renewal signed AFTER the old term ran out is dated back to the day after
+                    // it, so the tenancy has no gap — the market-standard answer, and the one
+                    // thing the operator has to be told BEFORE they press the button.
+                    //
+                    // **It says the back months are NOT billed automatically, because they are
+                    // not.** `RunMonthlyBilling` bills exactly one period — `now()->startOfMonth()`
+                    // — and no caller loops over missed ones, so a renewal keyed in September and
+                    // dated to 1 July invoices September alone and nothing reports the two missing
+                    // months. Promising a catch-up that never arrives is the worse half of the
+                    // failure: a silent revenue leak the operator was told to expect.
+                    //
+                    // A CONVERTED HOLDOVER is excluded even though its expiry is always past —
+                    // that is what makes it a holdover. Those months have already been invoiced at
+                    // the uplift (`isBillableHoldoverFor()`), so telling the operator they are
+                    // unbilled would invite a second invoice for the same period.
+                    //
+                    // Its own KEY rather than a sentence appended to the other one: Arabic does
+                    // not put the clause where English does, so composing two fragments in the
+                    // reader's locale is the defect the line narratives exist to prevent.
+                    $base = __(
+                        $record->expiry_date !== null
+                        && $record->expiry_date->startOfDay()->lt(now()->startOfDay())
+                        && ! $record->isConvertedHoldover()
+                            ? 'admin.actions.renew_modal_description_ended'
+                            : 'admin.actions.renew_modal_description',
+                        ['ends' => $record->expiry_date?->format('d/m/Y')],
+                    );
                     $terms = app(ExerciseLeaseOptionService::class)->pendingRenewalTerms($record);
 
                     // Say WHERE the pre-filled numbers came from. A form that silently arrives

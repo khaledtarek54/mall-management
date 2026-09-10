@@ -358,13 +358,21 @@ it('termination leaves the unit reserved (not vacant) while a draft lease still 
 |--------------------------------------------------------------------------
 */
 
-it('termination accepts a pending_approval lease but rejects every other non-active status', function () {
+it('termination accepts a pending_approval or just-ended lease but rejects every other status', function () {
     // pending_approval is explicitly allowed by the service.
     $pending = makeLease($this->unit, attrs: ['status' => 'pending_approval']);
     $result = app(LeaseTerminationService::class)->terminate($pending, []);
     expect($result->status)->toBe('terminated');
 
-    foreach (['draft', 'expired', 'renewed', 'terminated', 'cancelled'] as $status) {
+    // …and so is `expired`, since 2026-09-10. It is a PROJECTION the 05:15 sweep writes, not a
+    // decision somebody took, so closing out a tenancy whose term simply ran out has to stay
+    // reachable — otherwise a tenant who really did leave could be recorded as having left only
+    // between midnight and 05:15 on one morning. Voyager records a move-out against a lease
+    // whether its status is Current or Past for the same reason.
+    $ended = makeLease(makeUnit($this->asset, ['code' => 'G-ended']), attrs: ['status' => 'expired']);
+    expect(app(LeaseTerminationService::class)->terminate($ended, [])->status)->toBe('terminated');
+
+    foreach (['draft', 'renewed', 'terminated', 'cancelled'] as $status) {
         $unit = makeUnit($this->asset, ['code' => 'G-'.$status]);
         $lease = makeLease($unit, attrs: ['status' => $status]);
 
@@ -373,8 +381,19 @@ it('termination accepts a pending_approval lease but rejects every other non-act
     }
 });
 
-it('renewal rejects every non-active status, including pending_approval', function () {
-    // Unlike termination, renewal is strictly active-only.
+it('renewal rejects every status that is not a running or just-ended tenancy', function () {
+    // Renewal accepts `active` and — since 2026-09-10 — an `expired` lease whose term has really
+    // run out and which nobody has closed or re-let, because a renewal is routinely signed weeks
+    // after the old term ended (`ARenewalCanBeSignedAfterTheTermHasEndedTest` owns that case).
+    //
+    // `expired` stays in this list deliberately and passes for a REASON worth keeping: these
+    // fixtures carry the default FUTURE expiry, so their term has not ended at all — an `expired`
+    // row whose dates say otherwise is a data oddity, and `canBeRenewed()` asks the dates rather
+    // than trusting the column.
+    //
+    // No message substring: these refusals are translated now (the action renders them to the
+    // operator as a toast), so asserting an English word would pin the catalogue rather than the
+    // rule — and would pass or fail on the locale the suite happens to run in.
     foreach (['draft', 'pending_approval', 'expired', 'renewed', 'terminated', 'cancelled'] as $status) {
         $unit = makeUnit($this->asset, ['code' => 'R-'.$status]);
         $lease = makeLease($unit, attrs: ['status' => $status]);
@@ -382,7 +401,7 @@ it('renewal rejects every non-active status, including pending_approval', functi
         expect(fn () => app(LeaseRenewalService::class)->renew($lease, [
             'new_term_months' => 12,
             'new_rent' => 11000,
-        ]))->toThrow(InvalidArgumentException::class, 'active');
+        ]))->toThrow(InvalidArgumentException::class);
     }
 });
 

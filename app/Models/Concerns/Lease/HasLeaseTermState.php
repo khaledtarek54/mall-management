@@ -3,6 +3,7 @@
 namespace App\Models\Concerns\Lease;
 
 use App\Models\LeaseEvent;
+use App\Models\Unit;
 use App\Support\ProjectedState;
 // Imported for the `@param Builder` docblocks below: without it they resolve to
 // App\Models\Concerns\Lease\Builder, a class that does not exist — a type annotation naming
@@ -125,11 +126,16 @@ trait HasLeaseTermState
             // in the meantime — and converting then would put two active leases on one shop, both
             // billing. Excluded here as well as refused in the service, so the card cannot offer
             // work the service will decline.
+            // Through THIS lease's own pivot on both sides, never `leases.unit_id`: an additional
+            // unit of a multi-unit lease can be re-let on its own, and a master-only comparison
+            // would leave the card offering work the service now refuses — the drift this scope's
+            // row twin exists to prevent.
             ->whereNotExists(fn ($q) => $q
                 ->selectRaw('1')
                 ->from('leases as relet')
                 ->join('lease_unit as ru', 'ru.lease_id', '=', 'relet.id')
-                ->whereColumn('ru.unit_id', 'leases.unit_id')
+                ->join('lease_unit as mine', 'mine.unit_id', '=', 'ru.unit_id')
+                ->whereColumn('mine.lease_id', 'leases.id')
                 ->where('relet.status', 'active')
                 ->whereColumn('relet.id', '!=', 'leases.id'));
     }
@@ -143,15 +149,102 @@ trait HasLeaseTermState
      */
     public function awaitsHoldoverDecision(): bool
     {
+        return $this->holdover_from === null && $this->isOpenPastItsTerm();
+    }
+
+    /**
+     * The term has run out and the tenancy is STILL OPEN — nobody closed it, nobody re-let the shop.
+     *
+     * Extracted from {@see awaitsHoldoverDecision()} on its second and third real call site, because
+     * holding over is only ONE of the things an operator may do at the end of a term. The other two
+     * — RENEW the lease, and give the tenant another parking bay while that renewal is negotiated —
+     * ask exactly this question, and each was answering it with `status === 'active'`, which the
+     * 05:15 `leases:expire` sweep falsifies every morning. Three readings of "is this tenancy still
+     * running past its end date" is how they come to disagree.
+     *
+     * "Still open" is DERIVED and never a column: a tenancy somebody really closed carries an
+     * immutable termination event, and a shop leasing has since re-let carries a second active
+     * lease. Both facts are already recorded, and reading them is what stops this becoming a fourth
+     * opinion about what `expired` means.
+     *
+     * Says nothing about `holdover_from`: a converted holdover is still open past its term, and it
+     * is the holdover DECISION — not the renewal, and not a parking bay — that has been taken.
+     */
+    public function isOpenPastItsTerm(): bool
+    {
         return in_array($this->status, ['active', 'expired'], true)
-            && $this->holdover_from === null
             && $this->expiry_date !== null
             && $this->expiry_date->startOfDay()->lt(now()->startOfDay())
             && ! $this->events()->where('type', LeaseEvent::TYPE_TERMINATION)->exists()
-            // …and the shop has not been re-let. See the scope for why: the sweep vacates the unit,
-            // so a new tenant may legitimately hold it now, and converting would make two leases
-            // active on one shop.
-            && ! ($this->unit?->isActivelyLeased($this->id) ?? false);
+            // …and no shop of this lease has been re-let. See the scope for why: the sweep vacates
+            // every unit, so a new tenant may legitimately hold one now, and acting would make two
+            // leases active on it.
+            && ! $this->anyUnitIsLetToSomebodyElse();
+    }
+
+    /**
+     * Is ANY unit of this lease already let to somebody else — master or additional?
+     *
+     * The master pointer is the wrong thing to ask. A lease over two shops is vacated on BOTH when
+     * its term ends, and leasing can then sign a new lease with the ADDITIONAL one as its own
+     * master — legitimately, because the creation guard asks whether that unit has an ACTIVE lease
+     * and this one is `expired`. Reading `leases.unit_id` alone would miss it and let a renewal or
+     * a holdover resumption put two active leases on that shop, both billing it, with
+     * `Lease::totalAreaSqmForPeriod()` counting it twice in the CAM denominator.
+     *
+     * `Unit::isActivelyLeased()` already consults the `lease_unit` PIVOT on the other side, so this
+     * is the same question asked from both ends. The pivot is maintained by `LeaseObserver` even
+     * for single-unit paths; the `unit` fallback is for a row written before it fires.
+     */
+    public function unitLetToSomebodyElse(): ?Unit
+    {
+        $units = $this->units()->get();
+
+        if ($units->isEmpty()) {
+            $units = collect(array_filter([$this->unit]));
+        }
+
+        return $units->first(fn (Unit $unit): bool => $unit->isActivelyLeased($this->id));
+    }
+
+    /**
+     * The boolean half of {@see unitLetToSomebodyElse()}.
+     *
+     * It returns the UNIT rather than a flag because the refusal has to name it: told only that
+     * "an expired lease cannot be renewed", the operator goes to look at the lease, and the fact
+     * they need is on the shop. One definition, so the predicate that refuses and the sentence that
+     * explains it can never disagree about which unit is the problem.
+     */
+    private function anyUnitIsLetToSomebodyElse(): bool
+    {
+        return $this->unitLetToSomebodyElse() !== null;
+    }
+
+    /**
+     * May this tenancy be RENEWED?
+     *
+     * **A renewal signed after the term ended is ordinary commercial practice**, not an exception:
+     * the parties negotiate, the tenant trades on, and the document is dated back to the day after
+     * the old term so the tenancy has no gap. Yardi renews from the lease whatever its Current/Past
+     * status, and MRI and Entrata do the same. Atriom refused it — `leases:expire` writes `expired`
+     * at 05:15, `expired` is in {@see TERMINAL_STATUSES}, and both the button and the service asked
+     * for `active`. So a renewal was signable on the single morning after a term ended and never
+     * again, the third door LE-04 shut and the last one still closed.
+     *
+     * The only route left was to convert to HOLDOVER first and renew the resumed lease — which
+     * prices those months at the holdover uplift (150% by default) that the parties never agreed to.
+     * A workaround that bills the tenant a penalty is not a workaround.
+     *
+     * `terminated`, `cancelled` and `renewed` stay refused, and that is not a gap: each is a
+     * decision with its own successor document, and re-renewing a chain that already forked is how
+     * a unit ends up with two live tenancies. An `active` lease is unchanged — including one under
+     * notice, which stays renewable because notice can be withdrawn and that is a decision the
+     * parties may still take.
+     */
+    public function canBeRenewed(): bool
+    {
+        return $this->status === 'active'
+            || ($this->status === 'expired' && $this->isOpenPastItsTerm());
     }
 
     public function isHoldover(): bool

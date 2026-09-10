@@ -399,7 +399,10 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 // terminated lease and changing its rent/status/dates) without freezing housekeeping.
                 $allowed = ['notes', 'metadata', 'updated_at', 'deleted_at'];
                 $blocked = collect($lease->getDirty())->keys()->reject(fn ($k) => in_array($k, $allowed, true));
-                if ($blocked->isNotEmpty() && ! $lease->isResumingFromExpiry() && ! $lease->isClosingOutAnExpiredTerm()) {
+                if ($blocked->isNotEmpty()
+                    && ! $lease->isResumingFromExpiry()
+                    && ! $lease->isClosingOutAnExpiredTerm()
+                    && ! $lease->isRenewingAnExpiredTerm()) {
                     throw new \DomainException(__('admin.refusals.immutable_lease', ['status' => Translate::orHumanized("admin.statuses.lease.{$original}", $original)]));
                 }
             }
@@ -450,6 +453,57 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'previous_lease_id',
         'deleted_at',
     ];
+
+    /**
+     * Is this write RENEWING a lease whose term already ran out?
+     *
+     * The third sibling of {@see isResumingFromExpiry()} and {@see isClosingOutAnExpiredTerm()},
+     * and the last of the three answers an operator can give at the end of a term. `expired` is a
+     * PROJECTION written by `leases:expire` at 05:15 AND a member of {@see TERMINAL_STATUSES}, so
+     * this hook refused all three; hold-over got its carve-out when LE-04 was found unreachable,
+     * closing out got one when the same hole was reported against termination, and renewing — the
+     * commonest of the three, because a renewal is routinely signed weeks after the old term ran
+     * out — stayed refused.
+     *
+     * Recognised by the SHAPE of the write, never by trusting a caller, on the discipline both
+     * siblings follow. `expired` → `renewed` is unambiguous and no form can produce it: `LeaseForm`
+     * never offers `renewed`, and `LeaseRenewalService` writes that status and nothing else.
+     *
+     * The bound is {@see HOLDOVER_RESUMPTION_FORBIDS} rather than {@see CLOSE_OUT_FORBIDS}, and the
+     * difference is `expiry_date`. A close-out MOVES the expiry — that is the day the tenancy
+     * actually ended. A renewal does not: the original\'s term is exactly what the successor
+     * continues from, so moving it here would silently re-date the join between the two documents.
+     */
+    public function isRenewingAnExpiredTerm(): bool
+    {
+        if ($this->getOriginal('status') !== 'expired' || $this->status !== 'renewed') {
+            return false;
+        }
+
+        // ── A SUCCESSOR MUST ALREADY EXIST, AND THAT IS WHAT MAKES THE SHAPE TIGHT ───────────
+        //
+        // The holdover sibling is safe because it additionally requires `holdover_from` to move
+        // null → set, a column no writer but its own service touches. The status pair alone is NOT
+        // that tight, and the panel is the wrong place to look for the hole: `LeaseForm` never
+        // offers `renewed` and `EditLease` halts on `isTerminal()` before saving — but the
+        // IMPORTER is not a form. `LeaseImporter` accepts `status: renewed`, and `resolveRecord()`
+        // does `firstOrNew(['reference' => …])`, so one CSV row against an `expired` lease would
+        // otherwise rewrite `base_rent_monthly`, `service_charge_monthly`, `term_months` and
+        // `security_deposit` — none of them in the denylist below, because none is a column the
+        // renewal service writes — on a lease the system calls immutable, and mark it `renewed`
+        // with no successor at all.
+        //
+        // `LeaseRenewalService` creates the renewal BEFORE it closes the original, so this costs
+        // that path nothing; an import row cannot fabricate a lease pointing back at this one.
+        if (! static::query()->where('previous_lease_id', $this->getKey())->exists()) {
+            return false;
+        }
+
+        return collect($this->getDirty())
+            ->keys()
+            ->intersect(self::HOLDOVER_RESUMPTION_FORBIDS)
+            ->isEmpty();
+    }
 
     /**
      * The commercial terms a resumption may NOT touch — a denylist, deliberately.
