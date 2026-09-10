@@ -6,7 +6,9 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
+use Livewire\Livewire;
 
 /**
  * A tab badge that disagrees with its tab is worse than no badge.
@@ -63,6 +65,7 @@ it('badges a relation manager only where the count matches what the tab shows', 
     expect(count($managers))->toBeGreaterThan(10);
 
     $mismatched = [];
+    $counted = 0;
 
     foreach ($managers as $manager => $resource) {
         $owner = ownerRecordFor($resource);
@@ -81,13 +84,32 @@ it('badges a relation manager only where the count matches what the tab shows', 
             continue;
         }
 
-        $rows = $owner->{$relationship}()->count();
+        // **THE ROWS THE TAB ACTUALLY RETURNS, not the relationship's own count.**
+        //
+        // This test claimed to do that from the day it was written and did not: it compared the
+        // badge against `$owner->{$relationship}()->count()`, which is exactly what the default
+        // `badgeCount()` computes — the default implementation measured against itself, so it
+        // agreed for every manager whatever its table did. Combined with owner records created
+        // EMPTY, every count was 0, every badge null, and `null === null` passed nineteen times.
+        // It went green throughout a live `rows=1 badge=2` defect on a narrowed tab, which is the
+        // one thing it exists to catch. Found by an adversarial review, not by the suite.
+        $rows = Livewire::test($manager, [
+            'ownerRecord' => $owner,
+            'pageClass' => EditRecord::class,
+        ])->instance()->getTable()->getRecords()->count();
+
         $expected = $rows > 0 ? (string) $rows : null;
+        $counted += $rows;
 
         if ($badge !== $expected) {
             $mismatched[] = class_basename($manager)." badge={$badge} rows={$rows}";
         }
     }
+
+    // **AND THE SWEEP MUST HAVE SEEN A ROW.** With every owner record created empty the comparison
+    // is `null === null` for all nineteen — true, and about nothing. This is the assertion whose
+    // absence let the whole file be vacuous.
+    expect($counted)->toBeGreaterThan(0, 'every badged tab was empty — the sweep compared nothing');
 
     expect($mismatched)->toBe([], "A badge must equal the rows its tab shows. Override `badgeCount()`\n"
         ."on the manager to apply the same narrowing its table does, or take the trait off:\n  "
@@ -129,10 +151,18 @@ function ownerRecordFor(string $resource): ?Model
 {
     $model = $resource::getModel();
 
+    // **WITH ROWS IN IT.** An empty owner makes every badge null and every comparison vacuously
+    // true — which is how this file passed while measuring nothing.
     return match ($model) {
-        Lease::class => makeLease(makeUnit(test()->asset)),
-        Tenant::class => makeTenant(),
-        Asset::class => test()->asset,
+        Lease::class => tap(makeLease(makeUnit(test()->asset)), function ($lease) {
+            makeInvoice($lease);
+        }),
+        Tenant::class => tap(makeTenant(), function ($tenant) {
+            makeLease(makeUnit(test()->asset), $tenant);
+        }),
+        Asset::class => tap(test()->asset, function ($asset) {
+            makeUnit($asset);
+        }),
         default => null,
     };
 }

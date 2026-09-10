@@ -1069,6 +1069,27 @@ creating a login, promoting somebody to admin or moving their email left no trac
 unrecorded grant of access to a company's own billing. `password` is fillable there and is in
 `ActivityLogging::CREDENTIALS`, so the trail records THAT a credential changed and never what to.
 
+**AND A CHILD'S ACTIVITY IS STILL THAT CHILD'S MALL'S (2026-09-10).** The subquery named only the
+OWNER, which is enough when the owner IS the property — an `Asset`'s units and floors are its own by
+construction, and narrowing them to the SELECTED mall would empty the property page of every mall but
+the active one. It is not enough for a portfolio-shared owner: a `Tenant` trades in several malls, so
+its LEASES do, and an operator holding one mall was reading the other's lease history off this tab —
+measured, `subject=lease#2` in a mall they do not hold. That is this file's own activity-feed
+invariant (*"a feed that spans every mall is readable only by someone entitled to every mall"*)
+reached through a different door.
+
+The child branch is scoped by the CHILD's own `#[PropertyOwned]`, so a `TenantUser` or a
+`TenantDocument` — the tenant's in every mall — is deliberately left alone, and a host that IS the
+property is skipped. The old comment argued that narrowing a tenant's leases by the selected property
+is wrong; `TenantLeasesRelationManager` has narrowed exactly those leases since 2026-07 with a
+regression test, so that was already contradicted one tab away — what it was really defending is
+dropping FILAMENT's tenancy scope, a different thing and still right.
+
+**Nothing derived from a manager's declared `$relationship` can see this tab**: it declares
+`activitiesAsSubject` (child `Activity`, not property-owned) while its real query is built in
+`getTableQuery()`. So it is asserted by hand in `ATenantsHistoryStopsAtTheMallYouHoldTest` and
+recorded in `CrossPropertyTabs::NOT_CLASSIFIABLE_BY_RELATIONSHIP`, rather than trusted to the sweep.
+
 **CHILDREN is a short, explicit list per host and must stay one.** Almost everything hangs off a
 property or a tenant, so deriving the set would put the entire operational history — invoices,
 payments, credit notes, work orders — on one tab. A property's list is its SPATIAL make-up; a

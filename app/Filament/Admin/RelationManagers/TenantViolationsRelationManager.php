@@ -7,10 +7,12 @@ use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Models\Violation;
 use App\Models\ViolationCategory;
 use App\Support\Filament\PropertyLink;
+use App\Support\PropertyScope;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -46,9 +48,43 @@ class TenantViolationsRelationManager extends RelationManager
         return ViolationResource::canViewAny();
     }
 
+    /**
+     * **THE ONE PREDICATE, so the table and the BADGE cannot disagree.**
+     *
+     * `CountsItsRows` counts the plain relationship, and its own docblock forbids using it
+     * unmodified on a manager that narrows: *"a tab that shows two rows under a badge saying five
+     * is worse than an unbadged tab"*. Here it would have been worse than unreconcilable — the
+     * badge counts the very rows the table refuses to show, so it reported *"this retailer has 1
+     * violation you are not allowed to read"* and handed back as a NUMBER exactly what the scope
+     * withholds as rows. Measured before this override: `rows=1 badge=2`.
+     */
+    protected static function scoped(Builder $query): Builder
+    {
+        return PropertyScope::apply($query, Violation::class, static::class);
+    }
+
+    /**
+     * `getQuery()` because the relation is a `HasMany`, and what the scope narrows is the query
+     * underneath it — the same query `modifyQueryUsing` is handed.
+     */
+    protected static function badgeCount(Model $ownerRecord): int
+    {
+        return static::scoped($ownerRecord->violations()->getQuery())->count();
+    }
+
     public function table(Table $table): Table
     {
         return $table
+            // **A TENANT'S VIOLATIONS ARE THIS MALL'S, NOT EVERY MALL'S.** A tenant is
+            // `#[PortfolioShared]` — one retailer trades in several malls — so this relationship
+            // spans the portfolio and an operator holding one mall was reading another's compliance history
+            // from it. Five of the nine sibling tabs on this page narrow by
+            // property; these two were scoped by nothing at all, which is the shape a hand-picked isolation sweep leaves behind: the
+            // 2026-07 sweep proved three of the nine tables under a shared owner and the rest were
+            // never asked. Yardi scopes a customer's activity by the property you are in, and this
+            // now reads the model's own `#[PropertyOwned]` rather than inventing a sixth spelling
+            // of the rule — see App\Support\PropertyScope.
+            ->modifyQueryUsing(fn (Builder $query) => static::scoped($query))
             // No search box: a violation is identified by its date and category, and `Violation`
             // carries no search blob — a box that matches nothing reads as "no such violation".
             ->searchable(false)
@@ -87,12 +123,11 @@ class TenantViolationsRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.open'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    // THE PROPERTY COMES FROM THE ROW. This tab is NOT scoped to a property at all
-                    // — a tenant's violations are listed wherever they trade — so with the switcher on
-                    // another mall `getUrl()` named that mall while pointing at this row, and the
-                    // target resource is `ScopesToProperty`: a 404 off a row on screen. Measured on
-                    // the box as `/admin/VP/units/13/edit` for a Nile Gate unit, through the
-                    // property page's own version of this defect.
+                    // The property comes from the ROW, and now that this tab narrows to the mall
+                    // in scope that is belt and braces — as it already is on the sibling tabs.
+                    // It is written this way so the answer to "which mall is this row in" does not
+                    // depend on a scoping decision made in another file, and so the link gate needs
+                    // no exemption list.
                     ->url(fn (Violation $record): ?string => PropertyLink::to(ViolationResource::class, $record))
                     // A ROW WITH NO PROPERTY GETS NO BUTTON, and one in a mall this operator cannot
                     // enter gets none either — `PropertyLink::to()` answers null for both, and an

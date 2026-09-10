@@ -325,6 +325,109 @@ instead. **The whole resolution sits inside the guard, not just the URL build** 
 the `getUrl()` call would turn a missing parent into a 500 on the tab rather than one dropped
 button.
 
+## A RECORD-PAGE TAB IS A THIRD SURFACE, AND IT WAS THE UNSWEPT ONE (2026-09-10)
+
+Isolation was being proved on two surfaces and there are three. `PropertyIsolationConformanceTest`
+proves every RESOURCE is classified, scoped and write-guarded; `ARestrictedOperatorSeesOneMallTest`
+drives every admin LIST and reads the rows back. **Neither can see a RELATION MANAGER** — a tab
+builds its query from `$owner->relation()`, and no resource's `getEloquentQuery()` is involved at any
+point.
+
+Sixty-seven exist. Coverage was **five**, across two files and two occasions — four from the 2026-07
+adversarial sweep, one from SW-191 — so sixty-two had never been asked.
+
+**A tab can leak when both halves hold**, and both are read off this document's own register:
+
+- the CHILD is `#[PropertyOwned]` — it belongs to one mall, so there is something to leak;
+- the OWNER is neither `#[PropertyOwned]` nor `#[PropertyItself]` — a portfolio-shared master whose
+  children are spread across malls.
+
+**Both exclusions are DERIVED, and the second matters most.** An owner that is itself property-owned
+is only reachable inside the operator's own scope, so its children are too. And `Asset` is
+`#[PropertyItself]`: its Units, Floors, Areas and Rentable-items tabs list the property's OWN rows,
+and narrowing those to the SELECTED mall would empty the property page of every mall except the
+active one — the opposite of what that page is for. Excluding those four by name would have been a
+list; excluding them by attribute means the next such tab is right by being what it is.
+
+**Nine tabs qualify. Seven scoped, in FIVE different spellings** — `whereHas('unit', …whereIn)`, a
+bare `whereIn('asset_id', …)`, an `->inProperties()` scope, a borrowed
+`StockMovementResource::scopeToProperty()`, and a visible-ids argument passed into a service — and
+**two were scoped by nothing at all**: a tenant's **violations** and their **declared sales**, both
+readable from any mall that tenant traded in by an operator holding one of them. Turnover is the
+figure percentage rent is billed on.
+
+**`App\Support\PropertyScope` is that rule extracted on its second real call site.** It is the body
+`ScopesToProperty` always had — the trait delegates to it and keeps its own resource-facing name and
+refusal wording — so the tenth tab cannot invent a sixth spelling. That trait's docblock records
+that it replaced sixteen `getEloquentQuery()` bodies doing one job; the same drift then happened one
+layer down where no trait was watching, which is the argument for extracting rather than for a ninth
+careful call site.
+
+### Three things on that page leak WITHOUT returning a row
+
+All three were found by an adversarial review of the fix, not by the fix's own tests.
+
+**The BADGE is the same disclosure as a row.** `CountsItsRows` counts the plain relationship, so a
+narrowed tab hands back as a NUMBER exactly what its scope withholds — measured `rows=1 badge=2`,
+and for a tenant with nothing in the operator's mall, an empty table under a badge saying **1**:
+*"this retailer has 1 violation you are not allowed to read"*. The trait's own docblock already
+forbade the combination in writing. Each narrowed tab names its predicate ONCE and both the table
+and `badgeCount()` read it.
+
+**The TAB'S OWN VISIBILITY.** `TenantSalesDeclarations::canViewForRecord()` asked EVERY lease
+portfolio-wide, so the tab appeared for a tenant whose only percentage-rent lease is in a mall the
+operator does not hold — a heading over a table that can never fill, which that gate's own reasoning
+says reads as *"they have not declared"* rather than *"there is nothing to declare"*.
+
+**The ACTIVITY FEED, which was the real leak.** `ShowsItsChildrensActivity` widens a record's audit
+trail to its children's — for a tenant that includes its LEASES — and the subquery named only the
+owner. Measured: an operator holding one mall read `subject=lease#2`, in a mall they do not hold.
+That is the invariant this repo already states for the activity LOG (*"a feed that spans every mall
+is readable only by someone entitled to every mall"*) reached through a different door. The old
+comment there argued that narrowing a tenant's leases by the selected property is wrong;
+`TenantLeasesRelationManager` has narrowed exactly those leases since 2026-07 with a regression
+test, so that argument was already contradicted one tab away — what it was really defending is
+dropping FILAMENT's tenancy scope, a different thing and still right. The child branch is scoped by
+the CHILD's own declaration, so a `TenantUser` or `TenantDocument` — the tenant's in every mall — is
+deliberately left alone.
+
+### The gate is BEHAVIOURAL, and that is the point
+
+Five correct spellings mean a source check proves nothing: it passes on all five and on a sixth that
+is subtly wrong. `ARecordPagesTabsShowOneMallTest` derives the at-risk set, puts one row in the
+operator's mall and one in a mall they do not hold, mounts each tab as an operator assigned to ONE
+mall, and reads the rows AND the badge back. **A tab in the at-risk set with no fixture FAILS**
+rather than being skipped, and the set size is PINNED — a floor of "more than nothing" is satisfied
+by a derivation that has stopped matching almost everything, which was demonstrated by mutating
+`atRisk()` to return one tab and watching the file stay green.
+
+**No mall is selected, deliberately.** `TenantScope::visibleAssetIds()` answers `[the selected
+tenant]` without consulting `AssignedAssets` the moment a tenant is set, so selecting a mall would
+make every guard answer correctly because of the SELECTION and never because of the ASSIGNMENT — the
+file would pass with the assignment deleted. `AdversarialSweepRegressionTest` states the same
+premise for the same reason.
+
+**A row is identified by CLASS AND KEY, never by key alone.** The tenant LEDGER tab is fed from
+`->records([...])` and numbers its array rows by POSITION while carrying the real record under
+`model`, so reading `$row['id']` compares an invoice id against 0 — and because that tab interleaves
+invoices and payments, a bare key would let a payment vouch for an invoice of the same id.
+
+**The sweep's one blind spot is recorded, not implied away.** A tab is classified by its declared
+`$relationship`, and two managers declare one their table never queries — the activity tab is why
+that matters, and it is covered by hand in `ATenantsHistoryStopsAtTheMallYouHoldTest` and listed in
+`CrossPropertyTabs::NOT_CLASSIFIABLE_BY_RELATIONSHIP`.
+
+**The other panels are out of scope by derivation, not omission.** The portal has one relation
+manager (on a property-owned owner) and the vendor panel none, and neither scopes on PROPERTY: a
+tenant is scoped to their own records and a contractor to the jobs dispatched to them
+(`VendorScope`). A property scope on either would be the wrong axis.
+
+**Swept and measured elsewhere, so the claim is bounded:** of the admin PAGES that query a
+property-owned model, all but one scope, and that one (`Settings`) asks a portfolio-wide `exists()`
+to lock a portfolio-wide accounting setting and discloses no row; all fourteen such WIDGETS scope.
+There are no `getRelationManagers()` overrides and no `ManageRelatedRecords` pages, so `getRelations()`
+is the complete registry.
+
 ## The self-enforcing gate
 
 **[`tests/Feature/Scenarios/PropertyIsolationConformanceTest.php`](../tests/Feature/Scenarios/PropertyIsolationConformanceTest.php)**

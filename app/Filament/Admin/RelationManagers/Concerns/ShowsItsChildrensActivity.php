@@ -2,8 +2,12 @@
 
 namespace App\Filament\Admin\RelationManagers\Concerns;
 
+use App\Support\Attributes\PropertyItself;
+use App\Support\PropertyIsolation;
+use App\Support\PropertyScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use ReflectionClass;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -34,6 +38,43 @@ trait ShowsItsChildrensActivity
      */
     abstract protected function activityChildren(): array;
 
+    /**
+     * **A CHILD'S ACTIVITY IS STILL THAT CHILD'S MALL'S.**
+     *
+     * The subquery names the OWNER, which is enough when the owner is the property itself — an
+     * `Asset`'s units and floors are its own by construction, and narrowing them to the SELECTED
+     * mall would empty the property page of every mall but the active one. It is NOT enough when
+     * the owner is a portfolio-shared master: a `Tenant` trades in several malls, so its leases do
+     * too, and an operator holding one mall was reading the other's lease history off this tab —
+     * measured, `subject=lease#2` where lease 2 is in a mall they do not hold. That is the
+     * invariant CLAUDE.md already states for the activity LOG (*"a feed that spans every mall is
+     * readable only by someone entitled to every mall"*), reached through a different door.
+     *
+     * The old comment here argued that narrowing a tenant's leases by the selected property is
+     * wrong. `TenantLeasesRelationManager` has narrowed exactly those leases since 2026-07, with a
+     * regression test — so that argument was already contradicted one tab away; what it was really
+     * defending is dropping FILAMENT's tenancy scope, which is a different thing and still right.
+     *
+     * Both halves are DERIVED from the register, so a new child or a new owner is right by being
+     * what it is: a child that is not `#[PropertyOwned]` has no property to narrow by (a
+     * `TenantUser` is the tenant's, in every mall), and an owner that IS the property needs none.
+     */
+    protected function scopeChild(Builder $query, string $child): Builder
+    {
+        $owner = $this->getOwnerRecord();
+
+        if (! PropertyIsolation::isOwned($child) || static::ownerIsTheProperty($owner::class)) {
+            return $query;
+        }
+
+        return PropertyScope::apply($query, $child, static::class);
+    }
+
+    protected static function ownerIsTheProperty(string $model): bool
+    {
+        return (new ReflectionClass($model))->getAttributes(PropertyItself::class) !== [];
+    }
+
     public function getTableQuery(): Builder
     {
         /** @var Model $owner */
@@ -58,13 +99,14 @@ trait ShowsItsChildrensActivity
 
                             $q->orWhere(fn (Builder $inner) => $inner
                                 ->where('subject_type', $model->getMorphClass())
-                                // `withoutGlobalScopes()` because this is a SUBQUERY of ids the tab
-                                // has already scoped by naming the owner — leaving the panel's
-                                // tenancy scope on it would narrow a child by whichever property
-                                // happened to be selected, which for a tenant's leases is wrong.
-                                ->whereIn('subject_id', $child::query()
+                                // `withoutGlobalScopes()` drops FILAMENT's tenancy scope, which
+                                // keys on whichever property is selected and is meaningless on a
+                                // child reached through its owner. It does NOT mean unscoped: see
+                                // `scopeChild()` — the property constraint that belongs here is the
+                                // CHILD's own, read off its `#[PropertyOwned]`.
+                                ->whereIn('subject_id', $this->scopeChild($child::query()
                                     ->withoutGlobalScopes()
-                                    ->where($foreignKey, $owner->getKey())
+                                    ->where($foreignKey, $owner->getKey()), $child)
                                     ->select('id')));
                         }
                     }));

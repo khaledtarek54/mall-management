@@ -78,11 +78,33 @@ Across every sweep so far it has found something real in **every** change, and o
 finding was **in the fix itself**. Verify each finding against the code before acting — refute the
 wrong ones out loud. Then fix, and add a test per finding.
 
-## 7. Docs are part of "done"
+## 7. Docs are part of "done" — EVERY doc the change touched, in the SAME commit
 
-Same commit: the module `docs/modules/NN-*.md`, and the `CLAUDE.md` invariant if the rule is
-cross-cutting. Edit the existing home; never open a parallel one. Never hand-type a count a
-registry already holds.
+**A stale doc is worse than a missing one**, because the reader cannot tell which of two statements
+is current and acts on the wrong one. So this is not "update the module doc": it is *leave no
+document saying something the change just made untrue*.
+
+**Update, in the same commit:**
+
+- the module `docs/modules/NN-*.md` — *Business rules*, *Extension points*, *Gotchas*;
+- the cross-cutting home if the rule is cross-cutting — `CLAUDE.md` invariant, and the topic's own
+  document (`docs/PROPERTY-ISOLATION.md`, `docs/accounting/CHANGE-IMPACT-PLAN.md`, …);
+- `docs/STATUS.md` if the change closes or opens something on it, and `docs/ROADMAP.md` if it
+  finishes a listed item — **tick it there, never leave the work done and the row open**;
+- `docs/gap-analysis/README.md` if it closes a gap;
+- `docs/api/MOBILE-API.md` + the sync brief + `composer api-spec` for ANY `/api/v1` change — the app
+  is a second codebase and the docs ARE the sync;
+- the GENERATED blocks, by running the command, never by typing:
+  `atriom:dump-system-census` · `atriom:dump-registries` · `atriom:dump-admin-manifest` ·
+  `atriom:dump-handbook-data`. `GeneratedDocsConformanceTest` fails on drift.
+
+**Then SWEEP for what the change falsified.** Grep the docs for the old behaviour, the old count,
+the old class name, the method you just moved or deleted. A rule that moved leaves some docs red and
+some quietly wrong, and only the red ones get noticed — the same trap as a moved declaration
+blinding a gate. Counts and lists a registry already holds are never hand-typed.
+
+**Edit the existing home; never open a parallel one.** If a topic already has a document, add to it.
+Two documents on one subject is how the stale one survives.
 
 ## 8. Commit and push
 

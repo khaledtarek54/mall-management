@@ -4,12 +4,15 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
+use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Support\Filament\PropertyLink;
+use App\Support\PropertyScope;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -61,8 +64,36 @@ class TenantSalesDeclarationsRelationManager extends RelationManager
      */
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
+        // **ASKED OF THE LEASES IN SCOPE, NOT OF EVERY LEASE.** Now that the table narrows, an
+        // unscoped question here puts the tab on screen for a tenant whose only percentage-rent
+        // lease is in a mall this operator does not hold — badge, heading, and a table that can
+        // never return a row. That is precisely the state this gate's own reasoning exists to
+        // prevent: an empty table reads as "they have not declared", not as "there is nothing to
+        // declare". Measured before this: tab visible, rows 0.
         return TenantSalesDeclarationResource::canViewAny()
-            && $ownerRecord->leases()->get()->contains(fn ($lease) => $lease->requiresSalesReporting());
+            && PropertyScope::apply($ownerRecord->leases()->getQuery(), Lease::class, static::class)
+                ->get()
+                ->contains(fn ($lease) => $lease->requiresSalesReporting());
+    }
+
+    /**
+     * **THE ONE PREDICATE, so the table and the BADGE cannot disagree.** See the note on
+     * `TenantViolationsRelationManager::scoped()` — `CountsItsRows` counts the plain relationship,
+     * which here would report as a NUMBER exactly the turnover rows the scope withholds.
+     * Measured before this override: `rows=1 badge=2`.
+     */
+    protected static function scoped(Builder $query): Builder
+    {
+        return PropertyScope::apply($query, TenantSalesDeclaration::class, static::class);
+    }
+
+    /**
+     * `getQuery()` because the relation is a `HasMany`, and what the scope narrows is the query
+     * underneath it — the same query `modifyQueryUsing` is handed.
+     */
+    protected static function badgeCount(Model $ownerRecord): int
+    {
+        return static::scoped($ownerRecord->salesDeclarations()->getQuery())->count();
     }
 
     public function table(Table $table): Table
@@ -71,7 +102,16 @@ class TenantSalesDeclarationsRelationManager extends RelationManager
             // `lease.unit` is the chain `PropertyLink` walks to answer which mall each row belongs
             // to, and the Open action below asks that PER ROW — so without this the fix for a
             // cross-property 404 would ship two queries a row in its place.
-            ->modifyQueryUsing(fn ($query) => $query->with(['lease.unit']))
+            // **A TENANT'S DECLARED SALES ARE THIS MALL'S, NOT EVERY MALL'S.** A tenant is
+            // `#[PortfolioShared]` — one retailer trades in several malls — so this relationship
+            // spans the portfolio and an operator holding one mall was reading another's turnover figures
+            // from it. Five of the nine sibling tabs on this page narrow by
+            // property; these two were scoped by nothing at all, which is the shape a hand-picked isolation sweep leaves behind: the
+            // 2026-07 sweep proved three of the nine tables under a shared owner and the rest were
+            // never asked. Yardi scopes a customer's activity by the property you are in, and this
+            // now reads the model's own `#[PropertyOwned]` rather than inventing a sixth spelling
+            // of the rule — see App\Support\PropertyScope.
+            ->modifyQueryUsing(fn (Builder $query) => static::scoped($query->with(['lease.unit'])))
             // No search box: a declaration is identified by its PERIOD, which is a date column, and
             // `TenantSalesDeclaration` carries no search blob. TableDefaults would otherwise render
             // a box that matches nothing — indistinguishable from "no such declaration", which is
@@ -119,12 +159,11 @@ class TenantSalesDeclarationsRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.open'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    // THE PROPERTY COMES FROM THE ROW. This tab is NOT scoped to a property at all
-                    // — a tenant's declarations are listed wherever they trade — so with the switcher on
-                    // another mall `getUrl()` named that mall while pointing at this row, and the
-                    // target resource is `ScopesToProperty`: a 404 off a row on screen. Measured on
-                    // the box as `/admin/VP/units/13/edit` for a Nile Gate unit, through the
-                    // property page's own version of this defect.
+                    // The property comes from the ROW, and now that this tab narrows to the mall
+                    // in scope that is belt and braces — as it already is on the sibling tabs.
+                    // It is written this way so the answer to "which mall is this row in" does not
+                    // depend on a scoping decision made in another file, and so the link gate needs
+                    // no exemption list.
                     ->url(fn (TenantSalesDeclaration $record): ?string => PropertyLink::to(TenantSalesDeclarationResource::class, $record))
                     // A ROW WITH NO PROPERTY GETS NO BUTTON, and one in a mall this operator cannot
                     // enter gets none either — `PropertyLink::to()` answers null for both, and an

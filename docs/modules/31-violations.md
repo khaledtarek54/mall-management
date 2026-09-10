@@ -265,3 +265,18 @@ time. Each row's full claim and evidence is in [docs/qa/DEEP-SWEEP-2026-09-01.md
 ### SW-128
 
 **A billed violation is frozen against its own invoice, and the predicate is named once (SW-128, 2026-09-04).** `BillViolationFineService` writes the fine invoice's only line as \":reference (:category) — :date\" and derives the invoice's period from that date's own month, so the CATEGORY LABEL and the DATE are quoted on the document the tenant is served with. The form froze the property, the tenant and the amount once billed — three copies of `$record?->isBilled() ?? false` — and left those two open, which is the shape this repository keeps recording: the copies that were made are the ones somebody was thinking about, and the fields nobody copied onto were the two that reach the paper. `ViolationForm::isBilled()` is now the ONE predicate all five fields read, and `ViolationForm::lockedHint()` is the sentence they show while locked, because a field that has silently stopped accepting input reads as a broken form. It names the escape — cancel the fine invoice, the one status that frees `isBilled()` — and it REPLACES `fine_amount`'s standing hint (\"recorded only, not billed\"), which is actively false once billed. Nothing propagates to the issued invoice: an issued document is evidence, and the correction is cancel-and-re-bill. Note the Filament semantics this rests on: `disabled()` calls `saved(false)`, so the value is never dehydrated into the save — but `isValidatedWhenNotDehydrated` still defaults to true, so a disabled required field validates against the value it already holds and the submit is not refused.
+
+### Property isolation on the tenant page (2026-09-10)
+
+A tenant is `#[PortfolioShared]` — one retailer trades in several malls — so the **Violations** tab on a
+tenant's record page lists rows that span the portfolio. It was scoped by nothing, so an operator
+holding one mall read another's compliance history. It narrows now, through
+`App\Support\PropertyScope` (the model's own `#[PropertyOwned]`), like the five sibling tabs
+beside it.
+
+**The badge narrows with it.** `CountsItsRows` counts the plain relationship, so the tab handed back
+as a NUMBER exactly what the scope withholds as rows — measured `rows=1 badge=2`. The table and
+`badgeCount()` read ONE predicate on the manager so they cannot drift.
+
+Full reasoning: [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md#a-record-page-tab-is-a-third-surface-and-it-was-the-unswept-one-2026-09-10).
+Gate: `tests/Feature/Scenarios/Isolation/ARecordPagesTabsShowOneMallTest.php`.

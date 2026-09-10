@@ -2,10 +2,8 @@
 
 use App\Filament\Admin\RelationManagers\AssetRentableItemsRelationManager;
 use App\Filament\Admin\RelationManagers\AssetUnitsRelationManager;
-use App\Filament\Admin\RelationManagers\TenantViolationsRelationManager;
 use App\Filament\Admin\Resources\Assets\Pages\EditAsset;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
-use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Models\Asset;
 use App\Models\RentableItem;
 use App\Models\Violation;
@@ -125,50 +123,34 @@ it('is a dead end and not a refusal when a link names the wrong property', funct
 });
 
 /**
- * **THE SAME DEFECT THROUGH A DIFFERENT DOOR — and this one is not about a portfolio-wide OWNER.**
+ * **THE SAME DEFECT THROUGH A DIFFERENT DOOR — and the premise this test shipped with was WRONG.**
  *
- * A tenant's page IS narrowed to the selected mall (`TenantResource` scopes through `leases.unit`),
- * so the tenant on screen always trades here. Its TABS are another matter, and they are not all
- * alike — which is the distinction the first version of this test got wrong.
+ * The version committed in `eca4b178` drove a VIOLATION on the tenant page and asserted the link
+ * named the row's own mall, under a docblock stating that *"the violations and sales-declaration
+ * tabs are scoped by nothing at all… those rows really do span malls"*. That sentence described a
+ * BUG and treated it as a design decision. It was the leak — an operator holding one mall was
+ * reading another's compliance history and declared turnover — and those two tabs narrow now, like
+ * the five siblings beside them. See `ARecordPagesTabsShowOneMallTest`.
  *
- * The violations and sales-declaration tabs are scoped by **nothing at all**: a tenant's compliance
- * history is listed wherever they trade. Those rows really do span malls, so the property is a fact
- * about each ROW and `App\Support\Filament\PropertyLink` is what reads it — the resolver
- * `NotificationLink` already had for building deep links from a queue worker, where there is
- * likewise no switcher to read.
+ * So no tenant tab can return a row from a mall the reader does not hold, and the cross-mall case
+ * is **unreachable through the panel** — which is the stronger fix, not a weaker test. Proving
+ * `PropertyLink` therefore belongs at the SEAM, where the question can still be asked honestly.
  *
- * The invoices and requests tabs narrow with `TenantScope::visibleAssetIds()`, and that method
- * answers the **SELECTED** property for any real tenant, super_admin included — so no away row can
- * reach those screens. **This test is written against a VIOLATION for exactly that reason.** Its
- * first version drove the invoices tab and handed the action a record the tab's own query can never
- * return, which is green whether the fix is there or not: the reachable-inputs trap, found in
- * review rather than by the suite.
+ * `PropertyLink` stays on all four tabs and is now belt and braces on every one of them. That is
+ * deliberate: the answer to *which mall is this row in* should not depend on a scoping decision
+ * made in another file, and the alternative is an exemption list on the link gate naming the tabs
+ * that happen to be narrow this week.
  */
-it('opens a tenant-tab row in the property that row belongs to', function () {
-    // One retailer, two malls — the whole precondition. With a single-mall tenant the switcher and
-    // the row agree and the bug is invisible, which is why it survived.
+it('names the row\'s own property, on a record the reader holds', function () {
     $tenant = makeTenant();
-    makeLease(makeUnit($this->selected), $tenant);
+    $invoice = makeInvoice(makeLease(makeUnit($this->looking), $tenant));
 
-    $away = Violation::create([
-        'asset_id' => $this->looking->id,
-        'tenant_id' => $tenant->id,
-        'description' => 'Shutter left open after trading hours',
-        'violation_date' => '2026-09-01',
-        'status' => 'open',
-    ]);
-
-    asTenant($this->selected, function () use ($tenant, $away) {
-        $tab = Livewire::test(TenantViolationsRelationManager::class, [
-            'ownerRecord' => $tenant,
-            'pageClass' => EditTenant::class,
-        ]);
-
-        // The row must actually be ON the screen — assert it through the table's own query, or the
-        // link assertion below is about a row nobody can click.
-        expect($tab->instance()->getTable()->getRecords()->pluck('id')->all())->toContain($away->id);
-
-        $tab->assertTableActionHasUrl('open', url("/admin/PA/violations/{$away->id}/edit"), $away);
+    asTenant($this->selected, function () use ($invoice) {
+        // The CONTROL first — a resolver answering null for everything would satisfy the refusal in
+        // the test below and break every link in the panel.
+        expect(PropertyLink::to(InvoiceResource::class, $invoice))
+            ->toContain("/admin/PA/invoices/{$invoice->id}/edit")
+            ->not->toContain('/admin/VP/');
     });
 });
 

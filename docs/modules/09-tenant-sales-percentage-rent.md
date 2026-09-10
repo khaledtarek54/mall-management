@@ -985,3 +985,18 @@ signal the report exists to give; under the calendar rule they read 25.09%, whic
 the truth. `mtd`/`ytd` deliberately keep the running month — that is what *to date* means. Also
 fixed in passing, found while measuring: `subMonths(11)` OVERFLOWS off a 31st, so the "rolling 12
 months" was silently eleven in five months of the year.
+
+### Property isolation on the tenant page (2026-09-10)
+
+A tenant is `#[PortfolioShared]` — one retailer trades in several malls — so the **Declared sales** tab on a
+tenant's record page lists rows that span the portfolio. It was scoped by nothing, so an operator
+holding one mall read another's declared turnover — the figure percentage rent is billed on. It narrows now, through
+`App\Support\PropertyScope` (the model's own `#[PropertyOwned]`), like the five sibling tabs
+beside it.
+
+**The badge narrows with it.** `CountsItsRows` counts the plain relationship, so the tab handed back
+as a NUMBER exactly what the scope withholds as rows — measured `rows=1 badge=2`. The table and
+`badgeCount()` read ONE predicate on the manager so they cannot drift.
+
+Full reasoning: [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md#a-record-page-tab-is-a-third-surface-and-it-was-the-unswept-one-2026-09-10).
+Gate: `tests/Feature/Scenarios/Isolation/ARecordPagesTabsShowOneMallTest.php`.

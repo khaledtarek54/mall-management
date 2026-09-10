@@ -3,10 +3,8 @@
 namespace App\Filament\Admin\Resources\Concerns;
 
 use App\Support\Attributes\PropertyOwned;
-use App\Support\TenantScope;
+use App\Support\PropertyScope;
 use Illuminate\Database\Eloquent\Builder;
-use ReflectionClass;
-use RuntimeException;
 
 /**
  * **The one place a property-owned resource is scoped to the selected property.**
@@ -62,62 +60,24 @@ trait ScopesToProperty
      */
     public static function scopeToProperty(Builder $query): Builder
     {
-        $declared = static::propertyOwnership();
-        $assetId = TenantScope::currentAssetId();
-        $visible = $assetId === null ? TenantScope::visibleAssetIds() : null;
-
-        // Portfolio-wide AND unconstrained — the only case that legitimately sees everything.
-        if ($assetId === null && $visible === null) {
-            return $query;
-        }
-
-        $column = 'asset_id';
-        $nullable = $declared->portfolioRowsWhenNull;
-
-        $constrain = function (Builder $q) use ($assetId, $visible, $column, $nullable): void {
-            $q->where(function (Builder $inner) use ($assetId, $visible, $column, $nullable): void {
-                $assetId !== null
-                    ? $inner->where($column, $assetId)
-                    : $inner->whereIn($column, $visible);
-
-                if ($nullable) {
-                    // Portfolio-level overhead: owned by no single mall, visible from all of them.
-                    $inner->orWhereNull($column);
-                }
-            });
-        };
-
-        return $declared->via === null
-            ? tap($query, $constrain)
-            : $query->whereHas($declared->via, $constrain);
+        // The rule itself lives in `App\Support\PropertyScope` — extracted when the RELATION
+        // MANAGERS turned out to need the same answer and had grown five spellings of it between
+        // them. This trait keeps the resource-facing name and the refusal wording its callers read.
+        return PropertyScope::apply($query, static::getModel(), static::class);
     }
 
     /**
      * This resource's model declaration.
      *
-     * Throws rather than defaulting: a resource that uses this trait has stated it is
-     * property-owned, so a model with no `#[PropertyOwned]` is a contradiction. Silently returning
-     * an unscoped query here would be the leak this trait exists to prevent, and it would look
-     * exactly like a working screen.
+     * Kept as the resource-facing name for `PropertyScope::declarationFor()` — a bespoke resource
+     * composing its own query can ask what its model declared without reaching past this trait. It
+     * no longer sits on the path `scopeToProperty()` takes, so overriding it would NOT change the
+     * scope; that is stated here because the previous comment described a `throw below` that has
+     * moved, and a docblock describing a control flow that no longer exists is how the next reader
+     * is misled.
      */
     protected static function propertyOwnership(): PropertyOwned
     {
-        // getModel() rather than the $model property: Filament falls back to DERIVING the model
-        // from the resource's own class name when $model is not set, so reading the property
-        // directly would see null on a resource that legitimately relies on that fallback and then
-        // throw below — refusing to scope a resource that is perfectly well formed.
-        $model = static::getModel();
-
-        $found = $model === '' ? [] : (new ReflectionClass($model))->getAttributes(PropertyOwned::class);
-
-        if ($found === []) {
-            throw new RuntimeException(sprintf(
-                '%s uses ScopesToProperty but %s carries no #[PropertyOwned] attribute.',
-                static::class,
-                $model ?? 'its model',
-            ));
-        }
-
-        return $found[0]->newInstance();
+        return PropertyScope::declarationFor(static::getModel(), static::class);
     }
 }
