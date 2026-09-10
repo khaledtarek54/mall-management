@@ -562,6 +562,7 @@ return [
         'bank_account_other_property' => 'That bank account belongs to another property. A document can only name an account held by the mall it stands in — otherwise its money would post into the other mall’s bank account.',
         'record_not_deletable' => 'A :record that is on the books cannot be deleted — :correction. The record stays, and the correction explains itself to an auditor.',
         'record_still_referenced' => 'This :record cannot be deleted — :blockers still reference it. :instead.',
+        'deactivate_instead' => 'deactivate it instead',
         'lease_event_immutable' => 'A lease event is a record of something that happened, so it cannot be edited or deleted. Record the correcting event instead — that leaves a history an auditor can follow.',
         // Marketing posts (module 36) — the shopper-facing feed.
         'marketing_post_needs_title' => 'A post needs a headline before it can go anywhere.',

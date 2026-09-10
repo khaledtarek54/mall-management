@@ -1030,3 +1030,27 @@ registered; a stale row fails when the predicate stops reading it), with the wri
 still carry the writing shape, and the sharpest flags driven end to end (grant → the panel opens,
 revoke → it shuts, company suspension beats the personal flag). Mutation-proved three ways,
 including deleting the only writer — the original bug, replayed.
+
+### A Delete button that cannot delete does not look like one that will
+
+Reported by the tester on a lease: press Delete, confirm on a modal that asks nothing but *"are you
+sure"*, watch the page reload, and find the lease still there with **no message of any kind**.
+Nothing underneath was broken — the lease had an open invoice, `RefusesDeletionWhenReferenced` fired,
+nothing was deleted — and the operator was told none of it. A destructive control that silently does
+nothing reads as a broken button, which is how it was filed. `isDeletableNow()` had carried the
+docblock *"Drives the UI so the button matches the outcome"* since it was written and drove nothing.
+
+`AnnouncingDeleteAction` now **disables** the action when the record has blockers, and both the
+tooltip and the modal description carry the same sentence the model's refusal throws — one wording,
+so what an operator is shown BEFORE pressing cannot drift from what they are shown after.
+
+**Disabled, not hidden, and deliberately not an authorization failure.** Blockers are a RULE the
+operator ran into, not a right they lack: folding them into `isAuthorized()` would remove the button
+and answer 403, which is the same silence in a different costume. Yardi refuses rather than warns
+here and shows the reason.
+
+**The cost was checked before it was written, not assumed.** `deletionBlockers()` is one COUNT per
+blocking relation (nine on a Lease) and the button reads it three times per render, so it is
+memoised per request — and all six `DeletableWhenUnused` models compose Delete on the RECORD PAGE
+with none on a table row, so this is never the per-row N+1 it would be on a list.
+(`ADeleteButtonMatchesWhatDeletingWillDoTest`.)

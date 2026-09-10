@@ -51,7 +51,7 @@ trait RefusesDeletionWhenReferenced
             throw new DomainException(__('admin.errors.record_still_referenced', [
                 'record' => class_basename(static::class),
                 'blockers' => implode(', ', $blockers),
-                'instead' => DeletionPolicy::insteadFor(static::class) ?? 'deactivate it instead',
+                'instead' => DeletionPolicy::insteadFor(static::class) ?? __('admin.errors.deactivate_instead'),
             ]));
         });
     }
@@ -61,8 +61,24 @@ trait RefusesDeletionWhenReferenced
      *
      * @return array<int, string>
      */
+    /**
+     * Memoised for the REQUEST, because the answer now drives a button as well as the refusal.
+     *
+     * `AnnouncingDeleteAction` asks it three times on one render — to disable, to word the tooltip,
+     * and to word the modal — and each ask is one COUNT per blocking relation (nine on a Lease). A
+     * static would outlive the request in a queue worker; an instance property is scoped to the
+     * model the page is holding, which is exactly the lifetime wanted.
+     *
+     * @var array<int, string>|null
+     */
+    private ?array $memoisedDeletionBlockers = null;
+
     public function deletionBlockers(): array
     {
+        if ($this->memoisedDeletionBlockers !== null) {
+            return $this->memoisedDeletionBlockers;
+        }
+
         $blockers = [];
 
         foreach (DeletionPolicy::blockingRelationsFor(static::class) as $relation) {
@@ -87,7 +103,7 @@ trait RefusesDeletionWhenReferenced
             }
         }
 
-        return $blockers;
+        return $this->memoisedDeletionBlockers = $blockers;
     }
 
     /** Can this record be removed right now? Drives the UI so the button matches the outcome. */

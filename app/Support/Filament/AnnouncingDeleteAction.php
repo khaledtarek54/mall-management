@@ -4,6 +4,8 @@ namespace App\Support\Filament;
 
 use App\Support\DeletionPolicy;
 use Filament\Actions\DeleteAction;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Filament's `DeleteAction`, plus the {@see RecordChanged} announcement — **and the authorization
@@ -54,6 +56,77 @@ class AnnouncingDeleteAction extends DeleteAction
         return $this->defaultAuthorizationAllows()
             && parent::isAuthorized()
             && DeletionPolicy::actorMayDelete($this->getRecord(), $this->getLivewire());
+    }
+
+    /**
+     * A record that CANNOT be deleted does not offer a Delete button that looks like it will work.
+     *
+     * Reported by the tester on a lease: press Delete, confirm on a modal that asks nothing but
+     * "are you sure", watch the page reload, and find the lease still there with **no message of any
+     * kind**. `RefusesDeletionWhenReferenced` was working perfectly — the lease had an open invoice,
+     * the refusal fired, nothing was deleted — and the operator was told none of it. A destructive
+     * control that silently does nothing is read as a broken button, which is how it was filed.
+     *
+     * **Disabled, not hidden, and not an authorization failure.** Blockers are a RULE the operator
+     * ran into, not a right they lack: folding this into {@see isAuthorized()} would remove the
+     * button and answer 403, which is the same silence in a different costume. Disabled keeps the
+     * affordance on screen and lets the tooltip say WHY and what to do instead — the same
+     * "a guarded control must LOOK guarded" idiom the money forms follow. Yardi refuses rather than
+     * warns here too, and shows the reason.
+     *
+     * Costs one record's worth of COUNTs, memoised on the model. All six `DeletableWhenUnused`
+     * models compose Delete on the RECORD PAGE and none on a table row, so this is never the
+     * per-row N+1 it would be on a list — checked before it was written, not assumed.
+     */
+    public function isDisabled(): bool
+    {
+        return parent::isDisabled() || $this->deletionBlockers() !== [];
+    }
+
+    public function getTooltip(): ?string
+    {
+        $blockers = $this->deletionBlockers();
+
+        return $blockers === []
+            ? parent::getTooltip()
+            : __('admin.errors.record_still_referenced', [
+                'record' => $this->recordLabel(),
+                'blockers' => implode(', ', $blockers),
+                'instead' => DeletionPolicy::insteadFor($this->getRecord()::class) ?? __('admin.errors.deactivate_instead'),
+            ]);
+    }
+
+    /**
+     * The same sentence in the modal, for the case the tooltip cannot reach — a touch device has no
+     * hover, which is the standing reason this project does not let a tooltip carry a constraint on
+     * its own.
+     */
+    public function getModalDescription(): string|Htmlable|null
+    {
+        return $this->deletionBlockers() === []
+            ? parent::getModalDescription()
+            : $this->getTooltip();
+    }
+
+    /**
+     * What currently points at this record, or `[]` for a model that does not classify deletion.
+     *
+     * @return array<int, string>
+     */
+    private function deletionBlockers(): array
+    {
+        $record = $this->getRecord();
+
+        return $record instanceof Model && method_exists($record, 'deletionBlockers')
+            ? $record->deletionBlockers()
+            : [];
+    }
+
+    private function recordLabel(): string
+    {
+        $record = $this->getRecord();
+
+        return $record instanceof Model ? class_basename($record) : '';
     }
 
     /**
