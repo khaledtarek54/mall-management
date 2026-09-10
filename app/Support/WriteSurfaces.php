@@ -141,7 +141,10 @@ final class WriteSurfaces
      * @var array<string, string>
      */
     public const PARITY_DIVERGES = [
-        'app/Filament/Admin/RelationManagers/AssetAreasRelationManager.php::supervisors' => 'Stated in that manager\'s own docblock and left as its author decided: "Zones are created and named here; who covers them is set on the zone\'s own screen, one click away." The reason given for it — that the supervisor scope reads the property from the FORM\'s own field — is the weaker half, since the `unique` rule two fields above already scopes itself off `$this->getOwnerRecord()` and the picker could do the same; but a zone created without supervisors routes to nobody (`TenantRequest::250`, `FacilityWorkOrder::905`) until somebody opens it, and whether that one click is the right trade is a UX call for the owner, not a defect to be closed under a gate. Registered so the next person meets the decision instead of the silence.',
+        // Empty, and that is the intended state. The one entry this ever held —
+        // `AssetAreasRelationManager::supervisors`, a zone tab that created zones nobody was
+        // routed to — was closed on 2026-09-10 by giving the tab the picker, which is the outcome
+        // registering a divergence is meant to lead to.
     ];
 
     /**

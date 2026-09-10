@@ -228,11 +228,24 @@ make-up, and a zone's changes now appear on the property's Activity Log for the 
 how an absence stays invisible until someone goes looking for the feature. Corrected with this
 change.
 
-**The supervisor picker is deliberately NOT on this tab.** It is scoped to the property's own roster
-through `AreaForm::applySupervisorScope()`, which reads the property from that form's own field — a
-field this manager pins rather than shows — so wiring it here would mean a second, weaker copy of a
-scope that exists to stop one mall's picker offering another's staff. Zones are created and named on
-the property; who covers them is set on the zone's own screen, one click away.
+**The supervisor picker is on this tab too, since 2026-09-10 — it was deliberately not, and that
+was the wrong call.** The stated reason was that `AreaForm::applySupervisorScope()` reads the property
+from the register form's own field, which the tab pins rather than shows; but the tab's `unique` rule
+already scopes itself off `$this->getOwnerRecord()`, and the picker can do exactly the same. The
+cost of the omission was not cosmetic: a zone ROUTES (§7), so a zone created from the property page
+and never opened again routed to nobody, silently. The write-surface gate
+(`WriteSurfacesConformanceTest`) reported it as the one divergence between a relation manager and
+its record's own form — which is what such a registry is for — and this closed it.
+
+Same scope, same guard, one seam: the tab's picker calls `AreaForm::applySupervisorScope()` with the
+OWNER's id (a stronger footing than the register, which must clamp a client-supplied `asset_id`),
+and both its CreateAction and EditAction run `AreaResource::assertSupervisorsInScope()` from
+`after()`, exactly as `CreateArea`/`EditArea` do — because a relationship Select syncs from
+component state after the model saves, and the option list is a convenience, not the gate. Two
+layers refuse a smuggled id: Filament's own `In` rule over the offered options fires first for an
+ARRAY payload (a multi-select reports the rejected ITEM as `supervisors.0`); a SCALAR slips it and
+meets the guard, which strips the pivot and 403s — and because both actions are transactional, no
+orphaned zone is left behind that 403. (`AZoneCreatedFromThePropertyPageHasItsSupervisorsTest`.)
 
 **A zone is not a share of the GLA.** Floors carry the area arithmetic (`Floor::areaFigures()`); a
 zone routes work. A second thing that looked like it apportioned space would be a second answer to a

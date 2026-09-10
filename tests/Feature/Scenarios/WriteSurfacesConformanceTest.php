@@ -56,10 +56,13 @@ it('is actually comparing something — the check cannot quietly go vacuous', fu
         .'below is reporting on nothing. This is what the panel-attribution bug looked like.',
     );
 
-    // ...and the comparison must be able to SPEAK: with the registry ignored, it has to find the
-    // divergence that is registered. A check that finds nothing either way is not exempting a
-    // known difference, it is blind to it.
-    expect(WriteSurfaces::parityDisagreements(applyRegistry: false))->not->toBeEmpty();
+    // ...and every registered exemption must correspond to a divergence the comparison can SEE
+    // with the registry ignored — otherwise the registry is exempting something the check is
+    // blind to. Holds trivially when the registry is empty, which is its intended state: the first
+    // version demanded a non-empty result and went red the day the one registered divergence was
+    // CLOSED, i.e. the day the tool did its job.
+    expect(count(WriteSurfaces::parityDisagreements(applyRegistry: false)))
+        ->toBeGreaterThanOrEqual(count(WriteSurfaces::PARITY_DIVERGES));
 });
 
 it('does not keep an exemption for a file that is no longer there', function () {

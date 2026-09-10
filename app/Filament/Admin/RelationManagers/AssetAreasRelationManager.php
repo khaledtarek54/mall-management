@@ -3,7 +3,11 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
+use App\Filament\Admin\Resources\Areas\AreaResource;
+use App\Filament\Admin\Resources\Areas\Schemas\AreaForm;
 use App\Models\Area;
+use App\Models\User;
+use App\Support\Filament\EntitySelect;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -36,10 +40,23 @@ use Illuminate\Database\Eloquent\Model;
  * floors already carry the area arithmetic (`Floor::areaFigures()`), and a second thing that looks
  * like it apportions space would be a second answer to a question CAM already settles.
  *
- * The SUPERVISOR picker is not offered here. It is scoped to the property's own roster through
- * `AreaForm::applySupervisorScope()`, which reads the property from the FORM's own field — a field
- * this manager pins rather than shows — so wiring it correctly belongs with that form. Zones are
- * created and named here; who covers them is set on the zone's own screen, one click away.
+ * **The SUPERVISOR picker is offered here too, since 2026-09-10.** It was not, for a stated reason:
+ * the scope reads the property from the register form's own field, which this manager pins rather
+ * than shows, so *"who covers them is set on the zone's own screen, one click away"*. That reason
+ * was the weaker half of the decision — the `unique` rule on `code` above already scopes itself
+ * off `$this->getOwnerRecord()`, and the picker can do exactly the same — and the cost of the
+ * omission was not cosmetic: a zone routes (`TenantRequest` and `FacilityWorkOrder` both fan out to
+ * its supervisors), so a zone created here and never opened again routed to NOBODY, silently. The
+ * write-surface gate registered it as a divergence; this closes it.
+ *
+ * Yardi's shape, and this repo's own reading of it (`docs/benchmarks/yardi/08`): a sub-screen that
+ * CREATES a record collects the same attributes as the register does. One definition of a zone.
+ *
+ * **Same scope, same guard, one seam.** The picker reads `AreaForm::applySupervisorScope()` with the
+ * OWNER's id, so this tab and the register can never offer different rosters; and the post-save
+ * re-validation `AreaResource::assertSupervisorsInScope()` runs from the action's `after()`, exactly
+ * as `CreateArea`/`EditArea` run it, because a relationship field syncs from component state after
+ * the model saves and the option list is a convenience, not a gate.
  */
 class AssetAreasRelationManager extends RelationManager
 {
@@ -79,6 +96,17 @@ class AssetAreasRelationManager extends RelationManager
                 ->label(__('admin.areas.fields.active'))
                 ->helperText(__('admin.areas.active_hint'))
                 ->default(true),
+            EntitySelect::make('supervisors')
+                ->label(__('admin.areas.fields.supervisors'))
+                ->helperText(__('admin.areas.supervisors_hint'))
+                ->entity(User::class)
+                ->relationship('supervisors')
+                // The OWNER is the property — no form field to read and nothing the client can
+                // substitute, which is a stronger footing than the register form has.
+                ->modifyOptionsQuery(fn ($query) => AreaForm::applySupervisorScope($query, (int) $this->getOwnerRecord()->getKey()))
+                ->multiple()
+                ->native(false)
+                ->columnSpanFull(),
             Textarea::make('notes')
                 ->label(__('admin.areas.fields.notes'))
                 ->rows(2)
@@ -121,12 +149,21 @@ class AssetAreasRelationManager extends RelationManager
                     ->label(__('admin.areas.actions.add'))
                     ->modalHeading(__('admin.areas.actions.add'))
                     ->visible(fn (): bool => auth()->user()?->can('assets.edit') ?? false)
-                    ->authorize(fn (): bool => auth()->user()?->can('assets.edit') ?? false),
+                    ->authorize(fn (): bool => auth()->user()?->can('assets.edit') ?? false)
+                    // **Transactional, as the register's CreateRecord page already is.** The
+                    // guard below runs AFTER the row commits, and a payload that reaches it — a
+                    // SCALAR id slips Filament's array validation — is stripped and 403'd; without
+                    // the transaction that 403 left an orphaned zone behind. Found by review.
+                    ->databaseTransaction()
+                    // The option list is not the gate — the ids still arrive in the payload.
+                    ->after(fn (Area $record) => AreaResource::assertSupervisorsInScope($record)),
             ])
             ->recordActions([
                 EditAction::make()
                     ->visible(fn (): bool => auth()->user()?->can('assets.edit') ?? false)
-                    ->authorize(fn (): bool => auth()->user()?->can('assets.edit') ?? false),
+                    ->authorize(fn (): bool => auth()->user()?->can('assets.edit') ?? false)
+                    ->databaseTransaction()
+                    ->after(fn (Area $record) => AreaResource::assertSupervisorsInScope($record)),
                 // A zone is `#[DeletionAllowed]` configuration, so the project-wide rule applies:
                 // delete is super_admin only.
                 DeleteAction::make()
