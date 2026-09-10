@@ -41,13 +41,21 @@ class LeaseRenewalService
             // else is trading in the shop* — and a renewal refused with "an expired lease cannot
             // be renewed" sends the operator to look at the lease when the fact they need is on
             // the unit. A refusal that does not name its cause is a dead end.
-            throw new InvalidArgumentException(
-                ($relet = $original->status === 'expired' ? $original->unitLetToSomebodyElse() : null)
-                    ? __('admin.refusals.lease_unit_already_relet', ['unit' => $relet->code])
-                    : __('admin.refusals.lease_not_renewable', [
-                        'status' => Translate::orHumanized("admin.statuses.lease.{$original->status}", $original->status),
-                    ])
-            );
+            // THREE causes now, and the third would otherwise be worded as the first: a lease
+            // already renewed is still `active`, so the generic sentence would read "an 'Active'
+            // lease cannot be renewed", which is both wrong and a dead end. It names the successor,
+            // because that is the record the operator actually wants.
+            $existing = $original->renewals()->where('status', '!=', 'cancelled')->first();
+
+            throw new InvalidArgumentException(match (true) {
+                $existing !== null => __('admin.refusals.lease_already_renewed', [
+                    'reference' => $existing->reference ?: '#'.$existing->getKey(),
+                ]),
+                ($relet = $original->status === 'expired' ? $original->unitLetToSomebodyElse() : null) !== null => __('admin.refusals.lease_unit_already_relet', ['unit' => $relet->code]),
+                default => __('admin.refusals.lease_not_renewable', [
+                    'status' => Translate::orHumanized("admin.statuses.lease.{$original->status}", $original->status),
+                ]),
+            });
         }
 
         $termMonths = (int) $data['new_term_months'];
@@ -114,11 +122,17 @@ class LeaseRenewalService
                 // The same two answers the fast-fail distinguishes — a genuine race lands here, and
                 // "reload the page" is the wrong advice when the fact the operator needs is that
                 // somebody else is trading in the shop.
-                throw new InvalidArgumentException(
-                    ($relet = $original?->status === 'expired' ? $original->unitLetToSomebodyElse() : null)
-                        ? __('admin.refusals.lease_unit_already_relet', ['unit' => $relet->code])
-                        : __('admin.refusals.lease_changed_while_renewing')
-                );
+                // The double-click lands HERE, under the lock, after the first request committed —
+                // so the already-renewed branch is the one that fires and it must name the winner.
+                $existing = $original?->renewals()->where('status', '!=', 'cancelled')->first();
+
+                throw new InvalidArgumentException(match (true) {
+                    $existing !== null => __('admin.refusals.lease_already_renewed', [
+                        'reference' => $existing->reference ?: '#'.$existing->getKey(),
+                    ]),
+                    ($relet = $original?->status === 'expired' ? $original->unitLetToSomebodyElse() : null) !== null => __('admin.refusals.lease_unit_already_relet', ['unit' => $relet->code]),
+                    default => __('admin.refusals.lease_changed_while_renewing'),
+                });
             }
 
             // ── A LEASE PAST ITS TERM DOES NOT HOLD ITS UNITS ────────────────────────────────
@@ -420,7 +434,25 @@ class LeaseRenewalService
                 app(MarketingLevyService::class)->createLevyCharge($renewal->fresh());
             }
 
-            $original->update(['status' => 'renewed']);
+            // ── THE ORIGINAL KEEPS RUNNING UNTIL ITS TERM ACTUALLY ENDS ───────────────────────
+            //
+            // This used to be unconditional, and that is the whole of the defect it fixes. A
+            // renewal is normally negotiated MONTHS before the term ends, and `renewed` is a
+            // TERMINAL status outside `BILLABLE_STATUSES` — so signing the renewal stopped the
+            // original invoicing the months it still had to run, on a shop still trading, with the
+            // successor not yet commenced and billing nothing either. Measured: renewing in
+            // September a lease expiring 31 December left all three remaining months uninvoiced,
+            // and `billing:scan-unbilled-periods` was structurally unable to report it, because
+            // that scan only reports months a BILLABLE lease missed.
+            //
+            // A term that has ALREADY run is stamped here as before — that is LE-04, a renewal
+            // signed after the old lease expired, where waiting for a sweep would leave the record
+            // reading `expired` beside its own successor. Otherwise the lease stays as it is and
+            // `leases:expire` writes `renewed` on the day the term ends, from the same successor
+            // relation, which is where `expired` and `terminated` are already decided.
+            if ($original->hasExpiredTerm() || in_array($original->status, Lease::TERMINAL_STATUSES, true)) {
+                $original->update(['status' => 'renewed']);
+            }
 
             // A renewal is a fresh term with its own escalation clause, so it gets its own full
             // ladder written up front — same reason as a new lease.

@@ -35,6 +35,7 @@ return [
         'lease' => [
             'draft' => 'Draft',
             'pending_approval' => 'Pending Approval',
+            'future' => 'Future',
             'active' => 'Active',
             'expired' => 'Expired',
             'renewed' => 'Renewed',

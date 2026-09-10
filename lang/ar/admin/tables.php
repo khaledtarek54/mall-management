@@ -309,6 +309,7 @@ return [
 
     'tabs' => [
         'all' => 'الكل',
+        'future' => 'مستقبلي',
         'draft' => 'مسودة',
         'outstanding' => 'غير مسددة',
         'overdue' => 'متأخرة',

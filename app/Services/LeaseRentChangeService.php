@@ -43,7 +43,7 @@ class LeaseRentChangeService
      */
     public function apply(Lease $lease, array $data): Lease
     {
-        if (! in_array($lease->status, ['active', 'pending_approval'], true)) {
+        if (! in_array($lease->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true)) {
             throw new InvalidArgumentException(
                 "Lease #{$lease->id} is '{$lease->status}'; only active or pending leases can have their rent changed."
             );

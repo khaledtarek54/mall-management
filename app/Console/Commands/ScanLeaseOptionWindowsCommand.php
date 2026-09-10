@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Lease;
 use App\Models\LeaseOption;
 use App\Notifications\LeaseOptionWindowNotification;
 use App\Services\AssetStaffRecipients;
@@ -48,7 +49,7 @@ class ScanLeaseOptionWindowsCommand extends Command
         $candidates = LeaseOption::query()
             ->where('status', 'open')
             // An option on a lease that is no longer live is not actionable.
-            ->whereHas('lease', fn ($q) => $q->where('status', 'active'))
+            ->whereHas('lease', fn ($q) => $q->whereIn('status', Lease::HOLDS_PREMISES))
             ->with(['lease.tenant', 'lease.unit'])
             ->get();
 

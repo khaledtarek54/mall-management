@@ -39,6 +39,10 @@ class LeasesTable
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.lease.{$state}"))
                     ->color(fn (string $state) => match ($state) {
                         'active' => 'success',
+                        // Matches the admin badge — one lease must not read differently to the
+                        // operator and to the tenant. Without an arm it fell to `warning`, i.e.
+                        // orange, which reads to a retailer as something being wrong.
+                        'future' => 'primary',
                         'terminated', 'expired', 'cancelled' => 'danger',
                         default => 'warning',
                     }),

@@ -50,8 +50,12 @@ it('refuses a second renewal raced against the first', function () {
     expect(fn () => app(LeaseRenewalService::class)->renew($requestB, $terms))
         ->toThrow(InvalidArgumentException::class);
 
-    expect(activeLeasesOn($unit))->toBe(1, 'the unit must carry exactly one active lease after a raced double-renewal')
-        ->and($lease->fresh()->status)->toBe('renewed');
+    // Still exactly ONE RUNNING lease, which is the invariant — and it is sharper than it was.
+    // The original's term runs to 31 Dec so it stays `active` and keeps billing; the successor
+    // commences 1 Jan so it is `future`. It used to be stamped `renewed` here the moment the
+    // renewal was signed, which silently stopped invoicing the months still to run.
+    expect(activeLeasesOn($unit))->toBe(1, 'the unit must carry exactly one RUNNING lease after a raced double-renewal')
+        ->and($lease->fresh()->status)->toBe('active');
 });
 
 it('still renews normally', function () {
@@ -66,10 +70,12 @@ it('still renews normally', function () {
 
     $renewal = app(LeaseRenewalService::class)->renew($lease, ['new_term_months' => 12, 'new_rent' => 32000]);
 
-    expect($renewal->status)->toBe('active')
+    expect($renewal->status)->toBe('future')
         ->and((float) $renewal->base_rent_monthly)->toBe(32000.0)
         ->and($renewal->previous_lease_id)->toBe($lease->id)
-        ->and($lease->fresh()->status)->toBe('renewed')
+        // The original keeps running to its own expiry; `leases:expire` writes `renewed` on the day
+        // the term actually ends. See `ALeaseSignedBeforeItStartsIsNotYetRunningTest`.
+        ->and($lease->fresh()->status)->toBe('active')
         ->and(activeLeasesOn($unit))->toBe(1);
 });
 

@@ -109,7 +109,7 @@ class EditLease extends EditRecord
         // none, so it could only restate the rent from the start of the lease — rewriting months
         // already billed. `LeaseSpaceChangeService` takes that date, re-derives at it, and closes
         // and reopens the charge row; this refuses and names it.
-        $live = in_array($this->record->status, ['active', 'pending_approval'], true);
+        $live = in_array($this->record->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true);
         $current = $this->record->units()->pluck('units.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
         $wanted = collect([$this->record->unit_id, ...$additional])
             ->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
@@ -172,7 +172,10 @@ class EditLease extends EditRecord
             ->label(__('admin.actions.generate_invoice'))
             ->icon('heroicon-o-document-plus')
             ->color('primary')
-            ->visible(fn (Lease $record) => $record->status === 'active')
+            // BILLABLE_STATUSES, not the literal — two copies of "which leases bill" is exactly
+            // how the manual and scheduled paths drifted apart before, and a `future` lease in its
+            // commencement month is billed by the batch run at 02:00.
+            ->visible(fn (Lease $record) => in_array($record->status, Lease::BILLABLE_STATUSES, true))
             // Generating an invoice is a distinct, billing-sensitive permission —
             // gate it server-side (visible() only hides the button; authorize() enforces).
             ->authorize(fn () => auth()->user()?->can('leases.generate_invoice') ?? false)

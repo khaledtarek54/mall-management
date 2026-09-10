@@ -109,6 +109,28 @@ class Lease extends Model implements BillableAgreement, HasMedia
             );
         });
 
+        // ── AN EXECUTED LEASE THAT HAS NOT STARTED IS `future`, NOT `active` ──────────────────
+        //
+        // Derived on the WRITE as well as swept nightly, and both halves are needed. The sweep
+        // alone leaves a lease keyed today reading `active` until 05:15 tomorrow, which is exactly
+        // long enough to overstate occupancy on the screen the person who keyed it is looking at;
+        // the write alone cannot notice the morning the term actually starts, because that is a day
+        // on which nothing happens. Same pairing `Unit::recomputeStatus()` and `leases:expire`
+        // already form for the unit column.
+        //
+        // On the MODEL rather than at the four doors that execute a lease (the wizard, the renewal,
+        // the form, the importer) for the reason `ValueSets::guard()` is one wildcard listener: the
+        // fifth door is covered by existing rather than by its author remembering.
+        //
+        // Only `active` is rewritten. A draft stays a draft, and none of the four terminal statuses
+        // is touched — `renewed`, in particular, is a decision about a term that HAS run, and a
+        // renewal is routinely dated ahead.
+        static::saving(function (self $lease) {
+            if ($lease->status === 'active') {
+                $lease->status = self::executedStatusFor($lease->commencement_date);
+            }
+        });
+
         // ── The escalation clause and its terms are kept consistent on EVERY write ─────────────
         // This was a `creating` hook, which covered exactly half of the problem.
         //

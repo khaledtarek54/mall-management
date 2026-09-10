@@ -169,6 +169,9 @@ class LeasesTable
                     ->color(fn (string $state): string => match ($state) {
                         'active' => 'success',
                         'pending_approval' => 'warning',
+                        // Signed and not started. Its own colour rather than sharing `info` with
+                        // `renewed`: a badge whose whole job is to be told apart at a glance.
+                        'future' => 'primary',
                         'renewed' => 'info',
                         'terminated', 'cancelled' => 'danger',
                         default => 'gray',
@@ -213,7 +216,7 @@ class LeasesTable
                     // cannot answer differently again. Chained LAST so the scope's candidate query
                     // inherits this status narrowing and the resource's property scope above it.
                     ->query(fn ($query) => $query
-                        ->whereIn('status', ['active', 'pending_approval'])
+                        ->whereIn('status', Lease::OPEN_TO_COMMERCIAL_ACTS)
                         ->depositOutstanding()),
                 Filter::make('without_options')
                     ->label(__('admin.filters.without_options'))

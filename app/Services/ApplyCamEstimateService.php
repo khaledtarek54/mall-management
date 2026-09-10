@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\Lease;
 use App\Models\LeaseEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -75,7 +76,7 @@ class ApplyCamEstimateService
 
         // A lease that has ended does not get next year's estimate. Its charges were closed at
         // termination, and re-opening one would resurrect billing on a dead tenancy.
-        if (! in_array($lease->status, ['active', 'pending_approval'], true)) {
+        if (! in_array($lease->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true)) {
             return false;
         }
 

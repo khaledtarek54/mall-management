@@ -362,7 +362,7 @@ class ValueSets
         // column with nothing guarding it until now.
         'leases.percentage_rent_frequency' => ['monthly', 'annual'],
         'leases.percentage_rent_billing_frequency' => ['monthly', 'quarterly', 'annual'],
-        'leases.status' => ['draft', 'pending_approval', 'active', 'expired', 'renewed', 'terminated', 'cancelled'],
+        'leases.status' => ['draft', 'pending_approval', 'future', 'active', 'expired', 'renewed', 'terminated', 'cancelled'],
         'ledger_accounts.normal_balance' => ['debit', 'credit'],
         'ledger_accounts.type' => ['asset', 'liability', 'equity', 'revenue', 'expense'],
         'sla_penalties.basis' => ['flat', 'per_day', 'percent_of_value'],

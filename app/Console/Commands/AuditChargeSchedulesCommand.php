@@ -45,7 +45,7 @@ class AuditChargeSchedulesCommand extends Command
     {
         $leases = Lease::query()
             ->with(['charges' => fn ($q) => $q->where('is_active', true)->where('frequency', '!=', 'one_time')])
-            ->when(! $this->option('all-statuses'), fn ($q) => $q->whereIn('status', ['active', 'pending_approval']))
+            ->when(! $this->option('all-statuses'), fn ($q) => $q->whereIn('status', Lease::OPEN_TO_COMMERCIAL_ACTS))
             ->when($this->option('lease'), fn ($q, $id) => $q->whereKey($id))
             ->get();
 

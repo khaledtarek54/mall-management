@@ -27,7 +27,13 @@ class LeaseInfolist
                         ->label(__('admin.tables.common.status'))
                         ->badge()
                         ->formatStateUsing(fn (string $state) => __("admin.statuses.lease.{$state}"))
-                        ->color(fn (string $state) => $state === 'active' ? 'success' : 'gray'),
+                        // Matches the admin badge and the portal table — one lease must not read
+                        // differently on three screens.
+                        ->color(fn (string $state) => match ($state) {
+                            'active' => 'success',
+                            'future' => 'primary',
+                            default => 'gray',
+                        }),
                     TextEntry::make('commencement_date')->label(__('admin.fields.commencement_date'))->date('d/m/Y')->placeholder('—'),
                     TextEntry::make('expiry_date')->label(__('admin.fields.expiry_date'))->date('d/m/Y')->placeholder('—'),
                     // Only where rent actually starts later than the term — otherwise it is noise

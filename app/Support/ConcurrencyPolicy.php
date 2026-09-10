@@ -310,7 +310,7 @@ final class ConcurrencyPolicy
         'app/Models/EmployeeAdvance.php' => 2,
         // One row lock per lease, re-checking its expiry inside the transaction, so a sweep cannot
         // expire a lease another request is renewing or holding over at the same moment.
-        'app/Console/Commands/ExpireLeasesCommand.php' => 1,
+        'app/Console/Commands/ExpireLeasesCommand.php' => 2,
         'app/Services/LeaseRenewalService.php' => 2,
         'app/Services/RemeasureUnitService.php' => 1,
         'app/Services/RentEscalationService.php' => 1,

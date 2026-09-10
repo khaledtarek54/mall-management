@@ -39,7 +39,7 @@ class LeaseExtensionService
      */
     public function extend(Lease $lease, array $data): Lease
     {
-        if (! in_array($lease->status, ['active', 'pending_approval'], true)) {
+        if (! in_array($lease->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true)) {
             throw new DomainException(__('admin.validation.extension_requires_active_lease'));
         }
 

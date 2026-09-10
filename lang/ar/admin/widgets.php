@@ -178,6 +178,7 @@ return [
             'description' => 'موقع كل عقد في دورة حياته',
             'draft' => 'المسودات',
             'pending_approval' => 'بانتظار الموافقة',
+            'future' => 'موقّعة ولم تبدأ',
             'active' => 'سارية',
             'renewed' => 'مجددة',
             'renewed_desc' => 'عقود مُرحَّلة',

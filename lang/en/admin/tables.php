@@ -309,6 +309,7 @@ return [
 
     'tabs' => [
         'all' => 'All',
+        'future' => 'Future',
         'draft' => 'Draft',
         'outstanding' => 'Outstanding',
         'overdue' => 'Overdue',

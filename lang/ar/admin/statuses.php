@@ -33,6 +33,7 @@ return [
         'lease' => [
             'draft' => 'مسودة',
             'pending_approval' => 'بانتظار الموافقة',
+            'future' => 'مستقبلي',
             'active' => 'نشط',
             'expired' => 'منتهي',
             'renewed' => 'مُجدَّد',

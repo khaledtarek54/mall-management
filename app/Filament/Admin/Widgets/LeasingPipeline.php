@@ -41,6 +41,7 @@ class LeasingPipeline extends StatsOverviewWidget
 
         $draft = $get('draft');
         $pending = $get('pending_approval');
+        $future = $get('future');
         $active = $get('active');
         $renewed = $get('renewed');
 
@@ -56,6 +57,15 @@ class LeasingPipeline extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-clock')
                 ->color($pending['count'] > 0 ? 'warning' : 'gray')
                 ->url(ResourceLink::indexSelect(LeaseResource::class, 'status', 'pending_approval')),
+
+            // Signed and not yet open. Without its own stat a `future` lease would appear on this
+            // widget NOWHERE — it left `active` when the status was split, and the pipeline is
+            // exactly where a leasing manager looks for a deal that is done but not trading.
+            Stat::make(__('admin.widgets.pipeline.future'), number_format($future['count']))
+                ->description(__('admin.widgets.pipeline.value', ['amount' => number_format($future['value'], 0)]))
+                ->descriptionIcon('heroicon-m-calendar-days')
+                ->color($future['count'] > 0 ? 'primary' : 'gray')
+                ->url(ResourceLink::indexSelect(LeaseResource::class, 'status', 'future')),
 
             Stat::make(__('admin.widgets.pipeline.active'), number_format($active['count']))
                 ->description(__('admin.widgets.pipeline.value', ['amount' => number_format($active['value'], 0)]))

@@ -138,7 +138,7 @@ final class BillingRefusal
      */
     private static function whyNotBillable(Lease $lease, CarbonImmutable $period, string $month): string
     {
-        if ($lease->status !== 'active') {
+        if (! in_array($lease->status, Lease::BILLABLE_STATUSES, true)) {
             return __('admin.actions.not_billable_status', [
                 'status' => Translate::orHumanized('admin.statuses.lease.'.$lease->status, (string) $lease->status),
             ]);

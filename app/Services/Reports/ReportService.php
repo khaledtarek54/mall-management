@@ -548,7 +548,9 @@ class ReportService
         $asOf = ($asOf ?? CarbonImmutable::now())->startOfDay();
 
         return TenantScope::applyTo(Lease::query(), 'unit')
-            ->whereIn('status', ['active', 'renewed'])
+            // `future` is what a signed-not-started lease IS since 2026-09-10, so this counter —
+            // whose entire purpose is reporting them — would otherwise be structurally always 0.
+            ->whereIn('status', ['active', 'future', 'renewed'])
             ->whereDate('commencement_date', '>', $asOf->toDateString())
             ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
             ->count();

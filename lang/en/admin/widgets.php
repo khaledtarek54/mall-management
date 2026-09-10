@@ -181,6 +181,7 @@ return [
             'description' => 'Where each lease sits in its lifecycle',
             'draft' => 'Drafts',
             'pending_approval' => 'Pending Approval',
+            'future' => 'Signed, not started',
             'active' => 'Active',
             'renewed' => 'Renewed',
             'renewed_desc' => 'Carried-over leases',

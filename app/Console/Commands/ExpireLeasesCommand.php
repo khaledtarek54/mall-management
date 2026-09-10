@@ -8,6 +8,7 @@ use App\Models\RentableItem;
 use App\Models\Unit;
 use App\Services\BillFinalPeriodService;
 use App\Support\OpsLog;
+use App\Support\ProjectedState;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -60,12 +61,17 @@ class ExpireLeasesCommand extends Command
 
     public function handle(): int
     {
+        // COMMENCE FIRST. A lease starting today must be `active` before the unit is re-projected,
+        // or the shop it opens in reads `reserved` for a day; and the two halves cannot collide,
+        // since nothing both starts and ends on the same run.
+        $commenced = $this->commenceLeases();
         $expired = $this->expireLeases();
         $reprojected = $this->reprojectUnits();
         $items = $this->reprojectRentableItems();
 
         if (! $this->option('dry-run')) {
             OpsLog::info('Lease expiry sweep complete', [
+                'commenced' => $commenced,
                 'expired' => $expired,
                 'units_reprojected' => $reprojected,
                 'rentable_items_reprojected' => $items,
@@ -73,6 +79,72 @@ class ExpireLeasesCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Move an executed lease whose term has ARRIVED from `future` to `active`.
+     *
+     * The other end of the same term, and the half `leases:expire` never had. `future` is what
+     * {@see Lease::executedStatusFor()} stores for a deal signed before it starts — a renewal agreed
+     * in September to run from January, or a deal keyed weeks before handover — and the day it
+     * starts is a day on which nothing is written, which is the whole reason a projection needs a
+     * sweep ({@see ProjectedState}).
+     *
+     * Idempotent and lock-safe on the same terms as its sibling: each row is locked and re-checked
+     * inside its own transaction, and `update()` fires the observer that re-projects the unit.
+     *
+     * @return int leases moved to `active`
+     */
+    private function commenceLeases(): int
+    {
+        $candidates = Lease::query()
+            ->where('status', 'future')
+            ->whereNotNull('commencement_date')
+            ->whereDate('commencement_date', '<=', today());
+
+        $count = $candidates->count();
+
+        if ($count === 0) {
+            $this->info('No future leases have reached their commencement date.');
+
+            return 0;
+        }
+
+        if ($this->option('dry-run')) {
+            $this->warn("Would commence {$count} lease(s):");
+            $candidates->with('tenant:id,name', 'unit:id,code')->get()->each(function (Lease $l) {
+                $this->line(sprintf(
+                    '  #%d %s · %s · unit %s · commences %s',
+                    $l->id,
+                    $l->reference ?: '—',
+                    $l->tenant?->name ?? '—',
+                    $l->unit?->code ?? '—',
+                    $l->commencement_date->format('Y-m-d'),
+                ));
+            });
+
+            return 0;
+        }
+
+        $updated = 0;
+
+        foreach ($candidates->select('id')->get() as $row) {
+            DB::transaction(function () use ($row, &$updated) {
+                /** @var Lease|null $lease */
+                $lease = Lease::whereKey($row->id)->lockForUpdate()->first();
+
+                if ($lease && $lease->status === 'future' && $lease->hasCommenced()) {
+                    // Writing `active` re-enters the model's own derivation, which agrees — the
+                    // commencement has arrived, so `executedStatusFor()` answers `active` too.
+                    $lease->update(['status' => 'active']);
+                    $updated++;
+                }
+            });
+        }
+
+        $this->info("Commenced {$updated} lease(s).");
+
+        return $updated;
     }
 
     /** @return int leases moved to `expired` */
@@ -136,8 +208,26 @@ class ExpireLeasesCommand extends Command
                         ->whereDate('effective_date', '<=', $lease->expiry_date)
                         ->exists();
 
+                    // …and a lease that has been RENEWED ends as `renewed`, for the same reason and
+                    // by the same derivation. This is where that status is reached now:
+                    // `LeaseRenewalService` used to stamp it the moment the renewal was signed,
+                    // which is months early on any renewal negotiated ahead of time — and `renewed`
+                    // is not billable, so the original stopped invoicing the months it still had to
+                    // run. Measured before the fix: renewing in September a lease expiring 31
+                    // December left October, November and December uninvoiced, and the weekly
+                    // `billing:scan-unbilled-periods` could not report it either, because that scan
+                    // only looks at months a BILLABLE lease missed.
+                    //
+                    // Ordered after the termination test deliberately: a tenancy that was
+                    // terminated early and also carries a successor ended by the termination.
+                    $renewed = ! $terminated && $lease->renewals()->exists();
+
                     // The observer re-projects the units off the back of this status change.
-                    $lease->update(['status' => $terminated ? 'terminated' : 'expired']);
+                    $lease->update(['status' => match (true) {
+                        $terminated => 'terminated',
+                        $renewed => 'renewed',
+                        default => 'expired',
+                    }]);
                     $updated++;
 
                     // ── BILL THE PERIOD IT CONSUMED ON THE WAY OUT (SW-050) ────────────────────

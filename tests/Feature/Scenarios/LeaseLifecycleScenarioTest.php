@@ -225,8 +225,11 @@ it('renewal links previous_lease_id, marks the original renewed, and resets next
         'new_rent' => 11000,
     ]);
 
-    expect($original->fresh()->status)->toBe('renewed')
-        ->and($renewal->status)->toBe('active')
+    // The original is still INSIDE its term, so it stays active and keeps billing; the successor
+    // has not started, so it is `future`. Both flipped on 2026-09-10 — stamping `renewed` here was
+    // what stopped an early-renewed lease invoicing the months it still had to run.
+    expect($original->fresh()->status)->toBe('active')
+        ->and($renewal->status)->toBe('future')
         ->and($renewal->previous_lease_id)->toBe($original->id)
         // The renewed lease copies the escalation clause, so its anniversary is re-armed to its OWN
         // commencement + 1 year (previously it was left null, so a "7% escalation" renewal never
@@ -260,9 +263,12 @@ it('a renewal can itself be renewed, forming a previous_lease_id chain back to t
 
     expect($gen2->previous_lease_id)->toBe($gen1->id)
         ->and($gen3->previous_lease_id)->toBe($gen2->id)
-        ->and($gen1->fresh()->status)->toBe('renewed')
-        ->and($gen2->fresh()->status)->toBe('renewed')
-        ->and($gen3->status)->toBe('active');
+        // Every generation is still ahead of or inside its own term, so none is closed: gen1 is
+        // running, gen2 and gen3 are signed and not started. `renewed` is written by
+        // `leases:expire` on the day a term actually ends, not when its successor is agreed.
+        ->and($gen1->fresh()->status)->toBe('active')
+        ->and($gen2->fresh()->status)->toBe('future')
+        ->and($gen3->status)->toBe('future');
 
     // Walking the chain back from the newest lease reaches the origin.
     expect($gen3->previousLease->previousLease->is($gen1))->toBeTrue();

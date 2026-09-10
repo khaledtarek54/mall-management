@@ -102,12 +102,25 @@ final class ProjectedState
             // candidate set, so at 05:15 it made the whole LE-04 workflow unreachable, permanently.
             // `Lease::isResumingFromExpiry()` is that carve-out, recognised by the SHAPE of the
             // write rather than by trusting a caller.
+            // THE TERM HAS TWO ENDS, and only one of them was swept until 2026-09-10.
+            // `hasCommenced()` is the opening twin: an executed lease whose commencement is still
+            // ahead is `future`, and the day it arrives is a day on which nothing is written.
+            // `executedStatusFor()` is the ONE definition both the model's write-time derivation
+            // and the sweep read, so the two cannot answer differently.
             'projector' => 'hasExpiredTerm',
             'sweep' => 'leases:expire',
-            'stale_when' => 'the expiry date passes with nobody renewing, terminating or holding over',
+            'stale_when' => 'the expiry date passes with nobody renewing, terminating or holding over — '.
+                'or a lease signed in advance reaches its commencement date and nobody touches it',
             // The lease form already got this right — it never offered `expired`, `terminated` or
             // `renewed`, for the reason in the comment above. Recorded here so the registry states
             // the same fact for all three projections rather than leaving one implicit.
+            //
+            // `future` is deliberately NOT declarable either, and it is the clearest case of the
+            // three: an operator states that a deal is EXECUTED, and whether that means active or
+            // future is a question about today's date, which the calendar answers better than a
+            // dropdown. It stays offered on the form for a record already in it, or Filament — which
+            // validates a Select by resolving the submitted value's label — would refuse every save
+            // of such a lease on a field nobody touched.
             'declarable' => ['draft', 'pending_approval', 'active'],
         ],
     ];

@@ -34,6 +34,37 @@ use Illuminate\Database\Eloquent\Builder;
  */
 trait HasLeaseTermState
 {
+    /**
+     * A signed lease HOLDS its shops — whether or not the tenant has moved in yet.
+     *
+     * The double-booking question, and the reason it is a named list rather than a literal: adding
+     * `future` to the vocabulary meant every `where('status', 'active')` guard silently stopped
+     * seeing a whole population, and `Unit::isActivelyLeased()`'s own docblock had ALREADY argued
+     * the case in writing — *"a future-dated expansion has already spoken for the unit even though
+     * nobody occupies it yet, and letting a second lease take it in the gap is exactly the
+     * double-booking this guard exists to stop"* — using the word for a state the query then
+     * excluded. Measured before this list existed: two leases, thirteen months of overlap, one
+     * shop, both billing, and the unit reading `reserved` the whole time.
+     *
+     * `pending_approval` is deliberately NOT here. This is the set that BLOCKS a re-let, and a deal
+     * still awaiting approval must not stop the mall letting the shop to somebody who signs first —
+     * which is the behaviour every one of these guards had before `future` existed and is not a
+     * decision this change is entitled to reopen.
+     */
+    public const HOLDS_PREMISES = ['active', 'future'];
+
+    /**
+     * A lease open to COMMERCIAL ACTS — change the rent, grant relief, move the premises, extend
+     * the term, terminate it, bill the deposit, allocate a bay.
+     *
+     * Fifteen call sites carried the literal `['active', 'pending_approval']`, and every one of them
+     * admits a lease that is merely AWAITING APPROVAL — so refusing one that is signed and dated to
+     * open is incoherent: `future` is strictly more committed than `pending_approval`. Billing the
+     * security deposit is the clearest case, because it is a PRE-HANDOVER act that had become
+     * unreachable until the day the tenancy started.
+     */
+    public const OPEN_TO_COMMERCIAL_ACTS = ['active', 'pending_approval', 'future'];
+
     /** Terminal lease states — immutable once reached (CLAUDE.md invariant). */
     public const TERMINAL_STATUSES = ['terminated', 'expired', 'cancelled', 'renewed'];
 
@@ -45,12 +76,59 @@ trait HasLeaseTermState
      * says a month its term covered may still be INVOICED. `expired` is a projection of the dates
      * ({@see ProjectedState}) written by `leases:expire` and by nothing else;
      * `terminated`, `cancelled` and `renewed` are decisions with their own settlement behind them.
+     *
+     * **`future` is here for an ORDERING reason and it is load-bearing.** The billing job runs at
+     * 02:00 and `leases:expire` — which moves a commenced lease to `active` — at 05:15, so on the
+     * morning a tenancy starts the lease is still `future` when billing asks. Leaving it out would
+     * lose the FIRST MONTH of every lease keyed in advance, which is the commonest lease there is.
+     * Admitting it says no more than the date clauses already say: `commencement_date` after the
+     * period end still bills nothing, so a genuinely not-yet-started lease is refused by date.
      */
-    public const BILLABLE_STATUSES = ['active', 'expired'];
+    public const BILLABLE_STATUSES = ['active', 'expired', 'future'];
 
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    /** Executed, and its term has not started yet — Yardi's FUTURE. */
+    public function isFuture(): bool
+    {
+        return $this->status === 'future';
+    }
+
+    /**
+     * What status an EXECUTED term carries — the ONE definition, and the whole of what `future` is.
+     *
+     * `active` and `future` are the same commercial fact (this deal is signed) split by a question
+     * about TODAY, which is what makes it a {@see ProjectedState} projection rather
+     * than a decision: nobody DECLARES a lease future, they declare it executed and the calendar
+     * answers the rest. Every door that executes a lease reads this — the wizard, the renewal, the
+     * form, the importer — because the alternative is four doors each remembering a date comparison.
+     *
+     * Why it had to exist: without it a renewal signed in advance, or a deal signed in September to
+     * open in December, read `active` from the day it was keyed. Measured on the demo books — a
+     * lease commencing in 60 days took its unit to `occupied` and the mall's occupancy from 0% to
+     * 10.4%, for a shop nobody was trading from and nobody was paying for.
+     */
+    public static function executedStatusFor(mixed $commencement): string
+    {
+        if (blank($commencement)) {
+            return 'active';
+        }
+
+        return CarbonImmutable::parse($commencement)->startOfDay()->greaterThan(CarbonImmutable::today())
+            ? 'future'
+            : 'active';
+    }
+
+    /**
+     * Has the term started? The projector for the `future` half of {@see ProjectedState}'s
+     * `lease.term`, and the twin of {@see hasExpiredTerm()} at the other end of the same term.
+     */
+    public function hasCommenced(): bool
+    {
+        return self::executedStatusFor($this->commencement_date) === 'active';
     }
 
     /** Terminal = terminated/expired/cancelled/renewed — the lease is immutable in this state. */
@@ -136,7 +214,9 @@ trait HasLeaseTermState
                 ->join('lease_unit as ru', 'ru.lease_id', '=', 'relet.id')
                 ->join('lease_unit as mine', 'mine.unit_id', '=', 'ru.unit_id')
                 ->whereColumn('mine.lease_id', 'leases.id')
-                ->where('relet.status', 'active')
+                // Its row twin is `Unit::isActivelyLeased()`, which reads the same list: a shop
+                // re-let to a tenant who has SIGNED but not opened is just as re-let.
+                ->whereIn('relet.status', self::HOLDS_PREMISES)
                 ->whereColumn('relet.id', '!=', 'leases.id'));
     }
 
@@ -243,7 +323,29 @@ trait HasLeaseTermState
      */
     public function canBeRenewed(): bool
     {
+        // `future` belongs here for the same reason `active` does, and leaving it out was a
+        // workflow REMOVED rather than a rule enforced: a signed-not-started lease is not closed,
+        // and two consecutive terms agreed up front is an ordinary anchor deal. It surfaced as the
+        // renewal CHAIN breaking — renewing a renewal, whose successor is normally future-dated —
+        // which is a path this suite has pinned since long before `future` existed.
+        // ── ONCE, AND ONLY ONCE ──────────────────────────────────────────────────────────────
+        //
+        // Nothing ever guarded this explicitly: the only thing stopping a second renewal was
+        // `renew()` stamping the original `renewed`, which made the status test below false. The
+        // moment that stamp moved to the day the term actually ends — so an early renewal keeps
+        // billing — the implicit guard went with it, and a double-clicked Renew button produced
+        // TWO successors on one tenancy, each commencing the day after the same expiry, both
+        // billing the same shop once the sweep commenced them.
+        //
+        // A CANCELLED successor does not count. A renewal that fell through must leave the tenancy
+        // renewable again, or the operator is left with a lease that can never be continued — the
+        // dead end this codebase already records for guards written without an escape.
+        if ($this->renewals()->where('status', '!=', 'cancelled')->exists()) {
+            return false;
+        }
+
         return $this->status === 'active'
+            || $this->status === 'future'
             || ($this->status === 'expired' && $this->isOpenPastItsTerm());
     }
 

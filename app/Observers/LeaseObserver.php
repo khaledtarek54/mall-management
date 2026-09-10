@@ -10,8 +10,8 @@ use App\Models\Unit;
  *
  * Unit status is a projection of the leases that include the unit (via the
  * lease_unit pivot, so multi-unit leases count):
- *   - any 'active' lease         → 'occupied'
- *   - any draft/pending/renewed  → 'reserved'
+ *   - any 'active' lease                 → 'occupied'
+ *   - any draft/pending/renewed/future   → 'reserved'
  *   - otherwise                  → 'vacant'
  *   - 'maintenance' is a manual override and is never auto-overwritten.
  *

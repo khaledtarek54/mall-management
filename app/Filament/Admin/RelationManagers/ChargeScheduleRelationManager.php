@@ -87,7 +87,7 @@ class ChargeScheduleRelationManager extends RelationManager
     private static function canWriteSchedule(Lease $lease): bool
     {
         return (auth()->user()?->can('leases.edit') ?? false)
-            && in_array($lease->status, ['active', 'pending_approval'], true);
+            && in_array($lease->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true);
     }
 
     /**

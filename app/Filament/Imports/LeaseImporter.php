@@ -168,7 +168,10 @@ class LeaseImporter extends Importer
                 // so this is not read from the registry: 'pending_approval' and 'cancelled' are
                 // reached through the approval and cancellation workflows, and importing a lease
                 // straight into either would skip the steps that put it there.
-                ->rules(['nullable', 'in:draft,active,expired,renewed,terminated']),
+                // `future` is accepted because a migrating operator's export from Voyager says it,
+                // and it costs nothing to honour: the model re-derives the active/future split from
+                // the commencement date on every write, so a row stating either lands correctly.
+                ->rules(['nullable', 'in:draft,active,future,expired,renewed,terminated']),
 
             ImportColumn::make('proration_method')
                 ->label(__('admin.fields.proration_method'))

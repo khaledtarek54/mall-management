@@ -41,7 +41,7 @@ class LeaseTerminationService
         //
         // A tenancy somebody ALREADY closed is still refused, because `terminated` and `renewed` are
         // not in the list; so is a `draft`, which has nothing to end.
-        if (! in_array($lease->status, ['active', 'pending_approval', 'expired'], true)) {
+        if (! in_array($lease->status, [...Lease::OPEN_TO_COMMERCIAL_ACTS, 'expired'], true)) {
             throw new InvalidArgumentException("Lease #{$lease->id} is '{$lease->status}'; only a running or just-ended lease can be terminated.");
         }
 

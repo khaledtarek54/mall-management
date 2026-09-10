@@ -1615,6 +1615,76 @@ it asks for is still available.
 (`ALeaseSaysWhenItsTermsLookWrongTest` — seven teeth mutation-proved, and half the file is controls,
 because a note on a correct form is read as an error and then ignored on the form where it matters.)
 
+### ⚠️ A LEASE SIGNED BEFORE IT STARTS IS `future` — Yardi's sixth status (2026-09-10)
+
+Voyager's lease status runs **Prospect → Applicant → Future → Current → Notice → Past**. Atriom had
+five of the six: `draft`/`pending_approval` cover the first two, and `expired`/`renewed`/
+`terminated`/`cancelled` split *Past* more finely than Voyager does — which is the better model and
+stays. **Future was missing**, and its absence cost money.
+
+**The money defect.** A renewal is normally negotiated months before the term ends.
+`LeaseRenewalService` stamped the original `renewed` — TERMINAL, and outside `BILLABLE_STATUSES` —
+the instant the renewal was signed, while the successor sat at `active` with a commencement still
+ahead. Neither billed the gap. Measured: renewing in September a lease expiring 31 December left
+**October, November and December uninvoiced** on a shop still trading. `billing:scan-unbilled-periods`
+— the weekly safety net built for exactly this — was structurally unable to report it, because it
+only reports months a BILLABLE lease missed.
+
+**The occupancy defect, same cause.** A lease keyed today to commence in 60 days read `active` from
+the day it was typed, so its unit read `occupied` and the mall's occupancy went 0% → 10.4% for a shop
+nobody was trading from and nobody was paying for.
+
+**`Lease::executedStatusFor()` is the ONE definition.** An operator declares a deal EXECUTED and the
+calendar answers whether that means `active` or `future`, so nobody DECLARES a lease future — it is a
+{@see ProjectedState} projection, like `expired` at the other end of the same term. Derived on the
+WRITE (on the model, so the wizard, the renewal, the form and the importer all inherit it rather than
+each remembering a date comparison) **and** swept by `leases:expire`, because the morning a term
+starts is a day on which nothing is written. Both halves are needed: the sweep alone leaves a lease
+keyed today reading `active` until 05:15 tomorrow.
+
+**`future` IS billable, for an ordering reason that is load-bearing.** The billing job runs at 02:00
+and the sweep at 05:15, so on the morning a tenancy opens the lease is still `future` when billing
+asks — excluding it would lose the **first month of every lease keyed in advance**. Admitting it says
+no more than the date clauses already say, exactly as the comment admitting `expired` argues.
+
+**The renewal now happens once.** `LeaseRenewalService` stamps `renewed` only on a term that has
+ALREADY run (LE-04); otherwise `leases:expire` writes it on the day the term ends, derived from the
+successor, where `expired` and `terminated` are already decided. And `canBeRenewed()` gained an
+explicit uniqueness guard — **nothing ever enforced that a tenancy is renewed once**, because the
+`renewed` stamp was doing it implicitly; the moment it moved, a double-clicked *Renew* produced two
+successors on one tenancy. A CANCELLED successor does not count, or a renewal that fell through would
+leave the lease permanently un-renewable.
+
+**THE REVIEW IS THE STORY OF THIS CHANGE.** `active` was an allow-list value read by ~50 sites and
+the first pass updated **two**. The adversarial pass found the rest, and the worst was the invariant
+this module exists to protect: `Unit::isActivelyLeased()` — one of the three
+`ConcurrencyPolicy::AUTHORITATIVE_GUARDS` — queries `where('status','active')`, so it stopped seeing
+a future holding entirely. Measured: **two leases on one shop, thirteen months of overlap, both
+billing**, the unit reading `reserved` throughout, and `LeaseDoubleBookingTest` red in the working
+tree. Its own docblock had argued the case in writing — *"a **future**-dated expansion has already
+spoken for the unit… letting a second lease take it in the gap is exactly the double-booking this
+guard exists to stop"* — using the word for a state the query then excluded.
+
+**Two named lists exist so this cannot drift again**, and they answer different questions:
+`Lease::HOLDS_PREMISES` (`active` + `future`) is *does a signed lease hold this shop* — the
+double-booking guards, the re-let check, `Tenant::activeLeases()`, `Unit::activeLease()`;
+`Lease::OPEN_TO_COMMERCIAL_ACTS` (+ `pending_approval`) is *may this lease be acted on* — the fifteen
+sites that carried the literal `['active','pending_approval']`, every one of which already admits a
+lease merely AWAITING APPROVAL, so refusing one that is signed and dated to open was incoherent.
+Billing the security deposit is the clearest case: a PRE-HANDOVER act that had become unreachable
+until the day the tenancy started.
+
+Also corrected by the same sweep: straight-line rent accrued on a population cash rent billed (a GL
+divergence in month one), the manual *Generate Invoice* button was hidden on a lease the batch run
+bills, the rent roll's own *"not yet commenced"* footnote became structurally always 0, the 24–60
+month revenue forecast dropped every signed deal, option windows on a future lease were never scanned
+(an unrecoverable deadline), and the leasing-pipeline widget would have shown signed deals **nowhere**.
+
+(`ALeaseSignedBeforeItStartsIsNotYetRunningTest` — 16 cases, 8 mutations. Note the honest one:
+removing `future` from EITHER of `Unit::recomputeStatus()`'s two lists leaves it green, because both
+answer true for a lease whose pivot rows carry no dates; they separate only on a future-DATED pivot,
+which `LeaseSpaceChangeService` alone produces. Removing it from both goes red.)
+
 ### A falling index does not cut the rent, and does not move the base
 
 The clause says the rent increases by the index movement; nothing in it says it decreases. So a
@@ -1659,7 +1729,7 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `unit_id` (FK → units, NOT NULL) | Foreign key to the master unit; denormalized pointer to `units.id` for fast lookups and backward compatibility. Always mirrors the `is_master=true` row in `lease_unit` pivot. Scoped by `ScopesViaProperty` trait in Filament. |
 | | | `tenant_id` (FK → tenants, NOT NULL, RESTRICT) | Tenant occupying the lease. Cannot be orphaned. |
 | | | `previous_lease_id` (FK → leases, nullable, NULL ON DELETE) | Points to the prior lease if this is a renewal. Enables the lease chain: original → renewal → next renewal. |
-| | | `status` (enum) | One of: `draft`, `pending_approval`, `active`, `expired`, `renewed`, `terminated`, `cancelled`. Default `draft`. Drives unit occupancy projection (see § 4). |
+| | | `status` (enum) | One of: `draft`, `pending_approval`, `future`, `active`, `expired`, `renewed`, `terminated`, `cancelled`. Default `draft`. Drives unit occupancy projection (see § 4). `future` = signed, term not started — DERIVED from the commencement date, never declared. |
 | | | `commencement_date` (date) | Start of lease term. |
 | | | `expiry_date` (date) | End of lease term (inclusive). Calculated on creation: `commencement + term_months - 1 day`. |
 | | | `expiry_reminder_notified_at` (timestamp, nullable) | Idempotency stamp for the tenant lease-expiry reminder (`leases:remind-expiring`); NULL until the tenant has been reminded once for this lease's expiry. |

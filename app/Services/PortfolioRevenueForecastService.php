@@ -173,7 +173,7 @@ class PortfolioRevenueForecastService
         $visible = TenantScope::reportAssetIds($assetId);
 
         return Lease::query()
-            ->where('status', 'active')
+            ->whereIn('status', Lease::HOLDS_PREMISES)
             ->when(
                 $visible !== null,
                 fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $visible)),

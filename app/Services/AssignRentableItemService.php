@@ -144,7 +144,7 @@ class AssignRentableItemService
             // this line on the first clause. A Voyager *Past* lease acquires no rentable items
             // either. So continuing a tenancy stays an explicit act (renew, or hold over), and the
             // bay follows the tenancy rather than outliving it.
-            return in_array($holder->status, ['active', 'pending_approval'], true);
+            return in_array($holder->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true);
         }
 
         if ($holder instanceof UnitOwnership) {

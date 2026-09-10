@@ -114,17 +114,25 @@ it('renews a lease whose term the nightly sweep has already closed', function ()
         ->and($lease->fresh()->status)->toBe('renewed');
 });
 
-it('still renews an ordinary lease inside its term', function () {
+it('still renews an ordinary lease inside its term, and leaves it running', function () {
     // The control. A rule that refused everything would satisfy every refusal below, and this is
     // the path every renewal in the portfolio takes today.
+    //
+    // BOTH statuses changed on 2026-09-10 and the old pair was the money defect. This lease has
+    // three months left to run: the successor is `future` because it has not started, and the
+    // ORIGINAL stays `active` because it has not finished — it is still billing a shop that is
+    // still trading. It used to be stamped `renewed` here, which is terminal and outside
+    // `BILLABLE_STATUSES`, so signing the renewal silently stopped invoicing those three months.
+    // `leases:expire` writes `renewed` on the day the term actually ends.
+    // See `ALeaseSignedBeforeItStartsIsNotYetRunningTest`.
     $lease = endedTermLease([
         'expiry_date' => CarbonImmutable::now()->addMonths(3)->endOfMonth()->toDateString(),
     ]);
 
     $renewal = app(LeaseRenewalService::class)->renew($lease, agreedRenewalTerms());
 
-    expect($renewal->status)->toBe('active')
-        ->and($lease->fresh()->status)->toBe('renewed');
+    expect($renewal->status)->toBe('future')
+        ->and($lease->fresh()->status)->toBe('active');
 });
 
 it('refuses to renew onto a shop that has since been re-let', function () {

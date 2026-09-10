@@ -141,7 +141,11 @@ class LeaseForm
                             // `LeaseFormTightnessTest`.
                             ->rules([
                                 fn (Get $get, ?Lease $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
-                                    if ($get('status') !== 'active' || ! $value) {
+                                    // `HOLDS_PREMISES`, not `active`: editing a SIGNED lease that
+                                    // has not opened yet must not skip the double-booking rule, or
+                                    // the form is a door onto the state `Unit::isActivelyLeased()`
+                                    // exists to refuse.
+                                    if (! in_array($get('status'), Lease::HOLDS_PREMISES, true) || ! $value) {
                                         return;
                                     }
 
@@ -205,9 +209,9 @@ class LeaseForm
                             // re-derives at it, closes the old charge row and opens the new one. The
                             // same shape as `service_charge_monthly` above, and for the same reason.
                             ->disabled(fn (?Lease $record): bool => $record !== null
-                                && in_array($record->status, ['active', 'pending_approval'], true))
+                                && in_array($record->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true))
                             ->helperText(fn (?Lease $record): string => $record !== null
-                                && in_array($record->status, ['active', 'pending_approval'], true)
+                                && in_array($record->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true)
                                     ? __('admin.fields.additional_units_locked')
                                     : __('admin.fields.additional_units_helper'))
                             ->entity(Unit::class)
@@ -324,7 +328,16 @@ class LeaseForm
                         Select::make('status')
                             ->label(__('admin.tables.common.status'))
                             ->options(fn (?Lease $record, Get $get): array => collect(__('admin.statuses.lease'))
-                                ->reject(fn ($label, $value) => in_array($value, ['renewed', 'terminated'], true)
+                                // `future` joins the two the form has never offered, for the same
+                                // reason and one more. It is a PROJECTION, not a decision: an
+                                // operator declares a lease EXECUTED and `executedStatusFor()`
+                                // answers whether that means active or future, so offering it as a
+                                // choice would invite somebody to disagree with the calendar. It
+                                // stays listed for a record already IN it — Filament validates a
+                                // Select by resolving the submitted value's label, so dropping the
+                                // value a row holds refuses every save of it on a field nobody
+                                // touched.
+                                ->reject(fn ($label, $value) => in_array($value, ['renewed', 'terminated', 'future'], true)
                                     && $record?->status !== $value)
                                 ->reject(fn ($label, $value) => $value === 'active'
                                     && $record?->status !== 'active'

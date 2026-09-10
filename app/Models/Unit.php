@@ -157,8 +157,13 @@ class Unit extends Model
         // NOT-YET-RELEASED, not currently-held: a future-dated expansion has already spoken for
         // the unit even though nobody occupies it yet, and letting a second lease take it in the
         // gap is exactly the double-booking this guard exists to stop.
+        //
+        // `HOLDS_PREMISES`, not the literal `active`, and the two halves of that sentence are the
+        // same point: this comment argued for a future-dated holding while the query below excluded
+        // the status literally called `future`. Measured with the literal in place — two leases on
+        // one shop, thirteen months of overlap, both billing, the unit reading `reserved` throughout.
         return Lease::constrainToNotYetReleased(
-            $this->allLeases()->where('leases.status', 'active')
+            $this->allLeases()->whereIn('leases.status', Lease::HOLDS_PREMISES)
         )
             ->when($excludeLeaseId, fn ($q, $id) => $q->where('leases.id', '!=', $id))
             ->exists();
@@ -191,7 +196,7 @@ class Unit extends Model
     public function isActivelyLeasedForUpdate(?int $excludeLeaseId = null): bool
     {
         return Lease::constrainToNotYetReleased(
-            $this->allLeases()->where('leases.status', 'active')
+            $this->allLeases()->whereIn('leases.status', Lease::HOLDS_PREMISES)
         )
             ->when($excludeLeaseId, fn ($q, $id) => $q->where('leases.id', '!=', $id))
             ->lockForUpdate()
@@ -442,8 +447,11 @@ class Unit extends Model
 
     public function activeLease(): HasOne
     {
+        // A `reserved` shop has an incoming tenant, and this relation is what names them on the
+        // units list, the occupancy map, the export and the search blob. Left at `active` it
+        // rendered every one of those blank for a unit that is demonstrably spoken for.
         return $this->hasOne(Lease::class)
-            ->where('status', 'active')
+            ->whereIn('status', Lease::HOLDS_PREMISES)
             ->latest('commencement_date');
     }
 
@@ -486,8 +494,8 @@ class Unit extends Model
 
         $target = match (true) {
             $statuses->contains('active') => 'occupied',
-            $statuses->intersect(['draft', 'pending_approval', 'renewed'])->isNotEmpty() => 'reserved',
-            $committed->intersect(['active', 'draft', 'pending_approval', 'renewed'])->isNotEmpty() => 'reserved',
+            $statuses->intersect(['draft', 'pending_approval', 'renewed', 'future'])->isNotEmpty() => 'reserved',
+            $committed->intersect(['active', 'draft', 'pending_approval', 'renewed', 'future'])->isNotEmpty() => 'reserved',
             default => 'vacant',
         };
 

@@ -215,7 +215,7 @@ class ActionRequired extends Widget
 
         $monthStart = (clone $now)->startOfMonth();
         $monthEnd = (clone $now)->endOfMonth();
-        $unbilledLeasesCount = $leaseBase()->where('status', 'active')
+        $unbilledLeasesCount = $leaseBase()->whereIn('status', Lease::BILLABLE_STATUSES)
             ->whereDoesntHave('invoices', function ($q) use ($monthStart, $monthEnd) {
                 $q->whereBetween('period_start', [$monthStart, $monthEnd]);
             })

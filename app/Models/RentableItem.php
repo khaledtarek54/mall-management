@@ -175,7 +175,7 @@ class RentableItem extends Model
                 ->orWhereDate('rentable_item_holdings.effective_to', '>=', $date));
 
         $heldByLease = $this->leases()
-            ->whereIn('leases.status', ['active', 'pending_approval'])
+            ->whereIn('leases.status', Lease::OPEN_TO_COMMERCIAL_ACTS)
             ->where($dated)
             ->exists();
 
@@ -210,7 +210,7 @@ class RentableItem extends Model
     public function isSpokenFor(): bool
     {
         $heldByLease = $this->leases()
-            ->whereIn('leases.status', ['active', 'pending_approval'])
+            ->whereIn('leases.status', Lease::OPEN_TO_COMMERCIAL_ACTS)
             ->wherePivotNull('effective_to')
             ->exists();
 
@@ -271,7 +271,7 @@ class RentableItem extends Model
     public function currentHolderLabel(): ?string
     {
         $lease = $this->leases->first(fn (Lease $lease): bool => $lease->pivot->effective_to === null
-            && in_array($lease->status, ['active', 'pending_approval'], true));
+            && in_array($lease->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true));
 
         if ($lease) {
             return $lease->tenant?->name;

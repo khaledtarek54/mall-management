@@ -49,7 +49,7 @@ class PostStraightLineRentService
         }
 
         Lease::query()
-            ->whereIn('status', ['active', 'terminated', 'expired', 'renewed'])
+            ->whereIn('status', ['active', 'future', 'terminated', 'expired', 'renewed'])
             ->whereDate('commencement_date', '<=', $month->endOfMonth()->toDateString())
             ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
             ->with(['charges', 'unit'])

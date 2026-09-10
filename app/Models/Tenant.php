@@ -414,10 +414,24 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         }
     }
 
-    /** @return HasMany<Lease, $this> */
+    /**
+     * The leases that make this tenant a TENANT — signed and not yet ended.
+     *
+     * `HOLDS_PREMISES`, because ~20 call sites read this one relation and a lease signed to open
+     * next month makes somebody a tenant of this mall today. Measured with the literal `active`
+     * after `future` was added: the portal rendered UNBRANDED for a tenant fitting out (their only
+     * lease was future, so `PortalBranding` resolved no property), `/api/v1` returned an empty
+     * lease list to an app that had just shown the lease at login (`LoginTenantAction` reads
+     * `leases()->visibleToTenant()`, which includes it — the two halves of one screen disagreeing),
+     * handover and fit-out announcements reached nobody, a portal request with no unit had no
+     * fallback lease and was refused, and the account statement covering that lease's own deposit
+     * invoice printed `—` where the premises go.
+     *
+     * @return HasMany<Lease, $this>
+     */
     public function activeLeases(): HasMany
     {
-        return $this->leases()->where('status', 'active');
+        return $this->leases()->whereIn('status', Lease::HOLDS_PREMISES);
     }
 
     public function invoices(): HasMany
