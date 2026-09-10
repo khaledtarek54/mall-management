@@ -16,6 +16,13 @@ return [
             'scheduled' => 'Not started',
             'ended' => 'No longer here',
         ],
+        // The ownership twin of `staff_tenure` above, worded for a property rather than a job:
+        // an owner who sold is a FORMER OWNER, not somebody who stopped working here.
+        'owner_tenure' => [
+            'current' => 'Current owner',
+            'scheduled' => 'Incoming owner',
+            'ended' => 'Former owner',
+        ],
         'journal_entry' => [
             'draft' => 'Draft',
             'posted' => 'Posted',

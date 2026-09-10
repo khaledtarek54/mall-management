@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\AssetOwner;
+use App\Models\User;
 use App\Support\Filament\AttachedOnce;
 use App\Support\Filament\TenureRange;
 use App\Support\PropertyRoster;
@@ -105,7 +106,14 @@ class AssetOwnersRelationManager extends RelationManager
         $total = $this->getOwnerRecord()->ownershipRecordedOn();
 
         if ($total <= 0.0) {
-            return null; // no owners recorded yet — the empty state already says that
+            // Rows exist, but not one of them owns the property TODAY — every owner has sold, or
+            // none has started. The empty state cannot say this (the table is not empty) and
+            // nothing else would: `GenerateOwnerStatementRunService` simply returns 0.00 for a
+            // property with no current owner, so the money stops with no message at all.
+            return $this->getOwnerRecord()->propertyOwners()->exists()
+                ? __('admin.owner_statements.ownership_total_none_current')
+                // Genuinely no owners recorded yet — the empty state already says that.
+                : null;
         }
 
         if ($total - AssetOwner::WHOLE > 0.01) {
@@ -152,6 +160,47 @@ class AssetOwnersRelationManager extends RelationManager
                     // A blank end date is the normal, current state — say so rather than showing
                     // an empty cell the operator has to interpret.
                     ->placeholder(__('admin.fields.owned_until_open')),
+                // WHETHER THIS PERSON STILL OWNS ANY OF IT. The register printed an end date and
+                // left the reader to compare it against today, for every row, in their head — so
+                // the row for an owner who sold in 2020 looked exactly like the row for the owner
+                // who bought it.
+                //
+                // Trello XrfFkqu5 and 9m3dfDpB are the two halves of ONE confusion, and the halves
+                // were fixed in that order: the tab's total counted former owners (fixed in
+                // 3b9b1452 — it reads `ownershipRecordedOn()` above, so a sold-out tenure no longer
+                // inflates it), and the ROW still called that owner current. Only the second half
+                // is left, and this is it.
+                //
+                // Derived, never stored: it is a function of TODAY, which is exactly the shape
+                // `ProjectedState` exists for — a stored copy would need a nightly sweep and would
+                // go wrong on a day nothing happened. Built from `AssetOwner`'s own predicates,
+                // which are a COPY of the staff pivot's rather than a shared seam — the vocabularies
+                // differ (`current` here, `active` there), so nothing structural keeps them equal
+                // and the boundary is pinned by test on both sides instead.
+                TextColumn::make('tenure')
+                    ->label(__('admin.tables.common.status'))
+                    ->badge()
+                    ->state(fn (User $record): string => match (true) {
+                        $record->pivot->hasEnded() => 'ended',
+                        // …and NOT the same thing: a tenure that has not begun is an incoming
+                        // owner, the opposite fact from a former one.
+                        ! $record->pivot->coversDate() => 'scheduled',
+                        default => 'current',
+                    })
+                    ->formatStateUsing(fn (string $state): string => __("admin.statuses.owner_tenure.{$state}"))
+                    // GRAY for a finished tenure, deliberately NOT the staff badge's `danger`.
+                    // A sale is a correct, completed record, and this panel already says so
+                    // everywhere else: an `expired` lease, an `expired` vendor contract and an
+                    // `inactive` tenant are all gray, with `danger` reserved for `terminated` and
+                    // `cancelled`. It matters more here than it reads: a red row invites the one
+                    // destructive act on this tab, and Detach's own modal warns that it "erases the
+                    // tenure, and with it the basis of every statement that ever apportioned money
+                    // to this owner."
+                    ->color(fn (string $state): string => match ($state) {
+                        'ended' => 'gray',
+                        'scheduled' => 'warning',
+                        default => 'success',
+                    }),
             ])
             ->headerActions([
                 AttachAction::make()

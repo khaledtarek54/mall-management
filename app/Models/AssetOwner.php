@@ -170,6 +170,28 @@ class AssetOwner extends Pivot
         }
     }
 
+    /**
+     * True once this tenure has run out — the owner SOLD, and is no longer one.
+     *
+     * A COPY of {@see AssetUser::hasEnded()}, not a shared seam — and said that way deliberately,
+     * because three methods above this file's own `scopeOverlapping()` docblock warns that "two
+     * spellings of one range test is how they come to disagree". Nothing structural keeps these two
+     * equal; what does is that BOTH sides pin the boundary by test.
+     *
+     * **`lt()`, so the last day of a tenure is still OWNED.** That is the whole reason this exists
+     * rather than `! coversDate()`, and it has to agree with `Asset::propertyOwnersOn()` and
+     * `User::currentOwnedAssets()` — the second of which GRANTS an owner their access — or the
+     * badge and the grant diverge on the day somebody sells. Distinct from `! coversDate()`,
+     * which is also true of a tenure that has not STARTED yet — a former owner and an incoming one
+     * are opposite facts and a badge that merged them would be worse than none.
+     */
+    public function hasEnded(?\DateTimeInterface $date = null): bool
+    {
+        $on = ($date !== null ? Carbon::parse($date) : Carbon::today())->startOfDay();
+
+        return $this->ended_at !== null && $this->ended_at->startOfDay()->lt($on);
+    }
+
     /** True if this ownership segment is in effect on $date (default: today). */
     public function coversDate(\DateTimeInterface|string|null $date = null): bool
     {

@@ -16,6 +16,11 @@ return [
             'scheduled' => 'لم يبدأ بعد',
             'ended' => 'لم يعد يعمل هنا',
         ],
+        'owner_tenure' => [
+            'current' => 'المالك الحالي',
+            'scheduled' => 'مالك قادم',
+            'ended' => 'مالك سابق',
+        ],
         'journal_entry' => [
             'draft' => 'مسودة',
             'posted' => 'مرحّل',

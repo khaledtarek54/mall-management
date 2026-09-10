@@ -272,6 +272,111 @@ it('refuses a second full owner through the real Attach action', function () {
         ->and($this->asset->fresh()->ownershipRecordedOn())->toBe(100.0);
 });
 
+it('says on the row whether each owner is current, former or incoming', function () {
+    // Trello 9m3dfDpB, and the other half of the Critical beside it: the register printed an end
+    // date and left the reader to compare it against today for every row, so an owner who sold in
+    // 2020 looked exactly like the one who bought it — which is most of why a tab reading
+    // "Ownership recorded: 200.00%" was taken for a real over-ownership.
+    test()->seed(RolesPermissionsSeeder::class);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    test()->actingAs(makeUser('super_admin'));
+
+    // Shares chosen so the register is one the panel could really produce: the current and
+    // incoming tenures overlap from tomorrow, so 60 + 40 is exactly the whole property and the
+    // model guard permits it. Bypassing the guard here would assert UI behaviour on a register
+    // the app refuses to create, and the case could never notice if that ever changed.
+    $former = ownAsset($this->asset, anOwner('Former'), 100, '2015-01-01', '2020-09-10');
+    $current = ownAsset($this->asset, anOwner('Current'), 60, '2020-09-11', null);
+    $incoming = ownAsset($this->asset, anOwner('Incoming'), 40, CarbonImmutable::tomorrow()->toDateString(), null);
+
+    $tab = Livewire\Livewire::test(AssetOwnersRelationManager::class, [
+        'ownerRecord' => $this->asset->fresh(),
+        'pageClass' => EditAsset::class,
+    ]);
+
+    $tab->assertTableColumnStateSet('tenure', 'ended', $former->user_id)
+        ->assertTableColumnStateSet('tenure', 'current', $current->user_id)
+        // A tenure that has not STARTED is the opposite fact from one that has ENDED — merging
+        // them into "not current" would be worse than no badge.
+        ->assertTableColumnStateSet('tenure', 'scheduled', $incoming->user_id);
+
+    $tab->assertSee(__('admin.statuses.owner_tenure.ended'))
+        ->assertSee(__('admin.statuses.owner_tenure.current'));
+
+    // NOT PINNED, and recorded rather than implied: the badge COLOUR. A finished tenure is `gray`
+    // here and `danger` on the staff badge this copied — a deliberate deviation (a sale is a
+    // completed record, and red invites Detach, which erases the basis of every statement that
+    // ever paid this owner). Colour is a judgement with no behaviour behind it, and a test that
+    // asserted a CSS class would pin Filament's markup rather than the decision.
+});
+
+it('reads the tenure words in both languages', function () {
+    foreach (['current', 'scheduled', 'ended'] as $state) {
+        $key = "admin.statuses.owner_tenure.{$state}";
+        expect(Lang::has($key, 'en', false))->toBeTrue($key)
+            ->and(Lang::has($key, 'ar', false))->toBeTrue($key)
+            ->and((bool) preg_match('/\p{Arabic}/u', __($key, [], 'ar')))->toBeTrue($key);
+    }
+});
+
+it('counts the LAST DAY of a tenure as still owned', function () {
+    // The boundary the whole method exists for, and the tooth this file dropped when it copied the
+    // staff badge — `TheStaffRegisterSaysWhoStillWorksHereTest` pins the same day on its own side.
+    // Without it, `lt()` -> `lte()` and even `return $this->ended_at !== null` both survive every
+    // other case here, and the second is live data: a sale dated NEXT MONTH would read "Former
+    // owner" while the seller still owns the mall.
+    //
+    // It also has to agree with `Asset::propertyOwnersOn()` and `User::currentOwnedAssets()` — the
+    // query that GRANTS an owner their access — or the badge and the grant diverge on the very day
+    // somebody sells.
+    $lastDay = ownAsset($this->asset, anOwner('Selling'), 100, '2020-01-01', CarbonImmutable::today()->toDateString());
+
+    expect($lastDay->hasEnded())->toBeFalse()
+        ->and($lastDay->coversDate())->toBeTrue()
+        ->and($this->asset->fresh()->ownershipRecordedOn())->toBe(100.0);
+
+    $future = ownAsset(makeAsset(['code' => 'FUT']), anOwner('SellingLater'), 100, '2020-01-01', CarbonImmutable::tomorrow()->toDateString());
+    expect($future->hasEnded())->toBeFalse()
+        ->and($future->coversDate())->toBeTrue();
+
+    $yesterday = ownAsset(makeAsset(['code' => 'PAST']), anOwner('Sold'), 100, '2020-01-01', CarbonImmutable::yesterday()->toDateString());
+    expect($yesterday->hasEnded())->toBeTrue()
+        ->and($yesterday->coversDate())->toBeFalse();
+});
+
+it('says so when every owner listed has sold', function () {
+    // Found by review. `ownershipRecordedOn()` counts CURRENT owners, so a property whose only
+    // owner sold totals 0.00 — and the empty state cannot speak, because the table has a row. The
+    // statement service just returns 0.00 for a property with no current owner, so without this
+    // the money stops with no message anywhere.
+    test()->seed(RolesPermissionsSeeder::class);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    test()->actingAs(makeUser('super_admin'));
+
+    ownAsset($this->asset, anOwner('Gone'), 100, '2015-01-01', '2020-01-01');
+
+    expect($this->asset->fresh()->ownershipRecordedOn())->toBe(0.0);
+
+    Livewire\Livewire::test(AssetOwnersRelationManager::class, [
+        'ownerRecord' => $this->asset->fresh(),
+        'pageClass' => EditAsset::class,
+    ])->assertSee(__('admin.owner_statements.ownership_total_none_current'));
+});
+
+it('tells a tenure that ENDED from one that has not STARTED', function () {
+    // The predicate under the badge, asked directly. `hasEnded()` and `! coversDate()` are both
+    // true of an incoming owner, so a badge built on the second alone would call them former.
+    // No `withoutEvents` here: the ended tenure does not overlap tomorrow, so the guard permits
+    // both rows outright and the bypass would only disguise that this state is fully reachable.
+    $ended = ownAsset($this->asset, anOwner('Sold'), 100, '2015-01-01', '2020-01-01');
+    $incoming = ownAsset($this->asset, anOwner('Buying'), 100, CarbonImmutable::tomorrow()->toDateString(), null);
+
+    expect($ended->hasEnded())->toBeTrue()
+        ->and($ended->coversDate())->toBeFalse()
+        ->and($incoming->hasEnded())->toBeFalse()
+        ->and($incoming->coversDate())->toBeFalse();
+});
+
 it('words the refusal and the over-100 notice in both languages', function () {
     foreach ([
         'admin.refusals.ownership_exceeds_the_property',

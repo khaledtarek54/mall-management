@@ -114,6 +114,15 @@ draw) and **`due_to_owner` = 21802001** (a liability under 218 "Due to Related P
   without being any. Two operators attaching two different owners at once can still both pass; the
   window is small and the remedy is visible on the tab.
   (`APropertyCannotBeOwnedTwiceOverTest`, thirteen teeth mutation-proved.)
+  **And each row now SAYS whether that owner is current** (Trello 9m3dfDpB, the other half of the
+  same confusion). The register printed an end date and left the reader to compare it against today
+  for every row, so an owner who sold in 2020 looked exactly like the one who bought it — which is
+  most of why a tab reading 200% was taken for a real over-ownership rather than a former owner
+  still being counted. A `tenure` badge, DERIVED and never stored (it is a function of TODAY, the
+  shape `ProjectedState` exists for), built from `AssetOwner::hasEnded()` / `coversDate()` — the
+  mirror of the staff tenure badge beside it, so the two cannot disagree about what "current" means.
+  **Three states, not two**: a tenure that has not STARTED is an incoming owner, the opposite fact
+  from a former one, and merging them into "not current" would be worse than no badge.
 - **STILL OPEN — a handover period is double-counted by the generate service.** Seller ends 15 March,
   buyer starts 16 March: the tenures do NOT overlap, so the register is correct and the tab rightly
   reads 100%. But `GenerateOwnerStatementRunService` selects participants by PERIOD OVERLAP, so the
