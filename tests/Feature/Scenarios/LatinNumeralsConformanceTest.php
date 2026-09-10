@@ -313,10 +313,13 @@ it('formats every number in Latin digits under the Arabic locale', function () {
 it('pins Filament to Latin digits even when APP_LOCALE names the country', function () {
     // The case that actually bites. Filament's money/numeric columns, their summarizers and every
     // infolist entry resolve `$locale ?? $container->getDefaultNumberLocale() ?? config('app.locale')`
-    // and pass it EXPLICITLY, which walks straight past `Number::useLocale('en')`. `ar` happens to
-    // carry the Latin numbering system in current CLDR and `ar_EG` does not — so an operator who
-    // writes the obvious thing in `.env` would otherwise turn every amount in the panel
-    // Arabic-Indic while the app's own `Number::currency()` calls stayed Latin.
+    // and pass it EXPLICITLY, which walks straight past `Number::useLocale('en')`.
+    //
+    // WHICH Arabic locale is Arabic-Indic depends on the box's ICU, and ours disagree: staging runs
+    // ICU 74.2 where plain `ar` is `arab`; this laptop runs 77.1 where CLDR has moved `ar` to
+    // `latn`. So on the deployment this was live on every money column, and on a dev machine it is
+    // invisible. `ar_EG` is `arab` on BOTH, which is why the premise below is pinned on it — the
+    // test then proves the pin whichever ICU it runs on.
     // `Application::setLocale()` WRITES `config('app.locale')`, so the config key Filament reads
     // is the RUNTIME locale, not the `.env` value. Pinned here because the whole reason this seam
     // is needed rests on it — if it ever stopped being true the comment above would go quietly

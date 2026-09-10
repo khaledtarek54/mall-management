@@ -115,16 +115,27 @@ final class LatinNumerals
      * **And `config('app.locale')` is NOT the `.env` value at runtime.** `Application::setLocale()`
      * WRITES it (`$this['config']->set('app.locale', $locale)`), so the moment `SetLocale` puts an
      * operator into Arabic, every Filament money and numeric column in that request is resolving
-     * the locale `ar` — not `en`. It renders Latin anyway for a reason nobody here chose: current
-     * CLDR maps `ar` to the **`latn`** numbering system. That has changed before and is not ours
-     * to rely on.
+     * the locale `ar` — not `en`.
      *
-     * **`ar_EG` maps to `arab`**, and `SetLocale::SUPPORTED` does not contain it — an unrecognised
-     * value is never clamped, it is simply not applied, so `APP_LOCALE=ar_EG` (the obvious thing
-     * for an Egyptian operator to write) stands for the whole request. Measured on ICU 77.1: a
-     * money column then renders `‏١٢٬٧٨٠٫٠٠ ج.م.‏` while `Number::currency()` two lines away still
-     * answers `EGP 12,780.00` — every amount in the panel in one digit set and every amount the
-     * app composed itself in the other, from a one-word config edit, with nothing to report it.
+     * **WHAT `ar` THEN RENDERS DEPENDS ON THE BOX'S ICU, AND THE TWO WE HAVE DISAGREE.** Measured
+     * the day this shipped: the staging box runs **ICU 74.2**, where `ar` carries the **`arab`**
+     * numbering system, and the laptop this was written on runs **ICU 77.1**, where CLDR has since
+     * moved `ar` to **`latn`**. So the same code renders `‏١٢٬٧٨٠٫٥٠ ج.م.‏` on the deployment and
+     * `EGP 12,780.50` in development — this was not a latent hazard, it was **the reported bug**,
+     * live on every money and numeric column of the Arabic panel, and invisible to anyone
+     * developing on a newer ICU. Driven on the box after deploying: without this pin
+     * `‏١٢٬٧٨٠٫٥٠ ج.م.‏` and `١٬٢٣٤٬٥٦٧٫٥٠`, with it `EGP 12,780.50` and `1,234,567.50`.
+     *
+     * That is the whole argument for pinning rather than relying on the locale: an ICU upgrade is
+     * a machine-level fact nobody reviews, it moved this behaviour once already, and it renders
+     * "works on my laptop" a statement about CLDR rather than about the code — the same family as
+     * sqlite-vs-MySQL, which this codebase records repeatedly.
+     *
+     * **`ar_EG` maps to `arab` on BOTH**, and `SetLocale::SUPPORTED` does not contain it — an
+     * unrecognised value is never clamped, it is simply not applied, so `APP_LOCALE=ar_EG` (the
+     * obvious thing for an Egyptian operator to write) stands for the whole request. The gate
+     * pins its premise on `ar_EG` for exactly that reason: it is the one Arabic locale that is
+     * Arabic-Indic on every ICU we have, so the test proves the pin on either machine.
      *
      * **The date picker is deliberately NOT pinned, and the reason is worth writing down.**
      * `DateTimePicker::getLocale()` reads the same `config('app.locale')`, so an Arabic operator's
