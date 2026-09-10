@@ -712,5 +712,54 @@
     "path": "app/Filament/Admin/Resources/DepositTransactions/Schemas/DepositTransactionForm.php",
     "old": "BankAccountField::for(",
     "new": "NoSuchField::for("
+  },
+  {
+    "name": "AssistantFields — a refused model loses the reason it was refused for",
+    "gate": "tests/Feature/Scenarios/AssistantFieldsConformanceTest.php",
+    "path": "app/Support/AssistantFields.php",
+    "old": "        Employee::class => 'A person. Salary, national ID and documents live here, and the screen that shows them has its own permission for exactly that reason — quoting them into a chat panel bypasses the room the screen assumes.',",
+    "new": "        Employee::class => '',"
+  },
+  {
+    "name": "PortalAndApiAnswerTheSameQuestions — a stale field exemption",
+    "gate": "tests/Feature/Scenarios/PortalAndApiAnswerTheSameQuestionsConformanceTest.php",
+    "path": "app/Support/PortalApiParity.php",
+    "old": "    public const FIELD_EXEMPT = [",
+    "new": "    public const FIELD_EXEMPT = [\n        'NoSuchResource::ghost_field' => 'a deliberately stale exemption for a field nobody renders',"
+  },
+  {
+    "name": "ReconciliationChecksCanFail — the CAM tie-out is made unable to fail",
+    "gate": "tests/Feature/Scenarios/ReconciliationChecksCanFailConformanceTest.php",
+    "path": "app/Services/Reconciliation/BooksReconciliationService.php",
+    "old": "$checks[] = $this->check('cam_allocations', 'CAM allocations tie to the pool + billed ones have a charge or credit note', $d);",
+    "new": "$checks[] = $this->check('cam_allocations', 'CAM allocations tie to the pool + billed ones have a charge or credit note', []);"
+  },
+  {
+    "name": "LandingPage — a figure is typed into the page instead of read from a registry",
+    "gate": "tests/Feature/Scenarios/LandingPageConformanceTest.php",
+    "path": "resources/views/welcome.blade.php",
+    "old": "['value' => $facts['gl_sources'], 'key' => 'gl_sources'],",
+    "new": "['value' => 999, 'key' => 'gl_sources'],"
+  },
+  {
+    "name": "EveryPickerShowsSomething — a picker offers nothing though its table has rows",
+    "gate": "tests/Feature/Scenarios/EveryPickerShowsSomethingConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/BankStatements/Schemas/BankStatementForm.php",
+    "old": "                        ->modifyOptionsQuery(fn ($query) => $query->when(",
+    "new": "                        ->modifyOptionsQuery(fn ($query) => $query->whereRaw('1 = 0')->when("
+  },
+  {
+    "name": "AuthSurfaceIsGrantable — a panel gate stops being offered on any screen",
+    "gate": "tests/Feature/Scenarios/AuthSurfaceIsGrantableConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Vendors/RelationManagers/ContactsRelationManager.php",
+    "old": "Toggle::make('is_portal_user')",
+    "new": "Toggle::make('is_portal_user_renamed')"
+  },
+  {
+    "name": "ALinkOffAPortfolioWidePage — a link out of a portfolio-wide screen drops the property",
+    "gate": "tests/Feature/Scenarios/ALinkOffAPortfolioWidePageNamesItsOwnPropertyConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/AccountMappings/Tables/AccountMappingsTable.php",
+    "old": "namespace App\\Filament\\Admin\\Resources\\AccountMappings\\Tables;\n\nuse App\\Filament\\Admin\\Resources\\AccountMappings\\AccountMappingResource;\nuse App\\Models\\AccountMapping;\nuse App\\Support\\PostingRoles;\nuse Filament\\Actions\\CreateAction;\nuse Filament\\Actions\\EditAction;\nuse Filament\\Actions\\ViewAction;\nuse Filament\\Tables\\Columns\\TextColumn;\nuse Filament\\Tables\\Filters\\SelectFilter;\nuse Filament\\Tables\\Filters\\TernaryFilter;\nuse Filament\\Tables\\Table;\n\nclass AccountMappingsTable\n{\n    public static function configure(Table $table): Table\n    {",
+    "new": "namespace App\\Filament\\Admin\\Resources\\AccountMappings\\Tables;\n\nuse App\\Filament\\Admin\\Resources\\Units\\UnitResource;\n\nuse App\\Filament\\Admin\\Resources\\AccountMappings\\AccountMappingResource;\nuse App\\Models\\AccountMapping;\nuse App\\Support\\PostingRoles;\nuse Filament\\Actions\\CreateAction;\nuse Filament\\Actions\\EditAction;\nuse Filament\\Actions\\ViewAction;\nuse Filament\\Tables\\Columns\\TextColumn;\nuse Filament\\Tables\\Filters\\SelectFilter;\nuse Filament\\Tables\\Filters\\TernaryFilter;\nuse Filament\\Tables\\Table;\n\nclass AccountMappingsTable\n{\n    public static function configure(Table $table): Table\n    {\n        $leak = UnitResource::getUrl('edit', ['record' => 1]);"
   }
 ]
