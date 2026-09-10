@@ -981,6 +981,58 @@ the panel's Select is the other door — never a side effect of saving a line.
 
 ## 5. Services, jobs & scheduled commands
 
+### ⚠️ A month that was never invoiced is REPORTED, not silently lost (2026-09-10)
+
+**`billing:scan-unbilled-periods`** (weekly, Friday 04:30, beside `billing:reconcile --deep`) +
+`App\Services\ScanUnbilledPeriodsService`.
+
+**`RunMonthlyBilling` bills exactly one period** — `now()->startOfMonth()` — and no caller loops
+over missed ones. That is deliberate, and it is the same rule `expenses:generate-recurring` states
+in writing: posting a burst of back-dated entries into possibly-closed periods, unattended, is
+worse than not posting them. The consequence nobody had closed is that **every route which leaves a
+month behind leaves it behind silently**:
+
+- a **renewal signed after the old term ended**, dated back to the day after it so the tenancy has
+  no gap — the common one, and newly reachable since a lease past its term became renewable
+  ([module 04](04-leases.md));
+- a lease keyed in with a **back-dated commencement**;
+- a **failed billing night** whose catch-up was run for one period and not the others;
+- a month whose only invoice was **cancelled or left in draft**, which `alreadyBilledForMonth()`
+  correctly does not count as billed.
+
+The register looks healthy, every invoice on it is right, and the cash for those months simply never
+arrives. `billing:reconcile` cannot see it — that asks whether the books agree about documents that
+EXIST. This is the shape `pdc:scan-coverage` names: **a scan of what exists cannot see what does
+not.**
+
+**Every figure comes from `MonthlyBillingService::previewForPeriod()`** — the real run's own dry run,
+using the same `billableForPeriod()` scope, the same `alreadyBilledForMonth()` probe and the same
+`planInvoiceForLease()` planner. A second definition of *should this month have billed* would
+eventually disagree with the run, and the scan would then be reporting against a rule the system
+does not follow.
+
+**It REPORTS and does not bill**, which is the load-bearing decision. Raising an invoice sets a
+posting date; `Invoice` carries `#[PostingDateGuardedBy]` so a closed period is refused; and a
+scheduled job choosing that date for months of history is precisely what the one-period rule
+prevents. The operator raises them from the lease's **Billing forecast** tab, one period at a time.
+Yardi is the same — Voyager posts charges per period, and a back-dated lease means running that
+post rather than trusting a silent catch-up.
+
+**The CURRENT month is excluded and that is not an off-by-one:** it has not been billed yet, and a
+property may bill on the 25th (`App\Support\BillingDay`), so flagging it would fire on the whole
+portfolio for most of every month — an alert that is usually noise is one that gets switched off.
+
+**Not in `atriom:preflight`, and not a bell.** An install carrying historical gaps — an imported
+book of business, a staging box seeded with back-dated history — would make a preflight step
+permanently red, and a permanently red step is one people stop reading; it exits 0 with its table
+printed unless `--strict` is passed, which is for a cutover. It is delivered as a command beside
+`atriom:audit-charge-schedules` rather than as a notification because the finding is portfolio-level
+finance work, where the per-lease notifications in this system exist for conversations with a
+counterparty. (`AnUnbilledMonthIsReportedRatherThanLostTest`, four teeth mutation-proved — including
+the schedule check, whose first version used `str_contains` and passed against a mutant scheduling
+`billing:scan-unbilled-periods-DISABLED`.)
+
+
 ### IssueInvoiceService — the one seam an AR document is born through
 
 **File:** `/app/Services/IssueInvoiceService.php`

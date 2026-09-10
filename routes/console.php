@@ -392,6 +392,24 @@ Schedule::command('billing:reconcile --deep')
     ->name('atriom-books-reconcile')
     ->withoutOverlapping();
 
+// Lease-months the term covered and nothing ever invoiced — the failure that is an ABSENT row.
+//
+// `RunMonthlyBilling` bills exactly one period and no caller loops over missed ones, deliberately:
+// posting a burst of back-dated entries into possibly-closed periods is the trap
+// `expenses:generate-recurring` states in writing. So a renewal signed after its old term ended, a
+// back-dated commencement, or a failed billing night whose catch-up covered one month and not the
+// others all leave money uninvoiced with nothing pointing at it — the register looks healthy and
+// the cash simply never arrives. `billing:reconcile` cannot see it: that asks whether the books
+// agree about documents that EXIST.
+//
+// Weekly and beside the reconcile, because it goes to the same reader on the same rhythm, and it
+// REPORTS rather than billing — raising the invoices is an act with a posting date, and that is a
+// person's decision.
+Schedule::command('billing:scan-unbilled-periods')
+    ->weeklyOn(5, '04:30')
+    ->name('atriom-scan-unbilled-periods')
+    ->withoutOverlapping();
+
 /*
 |--------------------------------------------------------------------------
 | Backups

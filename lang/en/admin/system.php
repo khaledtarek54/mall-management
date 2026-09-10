@@ -537,7 +537,7 @@ return [
         'charge_schedule_overlap' => 'This :type row (:start → :end) overlaps the existing row :other_start → :other_end. Two rows covering the same month would bill the charge twice — close the earlier row the day before the later one starts.',
         'item_allocation_payment_not_received' => 'That payment is not received money, so it cannot settle any line.',
         'dispute_reason_required' => 'A dispute needs a stated reason — it suppresses a late fee, so it has to say why.',
-        'rentable_item_lease_not_active' => 'Only an active or pending lease can take a parking bay or store.',
+        'rentable_item_lease_not_active' => 'Only an active or pending lease can take a parking bay or store. A tenancy past its term must be renewed or held over first.',
         'rentable_item_other_property' => 'That item belongs to another property.',
         'rentable_item_out_of_service' => 'That item is out of service — put it back in service before letting it.',
         'rentable_item_already_held' => 'Item :code is already held by another lease on that date.',

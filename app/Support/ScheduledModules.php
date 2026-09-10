@@ -120,6 +120,7 @@ final class ScheduledModules
         'billing:reconcile' => 'The weekly tie-out that says WHICH document the books disagree about. Gating a reconciliation on a feature flag is how a discrepancy goes unreported.',
         'billing:remind-overdue-tenants' => 'Billing is core — a mall that cannot invoice is not running Atriom. There is no `billing` key and there should not be one.',
         'billing:scan-overdue-invoices' => 'Core billing. An invoice goes overdue on its own; refusing to notice is not a configuration option.',
+        'billing:scan-unbilled-periods' => 'Core billing, and the one that reports money never asked for. A mall that cannot notice an uninvoiced month is not running Atriom; there is no `billing` key and there should not be one.',
         'leases:apply-escalations' => 'Leasing is core. A contracted escalation is a term of an agreement, not a feature.',
         'leases:expire' => 'Leasing is core — and this one also re-projects unit occupancy, so skipping it leaves shops un-relettable.',
         'leases:remind-expiring' => 'Leasing is core. A term ending is a date in a signed contract, and the reminder is what gives anyone time to renew it.',
