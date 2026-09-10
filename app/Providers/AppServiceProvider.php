@@ -28,6 +28,8 @@ use App\Support\Filament\AnnouncingForceDeleteAction;
 use App\Support\Filament\AnnouncingRestoreAction;
 use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\CatalogueAwareSelect;
+use App\Support\Filament\IdentifiedExportAction;
+use App\Support\Filament\IdentifiedExportBulkAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\Filament\NavigationItemMemo;
 use App\Support\Filament\TableViewDefaultMemo;
@@ -44,6 +46,8 @@ use Filament\Actions\DeleteAction as FilamentDeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\DetachAction as FilamentDetachAction;
 use Filament\Actions\EditAction as FilamentEditAction;
+use Filament\Actions\ExportAction as FilamentExportAction;
+use Filament\Actions\ExportBulkAction as FilamentExportBulkAction;
 use Filament\Actions\ForceDeleteAction as FilamentForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction as FilamentRestoreAction;
@@ -158,6 +162,12 @@ class AppServiceProvider extends ServiceProvider
         // an attach still replaced that deny instead of narrowing it. These two are the ones this
         // app uses, and both grant or revoke ACCESS. See AnnouncingAttachAction.
         $this->app->bind(FilamentAttachAction::class, AnnouncingAttachAction::class);
+        // And the two EXPORT actions, for a different reason again: a file that cannot say which
+        // rows it is about is unusable and looks successful. Reported with the file attached — a
+        // tenants export of two rows both reading "active". See IdentifiedExport.
+
+        $this->app->bind(FilamentExportAction::class, IdentifiedExportAction::class);
+        $this->app->bind(FilamentExportBulkAction::class, IdentifiedExportBulkAction::class);
         $this->app->bind(FilamentDetachAction::class, AnnouncingDetachAction::class);
 
         // Every bell notification gets a panel-correct "Open …" link. Laravel resolves the

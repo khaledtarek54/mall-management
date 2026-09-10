@@ -1235,3 +1235,26 @@ or a swap would leave the start on a Sunday and the cursor stepping whole weeks 
 Tests: `AnInvertedReportRangeIsReadInOrderTest` — every inverted call paired with the window as meant,
 so a fix that emptied both would not pass.
 
+### An export says which rows it is about
+
+Reported by the tester with the file attached: a tenants export with only *Status* ticked — two rows
+both reading "active", nothing to say which tenants they were. The file is not merely thin, it is
+unusable, and it looks like a successful export, so the operator finds out later and somewhere else.
+
+`App\Support\Filament\IdentifiedExport` refuses an export in which every identifying column is
+switched off. The identifier is DERIVED from what the exporter offers — `code`, `number`,
+`reference`, `name`, `id`, in that order — never listed per exporter, so a new exporter is covered by
+having one of them, which every register here does. `id` is last deliberately: it identifies a row to
+the database and is the least useful of them on a spreadsheet.
+
+**It REFUSES rather than silently re-enabling the column.** Forcing it back on would be a submit that
+quietly discards what the operator chose, which is the shape this panel has been reported for three
+separate times. Filament builds the column checkboxes inside its own modal closure with no hook to
+lock one, so a refusal NAMING the columns that would satisfy it — in the operator's own labels, since
+they may have renamed them — is the honest version of "cannot be deselected".
+
+Bound in the container (`IdentifiedExportAction`, `IdentifiedExportBulkAction`), so all thirteen call
+sites across nine tables inherit it and the fourteenth is covered by existing. An exporter offering
+no identifying column at all is left alone: that is a question about that exporter, and refusing
+would make its file unobtainable rather than merely unusable.
+(`AnExportSaysWhichRowsItIsAboutTest`.)
