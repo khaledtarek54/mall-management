@@ -79,6 +79,49 @@ draw) and **`due_to_owner` = 21802001** (a liability under 218 "Due to Related P
   so blocking data entry would make co-ownership unenterable — the relation manager shows the
   running total instead, and the draft stays generatable because that is how the shortfall is found.
   Genuine co-owners summing to 100 finalise normally. No GL amount changed.
+- **⚠️ …AND A PROPERTY CANNOT BE RECORDED AS OWNED TWICE OVER** (Trello XrfFkqu5, Critical,
+  2026-09-10). The rule above is the UNDER-100 half and it says nothing about the other direction:
+  attach an owner at 100%, attach a second at 100%, and the tab read *"Ownership recorded: 200.00%"*
+  with nothing refusing it. **The money does not over-pay, which is what makes it dangerous** — the
+  generate service weights `pct / Σ pct`, so at 200% an owner RECORDED at 100% is silently paid HALF
+  the net on a statement printing 100%, and Finalise then refuses the run, so the property quietly
+  stops distributing with nothing on the owners screen to explain it.
+  **Over and under are not symmetric**, which is why the reasoning above survives intact: no correct
+  register has to pass THROUGH 200% on its way to 100%, so under stays freely enterable and over is
+  refused. Yardi and MRI both validate partner allocations to 100%; this is that rule minus the half
+  that would make co-ownership unenterable.
+  **On the MODEL** (`AssetOwner::saving`), so a door onto the pivot is covered by existing — and it
+  reaches the hook only because both sides declare `->using(AssetOwner::class)`; without that
+  `attach()` writes through the query builder and fires no model event at all. A comment in the
+  relation manager asserted exactly that falsehood and is corrected.
+  **Overlapping tenures only.** A resale is TWO rows — seller ended, buyer started — each 100% at a
+  different time, so summing the column outright refuses every property that ever changed hands.
+  The tab's own total had that bug already, which is most of why the real 200% sat under a passive
+  notice: the false alarm and the real one looked identical. It reads `Asset::ownershipRecordedOn()`
+  now, and gains an over-100 wording for data written before the guard.
+  **The escape that keeps it correctable is the subtle part.** Refusing every over-100 save would
+  DEADLOCK the register it exists to catch — two owners at 100%, each reduction measured against the
+  other's 100 — so a save leaving the property no more over-owned than it found it is allowed. It is
+  measured against the PERSISTED window: comparing both readings across the same dates makes the
+  other owners' total cancel out algebraically, collapsing the test to *"the percentage went down"*
+  with the dates unchecked. Reproduced on real data — from a CLEAN resale register, clearing the
+  seller's end date while dropping 100 → 99.99 in one save was allowed at 199.99%.
+  **The attach form now defaults "Owned since" to today**: a blank start means owned since
+  inception, so attaching the buyer after a resale claimed the property back through the seller's
+  closed tenure and was refused, advising the operator to end a tenure that had already ended.
+  **Not locked, deliberately** — the same call `Lease::depositHeld`'s cap makes: the hook often runs
+  with no transaction around it, and a row lock released on the next statement reads as protection
+  without being any. Two operators attaching two different owners at once can still both pass; the
+  window is small and the remedy is visible on the tab.
+  (`APropertyCannotBeOwnedTwiceOverTest`, thirteen teeth mutation-proved.)
+- **STILL OPEN — a handover period is double-counted by the generate service.** Seller ends 15 March,
+  buyer starts 16 March: the tenures do NOT overlap, so the register is correct and the tab rightly
+  reads 100%. But `GenerateOwnerStatementRunService` selects participants by PERIOD OVERLAP, so the
+  March run picks up both, Σ pct = 200, each is paid half the March net, and Finalise refuses. The
+  register is not the problem — the service weights by share alone and never by TENURE. The fix is
+  the weighting `UnitOwnership::tenureFractionOfPeriod()` already implements for the other ownership
+  table (SW-220 solved exactly this for CAM); it is a separate change with its own money proof and
+  is deliberately not bundled here.
 - **A run whose PERIOD HAS NOT ENDED cannot be finalised** (2026-08-25). Finalise re-reads the ledger
   and freezes the figures, and `net_distributable` posts as Dr owner_distributions / Cr due_to_owner —
   which becomes the cap every disbursement pays against. Freeze it before the last day and the days

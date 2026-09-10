@@ -427,6 +427,7 @@ return [
     'owner_statements' => [
         'ownership_total_whole' => 'Ownership recorded: :total% — the whole property is accounted for.',
         'ownership_total_partial' => 'Ownership recorded: :total%. A statement cannot be finalised until this reaches 100% — the net would go in full to the owners listed.',
+        'ownership_total_over' => 'Ownership recorded: :total% — more of this property than exists. No statement can be produced until it comes back to 100%: reduce a share, or end an owner\'s tenure.',
         'statements_title' => 'Statements',
         'part_period' => ':pct% of the period',
         'not_sent' => 'Not sent',

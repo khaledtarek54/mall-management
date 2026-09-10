@@ -9,6 +9,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyItself;
 use App\Support\Occupancy;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -184,6 +185,36 @@ class Asset extends Model implements HasMedia
             ->using(AssetOwner::class)
             ->withPivot(['id', 'ownership_percentage', 'started_at', 'ended_at'])
             ->withTimestamps();
+    }
+
+    /**
+     * The owners holding this property on a date — the mirror of {@see User::currentOwnedAssets()}.
+     *
+     * `propertyOwners()` is every row ever written, which is the right relation for a register and
+     * the wrong one for *"is this property fully accounted for"*: a resale leaves the seller's row
+     * in place with an `ended_at`, so an unfiltered sum reports 200% for a property that simply
+     * changed hands. Compared with `whereDate` for the reason the mirror gives — the bounds are
+     * DATE columns and a caller may hand over a Carbon carrying a time.
+     */
+    public function propertyOwnersOn(mixed $on = null): BelongsToMany
+    {
+        $date = CarbonImmutable::parse($on ?? CarbonImmutable::now())->toDateString();
+
+        return $this->propertyOwners()
+            ->where(fn ($q) => $q->whereNull('asset_owner.started_at')->orWhereDate('asset_owner.started_at', '<=', $date))
+            ->where(fn ($q) => $q->whereNull('asset_owner.ended_at')->orWhereDate('asset_owner.ended_at', '>=', $date));
+    }
+
+    /**
+     * How much of this property is recorded as owned on a date — 100.00 when it adds up.
+     *
+     * ONE definition, because the owners tab says it out loud and the money path refuses on it, and
+     * two readings of *"how much of this mall is spoken for"* is how a screen comes to disagree
+     * with the statement it is meant to explain.
+     */
+    public function ownershipRecordedOn(mixed $on = null): float
+    {
+        return round((float) $this->propertyOwnersOn($on)->sum('ownership_percentage'), 2);
     }
 
     /**

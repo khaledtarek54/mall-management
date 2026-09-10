@@ -45,6 +45,7 @@ return [
         'not_a_money_document' => 'That document does not post to the general ledger, so there is nothing to reverse.',
         'immutable_lease' => 'A \':status\' lease is immutable — reverse or renew it instead.',
         'lease_not_renewable' => 'A \':status\' lease cannot be renewed. A renewal continues a tenancy that is still running; a closed or superseded one needs a new lease.',
+        'ownership_exceeds_the_property' => 'That would record :total% of this property as owned. Only :remaining% is unallocated for those dates — reduce an existing owner\'s share first, end their tenure, or detach them.',
         'lease_changed_while_renewing' => 'This lease changed while the renewal was open — reload it before renewing again.',
         'rentable_item_relet_since_term_ended' => 'Parking bay or store :code has been let to another tenant since this term ended, so the renewal cannot carry it. Release it there, or take it off this lease, and renew again.',
         'lease_unit_already_relet' => 'Unit :unit has been let to somebody else since this term ended, so this lease cannot be renewed onto it. Renew the tenancy on another unit, or reverse the new lease first.',

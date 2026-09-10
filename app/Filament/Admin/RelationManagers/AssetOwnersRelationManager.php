@@ -3,9 +3,11 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
+use App\Models\AssetOwner;
 use App\Support\Filament\AttachedOnce;
 use App\Support\Filament\TenureRange;
 use App\Support\PropertyRoster;
+use Carbon\CarbonImmutable;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
 use Filament\Actions\EditAction;
@@ -95,13 +97,26 @@ class AssetOwnersRelationManager extends RelationManager
      */
     protected function ownershipTotalNotice(): ?string
     {
-        $total = (float) $this->getOwnerRecord()->propertyOwners()->sum('ownership_percentage');
+        // CURRENT owners, not every row ever written. A resale is two rows — the seller ended, the
+        // buyer started — each holding 100% of the property at a different time, so summing the
+        // column outright reported 200% for every property that had ever changed hands. The false
+        // alarm and the real one were indistinguishable, which is most of why the real one
+        // (Trello XrfFkqu5) sat under a passive notice.
+        $total = $this->getOwnerRecord()->ownershipRecordedOn();
 
         if ($total <= 0.0) {
             return null; // no owners recorded yet — the empty state already says that
         }
 
-        return abs($total - 100.0) <= 0.01
+        if ($total - AssetOwner::WHOLE > 0.01) {
+            // Over the whole property. Saving a new share like this is refused on the model now,
+            // so this is either data written before that guard or a tenure someone widened into an
+            // overlap — and it must be said out loud, because no statement can be produced until
+            // it is corrected and nothing else on the screen would explain the silence.
+            return __('admin.owner_statements.ownership_total_over', ['total' => number_format($total, 2)]);
+        }
+
+        return abs($total - AssetOwner::WHOLE) <= 0.01
             ? __('admin.owner_statements.ownership_total_whole', ['total' => number_format($total, 2)])
             : __('admin.owner_statements.ownership_total_partial', ['total' => number_format($total, 2)]);
     }
@@ -157,9 +172,15 @@ class AssetOwnersRelationManager extends RelationManager
                             ->label(__('admin.fields.owner'))
                             ->helperText(__('admin.fields.owner_helper')),
                     )
-                    // Attaching GRANTS access to this property, so it is recorded — Laravel's
-                    // attach() writes through the query builder and fires no model event, which is
-                    // why the roster had no audit trail at all until 2026-09-05.
+                    // Attaching GRANTS access to this property, so it is recorded here — the
+                    // roster had no audit trail at all until 2026-09-05.
+                    //
+                    // The old comment here said `attach()` "writes through the query builder and
+                    // fires no model event". That is Laravel's behaviour for a PLAIN pivot and is
+                    // false for this one: both sides declare `->using(AssetOwner::class)`, so
+                    // attach/updateExistingPivot go through the custom-class branch and the model's
+                    // own guards DO fire. The ownership-total guard depends on exactly that, and a
+                    // reader trusting the old sentence would conclude the opposite.
                     ->after(fn (Model $record) => PropertyRoster::forRecord(
                         $this->getOwnerRecord(), PropertyRoster::OWNER, $record, 'attached',
                     ))
@@ -182,6 +203,15 @@ class AssetOwnersRelationManager extends RelationManager
                             ->required(),
                         DatePicker::make('started_at')
                             ->label(__('admin.fields.owned_since'))
+                            // Defaulted to TODAY, and the reason is a refusal it otherwise causes.
+                            // A blank start means "owned since inception", so attaching the buyer
+                            // after a resale — the flow this register exists for — claimed the
+                            // whole property back to the beginning of time, overlapped the seller's
+                            // closed tenure and was refused as 200%, advising the operator to end a
+                            // tenure that had already ended. Attaching an owner today is the
+                            // ordinary case; a longer history is typed over the default.
+                            ->default(fn () => CarbonImmutable::today())
+                            ->helperText(__('admin.fields.owned_since_helper'))
                             ->native(false),
                     ]),
             ])
