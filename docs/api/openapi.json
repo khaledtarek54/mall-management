@@ -6466,6 +6466,10 @@
                         "type": "boolean",
                         "description": "Whether the tenant may accept or dispute the resolution \u2014 true only while\n`resolved`, which is NARROWER than can_rate: rating is feedback after the fact and\nstays open on a closed request, confirming is a control before closure. Mirrors the\nconfirm/dispute endpoints' guard so the app shows both buttons or neither."
                     },
+                    "canComment": {
+                        "type": "boolean",
+                        "description": "Whether a reply will be TAKEN \u2014 the very predicate `TenantRequestService::comment()` refuses\non, so the app offers the box only where the server keeps what is typed into it. Wider\nthan `is_open`: a RESOLVED request still takes a reply (that is how a tenant says \"not\n quite\"); only a closed or cancelled one refuses it. Without it the app offered the box on\nevery ticket and a finished one threw the tenant's words away with a 422 (mobile \u00a7L L13)."
+                    },
                     "confirmedAt": {
                         "type": "string",
                         "description": "Null on a closed request means the operator or the auto-close timer shut it, not the\ntenant \u2014 so a client can say \"you confirmed this\" only when they actually did."
@@ -6646,6 +6650,7 @@
                     "canCancel",
                     "canRate",
                     "canConfirm",
+                    "canComment",
                     "confirmedAt",
                     "csatRating",
                     "csatComment",

@@ -606,7 +606,7 @@ Query: `status`, `page`, `per_page`.
   "title": "AC not cooling", "description": "...", "status": "in_progress",
   "priority": "high", "category": "hvac", "channel": "portal",
   "isOpen": true, "isOverdue": false, "canCancel": false,
-  "canRate": false, "canConfirm": false, "confirmedAt": null,
+  "canRate": false, "canConfirm": false, "canComment": true, "confirmedAt": null,
   "csatRating": null, "csatComment": null,
   "submittedAt": "2026-05-20T09:00:00+00:00",
   "acknowledgedAt": "...", "resolvedAt": null, "closedAt": null,
@@ -638,8 +638,14 @@ through the same authenticated URL shape below; nothing here is a public file UR
 maintenance → `electrical`…`other`; access → `parking`…; `null` for types with
 none). Use **`canCancel`** to show/hide the cancel button (true only while
 `submitted`/`acknowledged`), **`canRate`** to show the rating prompt (true once
-`resolved`/`closed`), and **`canConfirm`** to show the *confirm / not fixed* pair
-(true only while `resolved` — see below).
+`resolved`/`closed`), **`canConfirm`** to show the *confirm / not fixed* pair
+(true only while `resolved` — see below), and **`canComment`** to show the reply
+box (since 2026-09-11 — true until the request is `closed` or `cancelled`, which is
+wider than `isOpen`: a `resolved` request still takes a reply). Gate the box on it:
+a reply to a closed or cancelled request is refused with `422` and was lost.
+
+Every `can*` flag describes the **request**, not the person: a read-only login
+still gets `403` on the act the flag offers.
 
 #### The outcome — `requiresDecision` · `decision` · `decisionReason`
 

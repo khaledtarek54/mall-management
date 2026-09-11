@@ -44,6 +44,12 @@ class TenantRequestResource extends JsonResource
             // stays open on a closed request, confirming is a control before closure. Mirrors the
             // confirm/dispute endpoints' guard so the app shows both buttons or neither.
             'can_confirm' => in_array($this->status, TenantRequestService::CONFIRMABLE, true),
+            // Whether a reply will be TAKEN — the very predicate `TenantRequestService::comment()` refuses
+            // on, so the app offers the box only where the server keeps what is typed into it. Wider
+            // than `is_open`: a RESOLVED request still takes a reply (that is how a tenant says "not
+            // quite"); only a closed or cancelled one refuses it. Without it the app offered the box on
+            // every ticket and a finished one threw the tenant's words away with a 422 (mobile §L L13).
+            'can_comment' => ! $this->isTerminal(),
             // Null on a closed request means the operator or the auto-close timer shut it, not the
             // tenant — so a client can say "you confirmed this" only when they actually did.
             'confirmed_at' => optional($this->confirmed_at)->toIso8601String(),

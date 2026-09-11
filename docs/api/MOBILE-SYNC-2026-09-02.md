@@ -124,7 +124,7 @@ in a build you would show the client ([rule 10](#4-the-rules-that-are-not-obviou
 | 🔒 | `GET /me/requests` · `POST /me/requests` | `?status=`. POST is multipart when attaching |
 | 🔒 | `GET /me/requests/{id}` | + `comments[]` |
 | 🔒 | `GET /me/requests/{id}/attachments/{media}` | Photo/PDF stream — **needs the auth header** |
-| 🔒 | `POST /me/requests/{id}/comments` · `/cancel` · `/rate` | Gate on `canCancel` / `canRate` |
+| 🔒 | `POST /me/requests/{id}/comments` · `/cancel` · `/rate` | Gate on `canComment` / `canCancel` / `canRate` — `canComment` since 2026-09-11 |
 | 🔒 | `POST /me/requests/{id}/confirm` · `/dispute` | Gate on `canConfirm`. Show **both** or neither |
 
 ### Sales, news, notifications, devices
@@ -206,7 +206,7 @@ Every key is **camelCase**. Every money value is a JSON number that is an **`int
 
 // GET /me/requests[] / {id}                        ← request
 { id, reference, requestType, title, description, status, priority, category, channel,
-  isOpen, isOverdue, canCancel, canRate, canConfirm, confirmedAt,
+  isOpen, isOverdue, canCancel, canRate, canConfirm, canComment, confirmedAt,
   csatRating, csatComment, submittedAt, acknowledgedAt, resolvedAt, closedAt,
   targetResolutionAt, resolutionNotes,
   requiresDecision, decision, decisionReason, decidedAt,   // NEVER infer approval from status
