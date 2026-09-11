@@ -95,7 +95,9 @@ use Illuminate\Support\Facades\Notification;
  *              so THIS month's invoice is already at the new rent; the check is that the sweep adds
  *              no second rung and October bills the same 96,300 once
  *   15th 05:30  municipal waste levy schedule → expense recorded
- *   17th 07:30  sales:estimate-missing — estimated declarations for the two that never declared
+ *   17th 07:30  sales:estimate-missing — estimates only a tenant whose reminder is a week old on
+ *               record (SW-253); with the 10th's chase lost and re-run on the 11th, the 17th
+ *               reports "too soon" and the October run estimates through its lookback
  *   D+15 02:30  quarterly fire-safety plan due → work order
  *        05:30  Guardian retainer (day 20) — the CONTRACT expired on D+7: does the schedule still bill?
  *   D+20 06:45  Fit Zone renewal option's notice window CLOSES → alert

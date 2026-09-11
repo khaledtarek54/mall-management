@@ -256,7 +256,7 @@ a pivot column, a migration and a backfill.
 | Tenant reconciliation statement | ✅ auditable | Shows the pool, exclusions, gross-up, share basis and the arithmetic | ✅ KEEP | ⚪ |
 | % rent — natural + artificial breakpoint | ✅ | Both | ✅ KEEP | ⚪ |
 | % rent — cumulative YTD + annual settle-up | ✅ | `percentage_rent_frequency = 'annual'` — chronological marginals that sum to the year's overage, re-attributed on any lock/void | ✅ KEEP | ⚪ |
-| % rent — tiers, deductions, estimated sales | ✅ | Tier ladder charging only the sales within each band; `percentage_rent_deductible_types` floored at 0; `sales:estimate-missing` uses the tenant's own trailing average, **marked as an estimate and never auto-locked** | ✅ KEEP | ⚪ |
+| % rent — tiers, deductions, estimated sales | ✅ | Tier ladder charging only the sales within each band; `percentage_rent_deductible_types` floored at 0; `sales:estimate-missing` uses the tenant's own trailing average, **marked as an estimate and never auto-locked**, and since SW-253 follows a *recorded* reminder a week old (stricter than Voyager, stated) | ✅ KEEP | ⚪ |
 | POS / automated sales feed | ✅ | Deliberately absent | ⏭️ **DECLINE** — Egyptian tenants will not expose a POS; file-first + mobile declaration is the correct market fit | ⚪ |
 
 ### 3.6 Reporting

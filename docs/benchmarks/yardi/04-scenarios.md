@@ -405,7 +405,7 @@ tenant never declares (today they pay nothing).
 
 > **CLOSED 2026-09-01 — all three of those.** Tiers are `LeasePercentageRentTier` (a `tiered`
 > calculation type); deductions are `percentage_rent_deductible_types` resolved per declaration; and
-> `sales:estimate-missing` ([`routes/console.php:246`](../../../routes/console.php#L246)) estimates
+> `sales:estimate-missing` ([`routes/console.php:265`](../../../routes/console.php#L265)) estimates
 > from a trailing average for a tenant who never declares — **marked as an estimate and never
 > auto-locked**, because billing a figure nobody declared as though they had is the one thing the
 > operator must decide.

@@ -267,6 +267,11 @@ Schedule::command('sales:estimate-missing')
     // reminder it is supposed to follow — so the estimate landed first and the chase arrived
     // afterwards about a declaration the system had already estimated for the tenant. The comment
     // above said "a week after the chase" the whole time; only the day said otherwise.
+    //
+    // And the day is no longer what enforces the order (SW-253): the command itself requires the
+    // tenant's reminder to be ON RECORD and a week old before it estimates, and looks back three
+    // months so a chase the box lost and re-ran late still ends in an estimate. This line is when
+    // it runs; the stamp is what it follows.
     ->monthlyOn(17, '07:30')
     ->name('atriom-estimate-missing-sales')
     ->withoutOverlapping();

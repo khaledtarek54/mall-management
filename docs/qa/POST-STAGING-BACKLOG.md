@@ -247,7 +247,13 @@ round changed the reading.
   finding first (SW-244's rule) and the soak check puts a delivery-failure count in its VERDICT.
   `ANotificationsRecordDoesNotDependOnItsTransportTest` (14 cases, 9 mutations). Recovered on the
   box by re-running the scan for `2026-08` after the deploy. Account: [modules/19 § SW-252](../modules/19-notifications-scans.md#sw-252).
-- **SW-253** — **OPEN (found by the review of SW-252).** `sales:estimate-missing` (the 17th) estimates
+- **SW-254** — **OPEN (found by the review of SW-253, pre-existing).** `Lease::missingSalesDeclarationsFor()`
+  ignores `requires_sales_reporting` while `scopeOwingSalesDeclaration()` honours it, so a
+  percentage-rent lease the operator EXCUSED from filing is still chased on the 10th and still
+  estimated on the 17th, and the lease list's "owing" filter shows a different set from the two
+  commands. One definition of "owes a declaration" is the fix (S); which of the two is right is the
+  question — the flag exists to be honoured, so the commands should read it.
+- ~~**SW-253**~~ — **FIXED 2026-09-11 — the first option, plus a lookback.** The estimate requires `Lease::salesDeclarationRemindedAt()` (the same bell row the chase writes and reads for its idempotency — one definition now) to be ≥7 WHOLE days old; a lease with no reminder is skipped and reported to the ops log, never chased from the estimate; and the default run looks back three declarable months so a chase re-run late (August's, on 11 Sep) still ends in an estimate (17 Oct) rather than in a period nothing ever bills. Stricter than Voyager, stated in the benchmark. Every existing estimate fixture had never been chased — they run the real scan first now. `AnEstimateFollowsARecordedReminderTest`, five mutations. Was: **OPEN (found by the review of SW-252).** `sales:estimate-missing` (the 17th) estimates
   any lease `missingSalesDeclarationsFor()` returns; it never checks that the tenant was CHASED. The
   "week after the chase" is a schedule day, not a stamp — so a chase lost to any cause (a scan that
   did not run, a period the reminder was never sent for) still ends in an estimate on a tenant who was

@@ -1536,6 +1536,36 @@ class Lease extends Model implements BillableAgreement, HasMedia
             ->values();
     }
 
+    /**
+     * When this tenant was CHASED for the period's sales declaration — or null, never.
+     *
+     * The ONE definition of "was a reminder recorded", read by two commands that used to hold
+     * different halves of it: `sales:scan-missing-declarations` asked it for idempotency (do not
+     * nag twice) and `sales:estimate-missing` never asked it at all (SW-253) — the "week after the
+     * chase" was a SCHEDULE DAY, so a chase lost to any cause (SW-252's dead transport, a scan that
+     * did not run) still ended in an estimate on a tenant who was never asked. The record is the
+     * tenant's own bell row: `notifyPortal()` writes one for the company and one per portal login,
+     * and the company's is the one to read (a login can be deleted; the company cannot). It is
+     * NOT durable beyond `HousekeepingSettings::notification_retention_days` (default 90) —
+     * `atriom:prune-transient-data` deletes bell rows by age — which is why the estimate's
+     * lookback is bounded at three months and its test pins the default against it.
+     *
+     * The benchmark documents that Voyager bills an estimate when a declaration is missing and
+     * documents no notice as a prerequisite; requiring one is Atriom's stricter reading, stated in
+     * `docs/benchmarks/yardi/03` B5. Making the notice a stamp rather than a calendar assumption
+     * is the whole change.
+     */
+    public function salesDeclarationRemindedAt(string $periodKey): ?CarbonImmutable
+    {
+        $at = $this->tenant?->notifications()
+            ->where('data->type', 'sales_declaration_reminder')
+            ->where('data->lease_id', $this->id)
+            ->where('data->period_key', $periodKey)
+            ->min('created_at');
+
+        return $at ? CarbonImmutable::parse($at) : null;
+    }
+
     // ============ Generation helpers ============
 
     /** `LSE-AW-2026-` — the sequence the numbers below run inside. */

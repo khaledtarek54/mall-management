@@ -881,8 +881,34 @@ complete and costless way to avoid percentage rent: the scan chased and nothing 
 - Marked `is_estimate`, and **not locked**: an estimate is a prompt for a decision, not a fact, so
   it passes the same operator review gate as every other percentage-rent charge.
 - Never overwrites a real declaration — re-checked under a lock inside the transaction.
+- **An estimate follows a RECORDED reminder, never a date (SW-253, 2026-09-11).** The 17th used
+  to be "a week after the chase" as a schedule day, and never asked whether the chase had happened
+  — SW-252 showed it can silently not (a mail-first channel over a dead transport swallowed
+  August's whole run on the soak), after which the 17th would have billed an estimate to tenants
+  nobody had asked. The notice is a **stamp** now: `Lease::salesDeclarationRemindedAt($periodKey)`
+  — the tenant's own bell row, the same record the chase writes and reads for its idempotency —
+  must be at least `--after-days` (7) **whole calendar days** old, compared as DATES (the chase is
+  08:00 on the 10th and the estimate 07:30 on the 17th: a week by the calendar and thirty minutes
+  short by the clock; and on Egypt's DST-start day 00:00 does not exist, so a Carbon day-diff off
+  `startOfDay()` read the seventh day as 6.96 — the suite pins UTC and could not see it). The
+  benchmark documents Voyager billing an estimate on a missing declaration and no notice as a
+  prerequisite, so this is Atriom's stricter reading, stated in `benchmarks/yardi/03` B5: an
+  estimate is a claim the tenant must be able to answer. **The run records its own outcome**
+  (`sales.estimate_run` on the ops log — the console is `/dev/null` under cron, and a run whose only
+  result is "too soon" would otherwise leave nothing on the box to tell "ran and skipped" from
+  "never ran"). **The stamp is a bell row `atriom:prune-transient-data` deletes by age**
+  (`notification_retention_days`, default 90); the oldest reminder consulted is ~69 days, and the
+  regression test pins the default against the lookback. A lease with no reminder is **skipped and reported** (`sales.
+  estimate_skipped_unchased` in the ops log, where the daily check reads), never chased from the
+  estimate — chasing stays the scan's one job; re-run it with `--period` for a month the box
+  missed. And the default run **looks back three declarable months** (`LOOKBACK_MONTHS`), because
+  a chase that arrived late must still end in an estimate: without it, a period whose reminder
+  went out after the 17th was never estimated by anything, which reopens the leak this command
+  closes. `--period` still pins one month.
 
-Tests: `tests/Feature/Regression/PercentageRentTiersAndDeductionsTest.php`.
+Tests: `tests/Feature/Regression/PercentageRentTiersAndDeductionsTest.php` (every estimate
+fixture now runs the real chase first — the reachable state), `AnEstimateFollowsARecordedReminderTest`
+(five teeth, each mutation-proved).
 
 
 ## A disputed declaration can be re-locked (SW-159, fixed 2026-09-02)

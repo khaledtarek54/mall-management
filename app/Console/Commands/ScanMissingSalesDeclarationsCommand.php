@@ -98,12 +98,8 @@ class ScanMissingSalesDeclarationsCommand extends Command
             }
 
             // Idempotency: a reminder for this exact (lease, period) already sent → don't re-nag.
-            $already = $tenant->notifications()
-                ->where('data->type', 'sales_declaration_reminder')
-                ->where('data->lease_id', $lease->id)
-                ->where('data->period_key', $periodKey)
-                ->exists();
-            if ($already) {
+            // The same record the estimate now requires before it bills (SW-253) — one definition.
+            if ($lease->salesDeclarationRemindedAt($periodKey) !== null) {
                 $skipped++;
 
                 continue;

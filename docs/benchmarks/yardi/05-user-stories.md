@@ -857,10 +857,13 @@ complete and costless way to avoid percentage rent.
 
 > **CLOSED 2026-08-09, re-verified 2026-09-01.**
 > [`sales:estimate-missing`](../../../app/Console/Commands/EstimateMissingSalesCommand.php) runs on
-> the 8th of each month — a week after the chase, so the tenant has had the reminder and a chance
-> to file first — and raises a `TenantSalesDeclaration` flagged `is_estimate` for every
-> percentage-rent lease that owes a return, using `Lease::missingSalesDeclarationsFor()`, the same
-> definition of "owes a declaration" the reminder scan and the month-end checklist use.
+> the 17th of each month — a week after the chase on the 10th (it ran on the 8th, two days BEFORE
+> the chase, until SW-115), and since SW-253 (2026-09-11) the week is a STAMP, not a schedule day: a
+> lease is estimated only when its recorded reminder is seven calendar days old, and one with no
+> reminder on record is skipped and reported — and raises a `TenantSalesDeclaration` flagged
+> `is_estimate` for every percentage-rent lease that owes a return, using
+> `Lease::missingSalesDeclarationsFor()`, the same definition of "owes a declaration" the reminder
+> scan and the month-end checklist use.
 >
 > **The estimate is the tenant's own trailing average — the mean of their last three LOCKED
 > declarations — never a landlord guess**, which is what makes it defensible in the conversation

@@ -361,6 +361,14 @@ operational answer — but never bills, so a tenant who simply never declares pa
 > and the write re-checks for an existing declaration under `lockForUpdate()` **inside** the
 > transaction, so a tenant who files between the query and the write keeps their own number.
 >
+> **One deviation, stated (SW-253, 2026-09-11): the estimate requires the reminder to be ON RECORD
+> and a week old.** This document records that Voyager bills on estimated sales when a declaration
+> is missing and records no notice as a prerequisite — so, as far as the benchmark goes, Atriom is
+> STRICTER: it refuses and reports the lease instead, because the notice is what makes the estimate
+> a claim the tenant can answer — and because the staging soak showed a notice can silently not go
+> out (SW-252), after which "a week after the chase" as a schedule day would have billed an estimate
+> to a tenant nobody asked.
+>
 > **A stated deviation from Voyager: the estimate is never auto-locked, so it never bills by itself.**
 > Voyager bills the estimate and retro-bills on the true figure. Here it is raised as `submitted`, and
 > the operator's lock is the billing gate — the same gate every other overage passes through — because

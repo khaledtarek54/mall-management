@@ -212,9 +212,21 @@ function pctLeaseWithHistory(array $history = [800000, 900000, 1000000]): Lease
     return $lease->fresh();
 }
 
+/**
+ * The chase for a period, through the real scan — an estimate follows a RECORDED reminder
+ * (SW-253), so the reachable state for every estimate case is "the tenant was chased a week ago".
+ * Not `Notification::fake()`: the record IS the tenant's bell row, and a fake writes none.
+ */
+function chasedFor(string $period, string $on): void
+{
+    CarbonImmutable::setTestNow($on);
+    test()->artisan('sales:scan-missing-declarations', ['--period' => $period])->assertSuccessful();
+}
+
 it('raises an estimate from the tenant\'s own trailing average when they never declare', function () {
-    CarbonImmutable::setTestNow('2026-07-08');
     $lease = pctLeaseWithHistory([800000, 900000, 1000000]); // Mar, Apr, May
+    chasedFor('2026-06-01', '2026-07-10');
+    CarbonImmutable::setTestNow('2026-07-17');
 
     $this->artisan('sales:estimate-missing', ['--period' => '2026-06-01'])->assertSuccessful();
 
@@ -243,8 +255,9 @@ it('never overwrites a declaration the tenant actually filed', function () {
 });
 
 it('refuses to invent a number for a tenant with no history', function () {
-    CarbonImmutable::setTestNow('2026-07-08');
     $lease = pctLeaseWithHistory([]);   // brand-new tenant, nothing to average
+    chasedFor('2026-06-01', '2026-07-10');
+    CarbonImmutable::setTestNow('2026-07-17');
 
     $this->artisan('sales:estimate-missing', ['--period' => '2026-06-01'])->assertSuccessful();
 
@@ -255,8 +268,9 @@ it('refuses to invent a number for a tenant with no history', function () {
 });
 
 it('is idempotent and writes nothing on a dry run', function () {
-    CarbonImmutable::setTestNow('2026-07-08');
     $lease = pctLeaseWithHistory();
+    chasedFor('2026-06-01', '2026-07-10');
+    CarbonImmutable::setTestNow('2026-07-17');
 
     $this->artisan('sales:estimate-missing', ['--period' => '2026-06-01', '--dry-run' => true])->assertSuccessful();
     expect(TenantSalesDeclaration::where('lease_id', $lease->id)->whereDate('period_start', '2026-06-01')->count())->toBe(0);
