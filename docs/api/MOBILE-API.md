@@ -2,8 +2,8 @@
 
 > Tenant-facing REST API for the Atriom mall-management mobile app.
 > Base URL: `https://<host>/api/v1`
-> Auth: Bearer tokens (Laravel Sanctum), `tenants` provider.
-> Last updated: 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships. *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
+> Auth: Bearer tokens (Laravel Sanctum), `tenant_users` provider — a person's login, since 2026-09-05.
+> Last updated: 2026-09-11 — **additive only; nothing here requires an app release.** Each rate limit is its own counter (browsing the visitor feed no longer spends the sign-in's), and a `429` now carries `Retry-After` and speaks the `Accept-Language` language. The two `403`s carry a stable `error` — `tenant_inactive` (company blocked; token destroyed) vs `read_only` (read-only login; session fine). New: `isEstimate` on a sales declaration, `canComment` on a request. A request is filed against the shop it names, including one the party owns while leasing another. Corrected: tokens expire after 30 days; `written_off` and `voided` were missing from the status lists; `overdue` can exceed `outstanding`. *Previously, 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships.* *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
 
 > ### 👉 The mobile developer starts at [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md)
 >
@@ -91,7 +91,7 @@ record returns **404**, never their data.
 | `paid_amount` | How much has been allocated to the invoice from captured payments. |
 | `balance` | `total − paid_amount`. What's still owed. |
 | `outstanding` | Across all open invoices: net AR (open balances − unapplied credit notes). |
-| `overdue` | The portion of `outstanding` whose `due_date` is in the past. |
+| `overdue` | What is owed on invoices whose `due_date` is in the past. **Not** netted by unapplied credit notes the way `outstanding` is, so it can exceed `outstanding` for a tenant holding credit — never present it as a slice of it. |
 
 VAT in Egypt is 14%. Currency is always **EGP** in the pilot.
 
@@ -125,8 +125,11 @@ The API uses **Sanctum personal access tokens**. Flow:
    `Authorization: Bearer <token>`
 3. `POST /auth/logout` deletes the current device's token. Other devices stay signed in.
 
-Tokens do not expire by time; they live until logout, password change, or
-password reset. Logging in again from the **same `device_name`** revokes the
+Tokens **expire after 30 days** (`sanctum.expiration` = 43,200 minutes, set by
+`SANCTUM_TOKEN_EXPIRATION` on the server — this said "do not expire" until
+2026-09-11), and before that at logout, password change or password reset —
+so handle a `401` on any request by sending the user to sign in. Logging in
+again from the **same `device_name`** revokes the
 previous token for that device (so the "manage devices" list stays clean) and
 issues a fresh one. Different device names keep independent tokens.
 
@@ -389,7 +392,7 @@ Query: `status`, `period_from`, `period_until` (YYYY-MM-DD, against `issue_date`
   "meta": { "currentPage": 1, "lastPage": 4, "perPage": 25, "total": 92 }, "links": { ... } }
 ```
 Invoice `status` ∈ `draft`, `issued`, `partially_paid`, `overdue`, `paid`,
-`cancelled`, `credited`, `disputed`.
+`cancelled`, `credited`, `disputed`, `written_off`.
 > **`etaStatus` / `etaSubmissionId` / `etaLongId` are ABSENT** (2026-08-22). They carried the
 > Egyptian Tax Authority e-invoice references for a "tax-registered" badge. Module 16 is frozen
 > (`App\Support\Modules::FROZEN`), so no invoice is ever submitted and the keys could only ever be
@@ -471,7 +474,8 @@ device clock or softened the label.
 ```
 `method` ∈ `card`, `bank_transfer`, `instapay`, `wallet`, `cash`, `cheque`,
 `other`. `status` ∈ `initiated`, `authorized`, `captured`, `reconciled`,
-`settled`, `failed`, `refunded`, `bounced`. **Only `captured` payments reduce a
+`settled`, `failed`, `refunded`, `bounced`, `voided` (a receipt that should never
+have existed — not money returned; that is `refunded`). **Only `captured` payments reduce a
 balance** — show others as informational.
 
 #### 🔒 `GET /me/payments/{id}` — detail with allocations.

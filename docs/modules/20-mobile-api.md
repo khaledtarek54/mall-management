@@ -492,29 +492,32 @@ However, **key validation & business logic** is shared via:
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
-**The mobile token belongs to the COMPANY, not to a person — so `/me` can never report a role.**
+**The mobile token belongs to a PERSON since 2026-09-05 — and `/me` still names only the company.**
 Writes are gated on `tenant_users.is_admin` by `EnsurePortalAdminForWrites`, which gates by DEFAULT:
 safe methods pass, the self-scoped routes it names pass, and anything else needs an admin — so a
-write route added later is covered by existing rather than by being remembered.
+write route added later is covered by existing rather than by being remembered. A refused write is
+coded `read_only` and leaves the session alone.
 
 `LoginTenantAction` authenticates against `tenant_users.email` + `tenant_users.password` — the same
-row the web portal authenticates, unified 2026-09-05; it was `tenants.*` (the company) until then —
-resolves the company as `$user->tenant`, and issues
-`$tenant->createToken(...)`. No `TenantUser` is involved at any point, which is the opposite of
-`/portal` (multi-user `TenantUser`, `is_admin` decides who may write). Consequences, all of them
-deliberate rather than missing:
+row the web portal authenticates; it was `tenants.*` (the company) until 2026-09-05 — issues
+`$user->createToken(...)` on that PERSON, and resolves the company as `$user->tenant`. So there IS a
+person behind every token, exactly as on `/portal`. (This paragraph said the opposite — "No
+`TenantUser` is involved at any point" — for six days after it stopped being true, directly beneath
+the sentence recording the unification; corrected 2026-09-11.) What did not follow is the payload:
+`GET /me` is `TenantResource` over the COMPANY, and the login response discards the `user` the action
+builds. Consequences:
 
-- The app models an owner-vs-staff Home split and reads `TenantResource.role` to pick it. **The
-  server has no person to name**, so the key is absent, the app decodes null, and
-  `homeVariantFor(null)` falls back to the full owner Home. That is the safe direction: one shared
-  company credential already implies full access, so nothing is being over-exposed.
+- The app models an owner-vs-staff Home split and reads `TenantResource.role` to pick it. The server
+  sends no `role`, so the app decodes null and `homeVariantFor(null)` falls back to the full owner
+  Home — and it does not send whether this person may write either, so a read-only login is offered
+  every button and learns on the tap (`403`, `read_only`).
 - The staff Home layout is therefore unreachable against a real backend — it is exercised only by
   the in-app mock. A dev-only banner ("Role unknown — the full home is shown") makes that visible
   in non-production builds rather than letting it read as a bug.
-- **This is a product decision, not a patch.** Closing it means moving mobile auth to `TenantUser`
-  so the API knows which person signed in — matching the portal, and a breaking change for a
-  shipped app. The alternative is to drop the staff variant. Either way the choice belongs to the
-  operator, and `role` should not be faked from `is_admin` on some other row in the meantime.
+- **Publishing either is a product decision now, no longer an impossibility.** The person is known;
+  what `/me` should say about them — whether they may write, and separately which Home they get — is
+  the operator's call. `role` should not be faked from `is_admin`: "may act for the company" and
+  "which layout" are different questions.
 
 **`/me/balance` and `/me/notifications/unread-count` exist but the app calls neither, on purpose.**
 `outstanding` and `unreadNotifications` both arrive on `/me/summary`, which Home loads anyway, and

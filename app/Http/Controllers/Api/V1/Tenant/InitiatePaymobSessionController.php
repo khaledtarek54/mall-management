@@ -25,10 +25,12 @@ use Illuminate\Http\Request;
  *
  * Guards:
  *  - 401 unauthenticated (handled by auth:tenant-api middleware)
- *  - 403 invoice belongs to another tenant
+ *  - 403 coded `read_only` — a read-only login may not start a payment (EnsurePortalAdminForWrites)
+ *  - 404 invoice belongs to another tenant — 404, not 403, see below
  *  - 409 Paymob disabled by config
  *  - 422 invoice has no outstanding balance / is cancelled
- *  - 429 throttled (5 sessions per minute per tenant)
+ *  - 429 throttled — the authenticated surface's 60 a minute per login (`throttle:60,1,api-me`),
+ *    shared with every other /me route; there is no tighter limit of its own
  *  - 502 Paymob upstream returned an error
  */
 class InitiatePaymobSessionController extends Controller
