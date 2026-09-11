@@ -78,7 +78,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 > sync.
 
 **Authentication & Authorization:**
-- Only `status = 'active'` tenants can log in. Inactive/blacklisted users receive 403 + message "account_blocked". (See `LoginTenantAction::handle`.)
+- Only `status = 'active'` tenants can log in. Inactive/blacklisted users receive 403 + message "account_blocked", coded `error: tenant_inactive`. (See `LoginTenantAction::handle`.)
 - Each token has `abilities: ['tenant:*']` (no granular per-endpoint scoping; all authenticated endpoints treat `:*` as "allowed").
 - Token revocation is explicit: logout deletes the current token, password reset/change revokes all *other* tokens (keeping the current session alive for UX).
 - A tenant cannot access another tenant's data; all show/list endpoints are scoped via `$request->user()->invoices()`, etc. (not a global query). Cross-tenant access returns **404** (not 403) to prevent enumeration. (See `ShowInvoiceController`, `InitiatePaymobSessionController`.)
@@ -524,6 +524,7 @@ round trip for a number already in hand.
 
 **Tenant Status & Login:**
 - Blocked tenants (status != 'active') get 403, not 401. This drives a specific "Account Blocked" screen in the app. Don't confuse with password failure (401).
+- **There are TWO 403s, and they are coded (2026-09-11).** `EnsureTenantActive` — the company is blocked, the token has just been destroyed — answers `error: tenant_inactive` (and so does the login, for the same condition); `EnsurePortalAdminForWrites` — a read-only login tried a write, the session is fine — answers `error: read_only`. Both throw `App\Exceptions\CodedHttpException`, which the API renderer in `bootstrap/app.php` turns into the `error` key beside `message` and `statusCode`. Before that the two bodies were identical and the app guessed which it had from the HTTP method — and its brief said every 403 meant "wipe the token", which signs a read-only person out for tapping a button. A new refusal a client must act on differently gets a code the same way; one it only has to show stays an `abort()`.
 - Inactive tenants can still view invoices/payments via API if they somehow have a token (the routes don't re-check status). This is intentional: a session shouldn't be invalidated mid-request if status changes. Password reset/change does revoke tokens, so a re-login is required.
 
 **Scoping to the tenant is not the same question as scoping to what they may SEE (fixed 2026-08-16):**

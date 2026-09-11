@@ -109,8 +109,11 @@ company email and password by migration, so nobody was signed out.
 
 **A login is admin or read-only, and it means the same thing here as in the portal.** Only an admin
 may act for the company — pay, submit a request or a sales declaration, publish a marketing post,
-edit the profile. A read-only login reads everything and gets **403** with `auth.read_only` on a
-write, so the app should present those actions as unavailable rather than let them fail. Acts that
+edit the profile. A read-only login reads everything and gets **403** with `"error": "read_only"` on
+a write (the `message` is the localised `auth.read_only` sentence — never branch on it), so the app
+should present those actions as unavailable rather than let them fail. **The session survives that
+403** — unlike the blocked company's, which is coded `tenant_inactive` and has just destroyed the
+token (see §3). Acts that
 are the person's OWN — logout, changing their own password, registering or removing their own
 device, marking their own notifications read — are open to every login. The operator sets the tick
 on the tenant's **Portal & App Logins** tab.
@@ -204,7 +207,7 @@ additionally carry an `errors` map (camelCase field → messages):
 |---|---|
 | `400` | Malformed/missing request body (used on **login**) |
 | `401` | Missing/invalid/revoked token, or wrong login credentials |
-| `403` | Blocked account, or a **read-only login attempting a write** (`auth.read_only`) — see below |
+| `403` | Carries a stable **`error`** (since 2026-09-11) — branch on it, never on `message`. **`tenant_inactive`**: the company is blocked or inactive, and the token has just been destroyed → Blocked screen, never retry. **`read_only`**: a read-only login attempted a write → the session is fine; show the act as unavailable (see §2 above) |
 | `404` | Not found **or** not yours |
 | `422` | Semantic validation failure (carries `errors`) |
 | `429` | Rate limited. Carries `Retry-After` (seconds) — **sent since 2026-09-11; before that the header was stripped**. `message` is in the `Accept-Language` language |
@@ -258,7 +261,8 @@ Legend: 🔓 public · 🔒 requires `Authorization: Bearer`.
 - Lease field mapping: `name` = tenant contact person (falls back to company name), `shop` = company/store name, `mall` = asset name, `unitNumber` = unit code. **Confirm `name`/`shop` with the backend if these don't match the design.**
 
 Errors: `400` (missing/malformed body), `401` (wrong email/password), `403`
-(blocked / inactive account → app shows the Blocked screen), `429` (throttled).
+coded `tenant_inactive` (blocked / inactive account → app shows the Blocked screen),
+`429` (throttled).
 
 #### 🔒 `GET /auth/me` — current tenant profile (alias of `GET /me`).
 #### 🔒 `POST /auth/logout` — revoke the current token. → `{ "message": "Signed out." }`
@@ -645,7 +649,7 @@ wider than `isOpen`: a `resolved` request still takes a reply). Gate the box on 
 a reply to a closed or cancelled request is refused with `422` and was lost.
 
 Every `can*` flag describes the **request**, not the person: a read-only login
-still gets `403` on the act the flag offers.
+still gets `403` (`read_only`) on the act the flag offers.
 
 #### The outcome — `requiresDecision` · `decision` · `decisionReason`
 

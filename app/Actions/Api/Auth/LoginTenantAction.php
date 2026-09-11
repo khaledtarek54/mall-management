@@ -2,6 +2,8 @@
 
 namespace App\Actions\Api\Auth;
 
+use App\Exceptions\CodedHttpException;
+use App\Models\Tenant;
 use App\Models\TenantUser;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
@@ -13,7 +15,8 @@ use Laravel\Sanctum\NewAccessToken;
  *
  * Failure modes follow the mobile contract's status codes:
  *  - wrong email / password → 401
- *  - account not active (blocked) → 403 (drives the app's Blocked screen)
+ *  - account not active (blocked) → 403 coded `tenant_inactive` (drives the app's Blocked screen) —
+ *    the same code `EnsureTenantActive` gives a company blocked mid-session, one condition at both doors
  *
  * Returns the tenant, the plain-text token, and the tenant's leases (the
  * login screen lists them so the user can pick one).
@@ -21,7 +24,7 @@ use Laravel\Sanctum\NewAccessToken;
 class LoginTenantAction
 {
     /**
-     * @return array{tenant: Tenant, token: NewAccessToken, leases: Collection}
+     * @return array{user: TenantUser, tenant: Tenant, token: NewAccessToken, leases: Collection}
      */
     public function handle(string $email, string $password, string $deviceName): array
     {
@@ -39,7 +42,7 @@ class LoginTenantAction
         // The COMPANY's standing gates the app, exactly as before — a blocked retailer's staff are
         // all blocked. A single person is refused by removing their login, not by a status column.
         if (! $tenant || $tenant->status !== 'active') {
-            abort(403, __('auth.account_blocked'));
+            throw new CodedHttpException(403, __('auth.account_blocked'), 'tenant_inactive');
         }
 
         // Revoke any prior token issued to the same device name so the user

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Exceptions\CodedHttpException;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -54,7 +55,11 @@ class EnsurePortalAdminForWrites
             return $next($request);
         }
 
-        abort_unless((bool) $request->user()?->is_admin, 403, __('auth.read_only'));
+        // Coded `read_only`, beside the blocked company's `tenant_inactive` on the same 403: this one
+        // keeps the session, and a client that cannot tell the two apart signs the person out.
+        if (! $request->user()?->is_admin) {
+            throw new CodedHttpException(403, __('auth.read_only'), 'read_only');
+        }
 
         return $next($request);
     }

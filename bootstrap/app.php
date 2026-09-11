@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\CodedHttpException;
 use App\Http\Middleware\CamelCaseResponseKeys;
 use App\Http\Middleware\IgnoreStrayLivewireHeader;
 use App\Http\Middleware\RecordCoverage;
@@ -131,9 +132,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->dontReport(DomainException::class);
 
         // Mobile API error contract: every /api/* failure renders as
-        // { "message": "...", "statusCode": <int> } (+ "errors" for validation).
-        // Keys are camelCased here too, since exception responses unwind
-        // outside the CamelCaseResponseKeys middleware.
+        // { "message": "...", "statusCode": <int> } (+ "errors" for validation, + "error" for a
+        // refusal that names itself — CodedHttpException). Keys are camelCased here, because a
+        // failure thrown BEFORE CamelCaseResponseKeys in the stack (auth, the throttle) is rendered
+        // outside it. One thrown after it — the tenant middlewares, a controller — is rendered where
+        // it is thrown and passes back out through it, so every key here must read the same either way.
         $exceptions->render(function (Throwable $e, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
@@ -197,11 +200,16 @@ return Application::configure(basePath: dirname(__DIR__))
             // `Allow` on a 405. This rebuilt every HTTP error as a fresh response and dropped them, so the
             // one instruction `MOBILE-API.md` gave the app about a 429 ("respect `Retry-After`") named a
             // header that was never sent. Laravel's own JSON rendering keeps them; this now does too.
-            return response()->json(
-                ['message' => $message, 'statusCode' => $status],
-                $status,
-                $e instanceof HttpExceptionInterface ? $e->getHeaders() : [],
-            );
+            $body = ['message' => $message, 'statusCode' => $status];
+
+            // A refusal that NAMES itself, so the client branches on a code and never on the sentence:
+            // two 403s share a status and mean opposite things (a blocked company — the token is gone;
+            // a read-only login — the session is fine). See CodedHttpException.
+            if ($e instanceof CodedHttpException) {
+                $body['error'] = $e->errorCode();
+            }
+
+            return response()->json($body, $status, $e instanceof HttpExceptionInterface ? $e->getHeaders() : []);
         });
 
         // A DomainException is a REFUSAL the operator caused and can act on — "that accounting

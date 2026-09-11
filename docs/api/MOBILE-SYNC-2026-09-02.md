@@ -61,7 +61,7 @@ Each row links to the detail. **Do 1–7 first: without them the app is showing 
 | 2 | Decode **every money field** as `(x as num).toDouble()` — a whole value arrives as an `int` | Everywhere | [rule 2](#4-the-rules-that-are-not-obvious) |
 | 3 | Put **`payableAmount`** on the Pay button, not `balance` | Invoice, Pay | [rule 3](#4-the-rules-that-are-not-obvious) |
 | 4 | Gate Pay on **`paymentLinkUrl != null`**, never on `balance > 0` | Invoice list | [rule 4](#4-the-rules-that-are-not-obvious) |
-| 5 | On **403**: wipe the token, go to Blocked. Never retry | HTTP layer | [§5](#5-errors) |
+| 5 | On **403**, branch on **`error`**: `tenant_inactive` → wipe the token, go to Blocked, never retry; `read_only` → keep the session, show the act as unavailable (since 2026-09-11) | HTTP layer | [§5](#5-errors) |
 | 6 | Make **`errors` optional** on a 422 — business refusals send only `message` | HTTP layer | [§5](#5-errors) |
 | 7 | Treat **`data: []` on login** as a valid signed-in state | Login | [rule 6](#4-the-rules-that-are-not-obvious) |
 | 8 | Fetch **`GET /me/vocabulary`** on launch, cache on `version`, **delete your own EN/AR label tables** | App start | [rule 5](#4-the-rules-that-are-not-obvious) |
@@ -344,7 +344,7 @@ written for a human.
 |---|---|---|
 | `400` | Malformed body (login only) | Form error |
 | `401` | Missing / invalid / revoked token | Clear token → Login |
-| `403` | Company blocked — **and the token has just been destroyed** | Clear token → Blocked. **Never retry** |
+| `403` | **`error: tenant_inactive`** — company blocked, **and the token has just been destroyed**. **`error: read_only`** — a read-only login tried a write; the session is fine | `tenant_inactive`: clear token → Blocked, **never retry**. `read_only`: keep the session; the act is not this person's |
 | `404` | Not found **or not yours**. On `/me/feed` + marketing posts: module off | Treat as gone / hide the section |
 | `409` | `paymob-session`: gateway disabled · `pay-demo`: not available here | Hide the affordance |
 | `422` | Field validation **or** a business refusal (no `errors` key) | Show `message`; attach `errors` when present |
@@ -353,7 +353,8 @@ written for a human.
 
 The two money endpoints also return a stable `error` code — branch on it rather than parsing
 `message`: `paymob_disabled` · `use_real_payment` · `invoice_not_payable` (+ `status`) ·
-`no_balance` (+ `balance`, which is `payableAmount`) · `paymob_upstream_error`.
+`no_balance` (+ `balance`, which is `payableAmount`) · `paymob_upstream_error`. So do the two 403s,
+since 2026-09-11: `tenant_inactive` · `read_only` — beside the usual `message` and `statusCode`.
 
 **Rate limits:** login 5/min · forgot/reset 3/min · **all `/me/*` 60/min** · public reads 120/min ·
 public click 30/min — **each its own counter since 2026-09-11**, per IP address (per signed-in login
@@ -426,7 +427,8 @@ them directly; do not compose your own sentence from the id fields.
    - `POST /me/requests` with `category=elevator` → **201**, not 422
    - `POST /me/invoices/{id}/pay-demo` on staging → **409** `use_real_payment`
    - log in as a tenant with no active lease → **200** with `data: []`
-   - after a `403`, the same token now gives `401`
+   - after a `403` coded `tenant_inactive`, the same token now gives `401`; after one coded
+     `read_only`, the same token still reads
    - `GET /me/vocabulary` → `version` + 32 vocabularies, each with `en` and `ar`
 3. Delete your own EN/AR label tables once `/me/vocabulary` is wired.
 
