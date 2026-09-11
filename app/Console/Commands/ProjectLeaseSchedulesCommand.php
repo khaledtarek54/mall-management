@@ -92,9 +92,13 @@ class ProjectLeaseSchedulesCommand extends Command
                 ? $schedule->retrueProjectedLadder($lease)
                 : $schedule->projectTermEscalations($lease);
 
+            // ACTIVE rungs only: a re-trued ladder leaves its retired rungs in the table (the
+            // audit trail), and without this the dry run reported a 100 % clause as stepping
+            // 7 % — the tester's old rungs, first by date, counted as the ladder.
             $steps = $lease->charges()
                 ->where('origin', Charge::ORIGIN_ESCALATION)
                 ->where('type', 'base_rent')
+                ->where('is_active', true)
                 ->orderBy('start_date')
                 ->get(['amount', 'start_date']);
 
