@@ -279,6 +279,7 @@ return [
         'none_free' => 'Nothing free to let — every bay, sign and store here is out of service or already held, this lease included. Give one back first to change its date or rate.',
         'none_free_placeholder' => 'Select an item',
         'option' => ':type — :item · :rate',
+        'draft_holds_none' => 'A draft holds no bays, stores or signs. Choose the status the lease is executed in — the table appears here the moment it leaves Draft.',
         'not_attached_title' => 'The lease was created, but these items were not let with it',
     ],
 

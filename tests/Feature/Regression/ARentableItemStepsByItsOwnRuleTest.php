@@ -21,6 +21,7 @@ use App\Support\RentableItemPricing;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\Select;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
@@ -578,17 +579,32 @@ describe('through the panel', function () {
         });
     });
 
-    it('renders the items table on the create form for an executed lease only, in both languages', function () {
+    it('shows the items section from the first render, with the table appearing the moment the status leaves draft', function () {
         asTenant($this->asset, function () {
+            // The status select must be LIVE: the section's contents read it, and a browser only
+            // re-renders on a change the field announces. Without this the table never appeared
+            // for the whole of a create (reported 2026-09-12) while this very test stayed green,
+            // because `fillForm()` re-renders whatever the field says — so the tooth is the flag.
             $page = Livewire::test(CreateLease::class);
-            $page->assertFormFieldHidden('rentable_items');
-            $page->fillForm(['status' => 'active'])->assertFormFieldVisible('rentable_items')
-                ->assertSee(__('admin.sections.rentable_items_at_creation'))
-                ->assertDontSee('admin.sections.rentable')->assertDontSee('admin.actions.add_rentable');
+            $page->assertFormFieldExists('status', checkFieldUsing: fn (Select $field): bool => $field->isLive());
+
+            // Under the default Draft the section is on screen with its note and no table.
+            // (A Placeholder is not a Field, so the note is asserted on the RENDER — a hidden
+            // component emits nothing — while the repeater is asserted as a field.)
+            $page->assertSee(__('admin.sections.rentable_items_at_creation'))
+                ->assertSee(__('admin.rentable_items.draft_holds_none'))
+                ->assertFormFieldHidden('rentable_items');
+
+            $page->fillForm(['status' => 'active'])
+                ->assertFormFieldVisible('rentable_items')
+                ->assertDontSee(__('admin.rentable_items.draft_holds_none'))
+                ->assertDontSee('admin.sections.rentable')->assertDontSee('admin.actions.add_rentable')
+                ->assertDontSee('admin.rentable_items.draft');
 
             app()->setLocale('ar');
-            Livewire::test(CreateLease::class)->fillForm(['status' => 'active'])
-                ->assertSee('المواقف والعناصر المؤجَّرة')->assertDontSee('admin.sections.rentable');
+            Livewire::test(CreateLease::class)
+                ->assertSee('المواقف والعناصر المؤجَّرة')->assertSee('المسودة لا تحوز')
+                ->assertDontSee('admin.sections.rentable')->assertDontSee('admin.rentable_items.draft');
         });
     });
 });

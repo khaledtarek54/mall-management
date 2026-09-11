@@ -368,6 +368,13 @@ class LeaseForm
                             ->default('draft')
                             ->required()
                             ->native(false)
+                            // LIVE, because the "Parking & rentable items" section below reads it:
+                            // without a round-trip on change the section stayed hidden for the whole
+                            // of a create — the form opens on Draft, the operator picks Active or
+                            // Awaiting activation, and nothing re-rendered until the save (reported
+                            // from the panel 2026-09-12; the Livewire harness re-renders on
+                            // `fillForm()` whatever the field says, so its test was green).
+                            ->live()
                             ->helperText(fn (?Lease $record, Get $get): ?string => self::termHasRunOut($get, $record)
                                 ? __('admin.helpers.lease_term_has_run_out')
                                 : null),
@@ -394,15 +401,25 @@ class LeaseForm
                         // Not a lease column: `CreateLease::afterCreate()` reads the rows off the
                         // form state and lets each through `AssignRentableItemService::assign()`,
                         // the ONE door the tab, the header action and the wizard all take.
+                        //
+                        // The SECTION is on the create form from the first render, whatever the
+                        // status: under Draft it carries a one-line note instead of the table, so
+                        // the operator can see where the bays go and why they cannot go there yet.
+                        // A section that only materialises after the status changes reads as
+                        // "there is no such thing" — that is how it was reported.
                         Section::make(__('admin.sections.rentable_items_at_creation'))
                             ->description(__('admin.sections.rentable_items_at_creation_description'))
                             ->columnSpanFull()
-                            ->visible(fn (string $operation, Get $get): bool => $operation === 'create' && $get('status') !== 'draft')
+                            ->visible(fn (string $operation): bool => $operation === 'create')
                             ->components([
+                                Placeholder::make('rentable_items_draft_note')
+                                    ->hiddenLabel()
+                                    ->content(__('admin.rentable_items.draft_holds_none'))
+                                    ->visible(fn (Get $get): bool => $get('status') === 'draft'),
                                 self::rentableItemsAtCreation(
                                     fn (Get $get): Lease => self::clauseAsTyped($get),
                                     fn (Get $get): ?string => $get('../../commencement_date') ?: null,
-                                ),
+                                )->visible(fn (Get $get): bool => $get('status') !== 'draft'),
                             ]),
                     ])->columns(3),
 

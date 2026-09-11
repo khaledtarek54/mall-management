@@ -1356,8 +1356,12 @@
 > `is_active => false` on a stop still ahead, and the planner drops an inactive row before it reads
 > the end date, so a bay released at the year end and recorded in June billed nothing from June
 > (`RentableItemAssignmentTest` had pinned it). **Items at creation**: the create form's *Parking &
-> rentable items* table (Lease details tab — create only, hidden for a DRAFT, which holds nothing;
-> a blank date means the commencement, a date ahead of it is refused in words) and the quick
+> rentable items* table (Lease details tab — create only; the SECTION is on screen from the first
+> render and carries a one-line note while the status is Draft, which holds nothing, with the
+> table appearing the moment the status leaves Draft — the status select is `live()` for exactly
+> that, and was not until 2026-09-12: the form opens on Draft, so the table never appeared for
+> the whole of a create and the harness test stayed green because `fillForm()` re-renders whatever
+> the field says; a blank date means the commencement, a date ahead of it is refused in words) and the quick
 > wizard's third step share ONE builder (`LeaseForm::rentableItemsAtCreation()`), and every row
 > goes through `AssignRentableItemService::assign()` — the one door the header action and the tab
 > take. The wizard's table DEHYDRATES where the form's must not: an action's `$data` is the
@@ -2445,7 +2449,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `reference` (TextInput, disabled, dehydrated) — auto-generated, read-only.
    - `unit_id` (Select, live, required) — master unit; filters to non-occupied/non-reserved unless `show_occupied_units` toggle. Validation rule prevents active-lease conflicts.
    - `additional_unit_ids` (Select, multiple, dehydrated=false) — non-master units for multi-unit leases; dehydrated=false (processed in `afterCreate()` / `afterSave()`). Disabled by `Lease::premisesLockedBecause()` — live (use *Change premises*), or a draft that has stepped / carries an act's row — and free on a plain draft, where a change re-prices a rate-priced rent and its seeded rows (2026-09-11).
-   - **Parking & rentable items** (Section, create only, hidden while `status` is `draft` — a draft holds nothing, Voyager's own rule): a `Repeater::table()` of items let WITH the lease — the item (the property's free, in-service list, `RentableItemOptions::lettableIn()`, `distinct()`), the negotiated rate (prefilled from the register's asking rate on pick), a from-date (blank = the commencement; not before it) and the annual-increase trio. `dehydrated(false)` — `CreateLease::afterCreate()` lets each row through `AssignRentableItemService::assign()` and NAMES any it could not (a refusal is a warning, never a failed create). The quick wizard's third step is the same builder, dehydrating — an action's `$data` is the dehydrated state — and `LeaseCreationService::create()` assigns them (2026-09-12).
+   - **Parking & rentable items** (Section, create only, always on screen; while `status` is `draft` it shows a one-line note — a draft holds nothing, Voyager's own rule — and the table replaces the note the moment the status leaves draft, which is why the status Select is `live()`): a `Repeater::table()` of items let WITH the lease — the item (the property's free, in-service list, `RentableItemOptions::lettableIn()`, `distinct()`), the negotiated rate (prefilled from the register's asking rate on pick), a from-date (blank = the commencement; not before it) and the annual-increase trio. `dehydrated(false)` — `CreateLease::afterCreate()` lets each row through `AssignRentableItemService::assign()` and NAMES any it could not (a refusal is a warning, never a failed create). The quick wizard's third step is the same builder, dehydrating — an action's `$data` is the dehydrated state — and `LeaseCreationService::create()` assigns them (2026-09-12).
    - `tenant_id` (Select, required, searchable, creatable inline) — with quick-create form (name, phone, email).
    - `status` (Select) — draft, pending_approval, active, etc.
    - `show_occupied_units` (Toggle, live, dehydrated=false) — toggles unit dropdown visibility.
