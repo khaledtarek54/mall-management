@@ -25,7 +25,15 @@ return [
         'none' => 'يبقى كما هو',
         'rent_follows_clause' => 'يتبع بند زيادة الإيجار',
         'levy_follows_rent' => 'يتبع الإيجار',
-        'parking_follows_register' => 'يُسعَّر من المواقف في سجل الوحدات المؤجَّرة',
+        'parking_follows_register' => 'كل عنصر بقاعدته — تُضبط من تبويب المواقف والعناصر المؤجَّرة',
+        'parking_items' => 'كل عنصر بقاعدته: :items',
+        'parking_no_items' => 'لا شيء محجوز بعد — خصِّص العناصر من تبويب المواقف والعناصر المؤجَّرة',
+        'parking_managed_on_tab' => 'تُضبط لكل عنصر من تبويب المواقف والعناصر المؤجَّرة',
+        'edit_action' => 'الزيادة السنوية',
+        'edit_heading' => 'الزيادة السنوية · :charge',
+        'edit_hint' => 'كيف يزيد هذا الرسم في الذكرى السنوية للعقد. تُكتب على كل درجة من الرسم لم تُفوتر بعد، ويُعاد بناء سلّمه المتوقَّع من القاعدة.',
+        'edit_item_hint' => 'كيف يزيد هذا العنصر في الذكرى السنوية للعقد. يُعاد جمع رسم المواقف من كل عنصر يحوزه العقد، اليوم وفي كل ذكرى سنوية قادمة.',
+        'updated' => 'ضُبطت الزيادة السنوية على :charge — :rule.',
     ],
 
     'lease_activation' => [
@@ -103,6 +111,7 @@ return [
             'rent_escalated_collared_with_service' => 'تصعيد تعاقدي بنسبة :step_pct% (المؤشر :index_pct%، مُقيَّد بالحد) — الإيجار من :amount_from إلى :amount_to؛ ورسوم الخدمة من :service_amount_from إلى :service_amount_to.',
             'charge_escalated' => 'زيادة تعاقدية على :charge_type بنسبة :step_pct% — من :amount_from إلى :amount_to.',
             'charge_escalated_amount' => 'زيادة تعاقدية على :charge_type بمقدار :step_amount — من :amount_from إلى :amount_to.',
+            'charge_escalated_items' => 'زيادة تعاقدية على :charge_type — من :amount_from إلى :amount_to (:items، كل عنصر بقاعدته).',
             'rent_changed' => 'تغيّر الإيجار من :amount_from إلى :amount_to.',
             'relief_granted' => 'مُنح إعفاء من الإيجار — خُفِّض من :amount_from إلى :amount_to.',
             'term_extended' => 'مُدّت المدة حتى :expiry_date.',
@@ -256,6 +265,7 @@ return [
         'none_free' => 'مفيش حاجة متاحة — كل المواقف واللافتات والمخازن هنا إما خارج الخدمة أو محجوزة، بما فيها للعقد ده. رجّع واحد الأول لو عايز تغيّر تاريخه أو سعره.',
         'none_free_placeholder' => 'اختر بندًا',
         'option' => ':type — :item · :rate',
+        'not_attached_title' => 'أُنشئ العقد، لكن هذه العناصر لم تُؤجَّر معه',
     ],
 
     'charge_schedule' => [

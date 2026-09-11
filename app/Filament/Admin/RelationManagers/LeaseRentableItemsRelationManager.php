@@ -7,7 +7,10 @@ use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
+use App\Support\ChargeEscalation;
 use App\Support\RentableItemOptions;
+use Carbon\CarbonImmutable;
+use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -64,6 +67,14 @@ class LeaseRentableItemsRelationManager extends RelationManager
                     ->label(__('admin.fields.item_monthly_rate'))
                     ->money('EGP'),
 
+                // How THIS item steps on the lease anniversary, in words — the same sentence the
+                // lease form's "Which charges step" table shows against the parking row, from the
+                // same reading (`ChargeEscalation::describe()`), so the two cannot differ.
+                TextColumn::make('pivot.escalation_mode')
+                    ->label(__('admin.fields.escalation_mode'))
+                    ->formatStateUsing(fn (RentableItem $record): string => ChargeEscalation::describe($record->getRelationValue('pivot'), $this->lease()))
+                    ->placeholder(__('admin.charge_escalation.none')),
+
                 TextColumn::make('pivot.effective_from')
                     ->label(__('admin.fields.held_from'))
                     ->date('d/m/Y'),
@@ -84,6 +95,51 @@ class LeaseRentableItemsRelationManager extends RelationManager
             // them could find an item by anything but its name (2026-08-18).
             ->headerActions(LeaseActions::forOwner($this->lease(), ['assignRentableItem']))
             ->recordActions([
+                // ── THE RULE, ON THE TAB (2026-09-12) ──────────────────────────────────────
+                // A bay's annual increase is per ITEM, and this is where an item is looked at.
+                // The one writer (`AssignRentableItemService::setEscalation()`) re-sums the
+                // parking row and re-walks its ladder; the lease form's table refills from the
+                // register when this announces, so the form and the tab show one answer.
+                Action::make('setEscalation')
+                    ->label(__('admin.charge_escalation.edit_action'))
+                    ->icon('heroicon-o-arrow-trending-up')
+                    ->color('gray')
+                    ->modalHeading(fn (RentableItem $record) => __('admin.charge_escalation.edit_heading', ['charge' => $record->label()]))
+                    ->modalDescription(__('admin.charge_escalation.edit_item_hint'))
+                    ->visible(fn (RentableItem $record): bool => $this->canRuleOn($record))
+                    ->authorize(fn (RentableItem $record): bool => $this->canRuleOn($record))
+                    ->fillForm(fn (RentableItem $record): array => [
+                        'escalation_mode' => ChargeEscalation::modeOf($record->getRelationValue('pivot')),
+                        'escalation_rate' => $record->getRelationValue('pivot')->escalation_rate === null ? null : (float) $record->getRelationValue('pivot')->escalation_rate,
+                        'escalation_amount' => $record->getRelationValue('pivot')->escalation_amount === null ? null : (float) $record->getRelationValue('pivot')->escalation_amount,
+                    ])
+                    ->schema(fn (): array => LeaseActions::itemRuleFields($this->lease()))
+                    ->action(function (RentableItem $record, array $data): void {
+                        abort_unless($this->canRuleOn($record), 403);
+
+                        $ruled = ChargeEscalation::normalise($data['escalation_mode'] ?? null, $data['escalation_rate'] ?? null, $data['escalation_amount'] ?? null);
+
+                        try {
+                            app(AssignRentableItemService::class)->setEscalation(
+                                $this->lease(), $record, $ruled['escalation_mode'], $ruled['escalation_rate'], $ruled['escalation_amount'],
+                            );
+                        } catch (DomainException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()
+                            ->title(__('admin.charge_escalation.updated', [
+                                'charge' => $record->label(),
+                                'rule' => ChargeEscalation::describe(
+                                    $this->lease()->rentableItems()->whereKey($record->id)->wherePivotNull('effective_to')->first()?->getRelationValue('pivot')
+                                        ?? $record->getRelationValue('pivot'),
+                                    $this->lease(),
+                                ),
+                            ]))
+                            ->send();
+                    }),
                 Action::make('release')
                     ->label(__('admin.actions.release_rentable_item'))
                     ->icon('heroicon-o-arrow-uturn-left')
@@ -107,7 +163,7 @@ class LeaseRentableItemsRelationManager extends RelationManager
                         try {
                             app(AssignRentableItemService::class)
                                 ->release($this->lease(), $record, $data['effective_to']);
-                        } catch (\DomainException|\InvalidArgumentException $e) {
+                        } catch (DomainException|\InvalidArgumentException $e) {
                             Notification::make()->danger()->title($e->getMessage())->send();
 
                             return;
@@ -143,6 +199,20 @@ class LeaseRentableItemsRelationManager extends RelationManager
     protected function canWrite(): bool
     {
         return auth()->user()?->can('rentable_items.edit') ?? false;
+    }
+
+    /**
+     * May this holding's annual increase be set from here? A LIVE holding on a lease that may
+     * still act — open, or released at a date still ahead — which is exactly the set the writer
+     * reaches, so the button and the service refuse the same rows.
+     */
+    protected function canRuleOn(RentableItem $record): bool
+    {
+        $to = $record->getRelationValue('pivot')?->effective_to;
+
+        return $this->canWrite()
+            && in_array($this->lease()->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true)
+            && ($to === null || CarbonImmutable::parse($to)->gte(CarbonImmutable::today()));
     }
 
     /**

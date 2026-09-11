@@ -8,6 +8,7 @@ use App\Models\LeaseEvent;
 use App\Models\RentIndex;
 use App\Support\ChargeEscalation;
 use App\Support\OpsLog;
+use App\Support\RentableItemPricing;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -86,8 +87,11 @@ class RentEscalationService
                 ->whereNull('expiry_date')
                 ->orWhereDate('expiry_date', '>=', $today->toDateString())
                 ->orWhereNotNull('holdover_from'))
-            // The rent's own clause, OR a charge row carrying a rule of its own — a lease whose
-            // rent never steps is still swept for the bay that does (point 24).
+            // The rent's own clause, OR a charge row carrying a rule of its own, OR a held item
+            // carrying one on its holding — a lease whose rent never steps is still swept for the
+            // bay that does (point 24; the register's half since 2026-09-12). The SAME three
+            // predicates `Lease::escalatesAnyCharge()` reads, so the sweep cannot select a lease
+            // the pointer was cleared on, or miss one it was kept for.
             ->where(fn ($q) => $q
                 ->whereIn('escalation_type', ['fixed_percent', 'fixed_amount', 'cpi'])
                 ->orWhereHas('charges', fn ($c) => $c
@@ -95,7 +99,12 @@ class RentEscalationService
                     ->where('frequency', '!=', 'one_time')
                     ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
                     ->whereNotNull('escalation_mode')
-                    ->where('escalation_mode', '!=', ChargeEscalation::NONE)))
+                    ->where('escalation_mode', '!=', ChargeEscalation::NONE))
+                ->orWhereHas('rentableItems', fn ($i) => $i
+                    ->where(fn ($h) => $h->whereNull('rentable_item_holdings.effective_to')
+                        ->orWhereDate('rentable_item_holdings.effective_to', '>=', $today->toDateString()))
+                    ->whereNotNull('rentable_item_holdings.escalation_mode')
+                    ->where('rentable_item_holdings.escalation_mode', '!=', ChargeEscalation::NONE)))
             ->whereNotNull('next_escalation_date')
             ->whereDate('next_escalation_date', '<=', $today->toDateString())
             ->pluck('id');
@@ -396,6 +405,59 @@ class RentEscalationService
                 ];
             }
 
+            // ── THE REGISTER — each held item by its own rule (2026-09-12) ─────────────────────
+            //
+            // A bay's rule lives on its HOLDING, and what the lease pays is the sum of what each
+            // item bills on the day. `RentableItemPricing::rateOn()` prices the anniversary from
+            // the pointer, which still sits on it here, so it applies exactly this step and no
+            // other; the new rate is then STORED on the holding — the rent's own discipline, and
+            // the reason a follows-lease bay under an index clause can be re-summed a year later.
+            // Sized and written like every other charge: the outgoing rung is the base, an
+            // anniversary inside a relief window records the step and writes no rung.
+            $itemSteps = [];
+
+            if (RentableItemPricing::anyRuled($lease, $today)) {
+                foreach (RentableItemPricing::heldOn($lease, $anniversary) as $item) {
+                    $holding = $item->getRelationValue('pivot');
+                    $was = round((float) $holding->monthly_rate, 2);
+                    $now = RentableItemPricing::rateOn($lease, $holding, $anniversary, $leasePercent);
+
+                    if (abs($now - $was) >= 0.005) {
+                        $itemSteps[] = ['id' => $holding->id, 'code' => $item->code, 'from' => $was, 'to' => $now];
+                    }
+                }
+            }
+
+            if ($itemSteps !== []) {
+                $outgoing = $this->schedule->rowCovering($lease, 'parking', $anniversary->subDay());
+                $incoming = $this->schedule->rowCovering($lease, 'parking', $anniversary);
+
+                // The sentence states what STEPPED: the sum of the held items before and after,
+                // never the eve row's figure — a bay let in the anniversary month sits in the
+                // new sum without having moved, and reading the row made "500 to 850" of a 50
+                // step (found by review).
+                $before = round((float) RentableItemPricing::heldOn($lease, $anniversary)
+                    ->sum(fn ($item) => (float) $item->getRelationValue('pivot')->monthly_rate), 2);
+
+                // A parking row bills into the anniversary whenever anything is held — the relay
+                // lays one for every held month — so the guard is for a register out of step with
+                // its schedule, not a case a door produces. The rates move either way: they are
+                // the register's truth, and the next rebuild sums from them.
+                if ($outgoing !== null && $incoming !== null) {
+                    $chargeSteps['parking'] = [
+                        'from' => $before,
+                        'to' => RentableItemPricing::sumOn($lease, $anniversary, $leasePercent),
+                        'rule' => ['items' => collect($itemSteps)->pluck('code')->implode(', ')],
+                        'follows' => false,
+                        'relieved' => $incoming->origin === Charge::ORIGIN_RELIEF,
+                    ];
+                }
+
+                foreach ($itemSteps as $itemStep) {
+                    DB::table('rentable_item_holdings')->where('id', $itemStep['id'])->update(['monthly_rate' => $itemStep['to']]);
+                }
+            }
+
             if (! $rentSteps && $chargeSteps === []) {
                 // Nothing to escalate; still roll the date so it isn't re-considered every day.
                 $lease->forceFill(['next_escalation_date' => $nextDate])->save();
@@ -458,6 +520,15 @@ class RentEscalationService
                     $roll['service_charge_monthly'] = $chargeStep['to'];
                 }
 
+                // Three sentences, chosen by the rule's shape: a percentage, an amount, or — for
+                // the register — the items that stepped, each by its own rule, so one sentence
+                // does not state one figure over bays that moved by different ones.
+                [$narrativeKey, $narrativeData] = match (true) {
+                    isset($chargeStep['rule']['items']) => ['charge_escalated_items', ['items' => $chargeStep['rule']['items']]],
+                    isset($chargeStep['rule']['amount']) => ['charge_escalated_amount', ['step_amount' => $chargeStep['rule']['amount']]],
+                    default => ['charge_escalated', ['step_pct' => $chargeStep['rule']['percent']]],
+                };
+
                 app(RecordLeaseEventService::class)->record(
                     $lease,
                     LeaseEvent::TYPE_RENT_MODIFICATION,
@@ -468,10 +539,8 @@ class RentEscalationService
                         $chargeStep['from'],
                         $chargeStep['to'],
                         [$opened],
-                        isset($chargeStep['rule']['amount']) ? 'charge_escalated_amount' : 'charge_escalated',
-                        isset($chargeStep['rule']['amount'])
-                            ? ['step_amount' => $chargeStep['rule']['amount']]
-                            : ['step_pct' => $chargeStep['rule']['percent']],
+                        $narrativeKey,
+                        $narrativeData,
                     ),
                 );
             }

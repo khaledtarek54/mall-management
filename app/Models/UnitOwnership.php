@@ -387,7 +387,7 @@ class UnitOwnership extends Model implements BillableAgreement
     public function rentableItems(): MorphToMany
     {
         return $this->morphToMany(RentableItem::class, 'holder', 'rentable_item_holdings')
-            ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
+            ->withPivot(RentableItem::HOLDING_PIVOT)
             ->withTimestamps();
     }
 

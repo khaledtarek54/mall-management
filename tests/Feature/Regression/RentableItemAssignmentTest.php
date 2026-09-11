@@ -108,10 +108,22 @@ it('stops billing the month after the bay goes back', function () {
     // defect rather than the requirement. A zero-amount row put "Parking & rentable items —
     // EGP 0.00" on every invoice for the rest of the term. The old amount still stays true for the
     // months it was true for, which was the part worth keeping.
+    //
+    // And it stays ACTIVE (2026-09-12): the release is recorded in March for the end of June, and
+    // `is_active => false` — what this asserted until then — dropped the row from the planner's
+    // selection at once, so April, May and June billed no parking (found by review of the per-item
+    // step). `close()`'s own rule: a stop still ahead is an end date, a stop already past switches
+    // the row off. The planner reads the end date, so nothing bills past June either way.
     expect($rows)->toHaveCount(1)
         ->and((float) $rows->first()->amount)->toBe(900.0)
         ->and($rows->first()->end_date->toDateString())->toBe('2026-06-30')
-        ->and((bool) $rows->first()->is_active)->toBeFalse();
+        ->and((bool) $rows->first()->is_active)->toBeTrue();
+
+    // The proof of the fix: April still bills the bay.
+    CarbonImmutable::setTestNow('2026-04-05');
+    $plan = app(MonthlyBillingService::class)->previewForPeriod(CarbonImmutable::parse('2026-04-01'));
+    $row = collect($plan['rows'] ?? $plan)->first(fn ($r) => is_array($r) && ($r['lease_id'] ?? null) === $lease->id);
+    expect(collect($row['items'] ?? [])->pluck('type')->all())->toContain('parking');
 });
 
 it('frees the bay for re-letting once it is given back', function () {
@@ -214,11 +226,12 @@ it('closes the parking charge rather than billing zero for ever', function () {
 
     $rows = $lease->fresh()->charges()->where('type', 'parking')->get();
 
-    // The March row stays true for March, and nothing is in force afterwards.
+    // The March row stays true for March — active and bounded, since the stop is still ahead of
+    // the 5th (`close()`'s rule, 2026-09-12) — and nothing is in force afterwards.
     expect($rows)->toHaveCount(1)
         ->and((float) $rows->first()->amount)->toBe(900.0)
         ->and($rows->first()->end_date->toDateString())->toBe('2026-03-31')
-        ->and((bool) $rows->first()->is_active)->toBeFalse();
+        ->and((bool) $rows->first()->is_active)->toBeTrue();
 
     // And April's invoice carries no parking line at all.
     CarbonImmutable::setTestNow('2026-04-05');

@@ -557,6 +557,7 @@ return [
         'rentable_item_already_on_this_lease' => 'This lease already holds :code. Give it back first if you need to change the date or the rate.',
         'rentable_item_negative_rate' => 'The rate cannot be negative.',
         'rentable_item_not_held' => 'This lease does not currently hold that item.',
+        'rentable_item_before_commencement' => 'An item cannot be held before the lease begins on :date — leave the date blank to hold it from the commencement.',
         'dispute_invoice_not_open' => 'That invoice has left the books, so it claims nothing to dispute.',
         'dispute_line_already_settled' => 'That line is already settled — there is nothing outstanding to dispute.',
         'dispute_not_disputed' => 'That line is not under dispute.',

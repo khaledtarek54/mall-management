@@ -27,7 +27,15 @@ return [
         'none' => 'Stands still',
         'rent_follows_clause' => 'Follows the rent\'s clause',
         'levy_follows_rent' => 'Follows the rent',
-        'parking_follows_register' => 'Priced by the bays in the rentable-items register',
+        'parking_follows_register' => 'Each item by its own rule — set on the Parking & rentable items tab',
+        'parking_items' => 'Each item by its own rule: :items',
+        'parking_no_items' => 'Nothing held yet — assign items on the Parking & rentable items tab',
+        'parking_managed_on_tab' => 'Set per item on the Parking & rentable items tab',
+        'edit_action' => 'Annual increase',
+        'edit_heading' => 'Annual increase · :charge',
+        'edit_hint' => 'How this charge steps on the lease anniversary. Written onto every rung of the charge still to bill; its projected ladder is re-walked from the rule.',
+        'edit_item_hint' => 'How this item steps on the lease anniversary. The parking charge is re-summed from every item the lease holds, today and on each anniversary ahead.',
+        'updated' => 'Annual increase on :charge set — :rule.',
     ],
 
     // What must be in before a lease is activated (point 1) — see App\Support\LeaseActivation.
@@ -113,6 +121,7 @@ return [
             // through the catalogue in the reader's language, one event per charge.
             'charge_escalated' => 'Contractual increase on :charge_type +:step_pct% — :amount_from to :amount_to.',
             'charge_escalated_amount' => 'Contractual increase on :charge_type +:step_amount — :amount_from to :amount_to.',
+            'charge_escalated_items' => 'Contractual increase on :charge_type — :amount_from to :amount_to (:items, each by its own rule).',
             'rent_changed' => 'Rent changed from :amount_from to :amount_to.',
             'relief_granted' => 'Rent relief granted — :amount_from reduced to :amount_to.',
             'term_extended' => 'Term extended to :expiry_date.',
@@ -270,6 +279,7 @@ return [
         'none_free' => 'Nothing free to let — every bay, sign and store here is out of service or already held, this lease included. Give one back first to change its date or rate.',
         'none_free_placeholder' => 'Select an item',
         'option' => ':type — :item · :rate',
+        'not_attached_title' => 'The lease was created, but these items were not let with it',
     ],
 
     'charge_schedule' => [

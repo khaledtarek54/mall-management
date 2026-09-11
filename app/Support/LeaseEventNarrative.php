@@ -66,6 +66,7 @@ class LeaseEventNarrative
         // on a different rule cannot share that sentence.
         'charge_escalated',
         'charge_escalated_amount',
+        'charge_escalated_items',
         'rent_changed',
         'relief_granted',
         'term_extended',

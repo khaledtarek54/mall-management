@@ -145,6 +145,7 @@ return [
         'item_code' => 'P-001, ST-04, SIGN-N1 — unique within this property.',
         'assign_rentable_item' => 'Only items in this property that are free on the chosen date.',
         'assign_rentable_item_rate' => 'Leave blank to use the item’s asking rate. What the tenant negotiated goes here.',
+        'rentable_item_from_commencement' => 'From the commencement date',
         'item_name_placeholder' => 'e.g. Covered bay near the north lift',
         'item_status' => 'Set out of service to withdraw it from letting without deleting it.',
         'item_status_projected' => 'Let — this follows the agreements holding it, so it is not set by hand.',

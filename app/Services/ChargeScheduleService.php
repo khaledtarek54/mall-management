@@ -6,6 +6,7 @@ use App\Contracts\BillableAgreement;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Support\ChargeEscalation;
+use App\Support\RentableItemPricing;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
@@ -245,7 +246,9 @@ class ChargeScheduleService
     /**
      * Every charge type on this lease with a not-yet-started projected rung — what a clause
      * re-true has to prune. The rent is walked separately (its prune drives the levy's), so it is
-     * excluded here; the levy never carries `ORIGIN_ESCALATION` rungs at all.
+     * excluded here; the levy never carries `ORIGIN_ESCALATION` rungs at all. PARKING is in it
+     * since 2026-09-12: its rungs are the register's projected steps (each bay by its own rule,
+     * a follows-lease bay by the clause), and a clause edit must throw them away with the rest.
      *
      * @return list<string>
      */
@@ -257,7 +260,7 @@ class ChargeScheduleService
             ->where('is_active', true)
             ->whereNotNull('start_date')
             ->whereDate('start_date', '>', $from->toDateString())
-            ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
+            ->whereNotIn('type', ['base_rent', 'marketing'])
             ->distinct()
             ->pluck('type')
             ->all();
@@ -403,7 +406,13 @@ class ChargeScheduleService
         // own clause is `none` still projects a parking bay's +500 a year.
         $chargeTypes = $this->escalatingChargeTypes($lease);
 
-        if ((! $rentSteps && $chargeTypes === [])
+        // And the register: a bay, cage or signage face carrying a rule of its own on its holding
+        // (2026-09-12). Its rungs are the SUM of the items held on each anniversary at the rate
+        // each will bill that day — `RentableItemPricing` is the one arithmetic — written onto
+        // the one `parking` row exactly as a charge's own rungs are written onto its type.
+        $parkingSteps = RentableItemPricing::anyRuled($lease);
+
+        if ((! $rentSteps && $chargeTypes === [] && ! $parkingSteps)
             || blank($lease->commencement_date)
             || blank($lease->expiry_date)) {
             return 0;
@@ -432,8 +441,9 @@ class ChargeScheduleService
         // same clamp the sweep applies, so the two converge rung for rung), and nothing under an
         // index clause — an unpublished figure cannot be projected, which is the sweep's own
         // refusal to invent — or an amount clause, where a step stated in pounds is a statement
-        // about the rent (`ChargeEscalation`).
-        $leasePercent = $byPercent ? $rate : null;
+        // about the rent. `ChargeEscalation::inheritedPercent()` is that derivation, shared with
+        // the register's re-sum so a bay's projected rung and its assignment-day price agree.
+        $leasePercent = ChargeEscalation::inheritedPercent($lease);
 
         // Anchor on the lease's OWN next anniversary, not on commencement + N.
         //
@@ -487,7 +497,7 @@ class ChargeScheduleService
         // A service-only lease (rent 0, a live service charge carrying a rule) still deserves its
         // service-charge ladder; a lease with no rent and no ruled charge projects nothing,
         // exactly as before.
-        if ($rent <= 0 && $chargeTypes === []) {
+        if ($rent <= 0 && $chargeTypes === [] && ! $parkingSteps) {
             return 0;
         }
 
@@ -597,10 +607,51 @@ class ChargeScheduleService
                 $created += $this->projectChargeRung($lease, $chargeType, $effective, $expiry, $leasePercent, $carry[$chargeType]);
             }
 
+            if ($parkingSteps) {
+                $created += $this->projectParkingRung($lease, $effective, $leasePercent);
+            }
+
             $stepDate = $lease->escalationDateAfter($stepDate);
         }
 
         return $created;
+    }
+
+    /**
+     * The register's rung for one anniversary — the one `parking` row re-summed at what every
+     * held item bills that day, each stepped by its own rule (2026-09-12).
+     *
+     * No rung where nothing moves: an anniversary on which no held item steps (each ruled `none`,
+     * a follows-lease bay under an amount clause, a bay taken on the anniversary itself) sums to
+     * the eve's figure and is left alone — `setAmount()` would no-op on the same money anyway,
+     * and asking first keeps the count honest. Nothing held on the day is no rung either; the
+     * assignment and release paths already dated the row's start and end. A relief window on the
+     * parking row is not written into — UNREACHABLE today (the relief modal offers the rent and
+     * the service charge only), stated so the walk stays out of a window if that ever widens;
+     * the resumption re-pricing the charges get is deliberately not mirrored for a case nothing
+     * can produce.
+     *
+     * @return int rungs written (0 or 1)
+     */
+    private function projectParkingRung(Lease $lease, CarbonImmutable $effective, ?float $leasePercent): int
+    {
+        $sum = RentableItemPricing::sumOn($lease, $effective, $leasePercent);
+
+        if ($sum <= 0) {
+            return 0;
+        }
+
+        $eve = $this->rowCovering($lease, 'parking', $effective->subDay());
+
+        if ($eve === null || $this->sameMoney((float) $eve->amount, $sum)) {
+            return 0;
+        }
+
+        if ($this->rowCovering($lease, 'parking', $effective)?->origin === Charge::ORIGIN_RELIEF) {
+            return 0;
+        }
+
+        return $this->setAmount($lease, 'parking', $sum, $effective, [], Charge::ORIGIN_ESCALATION) ? 1 : 0;
     }
 
     /**
@@ -991,6 +1042,128 @@ class ChargeScheduleService
                 ->update(['is_active' => false]);
 
             return $closed;
+        });
+    }
+
+    /**
+     * Re-lay a DERIVED type's rows from a date, from what the register says they should be.
+     *
+     * The parking row is a function of the holdings (`AssignRentableItemService::rebuildCharge()`),
+     * and a function is re-derived, never amended: `setAmount()` moves the ONE row in force at a
+     * date and leaves every later row standing, so a bay assigned from a date before a STARTED
+     * anniversary rung left that rung at the old sum and the bay unbilled for a year, and a bay
+     * released back-dated left the rung billing it for the rest of the term (found by review).
+     * Here every row of the type from `$from` onward is replaced by the segments the caller
+     * derived — each ending on the eve of the next, the last open-ended, a segment summing to
+     * nothing leaving a GAP rather than a row at zero (a charge for nothing is not a charge). A
+     * row already starting on a segment's date is amended in place rather than retired and
+     * re-minted, so a second bay let the same month is one row with one id, exactly as
+     * `setAmount()` keeps it.
+     *
+     * The row covering `$from` from before is bounded at its eve and stays ACTIVE when something
+     * follows: it is the record of what billed for the months it still covers. When NOTHING
+     * follows — the last item given back — it is ended through `close()`, whose rule is the
+     * schedule's own: a stop still ahead keeps the row active for the months it covers, a stop
+     * already past switches it off. `is_active => false` on a stop still ahead was the shape
+     * before this (found by review): the planner drops an inactive row before it reads the end
+     * date, so a bay released at the year end and recorded in June billed nothing from June.
+     *
+     * A relief row is never retired here — it is the operator's concession, not a derivation.
+     * Anniversary rungs are NOT laid here: `projectTermEscalations()` walks them from the sweep's
+     * own pointer through `projectParkingRung()`, the one seam that also arms the pointer, so the
+     * caller runs the projection after this.
+     *
+     * @param  list<array{start: CarbonImmutable, amount: float}>  $segments  ascending by start, the first AT `$from`
+     * @param  array<string, mixed>  $attributes  what a fresh row of the type carries (name, frequency, VAT)
+     * @return int rows written or amended
+     */
+    public function relayDerivedRows(BillableAgreement $lease, string $type, CarbonImmutable $from, array $segments, array $attributes = []): int
+    {
+        $from = self::billingBoundary($from);
+        $segments = array_values(array_map(fn (array $s): array => [
+            'start' => self::billingBoundary($s['start']),
+            'amount' => round((float) $s['amount'], 2),
+        ], $segments));
+
+        return DB::transaction(function () use ($lease, $type, $from, $segments, $attributes): int {
+            $endedOutright = ($segments[0]['amount'] ?? 0.0) <= 0;
+
+            if ($endedOutright) {
+                // Nothing held from `$from`: the schedule's own end, with its own rule about the
+                // row in force and everything after it.
+                $this->close($lease, $type, $from);
+            }
+
+            $rows = Charge::query()
+                ->where(...self::keyFor($lease))
+                ->where('type', $type)
+                ->where('is_active', true)
+                ->where('origin', '!=', Charge::ORIGIN_RELIEF)
+                ->orderBy('start_date')
+                ->get();
+
+            $starting = collect($segments)->pluck('start')->map(fn (CarbonImmutable $d) => $d->toDateString())->all();
+            $reusable = [];
+
+            foreach ($rows as $row) {
+                $starts = $row->start_date === null ? null : CarbonImmutable::instance($row->start_date);
+
+                if ($starts !== null && $starts->gte($from)) {
+                    if (in_array($starts->toDateString(), $starting, true) && ! isset($reusable[$starts->toDateString()])) {
+                        $reusable[$starts->toDateString()] = $row;
+                    } else {
+                        $row->update(['is_active' => false]);
+                    }
+
+                    continue;
+                }
+
+                // Started before `$from` and still running past it: bounded at the eve, and left
+                // ACTIVE — the record of what billed for the months it covers.
+                if (! $endedOutright && ($row->end_date === null || CarbonImmutable::instance($row->end_date)->gte($from))) {
+                    $row->update(['end_date' => $from->subDay()->toDateString()]);
+                }
+            }
+
+            $written = 0;
+
+            foreach ($segments as $i => $segment) {
+                if ($segment['amount'] <= 0) {
+                    continue;
+                }
+
+                $next = $segments[$i + 1]['start'] ?? null;
+                $end = $next === null ? null : $next->subDay()->toDateString();
+                $key = $segment['start']->toDateString();
+
+                if (isset($reusable[$key])) {
+                    $reusable[$key]->update(['amount' => $segment['amount'], 'end_date' => $end, 'origin' => Charge::ORIGIN_MANUAL, 'is_active' => true]);
+                    $written++;
+
+                    continue;
+                }
+
+                Charge::create([
+                    ...$lease->invoiceLinkAttributes(),
+                    'name' => $attributes['name'] ?? ucfirst(str_replace('_', ' ', $type)),
+                    'type' => $type,
+                    'origin' => Charge::ORIGIN_MANUAL,
+                    'amount' => $segment['amount'],
+                    'currency' => $lease->billingCurrency(),
+                    'frequency' => $attributes['frequency'] ?? 'monthly',
+                    'vat_applicable' => $attributes['vat_applicable'] ?? null,
+                    'vat_rate' => $attributes['vat_rate'] ?? null,
+                    'billing_timing' => $attributes['billing_timing'] ?? null,
+                    'prorate' => $attributes['prorate'] ?? null,
+                    'start_date' => $key,
+                    'end_date' => $end,
+                    'is_active' => true,
+                ]);
+
+                $written++;
+            }
+
+            return $written;
         });
     }
 

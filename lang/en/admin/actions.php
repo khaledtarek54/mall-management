@@ -75,6 +75,7 @@ return [
         'allocate_to_lines' => 'Payment split',
         'dispute_line' => 'Dispute a line',
         'assign_rentable_item' => 'Let a bay or store',
+        'add_rentable_item' => 'Add a bay, store or sign',
         'assign_rentable_item_hint' => 'Adds it to the lease from the date you choose, and moves the lease’s parking charge to match. Only items free on that date are listed.',
         'assign_rentable_item_done' => ':code let. The parking charge now bills the new total.',
         'release_rentable_item' => 'Give a bay or store back',

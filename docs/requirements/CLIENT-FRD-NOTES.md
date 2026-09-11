@@ -217,7 +217,7 @@ These four decisions steer the FRs below:
 | 21 | The management contract is between the unit owner and Jawad | Terms stored, fee charged by nothing (gap B1) | **Decision, not code** — it answers half of B1 | (M once ruled) | |
 | 22 | Possession date: better description if blank → today | Helper exists; nothing computes it | **Ask** what "calculated from today" means; wording only | XS | |
 | 23 | Late fees → notify Eltizam to cut electricity/water; anything else? | Tenant + owner notified; no operations step | **Build** a collections stage that raises an operations request | M | |
-| 24 | Annual increase on all charges, % or fixed | Base rent (+ same % on service charge) | ✅ **Shipped 2026-09-12** — every charge row carries its own rule (follows the clause · own % · own fixed EGP · none), Yardi's grain; the lease form's *Annual increase* tab and its "Which charges step" table; `billing.new_charges_follow_escalation` per property (off = Yardi) ([modules/04](../modules/04-leases.md)) | M | ✅ built |
+| 24 | Annual increase on all charges, % or fixed | Base rent (+ same % on service charge) | ✅ **Shipped 2026-09-12** — every charge row carries its own rule (follows the clause · own % · own fixed EGP · none), Yardi's grain; **each parking bay / item by its own rule on its holding, items let with the lease, the rule set from the tabs** (same day); the lease form's *Annual increase* tab and its "Which charges step" table; `billing.new_charges_follow_escalation` per property (off = Yardi) ([modules/04](../modules/04-leases.md), [35](../modules/35-rentable-items.md)) | M | ✅ built |
 | 25 | Vending machines, toy cars — "like units", later | ✅ **Built** (rentable items, module 35) | **Nothing now**; a unit type or a rentable item when they return to it | XS | |
 
 **Suggested order for the `/safe-change` runs** — correctness first, then the documents the client reads
@@ -667,6 +667,15 @@ Egyptian clause these malls sign needs it), and a follows-lease row under an AMO
 nothing (a pound step is a statement about the rent). The financial-terms tab was also split into
 four sections in the same change — thirty-five fields in one grid was the operator's own
 complaint.
+
+**And the parking bays (2026-09-12, the operator's follow-up).** A bay, cage or signage face
+steps on the same anniversary by ITS OWN rule, stored on its holding (Yardi: the escalation sits on
+the item's charge); a lease can be created WITH its items — the standard form's *Parking & rentable
+items* table and the quick wizard's third step; and the rule is set from the lease's TABS (the
+schedule tab's and the items tab's *Annual increase* row actions) with the form's table refilling
+from them. Module 35 has the rules and the two pre-existing defects the review found on the way
+(a future-dated release billed nothing from the day it was recorded; a re-let bay was closed and
+summed twice).
 
 ---
 

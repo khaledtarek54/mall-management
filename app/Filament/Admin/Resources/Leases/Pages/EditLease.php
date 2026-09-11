@@ -16,14 +16,17 @@ use App\Support\ChargeEscalation;
 use App\Support\Filament\MonthPicker;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
+use App\Support\RentableItemPricing;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Components\Component;
 
 class EditLease extends EditRecord
 {
@@ -43,9 +46,42 @@ class EditLease extends EditRecord
     protected ?bool $hasDatabaseTransactions = true;
 
     use FillsCustomFields;
-    use RefreshesRecordState;
+    use RefreshesRecordState {
+        refreshFormData as refreshFormDataRereading;
+    }
 
     protected static string $resource = LeaseResource::class;
+
+    /**
+     * The "Which charges step" table is DERIVED from the schedule and the register — the schedule
+     * tab's own "Annual increase" action and the items tab's both re-derive it (2026-09-12) — so
+     * it is refilled whenever the scalar derived paths are: after a tab announces, and after the
+     * page's own actions. By hand, because `fillPartially()` flattens the record with
+     * `dot()->only($paths)` and an ARRAY path matches nothing in a flattened map: listing it in
+     * `derivedStatePaths()` refilled nothing (measured — the table went on showing the rule it
+     * read at mount under the tab's success toast). The repeater's own hydration re-keys the
+     * rows, as it does at mount.
+     *
+     * `refreshFormData()` is the method aliased, NOT the `#[On]` listener: Livewire keys
+     * attribute listeners by EVENT and an aliased trait method keeps its attribute, so
+     * overriding `refreshRecordState()` registered two handlers for one event and the alias won
+     * — the override was never reached by a tab's announcement (found by review; measured on a
+     * mounted page). The listener stays the trait's and calls this.
+     */
+    public function refreshFormData(array $statePaths): void
+    {
+        $this->refreshFormDataRereading($statePaths);
+
+        $table = $this->form->getComponent(
+            fn (Component $component): bool => $component instanceof Repeater && $component->getName() === 'charge_escalations',
+            withHidden: true,
+        );
+
+        if ($table instanceof Repeater) {
+            $table->rawState(self::chargeEscalationRows($this->record));
+            $table->hydrateItems();
+        }
+    }
 
     /**
      * The lease columns the commercial actions rewrite. This page IS the record hub — renew,
@@ -61,6 +97,7 @@ class EditLease extends EditRecord
         return [
             'status', 'base_rent_monthly', 'base_rent_rate_per_sqm_year', 'service_charge_monthly',
             'expiry_date', 'term_months', 'security_deposit', 'escalation_rate', 'escalation_amount',
+            // NOT `charge_escalations` — an array is refilled by hand in `refreshFormData()` above.
         ];
     }
 
@@ -101,7 +138,12 @@ class EditLease extends EditRecord
     }
 
     /**
-     * @return list<array{type: string, escalation_mode: string, escalation_rate: ?float, escalation_amount: ?float}>
+     * One row per ruleable charge type, plus — where the lease holds anything — a DERIVED row for
+     * the parking charge carrying the register's rules in words (2026-09-12): the form cannot
+     * rule on a bay (that is per item, on the Parking & rentable items tab) but it must show what
+     * the tab holds, or the two surfaces tell the operator different things.
+     *
+     * @return list<array{type: string, escalation_mode: string, escalation_rate: ?float, escalation_amount: ?float, derived?: bool, summary?: string}>
      */
     public static function chargeEscalationRows(Lease $lease): array
     {
@@ -115,6 +157,17 @@ class EditLease extends EditRecord
             ->distinct()
             ->orderBy('type')
             ->pluck('type');
+
+        $parking = RentableItemPricing::heldOn($lease, $today)->isNotEmpty()
+            ? [[
+                'type' => 'parking',
+                'derived' => true,
+                'summary' => RentableItemPricing::describeHoldings($lease, $today),
+                'escalation_mode' => ChargeEscalation::NONE,
+                'escalation_rate' => null,
+                'escalation_amount' => null,
+            ]]
+            : [];
 
         return $types
             ->map(function (string $type) use ($lease, $schedule, $today): ?array {
@@ -139,6 +192,7 @@ class EditLease extends EditRecord
             })
             ->filter()
             ->values()
+            ->concat($parking)
             ->all();
     }
 
@@ -212,23 +266,12 @@ class EditLease extends EditRecord
                 continue;
             }
 
-            $mode = in_array($row['escalation_mode'] ?? null, ChargeEscalation::MODES, true)
-                ? $row['escalation_mode']
-                : ChargeEscalation::NONE;
-
             // Normalised BY MODE before comparing, exactly as the model stores it: a hidden figure
             // lingers in the repeater's state after a mode switch (percent → fixed amount keeps
             // the rate box's value), the model clears it on write, and comparing the raw state
-            // then re-minted the ladder on every later save (found by review).
-            $ruled = [
-                'escalation_mode' => $mode,
-                'escalation_rate' => $mode === ChargeEscalation::PERCENT && filled($row['escalation_rate'] ?? null)
-                    ? round((float) $row['escalation_rate'], 2)
-                    : null,
-                'escalation_amount' => $mode === ChargeEscalation::FIXED_AMOUNT && filled($row['escalation_amount'] ?? null)
-                    ? round((float) $row['escalation_amount'], 2)
-                    : null,
-            ];
+            // then re-minted the ladder on every later save (found by review). One normalisation
+            // for every writer and every comparison — `ChargeEscalation::normalise()`.
+            $ruled = ChargeEscalation::normalise($row['escalation_mode'] ?? null, $row['escalation_rate'] ?? null, $row['escalation_amount'] ?? null);
 
             $standing = $carried->get($type);
 

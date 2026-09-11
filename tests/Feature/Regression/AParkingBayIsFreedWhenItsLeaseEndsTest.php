@@ -58,9 +58,11 @@ function bayIn($asset, string $code = 'P-01'): RentableItem
 }
 
 it('frees the bay when the lease holding it expires', function () {
+    // A lease that ran for a year: the bay is held from its commencement, which a holding may
+    // not precede (2026-09-12 — the fixture had said `start_date`, a column the lease does not read).
     $lease = makeLease(makeUnit($this->asset), null, [
         'status' => 'active',
-        'start_date' => CarbonImmutable::now()->subYear()->toDateString(),
+        'commencement_date' => CarbonImmutable::now()->subYear()->toDateString(),
         'expiry_date' => CarbonImmutable::now()->subMonth()->toDateString(),
     ]);
     $bay = bayIn($this->asset);
@@ -145,6 +147,7 @@ it('offers the freed bay to the next tenant, and says so on the register', funct
     // (which reads `isHeldOn()`) while the register said `assigned` (which reads the column).
     $lease = makeLease(makeUnit($this->asset), null, [
         'status' => 'active',
+        'commencement_date' => CarbonImmutable::now()->subYear()->toDateString(),
         'expiry_date' => CarbonImmutable::now()->subMonth()->toDateString(),
     ]);
     $bay = bayIn($this->asset);

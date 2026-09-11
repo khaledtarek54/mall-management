@@ -36,8 +36,18 @@ class RentableItemOptions
      */
     public static function lettable(BillableAgreement $holder): array
     {
-        $assetId = $holder->assetId();
+        return self::lettableIn($holder->assetId());
+    }
 
+    /**
+     * The same list for a PROPERTY — what the lease create form and the quick-lease wizard offer
+     * before the agreement exists to ask (2026-09-12). One query, so a bay offered at creation
+     * and one offered from the tab a day later are the same bay under the same test.
+     *
+     * @return array<int, string>
+     */
+    public static function lettableIn(?int $assetId): array
+    {
         if (! $assetId) {
             return [];
         }

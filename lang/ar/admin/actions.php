@@ -75,6 +75,7 @@ return [
         'allocate_to_lines' => 'توزيع الدفعة على البنود',
         'dispute_line' => 'تسجيل نزاع على بند',
         'assign_rentable_item' => 'تأجير موقف أو مخزن',
+        'add_rentable_item' => 'أضف موقفًا أو مخزنًا أو لافتة',
         'assign_rentable_item_hint' => 'يُضاف إلى العقد من التاريخ الذي تختاره، ويُحدَّث رسم المواقف تلقائيًا. تظهر العناصر المتاحة في ذلك التاريخ فقط.',
         'assign_rentable_item_done' => 'تم تأجير :code. أصبح رسم المواقف يحتسب الإجمالي الجديد.',
         'release_rentable_item' => 'إعادة موقف أو مخزن',

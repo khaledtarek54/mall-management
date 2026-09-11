@@ -334,6 +334,13 @@ class LeaseRenewalService
                     'effective_from' => $commencement,
                     'effective_to' => null,
                     'monthly_rate' => $pivot->getAttribute('monthly_rate'),
+                    // The bay's own annual increase travels with its rate (2026-09-12) — a
+                    // renewal re-negotiates the rent, not the parking clause, and a holding that
+                    // lost its rule on renewal would stand still for a term with nothing to say
+                    // so. Same three columns `Charge::CARRIED_TERMS` carries for a charge row.
+                    'escalation_mode' => $pivot->getAttribute('escalation_mode'),
+                    'escalation_rate' => $pivot->getAttribute('escalation_rate'),
+                    'escalation_amount' => $pivot->getAttribute('escalation_amount'),
                 ]);
             }
 

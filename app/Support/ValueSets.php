@@ -268,6 +268,11 @@ class ValueSets
         // per-charge grain). Null is the normal state and means `none`: a row nobody ruled on
         // steps nothing, exactly as every charge but the rent did before the column existed.
         'charges.escalation_mode' => [ChargeEscalation::class, 'MODES'],
+        // A held item's own annual increase, on its holding (2026-09-12) — the same vocabulary as
+        // the charge row's, read by the same class. Written by `attach()` and a query-builder
+        // update, which the saving listener never sees, so `AssignRentableItemService` checks the
+        // mode itself; the registration is what the coverage sweep and the width check read.
+        'rentable_item_holdings.escalation_mode' => [ChargeEscalation::class, 'MODES'],
         'credit_notes.status' => ['draft', 'issued', 'applied', 'void'],
         // Offered by the admin form as a Select over `admin.enums.credit_note_reason` and
         // registered nowhere, so the column accepted anything: a typo'd or imported reason saved

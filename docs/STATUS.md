@@ -414,7 +414,13 @@ Yardi's; §4 row M-1/2/3 records what the client sets ([modules/04](modules/04-l
 rent's clause, its own % or fixed EGP, or none), Yardi's per-charge grain, swept and projected
 per charge; the lease form has an *Annual increase* tab with a "Which charges step" table, and
 the financial-terms tab is four sections instead of one grid. §4 row M-24 records the one
-setting it adds ([modules/04](modules/04-leases.md)).
+setting it adds ([modules/04](modules/04-leases.md)). **And the same day's follow-up**: each
+parking bay / storage cage / signage face steps by its OWN rule on its holding (the register's
+half of Yardi's grain, which point 24 had left out), a lease is created WITH its items (the form
+and the quick wizard), and the rule is set from the lease's tabs with the form's table refilling
+from them — on the way the review found two pre-existing money defects in the register, both
+closed: a future-dated release stopped billing the bay from the day it was recorded, and a bay
+held, given back and re-let was closed twice and summed twice ([modules/35](modules/35-rentable-items.md)).
 
 ### 9.1 · The accountant's sitting
 

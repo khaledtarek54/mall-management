@@ -104,8 +104,10 @@ it('releases a bay from the lease page and closes the charge', function () {
 
     $row = $lease->fresh()->charges()->where('type', 'parking')->sole();
 
+    // Bounded and still ACTIVE: the stop is ahead of the 5th, and the rest of March bills the bay
+    // (`close()`'s rule, 2026-09-12 — `is_active => false` here dropped it from the planner at once).
     expect($row->end_date->toDateString())->toBe('2026-03-31')
-        ->and((bool) $row->is_active)->toBeFalse()
+        ->and((bool) $row->is_active)->toBeTrue()
         ->and($item->fresh()->status)->toBe(RentableItem::STATUS_AVAILABLE);
 });
 

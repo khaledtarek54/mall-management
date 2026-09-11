@@ -1294,9 +1294,9 @@
 > driving the code, and each is a tooth now.** A PARKING BAY IS DERIVED: it is priced in the
 > rentable-items register and `AssignRentableItemService::rebuildCharge()` re-derives the parking
 > row from the sum on every assignment, so a rule on the row was undone by the next bay (+500
-> vanished on the third) — `parking` joins `ChargeEscalation::DERIVED_TYPES`, the tab says
-> *"priced by the bays in the register"*, and stepping a bay per item belongs to that register
-> (not built; the first cut's flagship test case was a bay). THE POINTER WAS ARMED IN ONE DOOR:
+> vanished on the third) — `parking` joins `ChargeEscalation::DERIVED_TYPES`, and stepping a bay
+> belongs to that register, PER ITEM — **built the same week, see the next block**. THE POINTER
+> WAS ARMED IN ONE DOOR:
 > `Lease::saving` cannot see a charge row at creation, so a `none`-clause lease ruled at birth
 > projected a ladder and was never swept (`service_charge_monthly` 250 while the schedule billed
 > 260) — the PROJECTION arms `next_escalation_date` now, the seam every door reaches. RESTATING A
@@ -1317,6 +1317,75 @@
 > rent's ladder, pre-existing), the RENT's own sweep step inside a relief window has the same
 > shape on the rent path (pre-existing; its own `/safe-change`), and a charge on its own rule under
 > a CPI lease waits for the index with the rent — one anniversary, deliberate.)
+>
+> **A PARKING BAY STEPS BY ITS OWN RULE TOO, ON ITS HOLDING — and a lease is created WITH its
+> bays, and the rule is set from the TABS (2026-09-12).** Three asks in one change, the operator's:
+> *"the lease from the beginning to be able to add parking and rentable items while creation, also
+> handle the annual escalation of it … handle the escalation on the tabs not in the form only …
+> make sure the relation managers are synced with forms."* The standard is the same benchmark: a
+> rentable item in Voyager is *a recurring lease charge on its own code* assignable to *"new and
+> existing residents"* (benchmark 09 §2), and the escalation schedule sits on that charge (01 §4).
+> Atriom folds every item into ONE `parking` row, so the per-item half of that shape is the
+> HOLDING: `rentable_item_holdings` carries the same three terms a charge row does
+> (`escalation_mode` · `escalation_rate` · `escalation_amount`, `ChargeEscalation::MODES`, read
+> by the same class — its methods take any row carrying the terms). **`App\Support\RentableItemPricing`
+> is the one arithmetic**: `rateOn()` is the holding's `monthly_rate` stepped once per lease
+> anniversary from the sweep's own pointer to the date, only where the anniversary's billing month
+> is after the holding's (a bay taken in the anniversary month is priced for the year at the rate
+> agreed that day); `sumOn()` is what the parking row carries on a date. Three readers of it: the
+> assignment-day rebuild, the projection's `projectParkingRung()` (one rung per anniversary, laid
+> beside the charges' and pruned with them on a clause edit), and the sweep, which steps each held
+> item, STORES the new rate on the holding — the rent's own discipline, and why a follows-lease bay
+> under an index clause can be re-summed a year later — re-sums the row and records
+> `charge_escalated_items` (*"…1,500.00 to 1,700.00 (P-A, P-B, each by its own rule)"*, the codes
+> being data and the sentence resolved in the reader's language). A lease whose rent never steps
+> is swept, armed and projected for the bay that does (`Lease::escalatesAnyCharge()` reads the
+> register; the sweep's selection carries the same predicate). An OWNERSHIP's bay carries no rule —
+> an assessment has no anniversary. **The corollary of storing the rate in force, stated**: a date
+> before an anniversary already applied reads the stepped rate, so a change back-dated across one
+> prices the months before it at today's rates — the same limit a back-dated rent change has
+> against a started rung. **The parking rows are a FUNCTION of the register and are RE-LAID, never
+> amended** (`ChargeScheduleService::relayDerivedRows()`): moving the one row in force and leaving
+> the later ones standing — `setAmount()`'s discipline, right for a charge stated rung by rung —
+> left a bay back-dated across a started anniversary unbilled for a year and a bay released
+> back-dated billing for the rest of the term (found by review). Every row from the change date is
+> derived again from the dates the held set changes, a row already starting on a segment's date is
+> amended in place (one bay let after another the same month is one row, one id), the row covering
+> the months before stays ACTIVE and bounded, and nothing held from a date is a GAP through
+> `close()` — whose rule fixed a pre-existing money defect on the way: the old close branch set
+> `is_active => false` on a stop still ahead, and the planner drops an inactive row before it reads
+> the end date, so a bay released at the year end and recorded in June billed nothing from June
+> (`RentableItemAssignmentTest` had pinned it). **Items at creation**: the create form's *Parking &
+> rentable items* table (Lease details tab — create only, hidden for a DRAFT, which holds nothing;
+> a blank date means the commencement, a date ahead of it is refused in words) and the quick
+> wizard's third step share ONE builder (`LeaseForm::rentableItemsAtCreation()`), and every row
+> goes through `AssignRentableItemService::assign()` — the one door the header action and the tab
+> take. The wizard's table DEHYDRATES where the form's must not: an action's `$data` is the
+> dehydrated state, and with the form's setting the wizard's step accepted the rows, created the
+> lease and let nothing (found by review — a service-level test could not see it; the test drives
+> the modal). **The rule on the tabs**: the schedule tab's *Annual increase* row action writes
+> through `ChargeScheduleService::setEscalation()`, the items tab's through
+> `AssignRentableItemService::setEscalation()` (the live holding only, by its own id — never
+> `updateExistingPivot()`, which reaches every holding of the item, and the one that goes ON when a
+> future-dated release overlaps a re-let), the assign modal asks the rule where the bay is let, and
+> `App\Support\Filament\EscalationRuleFields` is the one trio of fields all seven askers build.
+> **Synced both ways**: a tab action announces `RecordChanged` and `EditLease::refreshFormData()`
+> refills the form's "Which charges step" table by hand — `fillPartially()` flattens the record
+> with `dot()->only()` and an ARRAY path matches nothing in a flattened map, so listing it in
+> `derivedStatePaths()` refilled nothing (measured); and it is `refreshFormData` that is aliased,
+> NOT the `#[On]` listener, because Livewire keys attribute listeners by EVENT and an aliased trait
+> method keeps its attribute, so overriding the listener registered two handlers and the alias won
+> (found by review; the test dispatches the event, never calls the method). The form's table shows
+> the register's rules in words against a read-only parking row (`RentableItemPricing::
+> describeHoldings()`, the same sentence the items tab's column shows), pointing at the tab that
+> rules per item. **Doors left alone, and why**: the lease importer cannot state items (a CSV row
+> is one lease, not a list); the charge importer and `UnitOwnershipChargesRelationManager` never
+> write holdings; the ownership tab's assign modal offers no rule. **Recorded, not built**: a
+> relief window on the parking row (unreachable — relief is offered for the rent and the service
+> charge only; the walk stays out of one if that widens); a follows-lease bay under a `none` clause
+> keeps the pointer armed for a sweep that no-ops, as a follows-lease charge does.
+> (`ARentableItemStepsByItsOwnRuleTest`, twenty-one cases, twenty-seven mutations each killing
+> their own tooth; `release()` also pinned — it too wrote every holding of the item, pre-existing.)
 >
 > **Clearing a clause takes its projected future with it (2026-09-05).** The `saving` hook clears
 > the clause's COLUMNS; `ChargeScheduleService::pruneProjectedLadder()` now clears its SCHEDULE on
@@ -2351,7 +2420,7 @@ Daily command (07:00) that reminds the tenant when an **active** lease's `expiry
 
 **Key pages:**
 - `ListLeases` — table with status filters, tenant/unit dropdowns, import/export.
-- `CreateLease` — full form (incl. additional_unit_ids multi-select, charges not in form).
+- `CreateLease` — full form (incl. additional_unit_ids multi-select, the *Parking & rentable items* table since 2026-09-12; charges not in form — the seeded rows, the items' holdings and the ladder are written in `afterCreate()` through the services).
 - `EditLease` — rent fields read-only; additional_unit_ids prefilled; custom "Generate Invoice" and "Change Rent" actions.
 
 ---
@@ -2376,6 +2445,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `reference` (TextInput, disabled, dehydrated) — auto-generated, read-only.
    - `unit_id` (Select, live, required) — master unit; filters to non-occupied/non-reserved unless `show_occupied_units` toggle. Validation rule prevents active-lease conflicts.
    - `additional_unit_ids` (Select, multiple, dehydrated=false) — non-master units for multi-unit leases; dehydrated=false (processed in `afterCreate()` / `afterSave()`). Disabled by `Lease::premisesLockedBecause()` — live (use *Change premises*), or a draft that has stepped / carries an act's row — and free on a plain draft, where a change re-prices a rate-priced rent and its seeded rows (2026-09-11).
+   - **Parking & rentable items** (Section, create only, hidden while `status` is `draft` — a draft holds nothing, Voyager's own rule): a `Repeater::table()` of items let WITH the lease — the item (the property's free, in-service list, `RentableItemOptions::lettableIn()`, `distinct()`), the negotiated rate (prefilled from the register's asking rate on pick), a from-date (blank = the commencement; not before it) and the annual-increase trio. `dehydrated(false)` — `CreateLease::afterCreate()` lets each row through `AssignRentableItemService::assign()` and NAMES any it could not (a refusal is a warning, never a failed create). The quick wizard's third step is the same builder, dehydrating — an action's `$data` is the dehydrated state — and `LeaseCreationService::create()` assigns them (2026-09-12).
    - `tenant_id` (Select, required, searchable, creatable inline) — with quick-create form (name, phone, email).
    - `status` (Select) — draft, pending_approval, active, etc.
    - `show_occupied_units` (Toggle, live, dehydrated=false) — toggles unit dropdown visibility.
@@ -2421,7 +2491,15 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
      `EditLease::chargeEscalationRows()` from the rung in force today and written back in
      `afterSave()` through `ChargeScheduleService::setEscalation()` — only for rows that changed,
      because ruling re-walks that type's ladder. The rent and the levy are never rows: the clause
-     and the rent answer for them, and the section says so.
+     and the rent answer for them, and the section says so. **The parking row is a READ-ONLY row
+     (2026-09-12)** carrying the register's rules in words (`RentableItemPricing::describeHoldings()`
+     — *"P-12 — +EGP 500.00 a year · P-13 — Follows the rent — +7% a year"*), because a bay is
+     ruled on PER ITEM on the Parking & rentable items tab; the same sentence that tab's column
+     shows. The table REFILLS when a tab announces a change (`EditLease::refreshFormData()`, by
+     hand — an array path is invisible to `fillPartially()`), so it never shows a rule a tab
+     already changed. The same three fields are also on the schedule tab's own *Annual increase*
+     row action and *Add charge* modal, the items tab's *Annual increase* row action and the
+     *Let a bay or store* modal — one builder, `App\Support\Filament\EscalationRuleFields`.
 
 5. **Percentage Rent** (3 cols, collapsed, collapsible)
    - `has_percentage_rent` (Toggle, live).

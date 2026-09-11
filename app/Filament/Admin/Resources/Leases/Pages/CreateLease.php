@@ -4,8 +4,11 @@ namespace App\Filament\Admin\Resources\Leases\Pages;
 
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
+use App\Models\RentableItem;
+use App\Services\AssignRentableItemService;
 use App\Services\ChargeScheduleService;
 use App\Services\LeaseCreationService;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateLease extends CreateRecord
@@ -113,5 +116,63 @@ class CreateLease extends CreateRecord
         // not already in force, and the anniversary sweep later recomputes the same figures and
         // finds them present.
         app(ChargeScheduleService::class)->projectTermEscalations($lease->fresh());
+
+        // ── PARKING & RENTABLE ITEMS, FROM THE FIRST DAY (2026-09-12) ─────────────────────────
+        //
+        // Each row on the form's items table goes through `AssignRentableItemService::assign()`
+        // — the ONE door the tab, the header action and the wizard take — so the same guards
+        // hold (the item is free, in service, in this mall) and the same rebuild writes the
+        // parking row and re-walks its ladder. A blank date means the commencement: an item let
+        // with the lease is held from the day the lease starts, not the day it was keyed.
+        //
+        // After the projection above, deliberately: `rebuildCharge()` re-projects the register's
+        // ladder itself, and a lease armed by the walk above is what that projection keys on.
+        self::attachRentableItems($lease, $this->data['rentable_items'] ?? []);
+    }
+
+    /**
+     * Let each item on the create form's table to the new lease — or say which could not be.
+     *
+     * A refusal from the service is not a failed create: the lease and its schedule are already
+     * right, and the item can be assigned from the tab once whatever refused it is resolved. So
+     * each is reported and the rest continue, in the same words the tab's own action would use.
+     * A DRAFT holds nothing (Voyager's own rule — `holderCanTakeOn()`), and the section is hidden
+     * for one, so rows can only arrive here on a draft when the status was switched after they
+     * were typed: they are named rather than silently dropped.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    public static function attachRentableItems(Lease $lease, array $rows): void
+    {
+        $refused = [];
+
+        foreach ($rows as $row) {
+            $item = RentableItem::query()->find($row['rentable_item_id'] ?? null);
+
+            if ($item === null) {
+                continue;
+            }
+
+            try {
+                app(AssignRentableItemService::class)->assign($lease->fresh(), $item, [
+                    'effective_from' => filled($row['effective_from'] ?? null) ? $row['effective_from'] : $lease->commencement_date,
+                    'monthly_rate' => filled($row['monthly_rate'] ?? null) ? (float) $row['monthly_rate'] : null,
+                    'escalation_mode' => $row['escalation_mode'] ?? null,
+                    'escalation_rate' => $row['escalation_rate'] ?? null,
+                    'escalation_amount' => $row['escalation_amount'] ?? null,
+                ]);
+            } catch (\DomainException|\InvalidArgumentException $e) {
+                $refused[] = $item->code.' — '.$e->getMessage();
+            }
+        }
+
+        if ($refused !== []) {
+            Notification::make()
+                ->warning()
+                ->persistent()
+                ->title(__('admin.rentable_items.not_attached_title'))
+                ->body(implode("\n", $refused))
+                ->send();
+        }
     }
 }

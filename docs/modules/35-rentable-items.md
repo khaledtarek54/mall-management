@@ -107,7 +107,7 @@ their own charge code, and carrying no leasable area. This module is that second
 | Table | Purpose |
 |---|---|
 | `rentable_items` | The register. `asset_id` · `floor_id` · `area_id` · `code` (unique per property) · `type` · `status` · `monthly_rate` (the ASKING price) · `notes` |
-| `lease_rentable_item` | The dated assignment: `effective_from` / `effective_to` / `monthly_rate` (what this lease actually pays) |
+| `rentable_item_holdings` | The dated assignment (polymorphic over `BillableAgreement` since 2026-08-19): `effective_from` / `effective_to` / `monthly_rate` (what this holder actually pays — the rate IN FORCE, advanced by the anniversary sweep) / `escalation_mode` · `escalation_rate` · `escalation_amount` (the item's own annual increase, since 2026-09-12) |
 
 `type` — `parking` · `storage` · `signage` · `kiosk`. `status` — `available` · `assigned` ·
 `out_of_service`.
@@ -137,6 +137,57 @@ independently what belongs on an invoice. `AssignRentableItemService::rebuildCha
 by **summing the register** — never incrementing, which drifts the first time an assignment is
 corrected.
 
+### Each item steps on the lease anniversary by its OWN rule, and the rule lives on the holding (2026-09-12)
+
+Point 24 (meeting 2026-09-02) gave every charge row its annual increase and made the `parking` row
+DERIVED — it is re-summed from the holdings, so a rule written on the row was undone by the next
+bay. The rule belongs where the rate lives: the holding carries the same three terms a charge row
+does (`escalation_mode` · `escalation_rate` · `escalation_amount`, the vocabulary of
+`ChargeEscalation::MODES`, read by the same class). Voyager's shape exactly — a rentable item is a
+recurring lease charge on its own code, and the escalation schedule sits on that charge — folded
+into Atriom's one-row-per-type schedule.
+
+**`App\Support\RentableItemPricing` is the one arithmetic.** `rateOn()` is the holding's
+`monthly_rate` stepped once per lease anniversary from the sweep's own pointer to the date, only
+where the anniversary's billing month is after the holding's (a bay taken in the anniversary month
+is priced for the year at the rate agreed that day); `sumOn()` is what the parking row carries on
+a date. Three readers, one function: the assignment-day rebuild, the projection's
+`projectParkingRung()` (one rung per anniversary beside the charges', pruned with them on a clause
+edit), and the nightly sweep — which steps each held item, **stores the new rate on the holding**
+(the rent's own discipline: `base_rent_monthly` is advanced the same way, and it is what lets a
+follows-lease bay under an index clause be re-summed a year later), re-sums the row and records
+`charge_escalated_items` naming the items that moved. A lease whose rent never steps is swept,
+armed and projected for the bay that does (`Lease::escalatesAnyCharge()` reads the register).
+**An ownership's bay carries no rule** — an assessment has no anniversary; a rule handed in for
+one is normalised to none.
+
+**Stated limit of storing the rate in force**: a date before an anniversary already applied reads
+the stepped rate, so a change back-dated across one prices the months before it at today's rates —
+the same limit a back-dated rent change has against a started rung.
+
+`follows_lease` under a `fixed_percent` clause inherits the COLLARED rate; under an index clause
+it waits for the index with the rent; under an amount clause it steps nothing (a step stated in
+pounds is a statement about the rent — the 2026-09-05 rule, kept).
+
+### The parking rows are a FUNCTION of the register — re-laid, never amended (2026-09-12)
+
+`AssignRentableItemService::rebuildCharge()` derives every row from the change date onward through
+`ChargeScheduleService::relayDerivedRows()`: one segment per date the held set changes (an item
+beginning, an item ending), each at `sumOn()`, merged where the sum does not move; a row already
+starting on a segment's date is amended in place (a second bay let the same month is one row, one
+id); the row covering the months before stays ACTIVE and bounded; nothing held from a date is a
+GAP through `close()`. Then the projection walks the anniversaries. **Why not `setAmount()`**: it
+moves the one row in force and leaves the later ones standing — right for a charge stated rung by
+rung, and wrong for a derivation: a bay back-dated across a started anniversary rung left that
+rung at the old sum and the bay unbilled for a year, a bay released back-dated left the rung
+billing it for the rest of the term (found by review).
+
+**`close()`'s rule fixed a pre-existing money defect on the way.** The old close branch set
+`is_active => false` on a stop still AHEAD (a bay released at the year end, recorded in June), and
+`MonthlyBillingService` drops an inactive row before it reads the end date — so the bay billed
+nothing from June, and `RentableItemAssignmentTest` had pinned exactly that. A stop still ahead is
+an end date; a stop already past switches the row off.
+
 ### The first charge row is dated from the assignment, not the commencement
 
 `ChargeScheduleService::openFirstRow()` normally dates a type's first row to the lease commencement:
@@ -153,23 +204,40 @@ would let both through. Same rule and same reasoning as the premises guard.
 ## 4. Lifecycle
 
 `available` → **assign** → `assigned` → **release** (dated) → `available` the next day.
+**Assignment happens from the first day (2026-09-12)**: the lease create form's *Parking &
+rentable items* table and the quick wizard's third step let items WITH the lease (blank date = the
+commencement; a date ahead of it is refused; a DRAFT holds nothing and the section hides for one),
+every row through `AssignRentableItemService::assign()` — the same door the lease's tab and header
+action take. `release()` closes ONE holding, by its own id — `updateExistingPivot()` reached every
+holding of the item on the agreement, so a bay held in the spring, given back and re-let in the
+summer had both rows closed on the summer's date and was summed twice (found by review,
+pre-existing). `setEscalation()` rules the holding that goes ON (the open one first, then the
+latest still ahead) — a future-dated release overlapping a re-let has two live holdings for a while.
 `out_of_service` is a manual withdrawal that the assign picker excludes; it is how a bay leaves
 letting without being deleted. Deletion is refused once anything has held it
 (`#[DeletableWhenUnused]`, blocked by `leases`).
 
 ## 5. Services
 
-`App\Services\AssignRentableItemService` — `assign()` / `release()`. It moves no money itself: the
-`parking` charge it writes is what bills, through the ordinary monthly run, VAT and GL. Nothing in
-billing knows rentable items exist, which is the whole point of building on the charge schedule
-rather than beside it.
+`App\Services\AssignRentableItemService` — `assign()` / `release()` / `setEscalation()`. It moves no
+money itself: the `parking` charge it writes is what bills, through the ordinary monthly run, VAT
+and GL. Nothing in billing knows rentable items exist, which is the whole point of building on the
+charge schedule rather than beside it. `App\Support\RentableItemPricing` is the reading of what a
+holding bills on a date; `App\Support\RentableItemOptions` the two pickers (`lettableIn()` for a
+property, before the agreement exists).
 
 ## 6. Filament
 
 `RentableItemResource` under **Leasing** (you reach it while doing a deal, not while doing
 maintenance) — property-scoped, `rentable_items.*` permissions, floor and zone selects reading the
 property's own registers, and the **current holder** shown in the table because "who has bay 42" is
-the question an operator arrives with. Assign / release are actions on the lease.
+the question an operator arrives with. Assign / release are actions on the lease. **The lease's
+Parking & rentable items tab** (`LeaseRentableItemsRelationManager`) shows each holding's rule in
+words (`ChargeEscalation::describe()` — the same sentence the lease form's "Which charges step"
+table shows against its read-only parking row) and rules on a live holding through its *Annual
+increase* row action; the assign modal asks the rule where the bay is let, proposed as the property
+proposes a new charge (`billing.new_charges_follow_escalation`). The trio of fields is
+`App\Support\Filament\EscalationRuleFields`, built once for every screen that asks.
 
 ## 7. Gotchas
 
@@ -183,8 +251,13 @@ the question an operator arrives with. Assign / release are actions on the lease
   $parking_vat_applicable`, from 2026-08-10 to 2026-08-11 — retired when taxability moved onto the
   catalogue, because one question with two homes is how the two come to disagree. The migration
   carries the operator's answer across.)*
-- **`monthly_rate` on the item is the asking price; the pivot's is what this tenant pays.** They
-  differ whenever anything was negotiated, and the charge is built from the pivot.
+- **`monthly_rate` on the item is the asking price; the pivot's is what this tenant pays — the
+  rate IN FORCE.** They differ whenever anything was negotiated, and the charge is built from the
+  pivot. Since 2026-09-12 the sweep advances the pivot's on each anniversary the holding's rule
+  steps on; the signing figure is in the lease's timeline (`charge_escalated_items`), not on the row.
+- **A holding is addressed by its own `id`, never through `updateExistingPivot()`** — the relation
+  carries `id` in `RentableItem::HOLDING_PIVOT` for exactly that; the same item can be held,
+  released and re-let by one agreement, and the pivot helper reaches every one of those rows.
 - **Adding a type** means a `lang` entry in both files; the column is a string, not a DB enum.
 
 - **`status` is a PROJECTION, and it was not swept (2026-08-26).** It is a stored column that is a
@@ -239,6 +312,13 @@ the question an operator arrives with. Assign / release are actions on the lease
 
 ## 8. Tests
 
+`tests/Feature/Regression/ARentableItemStepsByItsOwnRuleTest.php` (the per-item step: the
+projected ladder, the sweep and the stored rate, a none-clause lease swept for its bay, the collar
+and the amount-clause guard, a bay let mid-term or dated past an anniversary, a back-dated
+assignment and release re-laying the whole ladder, a future-dated release still billing, the tab
+writers, the renewal carry, the ownership control, both creation doors driven through the panel,
+and the form's table refilled from the tabs through the real event — twenty-one cases, twenty-seven
+mutations) ·
 `tests/Feature/Regression/RentableItemNotLettableAreaTest.php` (the invariant) ·
 `tests/Feature/Regression/RentableItemAssignmentTest.php` (letting, releasing, re-letting, billing
 through the real monthly run, and every refusal with a paired control) ·

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Tables;
 
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Filament\Admin\Resources\Leases\Schemas\LeaseForm;
 use App\Filament\Exports\LeaseExporter;
 use App\Models\Lease;
 use App\Models\Tenant;
@@ -525,6 +526,26 @@ class LeasesTable
                                         ->numeric()
                                         ->minValue(0)
                                         ->suffix(__('admin.fields.days')),
+                                ]),
+                            // ── PARKING & RENTABLE ITEMS, FROM THE FIRST DAY (2026-09-12) ──────
+                            // The fast door lets bays with the lease too — the SAME table the
+                            // standard form carries, so the two creation doors cannot offer
+                            // different lists or different rule wording. Optional: an empty
+                            // table is an ordinary shop lease. The wizard's clause is a fixed
+                            // percentage at `lease.escalation_rate`, which is what a
+                            // follows-lease bay inherits here.
+                            Step::make(__('admin.sections.rentable_items_at_creation'))
+                                ->icon('heroicon-o-ticket')
+                                ->description(__('admin.sections.rentable_items_at_creation_description'))
+                                ->schema([
+                                    LeaseForm::rentableItemsAtCreation(
+                                        fn (Get $get): Lease => (new Lease)->forceFill([
+                                            'escalation_type' => 'fixed_percent',
+                                            'escalation_rate' => $get('../../lease.escalation_rate'),
+                                        ]),
+                                        fn (Get $get): ?string => $get('../../lease.commencement_date') ?: null,
+                                        dehydrated: true,
+                                    ),
                                 ]),
                         ])
                             ->skippable(false)

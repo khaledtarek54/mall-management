@@ -25,6 +25,7 @@ use App\Support\DepositBasis;
 use App\Support\DepositBilling;
 use App\Support\DocumentNumbering;
 use App\Support\LeaseActivation;
+use App\Support\RentableItemPricing;
 use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -1276,6 +1277,10 @@ class Lease extends Model implements BillableAgreement, HasMedia
      * next anniversary is kept while it holds, and the ladder projects for it even when the rent's
      * own clause is `none`. A row nobody ruled on (null mode) steps nothing and does not count.
      * The rent's rows carry no rule — the clause below IS theirs — and the levy is derived.
+     *
+     * Since 2026-09-12 the REGISTER is the second half of the question: a bay, cage or signage
+     * face carries its rule on its holding (`RentableItemPricing::anyRuled()`), and a lease whose
+     * only step is a bay's is swept, armed and projected for it exactly as for a charge's.
      */
     public function escalatesAnyCharge(): bool
     {
@@ -1289,7 +1294,8 @@ class Lease extends Model implements BillableAgreement, HasMedia
             ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
             ->whereNotNull('escalation_mode')
             ->where('escalation_mode', '!=', ChargeEscalation::NONE)
-            ->exists();
+            ->exists()
+            || RentableItemPricing::anyRuled($this);
     }
 
     /** Whether ANYTHING on this lease steps on its anniversary — the rent's clause or a charge's rule. */
@@ -1381,7 +1387,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function rentableItems(): MorphToMany
     {
         return $this->morphToMany(RentableItem::class, 'holder', 'rentable_item_holdings')
-            ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
+            ->withPivot(RentableItem::HOLDING_PIVOT)
             ->withTimestamps();
     }
 

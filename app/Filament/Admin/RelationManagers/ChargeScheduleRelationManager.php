@@ -9,8 +9,10 @@ use App\Models\ChargeCode;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
 use App\Support\ChargeEscalation;
+use App\Support\Filament\EscalationRuleFields;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -18,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
@@ -63,7 +66,12 @@ class ChargeScheduleRelationManager extends RelationManager
      *
      * @var array<int, string>
      */
-    private const DERIVED_TYPES = ['base_rent', 'marketing', 'parking'];
+    /**
+     * The types this tab may neither add, end nor rule on — `ChargeEscalation::DERIVED_TYPES`,
+     * the ONE list (it was a second copy here until 2026-09-12): the rent is the lease's own
+     * columns, the levy is a percentage of the rent, and the parking row is the register's sum.
+     */
+    private const DERIVED_TYPES = ChargeEscalation::DERIVED_TYPES;
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
@@ -89,6 +97,33 @@ class ChargeScheduleRelationManager extends RelationManager
     {
         return (auth()->user()?->can('leases.edit') ?? false)
             && in_array($lease->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true);
+    }
+
+    /**
+     * May the annual increase be set on this row from here? A recurring, live row of a type the
+     * tab owns — the same set the lease form's table offers, read from the same predicates, so a
+     * charge the form lets you rule on is one the tab lets you rule on and vice versa.
+     */
+    private static function canRuleOn(Lease $lease, Charge $record): bool
+    {
+        return self::canWriteSchedule($lease)
+            && in_array(self::state($record), ['current', 'future'], true)
+            && $record->frequency !== 'one_time'
+            && ! in_array($record->type, self::DERIVED_TYPES, true);
+    }
+
+    /**
+     * The annual-increase trio, naming what a follows-lease row inherits from THIS lease.
+     *
+     * @param  Closure(Get): bool|null  $applies
+     * @return array<int, Component>
+     */
+    private function ruleFields(?Closure $applies = null): array
+    {
+        [$mode, $rate, $amount] = EscalationRuleFields::make($this->lease(), $applies);
+        $mode->default(fn (): string => ChargeEscalation::defaultModeFor($this->lease()?->unit?->asset_id));
+
+        return [$mode, $rate, $amount];
     }
 
     /**
@@ -361,34 +396,10 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->visible(fn (Get $get): bool => $get('frequency') === 'monthly'),
                         // ── HOW IT STEPS (point 24) — asked where the charge is born ─────────
                         // Proposed from the property (`billing.new_charges_follow_escalation`);
-                        // changed later on the lease form's "Which charges step" table. A one-off
-                        // has no anniversary, so the question is not asked of one.
-                        Select::make('escalation_mode')
-                            ->label(__('admin.fields.escalation_mode'))
-                            ->options(fn (): array => ChargeEscalation::options($this->lease()))
-                            ->default(fn (): string => ChargeEscalation::defaultModeFor($this->lease()?->unit?->asset_id))
-                            ->native(false)
-                            ->selectablePlaceholder(false)
-                            ->live()
-                            ->visible(fn (Get $get): bool => $get('frequency') !== 'one_time')
-                            ->helperText(__('admin.helpers.escalation_mode')),
-                        TextInput::make('escalation_rate')
-                            ->label(__('admin.fields.escalation_rate'))
-                            ->suffix('% / '.__('admin.fields.per_year_suffix'))
-                            ->numeric()
-                            ->minValue(0.01)
-                            ->maxValue(100)
-                            ->step('0.01')
-                            ->visible(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::PERCENT)
-                            ->required(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::PERCENT),
-                        TextInput::make('escalation_amount')
-                            ->label(__('admin.fields.escalation_amount'))
-                            ->prefix('EGP')
-                            ->suffix('/ '.__('admin.fields.per_year_suffix'))
-                            ->numeric()
-                            ->minValue(0.01)
-                            ->visible(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT)
-                            ->required(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT),
+                        // changed later from this tab's own "Annual increase" row action or the
+                        // lease form's "Which charges step" table — one trio, one writer. A
+                        // one-off has no anniversary, so the question is not asked of one.
+                        ...$this->ruleFields(fn (Get $get): bool => $get('frequency') !== 'one_time'),
                         DatePicker::make('effective_from')
                             ->label(__('admin.charge_schedule.from'))
                             ->helperText(__('admin.charge_schedule.add_effective_hint'))
@@ -565,6 +576,46 @@ class ChargeScheduleRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                // ── THE RULE, ON THE TAB (2026-09-12) ──────────────────────────────────────
+                // Point 24 put it on the lease form's table only; an operator reading the
+                // schedule here had to leave for the form to change how a row steps. Same
+                // writer as the form (`ChargeScheduleService::setEscalation()`), same trio,
+                // and the form's table refills from the schedule when this announces — so the
+                // two surfaces cannot disagree. Never a derived row: the rent is the clause,
+                // the levy is the rent, the parking row is per ITEM on its own tab.
+                Action::make('setEscalation')
+                    ->label(__('admin.charge_escalation.edit_action'))
+                    ->icon('heroicon-o-arrow-trending-up')
+                    ->color('gray')
+                    ->modalHeading(fn (Charge $record) => __('admin.charge_escalation.edit_heading', ['charge' => self::typeLabel($record->type)]))
+                    ->modalDescription(__('admin.charge_escalation.edit_hint'))
+                    ->visible(fn (Charge $record): bool => self::canRuleOn($this->lease(), $record))
+                    ->authorize(fn (Charge $record): bool => self::canRuleOn($this->lease(), $record))
+                    ->fillForm(fn (Charge $record): array => [
+                        'escalation_mode' => ChargeEscalation::modeOf($record),
+                        'escalation_rate' => $record->escalation_rate === null ? null : (float) $record->escalation_rate,
+                        'escalation_amount' => $record->escalation_amount === null ? null : (float) $record->escalation_amount,
+                    ])
+                    ->schema(fn (): array => $this->ruleFields())
+                    ->action(function (Charge $record, array $data): void {
+                        $lease = $this->lease();
+
+                        abort_unless(self::canRuleOn($lease, $record), 403);
+
+                        $ruled = ChargeEscalation::normalise($data['escalation_mode'] ?? null, $data['escalation_rate'] ?? null, $data['escalation_amount'] ?? null);
+
+                        app(ChargeScheduleService::class)->setEscalation(
+                            $lease, $record->type, $ruled['escalation_mode'], $ruled['escalation_rate'], $ruled['escalation_amount'],
+                        );
+
+                        Notification::make()
+                            ->title(__('admin.charge_escalation.updated', [
+                                'charge' => self::typeLabel($record->type),
+                                'rule' => ChargeEscalation::describe($record->fresh(), $lease->fresh()),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('endCharge')
                     ->label(__('admin.charge_schedule.end'))
                     ->icon('heroicon-o-x-circle')

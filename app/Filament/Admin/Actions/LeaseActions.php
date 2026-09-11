@@ -20,8 +20,10 @@ use App\Services\LeaseTerminationService;
 use App\Services\MoveOutStatementService;
 use App\Services\SettleMoveOutService;
 use App\Settings\BillingSettings;
+use App\Support\ChargeEscalation;
 use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\EscalationRuleFields;
 use App\Support\LeaseTerm;
 use App\Support\RentableItemOptions;
 use Carbon\CarbonImmutable;
@@ -35,6 +37,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
@@ -529,6 +532,11 @@ class LeaseActions
                         ->numeric()
                         ->minValue(0)
                         ->helperText(__('admin.helpers.assign_rentable_item_rate')),
+                    // How the item steps on the lease anniversary (2026-09-12) — its own rule,
+                    // stored on the holding, proposed as the property proposes a new charge.
+                    // The SAME trio the create form's items table and the tab's row action
+                    // build, so an item let from any door carries the same shape of rule.
+                    ...self::itemRuleFields($record),
                 ])
                 ->action(function (Lease $record, array $data) {
                     abort_unless(auth()->user()?->can('rentable_items.edit') ?? false, 403);
@@ -1165,6 +1173,21 @@ class LeaseActions
     private static function lettableItemOptions(Lease $record): array
     {
         return RentableItemOptions::lettable($record);
+    }
+
+    /**
+     * The annual-increase trio for a held item, naming what a follows-lease item would inherit
+     * from THIS lease and proposed as the property proposes a new charge. Public: the lease's own
+     * Parking & rentable items tab builds its "Annual increase" row action from it.
+     *
+     * @return array<int, Component>
+     */
+    public static function itemRuleFields(Lease $record): array
+    {
+        [$mode, $rate, $amount] = EscalationRuleFields::make($record);
+        $mode->default(fn (): string => ChargeEscalation::defaultModeFor($record->assetId()));
+
+        return [$mode, $rate, $amount];
     }
 
     /** @return array<int, string> */

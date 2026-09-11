@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\RentableItem;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Support\ChargeEscalation;
@@ -109,6 +110,26 @@ class LeaseCreationService
             // so the mall's future revenue is a recorded fact the day the lease is signed, and an
             // operator can review an increase before it bills. See ChargeScheduleService.
             app(ChargeScheduleService::class)->projectTermEscalations($lease->fresh());
+
+            // The bays, cages and signage faces let WITH the lease (2026-09-12) — each through
+            // `AssignRentableItemService::assign()`, the one door, dated from the commencement
+            // unless the row says otherwise. A refusal here is a refusal of the whole create:
+            // inside this transaction, and a wizard operator has the item in front of them.
+            foreach ($payload['rentable_items'] ?? [] as $row) {
+                $item = RentableItem::query()->find($row['rentable_item_id'] ?? null);
+
+                if ($item === null) {
+                    continue;
+                }
+
+                app(AssignRentableItemService::class)->assign($lease->fresh(), $item, [
+                    'effective_from' => filled($row['effective_from'] ?? null) ? $row['effective_from'] : $commencement,
+                    'monthly_rate' => filled($row['monthly_rate'] ?? null) ? (float) $row['monthly_rate'] : null,
+                    'escalation_mode' => $row['escalation_mode'] ?? null,
+                    'escalation_rate' => $row['escalation_rate'] ?? null,
+                    'escalation_amount' => $row['escalation_amount'] ?? null,
+                ]);
+            }
 
             // Unit status is projected by LeaseObserver from the lease's
             // 'active' status — no explicit flip needed here.

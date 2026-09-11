@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\ChargeCode;
 use App\Models\Concerns\Lease\DeterminesFitOutGrace;
 use App\Models\Lease;
+use App\Models\RentableItem;
 use App\Models\RentIndex;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -18,12 +19,14 @@ use App\Support\ChargeEscalation;
 use App\Support\DepositBasis;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\EscalationRuleFields;
 use App\Support\Filament\TenureRange;
 use App\Support\FormTab;
 use App\Support\LeaseActivation;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
 use App\Support\ProrationMethod;
+use App\Support\RentableItemOptions;
 use App\Support\SalesExclusions;
 use App\Support\Search\RecordOption;
 use App\Support\TenantScope;
@@ -376,6 +379,31 @@ class LeaseForm
                             ->dehydrated(false)
                             ->default(false)
                             ->columnSpan(2),
+                        // ── PARKING & RENTABLE ITEMS, FROM THE FIRST DAY (2026-09-12) ─────────────
+                        //
+                        // Voyager assigns rentable items "to both new and existing residents"
+                        // (benchmark 09 §2); here they could only be added AFTER the lease
+                        // existed, from its tab, so a deal signed with two bays was two screens.
+                        // CREATE only, and only for a lease that will be executed: a draft holds
+                        // nothing (`AssignRentableItemService::holderCanTakeOn()` — Voyager's own
+                        // rule, and `isHeldOn()` would not even count it), so the section stays
+                        // out of the way until the status says the lease is real. On EDIT the
+                        // Parking & rentable items tab is the one surface, and the "Which charges
+                        // step" table on the Annual increase tab reads the same holdings back.
+                        //
+                        // Not a lease column: `CreateLease::afterCreate()` reads the rows off the
+                        // form state and lets each through `AssignRentableItemService::assign()`,
+                        // the ONE door the tab, the header action and the wizard all take.
+                        Section::make(__('admin.sections.rentable_items_at_creation'))
+                            ->description(__('admin.sections.rentable_items_at_creation_description'))
+                            ->columnSpanFull()
+                            ->visible(fn (string $operation, Get $get): bool => $operation === 'create' && $get('status') !== 'draft')
+                            ->components([
+                                self::rentableItemsAtCreation(
+                                    fn (Get $get): Lease => self::clauseAsTyped($get),
+                                    fn (Get $get): ?string => $get('../../commencement_date') ?: null,
+                                ),
+                            ]),
                     ])->columns(3),
 
                     FormTab::make('admin.sections.term', [
@@ -1088,62 +1116,60 @@ class LeaseForm
                                     ])
                                     ->schema([
                                         Hidden::make('type'),
+                                        // A DERIVED row — the parking charge — is read-only here: its
+                                        // rule is per ITEM, set on the Parking & rentable items tab,
+                                        // and `summary` is what that tab holds, in words, so the two
+                                        // surfaces show one answer (2026-09-12).
+                                        Hidden::make('derived'),
+                                        Hidden::make('summary'),
                                         Placeholder::make('charge')
                                             ->hiddenLabel()
                                             ->content(fn (Get $get): string => ChargeCode::labelFor((string) $get('type'))),
-                                        Select::make('escalation_mode')
-                                            ->hiddenLabel()
-                                            // The options NAME what a follows-lease row would inherit,
-                                            // read live off the clause fields on the previous section —
-                                            // a bare "Follows the clause" over a clause that is a fixed
-                                            // amount offers a choice that does nothing.
-                                            ->options(fn (Get $get): array => ChargeEscalation::options(
-                                                (new Lease)->forceFill([
-                                                    'escalation_type' => $get('../../escalation_type'),
-                                                    'escalation_rate' => $get('../../escalation_rate'),
+                                        // The options NAME what a follows-lease row would inherit,
+                                        // read live off the clause fields on the previous section —
+                                        // a bare "Follows the clause" over a clause that is a fixed
+                                        // amount offers a choice that does nothing. The trio is the
+                                        // one every screen that asks builds (`EscalationRuleFields`).
+                                        ...(function (): array {
+                                            [$mode, $rate, $amount] = self::ruleFieldsInTable(fn (Get $get): bool => ! $get('derived'));
+
+                                            // A TABLE repeater hands one column to each non-hidden component
+                                            // in order and drops whatever runs past the last column, so the
+                                            // two things that can occupy the "mode" cell share ONE group.
+                                            return [
+                                                Group::make([
+                                                    $mode,
+                                                    Placeholder::make('managed_on_tab')
+                                                        ->hiddenLabel()
+                                                        ->content(__('admin.charge_escalation.parking_managed_on_tab'))
+                                                        ->visible(fn (Get $get): bool => (bool) $get('derived')),
                                                 ]),
-                                            ))
-                                            ->default(ChargeEscalation::NONE)
-                                            ->native(false)
-                                            ->selectablePlaceholder(false)
-                                            ->required()
-                                            ->live(),
-                                        Group::make([
-                                            TextInput::make('escalation_rate')
-                                                ->hiddenLabel()
-                                                ->suffix('% / '.__('admin.fields.per_year_suffix'))
-                                                ->numeric()
-                                                ->minValue(0.01)
-                                                ->maxValue(100)
-                                                ->step('0.01')
-                                                ->helperText(__('admin.helpers.charge_escalation_rate'))
-                                                ->visible(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::PERCENT)
-                                                ->required(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::PERCENT),
-                                            TextInput::make('escalation_amount')
-                                                ->hiddenLabel()
-                                                ->prefix('EGP')
-                                                ->suffix('/ '.__('admin.fields.per_year_suffix'))
-                                                ->numeric()
-                                                ->minValue(0.01)
-                                                ->visible(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT)
-                                                ->required(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT),
-                                            // Nothing to type: the sentence says what the row inherits
-                                            // (or that it stands still), so the cell is never blank.
-                                            Placeholder::make('inherits')
-                                                ->hiddenLabel()
-                                                ->content(fn (Get $get): string => ChargeEscalation::describe(
-                                                    (new Charge)->forceFill([
-                                                        'escalation_mode' => $get('escalation_mode'),
-                                                        'escalation_rate' => $get('escalation_rate'),
-                                                        'escalation_amount' => $get('escalation_amount'),
-                                                    ]),
-                                                    (new Lease)->forceFill([
-                                                        'escalation_type' => $get('../../escalation_type'),
-                                                        'escalation_rate' => $get('../../escalation_rate'),
-                                                    ]),
-                                                ))
-                                                ->visible(fn (Get $get): bool => ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
-                                        ]),
+                                                Group::make([
+                                                    $rate,
+                                                    $amount,
+                                                    // Nothing to type: the sentence says what the row inherits
+                                                    // (or that it stands still), so the cell is never blank.
+                                                    Placeholder::make('inherits')
+                                                        ->hiddenLabel()
+                                                        ->content(fn (Get $get): string => ChargeEscalation::describe(
+                                                            (new Charge)->forceFill([
+                                                                'escalation_mode' => $get('escalation_mode'),
+                                                                'escalation_rate' => $get('escalation_rate'),
+                                                                'escalation_amount' => $get('escalation_amount'),
+                                                            ]),
+                                                            self::clauseAsTyped($get),
+                                                        ))
+                                                        ->visible(fn (Get $get): bool => ! $get('derived')
+                                                            && ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
+                                                    Placeholder::make('items')
+                                                        ->hiddenLabel()
+                                                        ->content(fn (Get $get): string => filled($get('summary'))
+                                                            ? __('admin.charge_escalation.parking_items', ['items' => $get('summary')])
+                                                            : __('admin.charge_escalation.parking_no_items'))
+                                                        ->visible(fn (Get $get): bool => (bool) $get('derived')),
+                                                ]),
+                                            ];
+                                        })(),
                                     ]),
                             ]),
                     ])->columns(1),
@@ -1580,5 +1606,129 @@ class LeaseForm
         if ($derived !== null) {
             $set('security_deposit', $derived);
         }
+    }
+
+    /**
+     * The clause as the operator has it on THIS form — typed, not yet saved — for what a
+     * follows-lease option would inherit. A repeater row reads the form root two levels up.
+     */
+    private static function clauseAsTyped(Get $get): Lease
+    {
+        return (new Lease)->forceFill([
+            'escalation_type' => $get('../../escalation_type'),
+            'escalation_rate' => $get('../../escalation_rate'),
+        ]);
+    }
+
+    /**
+     * The items table a lease is created WITH — one builder for the create form and the
+     * quick-lease wizard, so the two creation doors offer the same list, the same columns and
+     * the same rule trio (2026-09-12). `$clause` is what a follows-lease option inherits, read
+     * off whichever form is asking; each row is let through `AssignRentableItemService::assign()`
+     * after the lease exists.
+     *
+     * `$dehydrated` is the difference between the two doors: the create form reads the rows off
+     * its raw state (`$this->data`) and must NOT dehydrate them — Filament would hand them to the
+     * Lease model as an attribute — while an ACTION's `$data` is the DEHYDRATED state, so the
+     * wizard's rows reach `LeaseCreationService` only if they dehydrate (found by review: with
+     * the form's setting the wizard's third step was inert — accepted, created the lease, let
+     * nothing, said nothing).
+     *
+     * @param  Closure(Get): Lease  $clause
+     * @param  Closure(Get): ?string  $commencement  the earliest date an item may be held from
+     */
+    public static function rentableItemsAtCreation(Closure $clause, Closure $commencement, bool $dehydrated = false): Repeater
+    {
+        [$mode, $rate, $amount] = EscalationRuleFields::make($clause, inTable: true);
+        $mode->default(fn (): string => ChargeEscalation::defaultModeFor(TenantScope::currentAssetId()));
+
+        return Repeater::make('rentable_items')
+            ->hiddenLabel()
+            ->dehydrated($dehydrated)
+            ->defaultItems(0)
+            ->reorderable(false)
+            ->addActionLabel(__('admin.actions.add_rentable_item'))
+            ->table([
+                TableColumn::make(__('admin.resources.rentable_item.singular')),
+                TableColumn::make(__('admin.fields.item_monthly_rate')),
+                TableColumn::make(__('admin.fields.held_from')),
+                TableColumn::make(__('admin.fields.escalation_mode')),
+                TableColumn::make(__('admin.fields.escalation_figure')),
+            ])
+            ->schema([
+                Select::make('rentable_item_id')
+                    ->hiddenLabel()
+                    // The SAME list the tab and the header action offer — what this property has
+                    // free today, in service.
+                    ->options(fn (): array => RentableItemOptions::lettableIn(TenantScope::currentAssetId()))
+                    ->native(false)
+                    ->searchable()
+                    ->distinct()
+                    ->required()
+                    ->noSearchResultsMessage(__('admin.rentable_items.none_free'))
+                    ->placeholder(__('admin.rentable_items.none_free_placeholder'))
+                    ->live()
+                    // The register's asking rate is the proposal; the negotiated figure is what
+                    // the operator types over it.
+                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set(
+                        'monthly_rate',
+                        $state ? (float) RentableItem::query()->whereKey($state)->value('monthly_rate') : null,
+                    )),
+                TextInput::make('monthly_rate')
+                    ->hiddenLabel()
+                    ->prefix('EGP')
+                    ->numeric()
+                    ->minValue(0)
+                    ->required(),
+                DatePicker::make('effective_from')
+                    ->hiddenLabel()
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    // Not before the lease begins — the service refuses it too; the picker says
+                    // so first.
+                    ->minDate(fn (Get $get): ?string => $commencement($get))
+                    ->placeholder(__('admin.helpers.rentable_item_from_commencement')),
+                $mode,
+                Group::make([
+                    $rate,
+                    $amount,
+                    // Nothing to type: the sentence says what the row inherits, or that it
+                    // stands still — the same cell the "Which charges step" table shows.
+                    Placeholder::make('inherits')
+                        ->hiddenLabel()
+                        ->content(fn (Get $get): string => ChargeEscalation::describe(
+                            (new Charge)->forceFill([
+                                'escalation_mode' => $get('escalation_mode'),
+                                'escalation_rate' => $get('escalation_rate'),
+                                'escalation_amount' => $get('escalation_amount'),
+                            ]),
+                            $clause($get),
+                        ))
+                        ->visible(fn (Get $get): bool => ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
+                ]),
+            ]);
+    }
+
+    /**
+     * The annual-increase trio as table cells, reading the clause as typed — for the "Which
+     * charges step" table and the items-at-creation table alike, so the two cannot differ on
+     * what a follows-lease option says or when the rate box shows.
+     *
+     * @param  Closure(Get): bool|null  $applies
+     * @return array{0: Select, 1: TextInput, 2: TextInput}
+     */
+    private static function ruleFieldsInTable(?Closure $applies = null): array
+    {
+        [$mode, $rate, $amount] = EscalationRuleFields::make(
+            fn (Get $get): Lease => self::clauseAsTyped($get),
+            $applies,
+            inTable: true,
+        );
+
+        // A NEW row is proposed as the property proposes it (`billing.new_charges_follow_escalation`),
+        // exactly as a new charge on the schedule tab and a bay assigned from it are.
+        $mode->default(fn (): string => ChargeEscalation::defaultModeFor(TenantScope::currentAssetId()));
+
+        return [$mode, $rate, $amount];
     }
 }

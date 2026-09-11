@@ -552,6 +552,7 @@ return [
         'rentable_item_already_on_this_lease' => 'هذا العقد يستأجر :code بالفعل. أعِده أولًا إذا أردت تغيير التاريخ أو السعر.',
         'rentable_item_negative_rate' => 'لا يمكن أن يكون السعر سالبًا.',
         'rentable_item_not_held' => 'هذا العقد لا يستأجر هذا العنصر حاليًا.',
+        'rentable_item_before_commencement' => 'لا يمكن حيازة عنصر قبل بدء العقد في :date — اترك التاريخ فارغًا ليُحتسب من تاريخ البدء.',
         'dispute_invoice_not_open' => 'هذه الفاتورة خرجت من الدفاتر، فلا تطالب بشيء يمكن الاعتراض عليه.',
         'dispute_line_already_settled' => 'هذا البند مسدَّد بالفعل — لا يوجد مستحق للاعتراض عليه.',
         'dispute_not_disputed' => 'هذا البند ليس محل نزاع.',

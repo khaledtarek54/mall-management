@@ -40,6 +40,16 @@ function refreshGatePageFiles(): array
     return $files;
 }
 
+/**
+ * The trait is the trait whether it is taken bare or with an adaptation block — `EditLease` aliases
+ * its listener to extend it for an ARRAY path (2026-09-12), and a literal `use …;` match read that
+ * page as trait-less on the day the alias landed.
+ */
+function usesRefreshesRecordState(string $src): bool
+{
+    return preg_match('/use RefreshesRecordState\s*[;{]/', $src) === 1;
+}
+
 it('has every page that refills form data going through the re-reading version', function () {
     $offenders = [];
     $checked = 0;
@@ -50,7 +60,7 @@ it('has every page that refills form data going through the re-reading version',
         }
         $checked++;
 
-        if (! str_contains($src, 'use RefreshesRecordState;')) {
+        if (! usesRefreshesRecordState($src)) {
             $offenders[] = str_replace(base_path().'/', '', $path);
         }
     }
@@ -73,7 +83,7 @@ it('has no page declaring derived state paths it does not use', function () {
     $orphans = [];
 
     foreach (refreshGatePageFiles() as $path => $src) {
-        if (str_contains($src, 'function derivedStatePaths(') && ! str_contains($src, 'use RefreshesRecordState;')) {
+        if (str_contains($src, 'function derivedStatePaths(') && ! usesRefreshesRecordState($src)) {
             $orphans[] = str_replace(base_path().'/', '', $path);
         }
     }

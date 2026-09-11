@@ -7,9 +7,13 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Models\UnitOwnership;
+use App\Support\ChargeEscalation;
+use App\Support\RentableItemOptions;
+use App\Support\RentableItemPricing;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Let a parking bay, store or signage face to an AGREEMENT — and bill it (space model, story 09).
@@ -37,22 +41,38 @@ use Illuminate\Support\Facades\DB;
  * **Dated, like the premises.** An item taken on 1 March bills from March; released at the end of
  * June, it bills through June and stops in July. The re-derivation runs at the effective date and
  * goes through `ChargeScheduleService`, so the old amount stays true for the months it was true for.
+ *
+ * **And each item steps on the lease anniversary by ITS OWN rule (2026-09-12).** The holding
+ * carries `escalation_mode` / `escalation_rate` / `escalation_amount` — the same three terms and
+ * the same vocabulary as a charge row (`ChargeEscalation`), because in Voyager a rentable item IS
+ * a recurring charge and the escalation sits on it. `assign()` states the rule at birth and
+ * `setEscalation()` changes it on a holding that exists (a renewal copies it across);
+ * `RentableItemPricing::rateOn()` is the one reading of what a holding bills on a date; and
+ * `rebuildCharge()` sums through it, so the parking row is always what the register says it
+ * should be — today, and on every anniversary the projected ladder walks. A rule is a LEASE term:
+ * an ownership has no anniversary (its assessment is re-priced by the annual reconciliation), so
+ * a rule handed in for one is normalised to none rather than stored inert.
  */
 class AssignRentableItemService
 {
     public function __construct(private ChargeScheduleService $schedule) {}
 
     /**
-     * Assign an item to a lease from a date.
+     * Assign an item to an agreement from a date — at a rate, and (for a lease) under a rule.
      *
-     * @param  array{effective_from?: string|\DateTimeInterface|null, monthly_rate?: float|null}  $data
+     * @param  array{effective_from?: string|\DateTimeInterface|null, monthly_rate?: float|null, escalation_mode?: ?string, escalation_rate?: mixed, escalation_amount?: mixed}  $data
      */
     public function assign(BillableAgreement $holder, RentableItem $item, array $data = []): void
     {
+        // No date means "from now" — or from the commencement, for a lease that has not started
+        // yet: a bay let today to a lease beginning next month is held from the day the lease
+        // does, and a holding ahead of its lease is refused below.
         $from = ChargeScheduleService::billingBoundary(
             isset($data['effective_from']) && $data['effective_from']
                 ? CarbonImmutable::parse($data['effective_from'])
-                : CarbonImmutable::now(),
+                : ($holder instanceof Lease && $holder->commencement_date !== null
+                    ? CarbonImmutable::now()->max(CarbonImmutable::instance($holder->commencement_date))
+                    : CarbonImmutable::now()),
         );
 
         if (! $this->holderCanTakeOn($holder)) {
@@ -68,6 +88,18 @@ class AssignRentableItemService
 
         if ($item->status === RentableItem::STATUS_OUT_OF_SERVICE) {
             throw new DomainException(__('admin.errors.rentable_item_out_of_service'));
+        }
+
+        // A bay cannot be held under a lease before the lease itself began: the create form and
+        // the wizard default a blank date to the commencement, and a typed date ahead of it
+        // (found by review — nothing bounded the picker) would put a parking row in front of
+        // the rent's own first row.
+        if ($holder instanceof Lease
+            && $holder->commencement_date !== null
+            && $from->lessThan(ChargeScheduleService::billingBoundary(CarbonImmutable::instance($holder->commencement_date)))) {
+            throw new DomainException(__('admin.errors.rentable_item_before_commencement', [
+                'date' => CarbonImmutable::instance($holder->commencement_date)->format('d/m/Y'),
+            ]));
         }
 
         // The same double-booking rule the premises have. Lock the CONTENDED item, not the lease:
@@ -104,6 +136,7 @@ class AssignRentableItemService
                 'effective_from' => $from->toDateString(),
                 'effective_to' => null,
                 'monthly_rate' => $rate,
+                ...$this->ruleFor($holder, $data),
             ]);
 
             // Through the projection rather than a literal, so the assign path, the release path
@@ -112,6 +145,83 @@ class AssignRentableItemService
 
             $this->rebuildCharge($holder->fresh(), $from);
         });
+    }
+
+    /**
+     * Rule on a held item's annual increase — the writer for a holding that already EXISTS
+     * (`assign()` states the rule at birth), the register's twin of
+     * `ChargeScheduleService::setEscalation()`.
+     *
+     * Reaches the LIVE holding only (open, or released at a date still ahead): a holding already
+     * given back is history and keeps what it carried, and the same item may have been held,
+     * released and re-let by this lease, so the row is addressed by its own id rather than by
+     * `updateExistingPivot()`, which would rewrite every holding of the item at once. Then the
+     * parking ladder is thrown away and re-walked through `rebuildCharge()`, which also arms the
+     * anniversary the sweep keys on where the lease had none (the projection does, for every
+     * door). A lease term, so a non-lease holder is a developer error rather than a refusal in
+     * the operator's words — no screen offers the fields for one.
+     */
+    public function setEscalation(BillableAgreement $holder, RentableItem $item, string $mode, ?float $rate = null, ?float $amount = null): void
+    {
+        if (! $holder instanceof Lease) {
+            throw new InvalidArgumentException('A rentable item steps on a LEASE anniversary; an ownership carries no rule.');
+        }
+
+        if (! in_array($mode, ChargeEscalation::MODES, true)) {
+            throw new InvalidArgumentException("Unknown escalation mode [{$mode}].");
+        }
+
+        DB::transaction(function () use ($holder, $item, $mode, $rate, $amount): void {
+            $today = CarbonImmutable::today()->toDateString();
+
+            // The OPEN holding first, then the latest one still ahead: a bay released at a
+            // future date and re-let from the day after has two live holdings for a while, and
+            // the rule the operator sets is for the one that goes on (found by review — an
+            // unordered `first()` ruled the ending one).
+            $held = $holder->rentableItems()
+                ->wherePivot('rentable_item_id', $item->id)
+                ->where(fn ($q) => $q->whereNull('rentable_item_holdings.effective_to')
+                    ->orWhereDate('rentable_item_holdings.effective_to', '>=', $today))
+                ->orderByRaw('rentable_item_holdings.effective_to is null desc')
+                ->orderByDesc('rentable_item_holdings.effective_from')
+                ->first();
+
+            if (! $held) {
+                throw new DomainException(__('admin.errors.rentable_item_not_held'));
+            }
+
+            DB::table('rentable_item_holdings')
+                ->where('id', $held->getRelationValue('pivot')->id)
+                ->update(ChargeEscalation::normalise($mode, $rate, $amount));
+
+            // The in-force sum does not move today — the rule decides the anniversaries ahead —
+            // but the ladder that stands for them does, and `rebuildCharge()` re-walks it.
+            $this->rebuildCharge($holder->fresh(), ChargeScheduleService::billingBoundary(CarbonImmutable::today()));
+        });
+    }
+
+    /**
+     * The rule an assignment stores, normalised BY MODE (the figure a mode does not read is never
+     * written — `ChargeEscalation::normalise()`, the rule `Charge` applies on save). Absent means
+     * the property's own proposal (`billing.new_charges_follow_escalation`), exactly as a new
+     * charge on the schedule tab is proposed — so the create form, the wizard and the tab agree
+     * about what an un-ruled bay does. An ownership carries none, whatever was handed in.
+     *
+     * @return array{escalation_mode: ?string, escalation_rate: ?float, escalation_amount: ?float}
+     */
+    private function ruleFor(BillableAgreement $holder, array $data): array
+    {
+        if (! $holder instanceof Lease) {
+            return ['escalation_mode' => null, 'escalation_rate' => null, 'escalation_amount' => null];
+        }
+
+        $mode = $data['escalation_mode'] ?? ChargeEscalation::defaultModeFor($holder->assetId());
+
+        if (! in_array($mode, ChargeEscalation::MODES, true)) {
+            throw new InvalidArgumentException("Unknown escalation mode [{$mode}].");
+        }
+
+        return ChargeEscalation::normalise($mode, $data['escalation_rate'] ?? null, $data['escalation_amount'] ?? null);
     }
 
     /**
@@ -173,9 +283,13 @@ class AssignRentableItemService
                 throw new DomainException(__('admin.errors.rentable_item_not_held'));
             }
 
-            $holder->rentableItems()->updateExistingPivot($item->id, [
-                'effective_to' => $to->toDateString(),
-            ]);
+            // By the holding's OWN id, never `updateExistingPivot()`: that reaches every holding
+            // of the item on this agreement, so a bay held in the spring, given back and re-let
+            // in the summer had BOTH rows closed on the summer's release date, read as held
+            // twice and summed twice (found by review of the per-item step, pre-existing).
+            DB::table('rentable_item_holdings')
+                ->where('id', $held->getRelationValue('pivot')->id)
+                ->update(['effective_to' => $to->toDateString()]);
 
             // Free for re-letting once no live agreement holds it open-endedly — which is what
             // `recomputeStatus()` decides, for every path, in one place. A bay released effective
@@ -189,37 +303,61 @@ class AssignRentableItemService
     }
 
     /**
-     * Re-derive the lease's single `parking` charge from the items it holds on a date.
+     * Re-derive the agreement's `parking` rows from the items it holds, from a date onward —
+     * and, for a lease, the anniversary rungs that stand after it.
      *
-     * Summed rather than incremented: an increment is a delta against a number nobody verified, and
-     * it drifts the first time an assignment is corrected. Recomputing from the register means the
-     * charge is always exactly what the held items say it should be.
+     * A FUNCTION of the register, re-derived rather than amended: every row from `$on` is laid
+     * again from what the holdings say for each date the held set changes (an item beginning,
+     * an item ending), at each item's rate ON THAT DATE (`RentableItemPricing::rateOn()`, so a
+     * bay assigned from next quarter is priced past the anniversary in between). Moving the one
+     * row in force and leaving the later ones standing — `setAmount()`'s discipline, right for a
+     * charge an operator states rung by rung — left a bay back-dated across a started anniversary
+     * unbilled for a year, and a bay released back-dated billing for the rest of the term (found
+     * by review). Nothing held from a date is a GAP, never a row at zero: `setAmount(0)` once put
+     * "Parking & rentable items — EGP 0.00" on every invoice for the rest of the term.
+     *
+     * Then the projection walks the anniversaries from the sweep's own pointer through
+     * `projectParkingRung()` — the one seam every door reaches, which also arms the pointer on a
+     * none-clause lease whose only step is a bay's. An ownership has no anniversary and gets no
+     * projection.
      */
     private function rebuildCharge(BillableAgreement $holder, CarbonImmutable $on): void
     {
-        $total = (float) $holder->rentableItems()
-            ->where(fn ($q) => $q->whereNull('rentable_item_holdings.effective_from')
-                ->orWhereDate('rentable_item_holdings.effective_from', '<=', $on->toDateString()))
-            ->where(fn ($q) => $q->whereNull('rentable_item_holdings.effective_to')
-                ->orWhereDate('rentable_item_holdings.effective_to', '>=', $on->toDateString()))
-            ->sum('rentable_item_holdings.monthly_rate');
+        $on = ChargeScheduleService::billingBoundary($on);
+        $isLease = $holder instanceof Lease;
+        $percent = $isLease ? ChargeEscalation::inheritedPercent($holder) : null;
 
-        $total = round($total, 2);
+        // Every date from `$on` at which the held set changes. Read off the pivot directly — the
+        // dates of every holding this agreement ever had, a release still ahead included.
+        $identity = RentableItemOptions::identity($holder);
+        $boundaries = DB::table('rentable_item_holdings')
+            ->where('holder_type', $identity['type'])
+            ->where('holder_id', $identity['id'])
+            ->get(['effective_from', 'effective_to'])
+            ->flatMap(fn (object $h): array => array_filter([
+                $h->effective_from ? ChargeScheduleService::billingBoundary(CarbonImmutable::parse($h->effective_from)) : null,
+                $h->effective_to ? ChargeScheduleService::billingBoundary(CarbonImmutable::parse($h->effective_to)->addDay()) : null,
+            ]))
+            ->filter(fn (CarbonImmutable $d): bool => $d->greaterThan($on))
+            ->prepend($on)
+            ->unique(fn (CarbonImmutable $d): string => $d->toDateString())
+            ->sortBy(fn (CarbonImmutable $d): int => $d->timestamp)
+            ->values();
 
-        // Nothing held any more → CLOSE the row, never open one at zero. `setAmount(0)` opened a
-        // zero-amount row, and the billing run happily put "Parking & rentable items — EGP 0.00" on
-        // every invoice for the rest of the term. A charge for nothing is not a charge.
-        if ($total <= 0) {
-            $current = $this->schedule->rowInForce($holder, 'parking', $on);
+        // One segment per boundary, merged where the sum does not move (a bay swapped for
+        // another at the same rate is one row, not two).
+        $segments = [];
+        $previous = null;
 
-            if ($current) {
-                $current->update([
-                    'end_date' => $on->subDay()->toDateString(),
-                    'is_active' => false,
-                ]);
+        foreach ($boundaries as $date) {
+            $sum = RentableItemPricing::sumOn($holder, $date, $percent);
+
+            if ($previous !== null && abs($sum - $previous) < 0.005) {
+                continue;
             }
 
-            return;
+            $segments[] = ['start' => $date, 'amount' => $sum];
+            $previous = $sum;
         }
 
         // Rent is exempt, service charge is standard-rated, and parking is neither obviously — a
@@ -233,13 +371,14 @@ class AssignRentableItemService
         // Resolved at ORIGINATION — and for a MONTHLY row that means each billing, not the day
         // the bay was assigned (EG-01). So neither the answer nor the rate is written here; the
         // catalogue is asked for the date being billed, and an issued invoice keeps what it billed.
-        $this->schedule->setAmount($holder, 'parking', $total, $on, [
+        $this->schedule->relayDerivedRows($holder, 'parking', $on, $segments, [
             'name' => 'Parking & rentable items',
             'frequency' => 'monthly',
             'vat_rate' => null,
-            // A bay taken on 1 March was not held in January. Without this the schedule's default
-            // would date the first row to the lease commencement and back-charge the difference.
-            'first_row_from_effective' => true,
-        ], Charge::ORIGIN_MANUAL);
+        ]);
+
+        if ($isLease) {
+            $this->schedule->projectTermEscalations($holder->fresh());
+        }
     }
 }

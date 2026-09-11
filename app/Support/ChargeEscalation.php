@@ -2,8 +2,9 @@
 
 namespace App\Support;
 
-use App\Models\Charge;
 use App\Models\Lease;
+use App\Services\RentEscalationService;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * HOW a charge row steps on the lease anniversary — the one reading the sweep, the ladder
@@ -33,6 +34,12 @@ use App\Models\Lease;
  * statement about the rent — adding the same EGP 5,000 to a service charge a fraction of its size
  * charges nobody what they agreed — which is the 2026-09-05 rule and the reasoning that keeps the
  * collar off `fixed_amount`. A row that should step by its own amount says so in its own mode.
+ *
+ * **The terms live on a ROW, and which table is the caller's business.** A `Charge` carries them
+ * for every ruleable charge type; a `rentable_item_holdings` pivot carries the same three for the
+ * bay, cage or signage face it lets (2026-09-12 — `RentableItemPricing` is that reading), so the
+ * methods here take any model exposing `escalation_mode` / `escalation_rate` /
+ * `escalation_amount`. One arithmetic, one vocabulary, one sentence in words.
  */
 final class ChargeEscalation
 {
@@ -47,19 +54,20 @@ final class ChargeEscalation
     public const MODES = [self::FOLLOWS_LEASE, self::PERCENT, self::FIXED_AMOUNT, self::NONE];
 
     /**
-     * Charge types whose step is decided elsewhere and never asked here — the rent by the lease's
-     * own clause, the levy by the rent it is a percentage of, and PARKING by the rentable-items
-     * register: a bay carries its own `monthly_rate` there and `AssignRentableItemService`
-     * re-derives the one parking row from the sum on every assignment and release, so a rule on
-     * the row would be undone by the next bay (found by review — the first cut let the row carry
-     * one and the flagship test case was a bay). Stepping a bay belongs to that register, per
-     * item, and is deliberately not in this change. Everything else on a schedule may carry a
-     * rule. The schedule tab's own `DERIVED_TYPES` names the same three for the same reason.
+     * Charge types whose step is decided elsewhere and never asked of the ROW — the rent by the
+     * lease's own clause, the levy by the rent it is a percentage of, and PARKING by the
+     * rentable-items register: a bay carries its own `monthly_rate` AND its own rule on its
+     * holding, and `AssignRentableItemService` re-derives the one parking row from the sum on
+     * every assignment, release and anniversary, so a rule written on the row itself would be
+     * undone by the next bay (found by review of point 24 — the first cut let the row carry one
+     * and the flagship test case was a bay). Since 2026-09-12 each bay steps PER ITEM through
+     * `RentableItemPricing`, which is the register's own answer. Everything else on a schedule
+     * may carry a rule. The schedule tab reads this list for what it may add, end or rule on.
      */
     public const DERIVED_TYPES = ['base_rent', 'marketing', 'parking'];
 
     /** The mode a row carries — a null column is a row nobody ruled on, and it steps nothing. */
-    public static function modeOf(Charge $row): string
+    public static function modeOf(Model $row): string
     {
         $mode = (string) $row->escalation_mode;
 
@@ -101,7 +109,7 @@ final class ChargeEscalation
      *
      * @return array{percent: float}|array{amount: float}|null
      */
-    public static function stepFor(Charge $row, Lease $lease, ?float $leasePercent): ?array
+    public static function stepFor(Model $row, Lease $lease, ?float $leasePercent): ?array
     {
         return match (self::modeOf($row)) {
             self::FOLLOWS_LEASE => self::clauseIsFollowable($lease) && $leasePercent !== null && $leasePercent > 0
@@ -129,7 +137,7 @@ final class ChargeEscalation
      * Whether this row carries a rule at all — the query-free half of "does this lease escalate
      * anything beyond its rent", asked of rows already loaded.
      */
-    public static function isStated(Charge $row): bool
+    public static function isStated(Model $row): bool
     {
         return self::modeOf($row) !== self::NONE;
     }
@@ -139,7 +147,7 @@ final class ChargeEscalation
      * much, or that it stands still. The lease is read for what a follows-lease row inherits, so
      * the sentence names the figure rather than the word "clause".
      */
-    public static function describe(Charge $row, Lease $lease): string
+    public static function describe(Model $row, Lease $lease): string
     {
         $mode = self::modeOf($row);
 
@@ -158,6 +166,42 @@ final class ChargeEscalation
             self::FIXED_AMOUNT => __('admin.charge_escalation.own_amount', ['amount' => number_format((float) $row->escalation_amount, 2)]),
             default => __('admin.charge_escalation.none'),
         };
+    }
+
+    /**
+     * What a FOLLOWS-LEASE row inherits when the step is PROJECTED rather than swept: the COLLARED
+     * stated rate under a percent clause — the same clamp the sweep applies, so the two converge
+     * rung for rung — and nothing under an index clause (an unpublished figure cannot be
+     * projected, which is the sweep's own refusal to invent) or an amount clause (a step in pounds
+     * is a statement about the rent). The projection, the parking re-sum and the form's summary
+     * all read this one derivation; the sweep passes what it resolved on the night instead.
+     */
+    public static function inheritedPercent(Lease $lease): ?float
+    {
+        return (string) $lease->escalation_type === 'fixed_percent' && (float) $lease->escalation_rate > 0
+            ? RentEscalationService::collar($lease, (float) $lease->escalation_rate)
+            : null;
+    }
+
+    /**
+     * A rule as it is STORED: the mode, and only the figure that mode reads — a rate lingers in a
+     * form's state after a switch to `fixed_amount` and must not be written or compared as if it
+     * were a term. `Charge` applies the same clearing on save; a holding's pivot has no model to
+     * do it, and a form's diff must compare what would be written, so the rule is stated once
+     * here for every writer and every comparison (found by review of point 24: the raw state
+     * re-minted the ladder on every later save).
+     *
+     * @return array{escalation_mode: string, escalation_rate: ?float, escalation_amount: ?float}
+     */
+    public static function normalise(?string $mode, mixed $rate, mixed $amount): array
+    {
+        $mode = in_array($mode, self::MODES, true) ? $mode : self::NONE;
+
+        return [
+            'escalation_mode' => $mode,
+            'escalation_rate' => $mode === self::PERCENT && filled($rate) ? round((float) $rate, 2) : null,
+            'escalation_amount' => $mode === self::FIXED_AMOUNT && filled($amount) ? round((float) $amount, 2) : null,
+        ];
     }
 
     /**

@@ -91,6 +91,20 @@ class RentableItem extends Model
         'monthly_rate' => 0,
     ];
 
+    /**
+     * The pivot columns every holder-side relation reads — ONE list, because four relations name
+     * it (`leases()`, `ownerships()`, `Lease::rentableItems()`, `UnitOwnership::rentableItems()`)
+     * and a term added to three of them is a term one screen cannot see. `id` is in it so a
+     * writer can address ONE holding: an item can be held, released and re-let by the same
+     * agreement, and `updateExistingPivot()` would reach every one of those rows at once.
+     * The three escalation terms are the holding's own annual increase (2026-09-12, meeting
+     * 2026-09-02 point 24 — `RentableItemPricing` is their reading).
+     */
+    public const HOLDING_PIVOT = [
+        'id', 'effective_from', 'effective_to', 'monthly_rate',
+        'escalation_mode', 'escalation_rate', 'escalation_amount',
+    ];
+
     /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
@@ -121,7 +135,7 @@ class RentableItem extends Model
     public function leases(): MorphToMany
     {
         return $this->morphedByMany(Lease::class, 'holder', 'rentable_item_holdings')
-            ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
+            ->withPivot(RentableItem::HOLDING_PIVOT)
             ->withTimestamps();
     }
 
@@ -134,7 +148,7 @@ class RentableItem extends Model
     public function ownerships(): MorphToMany
     {
         return $this->morphedByMany(UnitOwnership::class, 'holder', 'rentable_item_holdings')
-            ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
+            ->withPivot(RentableItem::HOLDING_PIVOT)
             ->withTimestamps();
     }
 
