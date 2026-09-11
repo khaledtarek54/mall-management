@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -7,8 +8,8 @@ use Illuminate\Support\Facades\Route;
 /**
  * No two throttles share a counter by accident.
  *
- * An unnamed `throttle:X,Y` keys a guest request on the IP alone — `sha1('|'.$ip)`, with neither the
- * route nor the limit in it — so until 2026-09-11 every guest throttle in the app spent ONE counter
+ * An unnamed `throttle:X,Y` keys a guest request on the IP alone — `sha1($domain.'|'.$ip)`: the
+ * route's PATH is not in it, nor the limit, only its domain, which no route here declares — so until 2026-09-11 every guest throttle in the app spent ONE counter
  * per address, each route measuring that shared count against its own ceiling: five screens of the
  * shopper feed and the next sign-in answered 429 (mobile §L L1; the behaviour is pinned by
  * `BrowsingTheMallDoesNotSpendTheSignInTest`). The third parameter names the counter. Three comments
@@ -79,10 +80,12 @@ function vendorThrottlesNotOursToName(): array
 {
     return [
         // Livewire's temporary-upload endpoint ships `throttle:60,1` from its own config
-        // (`livewire.temporary_file_upload.middleware`). There is no `config/livewire.php`, and
-        // publishing one to change this key would blank the rest of that block — package config
-        // merges shallowly. With every throttle of ours named it is the one unnamed counter left, so
-        // it no longer shares with anything this app sizes.
+        // (`livewire.temporary_file_upload.middleware`), read at REQUEST time — so it COULD be named
+        // with one `config()->set()` in a provider's boot (a published partial `config/livewire.php`
+        // would blank the rest of that block, since package config merges shallowly, but that is not
+        // the only door). It is allowlisted rather than named because, with every throttle of ours
+        // named, it is the one unnamed counter left and shares with nothing this app sizes — a
+        // decision, not a constraint. Name it the day a second unnamed vendor throttle appears.
         'Livewire\Features\SupportFileUploads\FileUploadController@handle',
     ];
 }
@@ -141,6 +144,24 @@ it('holds exactly the counters this app has decided on — a new budget is a dec
         'pay',          // GET /pay/{token}, /start, /status
         'pay-demo',     // POST /pay/{token}/demo — the one /pay route that writes money
     ]);
+});
+
+it('resolves the authenticated group\'s auth BEFORE its throttle — so `api-me` is keyed on the person, not the address', function () {
+    // The `api-me` counter is per signed-in login only because `$request->user()` is already resolved
+    // when the throttle reads it — and that rests on Laravel's middleware PRIORITY list sorting
+    // `AuthenticatesRequests` ahead of `ThrottleRequests`, an upstream ordering nothing here declares.
+    // Were it ever to move, `user()` would answer the default `web` guard on an API request — null —
+    // and the counter would fall to the IP: sixty a minute for everybody behind the mall's Wi-Fi,
+    // with no test going red. Pinned as a contract, the `FilamentActionDispatchContractTest` idiom.
+    $route = Route::getRoutes()->getByName('api.v1.me.show');
+    $stack = collect(app('router')->gatherRouteMiddleware($route))->filter(fn ($m) => is_string($m))->values();
+
+    $auth = $stack->search(fn (string $m) => is_a(explode(':', $m, 2)[0], Authenticate::class, true));
+    $throttle = $stack->search(fn (string $m) => is_a(explode(':', $m, 2)[0], ThrottleRequests::class, true));
+
+    expect($auth)->not->toBeFalse('no auth middleware on /me')
+        ->and($throttle)->not->toBeFalse('no throttle on /me')
+        ->and($auth)->toBeLessThan($throttle, 'auth must resolve before the throttle reads $request->user()');
 });
 
 it('allowlists only vendor throttles that still exist — a stale entry is a guard that guards nothing', function () {

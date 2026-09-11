@@ -3,8 +3,8 @@
 /**
  * Regression — mobile §L L1 (drift A1). Browsing the mall does not spend the sign-in.
  *
- * Laravel keys a guest throttle on the IP alone — `sha1('|'.$ip)`, with neither the route nor the
- * limit in it — so every unnamed `throttle:` in the app spent ONE counter per address, each route
+ * Laravel keys a guest throttle on the IP alone — `sha1($domain.'|'.$ip)`: the route's PATH is not
+ * in it, nor the limit, only its domain, which no route here declares — so every unnamed `throttle:` in the app spent ONE counter per address, each route
  * measuring that shared count against its own ceiling. The tightest ceiling therefore set the budget
  * for all of them: five screens of the shopper feed and the next sign-in answered 429; three wrong
  * passwords and the reset refused before it was asked; the web pay page's four-second poll spent the

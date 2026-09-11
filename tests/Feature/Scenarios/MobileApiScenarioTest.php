@@ -130,11 +130,19 @@ it('resolves each tenant token to its own identity, never the other\'s', functio
     $this->getJson('/api/v1/me', apiHeaders($a))
         ->assertOk()->assertJsonPath('data.id', $a->id);
 
-    // Sanctum caches the resolved user on the guard for the test's request
-    // lifecycle; flush it so the second bearer re-resolves to Beta, not Alpha.
+    // Mint Beta's token BEFORE flushing the guards, and flush immediately before the request that
+    // uses it. `apiHeaders()` creates a TenantUser, and `TenantUser` is activity-logged: spatie's
+    // causer resolver calls `auth()->user()` on `created`, which — after a flush — REBUILDS the
+    // `tenant-api` guard against the request still bound in the container (Alpha's) and caches
+    // Alpha on it. The next request then swaps the guard's request but not its cached user, and
+    // Beta's bearer answered Alpha — measured 2026-09-11, with the flush placed before the mint.
+    // A harness artefact, not a resolution defect: with the flush last, the guard is built fresh
+    // from Beta's request.
+    $headersB = apiHeaders($b);
+
     Auth::forgetGuards();
 
-    $this->getJson('/api/v1/me', apiHeaders($b))
+    $this->getJson('/api/v1/me', $headersB)
         ->assertOk()->assertJsonPath('data.id', $b->id);
 });
 

@@ -102,9 +102,11 @@ Route::middleware('throttle:30,1,pay')->group(function () {
  *
  * This is the one route under /pay that writes money, and it is unauthenticated: the bearer token
  * in the URL is the whole of who is asking. A legitimate caller presses it once, so six a minute
- * is generous; the group's 30 would let a scripted caller hammer the capture path. It sits outside
- * the group because two `throttle` middlewares on one route share a request signature and the
- * counts interfere — and it NAMES its counter, because outside the group was never enough on its
+ * is generous; the group's 30 would let a scripted caller hammer the capture path. It was put
+ * outside the group because, UNNAMED, two `throttle` middlewares on one route shared a request
+ * signature and their counts interfered; with named counters they would not (the key is
+ * `prefix.sha1(…)`), and it stays outside so a demo press spends only its own budget rather than
+ * the pay page's. And it NAMES its counter, because outside the group was never enough on its
  * own: until 2026-09-11 an unnamed throttle keyed a guest on the IP alone, so "its own limit" was
  * measured against the one count every guest route in the app was spending. `DemoPayments::enabled()`
  * (checked in the controller) is what actually keeps this off production — the limit only bounds the

@@ -90,7 +90,8 @@ Route::prefix('v1')->group(function () {
     // ============ Public (unauthenticated) ============
     //
     // **EVERY THROTTLE NAMES ITS OWN COUNTER — the third parameter — and this is why.** Laravel keys
-    // a guest request on the IP alone (`sha1('|'.$ip)`: neither the route nor the limit is in it), so
+    // a guest request on the IP alone (`sha1($domain.'|'.$ip)`: the route's PATH is not in it, nor the
+    // limit — only its domain, which no route here declares), so
     // until 2026-09-11 the sign-in, the password reset, the shopper feed, the click counter and the
     // web pay page all spent ONE counter per address, each route measuring the shared count against
     // its own ceiling. Five screens of the feed and the next sign-in answered 429; three wrong

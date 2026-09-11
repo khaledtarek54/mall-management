@@ -71,13 +71,19 @@ class CreateTenantRequestRequest extends FormRequest
                     // The clamp is unchanged in kind: the unit is still checked against the
                     // TENANT's own rows, never trusted from the client.
                     //
-                    // The predicate is the service's, exactly — `handed_over` AND covering today —
-                    // so the two cannot disagree about which shops are theirs. A `contracted` shop
-                    // has not been given to them yet and a `transferred` one is somebody else's now.
+                    // The predicate is the service's, exactly — `handed_over` AND covering today AND
+                    // the shop still exists — so the two cannot disagree about which shops are
+                    // theirs. A `contracted` shop has not been given to them yet and a `transferred`
+                    // one is somebody else's now. `whereHas('unit')` matches the service's clause: a
+                    // soft-deleted shop is not one anyone can report in, and without it this accepted
+                    // the id while the service, finding no shop, filed the fault against the party's
+                    // LEASE and answered 201 naming a different unit — the silent swap the 2026-09-11
+                    // fix exists to end, on a corner case. A refusal here is the honest answer.
                     $owned = ! $leased && $this->user()->tenant->unitOwnerships()
                         ->where('status', UnitOwnershipStatus::HandedOver)
                         ->covering()
                         ->where('unit_id', $value)
+                        ->whereHas('unit')
                         ->exists();
 
                     if (! $leased && ! $owned) {

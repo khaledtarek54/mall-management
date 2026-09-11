@@ -658,9 +658,9 @@ No request body. `{invoice}` is numeric-constrained.
 | Unauthenticated | `401 {"message":"Unauthenticated.","statusCode":401}` |
 | Over 60 req/min on the authed surface | `429`, with `Retry-After` |
 | Company blocked / inactive | `403 {"error":"tenant_inactive",…}` — and the token is destroyed |
-| A read-only login | `403 {"error":"read_only",…}` — the session is fine |
+| A read-only login | `403 {"error":"read_only",…}` — the session is fine. **Before anything is looked up**: the invoice is resolved inside the controller, never by route-model binding, so a read-only login gets this same 403 for an existing stranger's id and a missing one alike (until 2026-09-11 the binding ran first and answered 404 for a missing id — an existence oracle) |
+| Invoice belongs to another tenant, or does not exist | **`404`** — not 403, and the same 404 for both. Another tenant's invoice must be indistinguishable from a non-existent one, or invoice IDs are enumerable. Resolved before the gateway check, so a missing id is 404 whether or not Paymob is on |
 | `PAYMOB_ENABLED=false` | `409 {"error":"paymob_disabled"}` |
-| Invoice belongs to another tenant | **`404`** — not 403. Another tenant's invoice must be indistinguishable from a non-existent one, or invoice IDs are enumerable |
 | Invoice `cancelled` / `credited` | `422 {"error":"invoice_not_payable","status":…}` |
 | `balance <= 0` | `422 {"error":"no_balance","balance":…}` |
 | Gateway threw | `502 {"error":"paymob_upstream_error"}` (the real exception is `report()`ed, never returned) |

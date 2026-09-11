@@ -43,19 +43,23 @@ afterEach(function () {
     Filament::setTenant(null, isQuiet: true);
 });
 
-/** A handed-over ownership covering today — the predicate the assessment run bills from. */
-function handOverShopTo(Tenant $party, Unit $shop): UnitOwnership
+/**
+ * A handed-over ownership covering today — the predicate the assessment run bills from. The two
+ * optional arguments break ONE clause of it each, for the cases that prove each clause is read.
+ */
+function handOverShopTo(Tenant $party, Unit $shop, UnitOwnershipStatus $status = UnitOwnershipStatus::HandedOver, ?string $endedAt = null): UnitOwnership
 {
     return UnitOwnership::create([
         'asset_id' => $shop->asset_id,
         'unit_id' => $shop->id,
         'tenant_id' => $party->id,
         'tenure_type' => 'freehold',
-        'status' => UnitOwnershipStatus::HandedOver,
+        'status' => $status,
         'assessment_basis' => 'area',
         'ownership_share_pct' => 100,
         'started_at' => now()->subYear()->toDateString(),
         'handover_date' => now()->subYear()->toDateString(),
+        'ended_at' => $endedAt,
         'currency' => 'EGP',
     ]);
 }
@@ -157,6 +161,26 @@ it('still files against the lease when the owned shop named has been deleted, as
         ->and($request->lease_id)->toBe($this->lease->id);
 });
 
+it('refuses, over the API, an owned shop that has been deleted — rather than filing it elsewhere under a 201', function () {
+    // The validator restates the service's predicate and had dropped its `whereHas('unit')`: it
+    // accepted the deleted shop, the service (finding no shop) filed the fault on the lease, and the
+    // app got 201 naming a unit the tenant never chose. Through the service alone that clamp is the
+    // right answer (the case above); at a door with a validator, a refusal is.
+    $this->owned->delete();
+
+    $this->postJson('/api/v1/me/requests', [
+        'requestType' => 'maintenance',
+        'title' => 'Shutter jammed',
+        'description' => 'It will not close.',
+        'category' => 'electrical',
+        'unitId' => $this->owned->id,
+    ], apiHeaders($this->party))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrorFor('unitId');
+
+    expect(TenantRequest::count())->toBe(0);
+});
+
 it('files an owner\'s fault against their own shop when they name a stranger\'s, as before', function () {
     $owner = makeTenant(['name' => 'Owner Only']);
     $shop = makeUnit($this->mall, ['code' => 'OWNER-ONLY']);
@@ -166,6 +190,32 @@ it('files an owner\'s fault against their own shop when they name a stranger\'s,
 
     expect($request->unit_id)->toBe($shop->id)
         ->and($request->lease_id)->toBeNull();
+});
+
+it('does not file against a shop whose ownership is only CONTRACTED — a shop not yet given to them falls to the lease', function () {
+    // The review of this fix found the branch's two predicates had no tooth: deleting both the
+    // `handed_over` and the `covering()` clause left every case green, because the API validator
+    // restates the predicate and the portal cases only ever named a handed-over shop. Through the
+    // SERVICE, which is the portal's only guard (its form has no server-side rule), a party who
+    // leases one shop and has merely CONTRACTED for another must still be clamped to the lease.
+    $contracted = makeUnit($this->mall, ['code' => 'CONTRACTED-7']);
+    handOverShopTo($this->party, $contracted, status: UnitOwnershipStatus::Contracted);
+
+    $request = reportFaultThroughTheService($this->party, $contracted, 'electrical');
+
+    expect($request->unit_id)->toBe($this->leased->id, 'a contracted shop is not yet theirs to report in')
+        ->and($request->lease_id)->toBe($this->lease->id);
+});
+
+it('does not file against a shop whose tenure has ENDED — handed over once, not theirs today', function () {
+    // The `covering()` clause on its own: the status passes, the dates do not.
+    $former = makeUnit($this->mall, ['code' => 'FORMER-7']);
+    handOverShopTo($this->party, $former, endedAt: now()->subDay()->toDateString());
+
+    $request = reportFaultThroughTheService($this->party, $former, 'electrical');
+
+    expect($request->unit_id)->toBe($this->leased->id, 'a shop whose tenure ended is somebody else\'s now')
+        ->and($request->lease_id)->toBe($this->lease->id);
 });
 
 it('files an owner\'s unnamed fault against their own shop, as before', function () {

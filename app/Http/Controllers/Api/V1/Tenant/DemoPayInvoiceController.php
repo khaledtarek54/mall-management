@@ -8,6 +8,7 @@ use App\Http\Resources\Api\V1\PaymentResource;
 use App\Models\Invoice;
 use App\Support\DemoPayments;
 use App\Support\InvoiceSettlement;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,18 +26,32 @@ use Illuminate\Http\Request;
  *
  * Guards mirror InitiatePaymobSessionController:
  *  - 403 coded `read_only` — a read-only login may not pay (EnsurePortalAdminForWrites)
- *  - 404 invoice belongs to another tenant — 404, not 403, see below
+ *  - 404 invoice belongs to another tenant, or does not exist — resolved inside, after the
+ *    read-only gate, so the two are indistinguishable to every login
  *  - 409 Paymob is enabled — use the real flow
  *  - 422 invoice not payable / no outstanding balance
  */
 class DemoPayInvoiceController extends ApiController
 {
+    /**
+     * @param  int  $invoice  The invoice ID
+     *
+     * @throws ModelNotFoundException 404 — the invoice is not this tenant's, or does not exist
+     */
     public function __invoke(
         Request $request,
-        Invoice $invoice,
+        int $invoice,
         RecordDemoPaymentAction $action,
     ): JsonResponse {
         $tenant = $request->user()->tenant;
+
+        // Through the tenant's own invoices, never an implicit `Invoice $invoice` binding — the
+        // binding resolves before `EnsurePortalAdminForWrites` runs and handed a read-only login a
+        // 403-or-404 that said whether ANY tenant's invoice id exists. See the note in
+        // InitiatePaymobSessionController; the two mirror each other. First, so a missing id answers
+        // 404 whether or not demo payments are enabled, exactly as the binding did.
+        /** @var Invoice $invoice */
+        $invoice = $tenant->invoices()->findOrFail($invoice);
 
         // One predicate, asked in one place — App\Support\DemoPayments. Gating this on
         // `paymob.enabled` alone meant the endpoint was live precisely on a production box with no
@@ -46,12 +61,6 @@ class DemoPayInvoiceController extends ApiController
                 'message' => __('admin.notifications.pay_now_failed'),
                 'error' => 'use_real_payment',
             ], 409);
-        }
-
-        if ((int) $invoice->tenant_id !== (int) $tenant->getKey()) {
-            // 404 (not 403) so another tenant's invoice is indistinguishable from
-            // a non-existent one — closes cross-tenant invoice-ID enumeration.
-            abort(404);
         }
 
         // `InvoiceSettlement`, not a fifth copy of the same four statuses. This list and its three
@@ -69,11 +78,15 @@ class DemoPayInvoiceController extends ApiController
         // standing, so a partly-forgiven invoice passed this guard and then went to the gateway for
         // money nobody was claiming. It must ALSO be the same predicate the action behind it uses,
         // or the client gets that action's bare 422 with none of the keys this contract promises.
+        // The `(float)` on `balance` below is for the SPEC, not the value — `payableAmount()` already
+        // returns a float. With the invoice resolved in-method rather than route-bound, Scramble no
+        // longer sees its type and would publish that money field as `string`, which the Flutter
+        // decoder throws on. (A comment directly above the key would become the field's description.)
         if ($invoice->payableAmount() <= 0) {
             return response()->json([
                 'message' => __('admin.notifications.pay_now_failed_body'),
                 'error' => 'no_balance',
-                'balance' => $invoice->payableAmount(),
+                'balance' => (float) $invoice->payableAmount(),
             ], 422);
         }
 

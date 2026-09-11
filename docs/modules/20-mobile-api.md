@@ -174,7 +174,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 
 **Password Reset:**
 - Public endpoint (no auth required). Rate-limited to 3 requests per minute per IP.
-- Never reveals whether an email is registered (anti-enumeration). Unknown email returns 200 + generic message, no notification sent.
+- Unknown email returns 200 + the generic message, no notification sent — but the endpoint is **not** yet fully anti-enumeration: the broker answers `RESET_THROTTLED` only for an address that EXISTS and was asked recently, and the controller surfaces that as a `429` (with neither `Retry-After` nor `statusCode`), so a repeat request within the throttle window tells the caller the address is registered. Open decision (2026-09-11): answer that status with the same generic 200 — one line in `ForgotPasswordController`, and it also removes the only 429 without `Retry-After`.
 - Reset links are sent via email using a mobile app deep-link (from `APP_MOBILE_RESET_URL` env or fallback). Link includes `token` + `email` query params; app captures and POSTs to `/api/v1/auth/reset-password`.
 - Reset tokens expire in 60 minutes and are stored in `tenant_password_reset_tokens` (separate from the user/staff reset table to prevent collisions).
 
@@ -264,7 +264,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 |--------|-----------|----------|-------------|-------------|
 | `LoginTenantAction` | `handle(string $email, string $password, string $deviceName): array{tenant, token, leases}` | Validates email/password, checks status, issues Sanctum token, revokes prior token for same device, returns tenant + token + leases with eager-loaded unit/asset. | Within the controller; no DB transaction. | POST `/api/v1/auth/login` |
 | `ChangeTenantPasswordAction` | `handle(Tenant $tenant, string $current, string $new): void` | Verifies current password, updates to new (hashed on assign via cast), revokes all OTHER tokens (keeps current). | No explicit transaction; `update()` is atomic. | POST `/api/v1/auth/change-password` |
-| `SendTenantPasswordResetLinkAction` | `handle(string $email): string` (returns `Password::*` status) | Looks up email, creates reset token, sends `TenantResetPasswordNotification` (email + deep-link). Never leaks whether email is registered. | No transaction. | POST `/api/v1/auth/forgot-password` |
+| `SendTenantPasswordResetLinkAction` | `handle(string $email): string` (returns `Password::*` status) | Looks up email, creates reset token, sends `TenantResetPasswordNotification` (email + deep-link). Generic on unknown vs sent — but `RESET_THROTTLED` (registered + asked recently) reaches the client as a 429, an enumeration channel recorded above. | No transaction. | POST `/api/v1/auth/forgot-password` |
 | `ResetTenantPasswordAction` | `handle(array $credentials): string` (returns Password::* status) | Validates token + email, resets password, revokes ALL tokens (fresh start). | No explicit transaction. | POST `/api/v1/auth/reset-password` |
 | `RegisterDeviceTokenAction` | `handle(Tenant $tenant, array $data): DeviceToken` | Upserts on (tenant, platform, device_name); updates token + last_used_at. | No transaction. | POST `/api/v1/me/devices` |
 | `UnregisterDeviceTokenAction` | `handle(Tenant $tenant, int $id): void` | Deletes the device token (soft-delete). | No transaction. | DELETE `/api/v1/me/devices/{id}` |
@@ -390,7 +390,7 @@ However, **key validation & business logic** is shared via:
 1. All queries in controllers are scoped via `$request->user()->invoices()`. This is the single source of tenant isolation.
    - Changing to `Invoice::where('tenant_id', $tenant->id)` is equivalent but less readable; prefer the relationship.
    - **Never** query `Invoice::find($id)` without scoping; this leaks cross-tenant data.
-2. When adding a new invoice endpoint, ensure it uses `findOrFail()` (which throws ModelNotFoundException → 404) on the tenant relationship, **not** on the global Query.
+2. When adding a new invoice endpoint, ensure it uses `findOrFail()` (which throws ModelNotFoundException → 404) on the tenant relationship, **not** on the global Query — and **never an implicit route-model binding** (`Invoice $invoice` in the signature). `SubstituteBindings` sits in Laravel's middleware PRIORITY list ahead of `EnsurePortalAdminForWrites`, so a bound parameter is looked up, unscoped, before the read-only gate runs: a read-only login got 403 `read_only` for any invoice id that EXISTS (anyone's) and 404 for one that does not — the enumeration the 404 rule exists to prevent, through a different door. Both pay routes had it until 2026-09-11 (`AReadOnlyLoginCannotEnumerateInvoicesTest`); the route template keeps `{invoice}`, the controller takes `int $invoice` and resolves it itself.
 3. Test cross-tenant access in MobileApiScenarioTest or per-endpoint test files (e.g., `test_returns_404_for_another_tenants_invoice()`).
 
 **Modifying rate limiting:**
@@ -408,7 +408,10 @@ However, **key validation & business logic** is shared via:
    allowed and means the two groups share one budget — say so beside the route.
 4. To add per-tenant rate limiting (e.g., premium tenants get 120/minute):
    - Register a named limiter with `RateLimiter::for()` (`Illuminate\Support\Facades\RateLimiter`) and use it as
-     `throttle:<name>`; its name keys the counter.
+     `throttle:<name>`. **The `Limit` MUST call `->by(...)`** — `->by($request->user()?->id ?: $request->ip())` —
+     because a `Limit::perMinute()` with no `by()` has an EMPTY key and the middleware then counts under
+     `md5(<name>)` alone: ONE bucket for every caller in the world. `NoTwoThrottlesShareACounterConformanceTest`
+     reads `throttle:<registered name>` as a named counter and cannot see that omission.
    - Do NOT give the `Limit` a `->response()`: it throws from middleware, and the API's catch-all renderer turns
      that into a 500. And register it before the route is hit — an unregistered name makes the middleware throw
      `MissingRateLimiterException`, which is a 500 on every request to that route.
