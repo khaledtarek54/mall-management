@@ -27,21 +27,21 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **126** models | **169** services | **67** admin resources | **9** portal resources |
-| **54** API controllers | **19** dashboard widgets | **60** console commands | **6** queued jobs |
-| **38** notifications | **296** migrations | **39** module docs | **1032** test files |
+| **129** models | **180** services | **67** admin resources | **9** portal resources |
+| **61** API controllers | **19** dashboard widgets | **66** console commands | **6** queued jobs |
+| **39** notifications | **320** migrations | **39** module docs | **1339** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 126 models classified — 90 property-owned, 35 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 129 models classified — 91 property-owned, 37 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 24 posting sources, 24 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 23 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 1032 files — 189 scenario, 580 regression. |
+| **Tests** | 1339 files — 222 scenario, 847 regression. |
 | **Module flags** | 35 toggleable modules (`App\Support\Modules`). 1 frozen in code and shown nowhere: `eta`. |
 
-**Scheduled automation** — commands: `billing:run-assessments` · `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `reports:deliver` · `marketing:expire-posts` · `announcements:send-scheduled` · `vendors:scan-document-expiry` · `tenants:scan-document-expiry` · `vendors:scan-contract-renewals` · `expenses:generate-recurring` · `atriom:prune-activity-log` · `atriom:prune-transient-data` · `requests:auto-close` · `facility:generate-preventive` · `requests:scan-sla-breaches` · `facility:scan-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:expire` · `leases:apply-escalations` · `pdc:scan-maturing` · `facility:scan-open-permits` · `pdc:scan-coverage` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `billing:reconcile --deep` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify` · `atriom:notify-status`
+**Scheduled automation** — commands: `billing:run-assessments` · `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `reports:deliver` · `marketing:expire-posts` · `announcements:send-scheduled` · `vendors:scan-document-expiry` · `tenants:scan-document-expiry` · `vendors:scan-contract-renewals` · `expenses:generate-recurring` · `atriom:prune-activity-log` · `atriom:prune-transient-data` · `horizon:snapshot` · `requests:auto-close` · `facility:generate-preventive` · `requests:scan-sla-breaches` · `facility:scan-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:expire` · `leases:apply-escalations` · `pdc:scan-maturing` · `facility:scan-open-permits` · `pdc:scan-coverage` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `billing:reconcile --deep` · `billing:scan-unbilled-periods` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify` · `atriom:notify-status`
 ; jobs: `RunMonthlyBilling` · `ApplyLateFees` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).
 
 ### Module documentation

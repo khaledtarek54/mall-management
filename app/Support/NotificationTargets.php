@@ -56,6 +56,7 @@ use App\Notifications\OwnerStatementSentNotification;
 use App\Notifications\PaymentReceivedNotification;
 use App\Notifications\PortalRequestSubmittedNotification;
 use App\Notifications\PreventiveGenerationFailedNotification;
+use App\Notifications\ReservationLapsedNotification;
 use App\Notifications\SalesDeclarationLockedNotification;
 use App\Notifications\SalesDeclarationReminderNotification;
 use App\Notifications\SalesDeclarationSubmittedNotification;
@@ -162,6 +163,14 @@ final class NotificationTargets
         // The option row has no resource of its own — it is edited on the lease it belongs to,
         // which is also where the operator decides whether to exercise it.
         LeaseOptionWindowNotification::class => [
+            'record' => [Lease::class, 'lease_id'],
+            'admin' => LeaseResource::class,
+            'portal' => null,
+        ],
+        // The cancelled lease itself: what was reserved, for whom, and the deposit invoice that
+        // may still stand on it. The tenant is not told from here — a lapsed reservation is the
+        // operator's news to break.
+        ReservationLapsedNotification::class => [
             'record' => [Lease::class, 'lease_id'],
             'admin' => LeaseResource::class,
             'portal' => null,

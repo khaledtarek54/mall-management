@@ -177,7 +177,7 @@ return [
             'heading' => 'مسار التأجير',
             'description' => 'موقع كل عقد في دورة حياته',
             'draft' => 'المسودات',
-            'pending_approval' => 'بانتظار الموافقة',
+            'pending_approval' => 'بانتظار التفعيل',
             'future' => 'موقّعة ولم تبدأ',
             'active' => 'سارية',
             'renewed' => 'مجددة',

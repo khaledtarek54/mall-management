@@ -56,7 +56,9 @@ class ListLeases extends ListRecords
     {
         return StatusTabs::build(LeaseResource::class, [
             'all' => ['label' => __('admin.tabs.all')],
-            'pending_approval' => ['label' => __('admin.tabs.pending_approval'), 'statuses' => ['draft', 'pending_approval'], 'badge' => true, 'color' => 'warning'],
+            // The accountant's worklist (meeting 2026-09-02, point 2): entered, not yet executed.
+            // Its own key — `admin.tabs.pending_approval` is shared with the procurement board.
+            'pending_approval' => ['label' => __('admin.tabs.awaiting_activation'), 'statuses' => ['draft', 'pending_approval'], 'badge' => true, 'color' => 'warning'],
             // Signed, not started. Its own tab because it is the leasing pipeline's own question —
             // what have we committed that has not opened yet — and because a `future` lease in
             // neither the pending tab nor the active one would be reachable only from All.

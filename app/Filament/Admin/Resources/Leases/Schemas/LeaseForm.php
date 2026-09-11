@@ -13,10 +13,12 @@ use App\Services\ChargeScheduleService;
 use App\Services\MarketingLevyService;
 use App\Services\RentEscalationService;
 use App\Settings\BillingSettings;
+use App\Support\DepositBasis;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\TenureRange;
 use App\Support\FormTab;
+use App\Support\LeaseActivation;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
 use App\Support\ProrationMethod;
@@ -342,6 +344,15 @@ class LeaseForm
                                 ->reject(fn ($label, $value) => $value === 'active'
                                     && $record?->status !== 'active'
                                     && self::termHasRunOut($get, $record))
+                                // `active` is an ACT where the property gates it on money (meeting
+                                // 2026-09-02, point 1): with `lease_activation_requires` set, the
+                                // dropdown stops offering it and the Activate button — which asks
+                                // whether the deposit or the cheques are in — is the only door. With
+                                // the setting at `none` (Yardi's default) entry still executes, as it
+                                // always has. A record already active keeps its value listed.
+                                ->reject(fn ($label, $value) => $value === 'active'
+                                    && $record?->status !== 'active'
+                                    && ! LeaseActivation::entryExecutes(TenantScope::currentAssetId()))
                                 ->all())
                             ->default('draft')
                             ->required()
@@ -639,6 +650,47 @@ class LeaseForm
                                 ? __('admin.helpers.billing_frequency_locked')
                                 : __('admin.helpers.billing_frequency'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_frequency')),
+                        // ── HOW the deposit was agreed (meeting 2026-09-02, point 3) ─────────
+                        // Months of rent (Yardi's and MRI's shape, the default), a % of ANNUAL
+                        // rent (the Egyptian / GCC clause), or a fixed sum. One field asked first;
+                        // the two figure fields below show only for their own basis, and
+                        // `DepositBasis::derive()` is the one arithmetic the preview, the model and
+                        // the wizard share.
+                        Select::make('security_deposit_basis')
+                            ->label(__('admin.fields.security_deposit_basis'))
+                            ->options(DepositBasis::options())
+                            ->default(fn (): string => DepositBasis::defaultsFor(TenantScope::currentAssetId())['basis'])
+                            ->native(false)
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function (Get $get, Set $set, ?string $state): void {
+                                // Switching basis re-proposes the property's figure for that basis
+                                // and clears the other's, so a percent never lingers under months.
+                                $defaults = DepositBasis::defaultsFor(TenantScope::currentAssetId());
+                                $set('security_deposit_months', $state === DepositBasis::MONTHS ? ($get('security_deposit_months') ?: $defaults['months']) : null);
+                                $set('security_deposit_percent', $state === DepositBasis::PERCENT_OF_ANNUAL_RENT ? ($get('security_deposit_percent') ?: $defaults['percent']) : null);
+                                self::deriveDepositInto($get, $set);
+                            })
+                            ->helperText(__('admin.helpers.security_deposit_basis')),
+                        TextInput::make('security_deposit_percent')
+                            ->label(__('admin.fields.security_deposit_percent'))
+                            ->suffix('%')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->step('0.01')
+                            ->live(onBlur: true)
+                            // Proposed from the property, as the months figure is — the CREATE FORM
+                            // is the door EG-35's own finding says gets forgotten; the wizard alone
+                            // proposing it is exactly that finding again.
+                            ->default(fn (): ?float => DepositBasis::defaultsFor(TenantScope::currentAssetId())['percent'])
+                            // REQUIRED under its own basis: a rent-linked basis with no figure
+                            // derives nothing, leaves the disabled amount reading whatever it last
+                            // held, and stores a deposit nobody agreed (found by review).
+                            ->required(fn (Get $get): bool => $get('security_deposit_basis') === DepositBasis::PERCENT_OF_ANNUAL_RENT)
+                            ->visible(fn (Get $get): bool => $get('security_deposit_basis') === DepositBasis::PERCENT_OF_ANNUAL_RENT)
+                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
+                            ->helperText(__('admin.helpers.security_deposit_percent')),
                         // The MULTIPLE, where the deposit was negotiated as one. Blank = a flat sum
                         // that never moves; filled = the deposit tracks the rent, so an escalation
                         // no longer erodes the landlord's security (3× becomes 2.29× by year five
@@ -649,10 +701,9 @@ class LeaseForm
                             // reached the WIZARD only: `LeaseCreationService` reads it, and a lease
                             // created through this form was typed from scratch — so "three months
                             // from Q1" changed one of the two create paths and looked done.
-                            ->default(fn (): float => (float) PropertySettings::get(
-                                'billing.default_security_deposit_months',
-                                TenantScope::currentAssetId(),
-                            ))
+                            ->default(fn (): ?float => DepositBasis::defaultsFor(TenantScope::currentAssetId())['months'])
+                            ->visible(fn (Get $get): bool => ($get('security_deposit_basis') ?? DepositBasis::MONTHS) === DepositBasis::MONTHS)
+                            ->required(fn (Get $get): bool => ($get('security_deposit_basis') ?? DepositBasis::MONTHS) === DepositBasis::MONTHS)
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(24)
@@ -690,9 +741,9 @@ class LeaseForm
                             // Derived once a multiple is stated — the same rule as a rate-priced
                             // rent, and for the same reason: two editable fields that derive from
                             // each other is how they end up disagreeing.
-                            ->disabled(fn (Get $get): bool => filled($get('security_deposit_months')))
+                            ->disabled(fn (Get $get): bool => DepositBasis::isRentLinked($get('security_deposit_basis') ?? DepositBasis::MONTHS))
                             ->dehydrated()
-                            ->helperText(fn (Get $get): string => filled($get('security_deposit_months'))
+                            ->helperText(fn (Get $get): string => DepositBasis::isRentLinked($get('security_deposit_basis') ?? DepositBasis::MONTHS)
                                 ? __('admin.helpers.security_deposit_derived')
                                 : __('admin.helpers.security_deposit')),
                         // ── Escalation: the TYPE is asked first, and it is the only field always on
@@ -1385,12 +1436,19 @@ class LeaseForm
      */
     private static function deriveDepositInto(Get $get, Set $set, ?float $rent = null): void
     {
-        if (blank($get('security_deposit_months'))) {
-            return;
-        }
-
         $rent ??= (float) $get('base_rent_monthly');
 
-        $set('security_deposit', round($rent * (float) $get('security_deposit_months'), 2));
+        // `DepositBasis::derive()` — the same arithmetic `Lease::saving` applies, so the preview
+        // the operator reads is the figure the row will hold.
+        $derived = DepositBasis::derive(
+            $get('security_deposit_basis') ?? DepositBasis::MONTHS,
+            $rent,
+            blank($get('security_deposit_months')) ? null : (float) $get('security_deposit_months'),
+            blank($get('security_deposit_percent')) ? null : (float) $get('security_deposit_percent'),
+        );
+
+        if ($derived !== null) {
+            $set('security_deposit', $derived);
+        }
     }
 }

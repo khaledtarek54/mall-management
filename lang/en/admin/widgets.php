@@ -180,7 +180,7 @@ return [
             'heading' => 'Leasing Pipeline',
             'description' => 'Where each lease sits in its lifecycle',
             'draft' => 'Drafts',
-            'pending_approval' => 'Pending Approval',
+            'pending_approval' => 'Awaiting activation',
             'future' => 'Signed, not started',
             'active' => 'Active',
             'renewed' => 'Renewed',

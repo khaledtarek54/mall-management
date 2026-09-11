@@ -1,5 +1,92 @@
 # Leases
 
+> **⚠️ A LEASE IS ACTIVATED BY AN ACT, ONCE THE MONEY IS IN — AND A RESERVATION LAPSES WHEN IT IS
+> NOT (client meeting 2026-09-02, points 1·2·3; shipped 2026-09-11).** Until then activation was a
+> DROPDOWN: anyone holding `leases.edit` picked `active` on the form, nothing asked whether the
+> deposit or the cheques had arrived, the wizard created every lease `active` unconditionally, and a
+> draft held its shop off the market (`reserved`) for ever. **The standard.** Voyager, MRI and
+> Entrata all put an approval between entering a lease and its going live, so activation is an ACT
+> with its own right — `leases.activate`, granted to **accounting** (with `leases.view`, and
+> deliberately NOT `leases.edit`): leasing enters, accounting executes, Yardi's entering-vs-posting
+> split, the same shape as `invoices.issue`. A MONEY gate is Yardi's residential *"no move-in with a
+> balance"* — a per-property control, not Voyager Commercial's default — so it ships as a per-property
+> setting whose default is Yardi's, and the client's rule is what they SET. A hold that lapses is
+> Yardi's unit-hold expiry. **Configurable the way the market is (`/safe-change` §3b), four settings,
+> all per property (`PropertySettings::OVERRIDABLE`), every default the market's so nothing moves
+> on deploy:**
+>
+> | Setting | Values | Ships | The client sets |
+> |---|---|---|---|
+> | `billing.lease_activation_requires` | `none` · `deposit_received` · `deposit_or_cheques` | `none` | `deposit_or_cheques` |
+> | `billing.reservation_valid_days` | days, 0 = never | `0` | their X |
+> | `billing.default_security_deposit_basis` | `months` · `percent_of_annual_rent` · `fixed` | `months` | their clause |
+> | `billing.default_security_deposit_percent` | % of annual rent | `0` | — |
+>
+> **The one predicate is [`App\Support\LeaseActivation`](../../app/Support/LeaseActivation.php)**
+> — `isAwaiting()` (**`pending_approval` only** — a `draft` is terms still being written, so the act
+> never executes one and the sweep never cancels one; leasing promotes a draft to awaiting when the
+> deal is signed, which is what the status has always been for) and `shortfall()` (what is still
+> missing: the agreed
+> `security_deposit` against `Lease::depositHeld()`, or lodged `held`/`deposited` PDCs on the lease
+> where the property counts cheques) — read by the button, the service and the sweep. With the
+> setting at `none`, ENTRY EXECUTES exactly as before: the form offers `active`, the wizard creates
+> `active`. With money required, the form withholds `active` on a new lease, the wizard enters it
+> `pending_approval` (label now *"Awaiting activation"*), and **the Activate act is the only door**:
+> [`ActivateLeaseService`](../../app/Services/ActivateLeaseService.php) locks the lease, refuses on
+> the shortfall in the reader's words with the figures, locks every unit of the lease and refuses if
+> one was let meanwhile (a pending lease does NOT hold its premises — `HOLDS_PREMISES` — so
+> activation is the moment it starts to, and the double-let guard belongs here as it does in
+> creation; lease→units order, SW-009c), writes `executedStatusFor()` (active, or `future` if the
+> commencement is ahead), clears `reserved_until`, records `TYPE_ACTIVATION`. **The act lives on the
+> ROW of the leases list** (registered in `RowActionPolicy::IN_ROW_EXCEPTIONS`): the record page is
+> reached through `canEdit()`, which accounting does not hold, so a header act would be unreachable
+> by exactly the role whose job it is — the *Awaiting activation* tab + the row button IS the
+> accountant's worklist (point 2), with the shortfall on the button before the click and the button
+> disabled until it is met. **The reservation**: `Lease::creating` stamps `reserved_until` = today +
+> the property's days on every awaiting lease, whichever door entered it; `leases:expire` cancels
+> one past its day — `TYPE_CANCELLATION`, narrative `reservation_lapsed`, unit freed by the observer,
+> `ReservationLapsedNotification` to manager + leasing after commit — **unless** the property gates
+> nothing or has since set its window to 0 (the sweep reads the CURRENT policy, so "0 = never" means
+> never for a date stamped earlier too), the money HAS arrived (the accountant's to activate), or an
+> ISSUED invoice stands on it (a person's call under a live document); those stay on the tab with
+> the date in red. The window is cleared on EVERY exit from awaiting — the act, the dropdown on an
+> ungated property, a cancellation — and `RENEWAL_RESETS` names it, so an active lease never carries
+> a hold and a renewal never inherits one. **The deposit basis** (point 3): the market standard is a fixed sum or a multiple
+> of the monthly rent, which the lease has expressed since EG-35; *"% of the annual rent"* is the
+> Egyptian / GCC clause convention and arithmetically a multiple by another name, so it is a third
+> BASIS on the same field (`security_deposit_basis`, `security_deposit_percent`), and
+> [`DepositBasis::derive()`](../../app/Support/DepositBasis.php) is the ONE arithmetic the model's
+> `saving` hook, the wizard and the form's preview read. Backfilled from the months column (a
+> multiple = months, none = fixed) so no lease changed meaning; the wizard now writes the basis and
+> multiple rather than the derived sum, so a wizard lease's deposit tracks its rent as a form
+> lease's always did. The importer and exporter carry basis and percent. **Deliberately not built:**
+> the API does not expose the basis (the amount is the term the tenant is billed for); a renewal or
+> holdover conversion is an executed lease already and does not re-enter the gate.
+> **The review of this change found two blockers and eight real faults in it, every one closed
+> and pinned.** The per-property override page cast EVERY value to a float on save, so choosing
+> `deposit_received` for a mall stored `0`, read back as `none`, and the gate stayed off on the mall
+> everybody believed it was on — and `billing.proration_method` had been dead the same way since its
+> dropdown was added on 2026-08-23; `PropertyOverrides::normalise()` now stores a choice as the word,
+> a switch as a bool, a figure as a float. And `post_dated_cheques.lease_id` had existed since the
+> register shipped with NO door writing it, so `deposit_or_cheques` — the client's own option — could
+> never be satisfied from the panel; the cheque form and the series modal carry a lease picker now,
+> the model fills it from the invoice a cheque is lodged against and refuses another tenant's or
+> another mall's lease. The rest: a rent-linked basis whose figure was blank stored whatever the
+> disabled amount last read (required under its basis now); the create form never proposed the
+> property's percent (it does); a percent policy carrying 0% proposed a 0.00 deposit that walked
+> through the gate (`DepositBasis::defaultsFor()` falls back to months); the tab relabel had hit the
+> procurement board's shared key (its own key now); the window survived every exit from awaiting
+> but the act's and rode onto renewals; the sweep ignored a window switched back to 0 while the
+> column that shows the date hid; the importer's `active` door is now named in its own comment.
+> Recorded rather than fixed: activation holds the lease then asks for the unit while creation
+> holds the unit and scans `leases` FOR UPDATE — a cycle InnoDB resolves by rolling one side back
+> (a retry, never a double let), the same shape renewal and holdover carry; and a lease activated
+> after the property's billing day waits for the next run or the weekly unbilled-periods scan for
+> its first invoice. `ALeaseIsActivatedByAnActOnceTheMoneyIsInTest` — twenty-five cases,
+> twenty-three mutations; three stay green for a stated reason (the model re-derives the executed
+> status the service also writes; `->authorize()` hides what `visible()` would have shown —
+> Filament's own contract; and the cheque rule is defended in two clauses, red only when both go).
+
 > **⚠️ Nothing ever moved a lease from `active` to `expired` (fixed 2026-08-19).** There was a
 > `vendors:expire-contracts` sweep for vendor contracts and no equivalent for leases, so a lease
 > whose term had run out stayed `active` indefinitely unless a person renewed, terminated or held it
@@ -1829,13 +1916,13 @@ which is why the seam sits where it does.
 
 | Status | Entry point | Allowed transitions | Exit rule / immutability |
 |--------|-------------|-------------------|--------------------------|
-| **draft** | New lease created in admin or via `LeaseCreationService`. | → `pending_approval`, `active`, `cancelled` | Discarded if not activated; reserved unit if present. |
-| **pending_approval** | Operator upgrades a draft lease pending review. | → `active`, `cancelled` | Awaits approval before activation; reserved unit. |
-| **active** | Lease commences (explicit status set on creation or via promotion). | → `renewed` (renewal creates new lease), `terminated`, `expired`, `cancelled` | Unit is occupied. Invoices generate. Charges are active. Only one active lease per unit. |
+| **draft** | New lease created in admin or via `LeaseCreationService`. | → `pending_approval` (leasing promotes it once the deal is signed), `active` (entry, where the property gates nothing), `cancelled` | Terms still being written: reserves the unit but carries no window and is never lapsed or activated by the act. |
+| **pending_approval** (*"Awaiting activation"*) | Entered where the property requires the deposit or cheques before going live (the wizard, or the form) — or a draft the operator promoted. | → `active` / `future` (the Activate act, `leases.activate`, refused until `LeaseActivation::shortfall()` is nil), `cancelled` (a reservation that lapsed) | Reserved unit; does NOT hold the premises against another signer; `reserved_until` stamped from the property's window and lapsed by `leases:expire`. |
+| **active** | The Activate act, or entry on a property whose `lease_activation_requires` is `none` (the shipped default). | → `renewed` (renewal creates new lease), `terminated`, `expired`, `cancelled` | Unit is occupied. Invoices generate. Charges are active. Only one active lease per unit. |
 | **renewed** | Triggered when `LeaseRenewalService::renew()` marks original as 'renewed'. | (terminal for original) | Original lease is now closed; the renewal is a new 'active' lease linked via `previous_lease_id`. Unit is reserved (because the renewal—a new active lease—projects it to occupied). |
 | **expired** | Manual mark-as-expired or automated task (future). | (terminal) | Unit becomes vacant (unless another non-terminal lease on it). Invoicing stops. |
 | **terminated** | `LeaseTerminationService::terminate()` on active or pending lease. | (terminal) | Charges deactivated. Unit becomes vacant (unless another non-terminal lease). Invoices optionally cancelled. |
-| **cancelled** | Operator cancels a draft or pending lease. | (terminal) | Unit reverts to vacant (if no other non-terminal leases). |
+| **cancelled** | Operator cancels a draft or pending lease, or `leases:expire` lapses a reservation past `reserved_until` with the money still not in. | (terminal) | Unit reverts to vacant (if no other non-terminal leases). |
 
 **Projection rules (Unit status):**
 ```

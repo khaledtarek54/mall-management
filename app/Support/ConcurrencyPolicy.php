@@ -118,6 +118,18 @@ final class ConcurrencyPolicy
                 'observer edge (any lease UPDATE X-locks its unit) fixes the canonical order '.
                 'leases→units, and unit-first here was half a deadlock proven on MySQL 2026-09-05.',
         ],
+        'app/Services/ActivateLeaseService.php' => [
+            'locks' => 2,
+            'protects' => 'The LEASE then its UNITS (the SW-009c order). A pending lease does not hold its '.
+                'premises, so activation is the moment it starts to — the fourth writer that can put '.
+                'an active lease on a unit, beside creation, renewal and holdover resumption. The money '.
+                'gate behind the lease lock reads `depositHeldForUpdate()`, or a receipt recorded a '.
+                'second earlier would be invisible to the decision that depends on it. KNOWN and '.
+                'unproven: `LeaseCreationService` holds the UNIT and then scans `leases` FOR UPDATE, '.
+                'which under REPEATABLE READ can lock the pending row this service holds — a cycle '.
+                'InnoDB resolves by rolling one side back (a retry, never a double let). The same '.
+                'shape renewal and holdover already carry; confirm with docs/qa/scripts/race.sh.',
+        ],
         'app/Services/LeaseCreationService.php' => [
             'locks' => 1,
             'protects' => 'The unit. Two leases signed on the same vacant unit at once — the race that '.
@@ -310,8 +322,10 @@ final class ConcurrencyPolicy
         // both pass and together over-repay the loan.
         'app/Models/EmployeeAdvance.php' => 2,
         // One row lock per lease, re-checking its expiry inside the transaction, so a sweep cannot
-        // expire a lease another request is renewing or holding over at the same moment.
-        'app/Console/Commands/ExpireLeasesCommand.php' => 2,
+        // expire a lease another request is renewing or holding over at the same moment. The third
+        // (2026-09-11) is the reservation lapse: locked and re-asked whether the money is in, so a
+        // sweep cannot cancel a lease the accountant is activating at the same moment.
+        'app/Console/Commands/ExpireLeasesCommand.php' => 3,
         'app/Services/LeaseRenewalService.php' => 2,
         'app/Services/RemeasureUnitService.php' => 1,
         'app/Services/RentEscalationService.php' => 1,

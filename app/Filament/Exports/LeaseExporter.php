@@ -38,6 +38,13 @@ class LeaseExporter extends Exporter
             ExportColumn::make('expiry_date')->label(__('admin.tables.lease.ends')),
             ExportColumn::make('term_months')->label(__('admin.fields.term_months')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
+            // The deposit clause, so a round trip carries it (meeting 2026-09-02, point 3): the
+            // agreed figure, how it was agreed, and the multiple or percentage behind it — under
+            // the same `admin.fields.*` labels the importer guesses on.
+            ExportColumn::make('security_deposit')->label(__('admin.fields.security_deposit')),
+            ExportColumn::make('security_deposit_basis')->label(__('admin.fields.security_deposit_basis')),
+            ExportColumn::make('security_deposit_months')->label(__('admin.fields.security_deposit_months')),
+            ExportColumn::make('security_deposit_percent')->label(__('admin.fields.security_deposit_percent')),
 
             // The operator's own fields (D-7), LAST so the shipped column positions a
             // colleague's import template depends on never move.

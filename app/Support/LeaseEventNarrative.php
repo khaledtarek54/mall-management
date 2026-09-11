@@ -68,6 +68,10 @@ class LeaseEventNarrative
         'lease_terminated',
         'move_out_settled',
         'cam_estimate_applied',
+        // Activation is an ACT since 2026-09-11 (meeting 2026-09-02, point 1), and a reservation
+        // that lapses is the act's other outcome.
+        'lease_activated',
+        'reservation_lapsed',
     ];
 
     /**
@@ -138,13 +142,13 @@ class LeaseEventNarrative
 
         // Classifications read as words, not as codes: `renewal` is a key the operator never sees
         // anywhere else in the panel.
-        foreach (['option_type' => 'admin.lease_options.types.', 'rent_basis' => 'admin.enums.rent_basis.'] as $name => $group) {
+        foreach (['option_type' => 'admin.lease_options.types.', 'rent_basis' => 'admin.enums.rent_basis.', 'status' => 'admin.statuses.lease.'] as $name => $group) {
             if (isset($tokens[$name])) {
                 $tokens[$name] = trans($group.$tokens[$name], [], $locale);
             }
         }
 
-        foreach (['notice_given_at', 'effective_from', 'contracted_expiry'] as $name) {
+        foreach (['notice_given_at', 'effective_from', 'contracted_expiry', 'commencement', 'reserved_until'] as $name) {
             if (isset($tokens[$name]) && $tokens[$name] !== '—') {
                 $tokens[$name] = CarbonImmutable::parse($tokens[$name])->format('d/m/Y');
             }

@@ -39,6 +39,8 @@ return [
         'percentage_rent_sales_exclusions' => 'What this clause lets the tenant take off gross turnover.',
         'security_deposit_months' => 'Blank keeps the deposit a flat sum. Filled, it tracks the rent through every escalation.',
         'security_deposit_derived' => 'Derived from the rent and the months above.',
+        'security_deposit_basis' => 'Months of rent tracks the rent through escalations; a fixed sum never moves.',
+        'security_deposit_percent' => 'Of the annual rent. Re-derived when the rent changes.',
         'percentage_rent_billing_frequency' => 'When the overage is invoiced. Sales are still declared every month.',
         'lease_under_ownership' => 'The owner lets this unit himself. He still owes the service charge.',
         'due_date_derived' => 'Derived from the issue date and the lease’s payment terms. Override only for a one-off arrangement.',

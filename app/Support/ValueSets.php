@@ -356,6 +356,8 @@ class ValueSets
         // `RentEscalationService` filters on the three escalating types, so a lease carrying
         // `annual_increase` is skipped by the sweep for ever and its rent simply never steps.
         'leases.escalation_type' => ['none', 'fixed_percent', 'fixed_amount', 'cpi'],
+        // HOW the deposit was agreed (meeting 2026-09-02, point 3) — see DepositBasis.
+        'leases.security_deposit_basis' => [DepositBasis::class, 'ALL'],
         'leases.percentage_rent_calculation_type' => ['natural_breakpoint', 'artificial', 'tiered'],
         // The two halves of a percentage-rent clause that are constantly confused for each other:
         // how the overage is WORKED OUT, and when it is CHARGED. The first was an enumerated string

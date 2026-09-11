@@ -162,6 +162,19 @@ class LeaseImporter extends Importer
                 ->numeric()
                 ->rules(['nullable', 'numeric', 'min:0']),
 
+            // HOW the deposit was agreed (meeting 2026-09-02, point 3). Blank keeps the rule every
+            // import has always had: a multiple in `security_deposit_months` means months, none
+            // means the sum above is fixed — `Lease::saving` infers exactly that. Read from the
+            // registry, not re-listed here.
+            ImportColumn::make('security_deposit_basis')
+                ->label(__('admin.fields.security_deposit_basis'))
+                ->rules(['nullable', Rule::in(ValueSets::allowed('leases', 'security_deposit_basis'))]),
+
+            ImportColumn::make('security_deposit_percent')
+                ->label(__('admin.fields.security_deposit_percent'))
+                ->numeric()
+                ->rules(['nullable', 'numeric', 'min:0', 'max:100']),
+
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))
                 // Deliberately NARROWER than the set `leases.status` accepts (App\Support\ValueSets),
@@ -171,6 +184,11 @@ class LeaseImporter extends Importer
                 // `future` is accepted because a migrating operator's export from Voyager says it,
                 // and it costs nothing to honour: the model re-derives the active/future split from
                 // the commencement date on every write, so a row stating either lands correctly.
+                // `active` is accepted on a property that gates activation on money too (2026-09-11):
+                // an import is migrated HISTORY, not the act, and it is admin-gated — but it is a
+                // door onto `active` that the Activate act does not stand in front of, and a re-import
+                // of an awaiting lease with `active` in the CSV executes it. Named here so nobody
+                // reads the act as the only door.
                 ->rules(['nullable', 'in:draft,active,future,expired,renewed,terminated']),
 
             ImportColumn::make('proration_method')

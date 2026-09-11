@@ -194,9 +194,9 @@ These four decisions steer the FRs below:
 
 | # | Ask (short) | Atriom today | Verdict | Effort | Decision |
 |---|---|---|---|---|---|
-| 1 | Activate the lease only when accounting confirms money received; reservation valid X days | Status dropdown, no money check, no reservation expiry | **Build** — stricter than Yardi, as a per-property setting | M | |
-| 2 | A page for the accountant to activate | — | **Build as a worklist tab + the act on the record**, not a page | S | |
-| 3 | Deposit as % or fixed | Months-of-rent (= % of a month) or fixed | **Extend** with a basis: months · % of annual rent · fixed | S | |
+| 1 | Activate the lease only when accounting confirms money received; reservation valid X days | Status dropdown, no money check, no reservation expiry | ✅ **Shipped 2026-09-11** — Activate act (`leases.activate`), per-property gate (`none` ships), reservation window lapsed by `leases:expire` ([modules/04](../modules/04-leases.md)) | M | ✅ built |
+| 2 | A page for the accountant to activate | — | ✅ **Shipped 2026-09-11** — the *Awaiting activation* tab + the Activate button on the row (accounting holds view + activate, not edit) | S | ✅ built |
+| 3 | Deposit as % or fixed | Months-of-rent (= % of a month) or fixed | ✅ **Shipped 2026-09-11** — `security_deposit_basis`: months (market) · % of annual rent (the Egyptian clause) · fixed; one derivation | S | ✅ built |
 | 4 | Lease PDF from the lease fields; template from Jawad | ✅ **Built** (`LeaseAgreementPdfService`) | **No code until the template arrives**; transpose it into the wording block | S | |
 | 5 | Statement: totals due to you / due from you | One-sided (AR only) | ✅ **Shipped 2026-09-11** — *Due from you* / *Held for you*, itemised | (with 6) | ✅ built |
 | 6 | Statement shows the deposit, reservation money, debit / credit / balance | Sectioned PDF; deposit held appears nowhere | ✅ **Shipped 2026-09-11** — the PDF is the ledger printed, with a deposit account ([modules/02](../modules/02-tenants.md#tenantstatementpdfservice)) | M | ✅ built |
@@ -262,6 +262,8 @@ cheques, then activation — is the ordinary sales-office practice, and Ejari-li
 gate activation on cheques received.
 
 **Recommendation — BUILD, as a stated deviation (stricter than Yardi), switchable per property.**
+*(Superseded on the day it shipped, 2026-09-11 — see the ✅ note below: keys are `billing.*`, the
+default is `none`, the act is on the ROW, and the act moves out of `pending_approval` only.)*
 - `pending_approval` becomes *"Reserved — awaiting activation"* in both languages (a label, not a
   vocabulary change; the set stays as it is).
 - A new **Activate** act on the lease record (`leases.activate`, seeded to `accounting` and
@@ -280,6 +282,13 @@ gate activation on cheques received.
   forfeited on lapse through the two `DepositTransaction` types that already exist.
 - Effort **M**. Doors: the wizard, the form, the importer (`LeaseImporter` writes a status), the
   API — `atriom:doors Lease` before the diff.
+
+**✅ Shipped 2026-09-11 (1 · 2 · 3 together)**, with one change from the plan above on the owner's
+instruction that configurability follows the market too (`/safe-change` §3b): **every default is
+Yardi's** — `none`, 0 days, months of rent — and the client's rule is a setting they set per property
+(`deposit_or_cheques` applied on staging; X days is theirs to state). The importer stays free to
+write `active` (migrated history is not an act), and a renewal or holdover conversion does not
+re-enter the gate (an executed lease already). Detail: [modules/04](../modules/04-leases.md).
 
 **#2 — *"Create page for accountant to activate the lease when the invoice is received or cheques are
 obtained."*** — **Build as a worklist, not a page**: a tab *Awaiting activation* on the leases list
@@ -301,7 +310,9 @@ the same. Egyptian leases write it either as *N months* or as *a % of the annual
 **Recommendation — EXTEND the same field with a basis**: `months of rent` · `% of annual rent` ·
 `fixed`, one derivation in `deriveDepositInto()` + `Lease::saving`. **Ask the client which base the
 "%" is on** — annual rent is my reading and the common clause; if they mean % of the monthly rent,
-the months field already is that. Effort **S**.
+the months field already is that. Effort **S**. *(Shipped 2026-09-11 as `% of annual rent`; if the
+client meant a % of the monthly rent, the months basis already expresses it — 1.2 months = 10% of
+annual — and the label can be revisited without a migration.)*
 
 **#4 — *"Create pdf with the fields we got from the lease setups. hn5od se8a 3a2d mn Jawad."***
 

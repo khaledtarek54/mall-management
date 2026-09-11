@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\PostDatedCheques\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
+use App\Models\Lease;
 use App\Models\PostDatedCheque;
 use App\Models\Tenant;
 use App\Services\PostDatedChequeService;
@@ -52,8 +53,24 @@ class ListPostDatedCheques extends ListRecords
                         ->label(__('admin.post_dated_cheques.fields.tenant'))
                         ->entity(Tenant::class)
                         ->searchable()
+                        ->live()
                         ->required()
                         ->native(false),
+                    // Which lease the series secures — the same picker the single-cheque form
+                    // carries, for the same reason (a lease counting lodged cheques toward its
+                    // deposit). `lodgeSeries()` has always copied `lease_id` onto every cheque it
+                    // mints; this is the first door that hands it one.
+                    EntitySelect::make('lease_id')
+                        ->label(__('admin.post_dated_cheques.fields.lease'))
+                        ->entity(Lease::class)
+                        ->modifyOptionsQuery(fn ($query, Get $get) => $get('tenant_id')
+                            ? $query
+                                ->where('tenant_id', $get('tenant_id'))
+                                ->whereIn('status', [...Lease::OPEN_TO_COMMERCIAL_ACTS, 'draft'])
+                                ->when($get('asset_id'), fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+                            : $query->whereRaw('1 = 0'))
+                        ->preload()
+                        ->helperText(__('admin.post_dated_cheques.fields.lease_hint')),
                     TextInput::make('bank_name')
                         ->label(__('admin.post_dated_cheques.fields.bank_name'))
                         // The column's own width, as the single-cheque form states it: lodging a

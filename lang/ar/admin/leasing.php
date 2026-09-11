@@ -1,6 +1,28 @@
 <?php
 
 return [
+    'deposit_basis' => [
+        'months' => 'عدد شهور إيجار',
+        'percent_of_annual_rent' => 'نسبة من الإيجار السنوي',
+        'fixed' => 'مبلغ ثابت',
+    ],
+
+    'lease_activation' => [
+        'none' => 'لا شيء — يُنفَّذ العقد بمجرد إدخاله',
+        'deposit_received' => 'يجب استلام التأمين أولًا',
+        'deposit_or_cheques' => 'يجب استلام التأمين، أو إيداع شيكات تغطيه',
+        'action' => 'تفعيل',
+        'modal_heading' => 'تفعيل العقد :ref',
+        'modal_description' => 'يصبح العقد ساريًا (أو مستقبليًا إن كان بدء مدته لاحقًا) ويبدأ في شغل وحدته وفي الفوترة. هذا هو الإجراء الذي ينتظره العقد المُدخَل.',
+        'ready' => 'جاهز للتفعيل',
+        'requirement_label' => 'قبل التفعيل',
+        'activated' => 'تم تفعيل العقد',
+        'activated_body' => 'العقد :ref أصبح الآن :status.',
+        'reserved_until_expired' => 'انتهى الحجز في :date',
+        'reserved_until_hint' => 'الحجز ساري حتى :date',
+        'coverage' => 'التأمين :held / :required · شيكات :cheques',
+    ],
+
     'proration_methods' => [
         'actual' => 'الأيام الفعلية في الشهر',
         'thirty_day' => 'واحد من ثلاثين لكل يوم (30/360)',
@@ -65,6 +87,8 @@ return [
             'space_contracted' => 'قلّت المساحة — الإيجار من :amount_from إلى :amount_to.',
             'converted_to_holdover' => 'حُوّل إلى إشغال ممتد بنسبة :rate_pct% من الإيجار التعاقدي.',
             'lease_terminated' => 'أُنهي العقد. وكان الانتهاء التعاقدي في :contracted_expiry.',
+            'lease_activated' => 'فُعِّل العقد — :status اعتبارًا من :commencement.',
+            'reservation_lapsed' => 'انتهت مدة الحجز في :reserved_until دون سداد التأمين — أُلغي العقد وأُفرج عن الوحدة.',
             'move_out_settled' => 'سُوِّي الحساب الختامي.',
             'cam_estimate_applied' => 'طُبِّق تقدير مصاريف المناطق المشتركة — :amount_to شهريًا، بناءً على فعليات :based_on_year.',
         ],
@@ -89,6 +113,8 @@ return [
             'extension' => 'تمديد',
             'holdover' => 'إشغال ممتد',
             'termination' => 'إنهاء',
+            'activation' => 'تفعيل',
+            'cancellation' => 'إلغاء',
         ],
     ],
     'lease_cam_terms' => [

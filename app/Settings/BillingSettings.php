@@ -3,6 +3,8 @@
 namespace App\Settings;
 
 use App\Support\AgingBuckets;
+use App\Support\DepositBasis;
+use App\Support\LeaseActivation;
 use App\Support\ProrationMethod;
 use Spatie\LaravelSettings\Settings;
 
@@ -159,6 +161,39 @@ class BillingSettings extends Settings
      * market will bear, which is the same reason `monthly_billing_day` is.
      */
     public float $default_security_deposit_months = 3.0;
+
+    /**
+     * HOW a new lease's deposit is proposed (meeting 2026-09-02, point 3): `months` — a multiple of
+     * the monthly rent, Yardi's and MRI's shape and the shipped default; `percent_of_annual_rent` —
+     * the Egyptian / GCC clause convention ("10% of the annual rent"); `fixed` — a sum the operator
+     * types. One of {@see DepositBasis::ALL}. The figure it proposes comes from the
+     * sibling setting for that basis (`default_security_deposit_months` or `_percent`); the lease
+     * still records the agreed basis and figure, so revising this moves no existing deposit.
+     */
+    public string $default_security_deposit_basis = 'months';
+
+    /** The proposed percentage of ANNUAL rent when the basis is `percent_of_annual_rent`. */
+    public float $default_security_deposit_percent = 0.0;
+
+    /**
+     * What must be IN before a lease may be activated (meeting 2026-09-02, point 1): `none` — an
+     * entered lease is executed on entry, Yardi Commercial's default and the shipped one;
+     * `deposit_received` — the security deposit must be held (`Lease::depositHeld()` ≥ the agreed
+     * figure); `deposit_or_cheques` — …or post-dated cheques lodged on the lease worth at least
+     * it. One of {@see LeaseActivation::REQUIREMENTS}. The gate is Yardi's
+     * residential "no move-in with a balance" control made a property policy; STRICTER than Voyager
+     * Commercial's default, which is why the default here is `none` and the client's rule is what
+     * they set. Per-property: a mall that takes cash at signing and one that takes cheques differ.
+     */
+    public string $lease_activation_requires = 'none';
+
+    /**
+     * How many days a draft or pending lease holds its shop off the market before the reservation
+     * lapses and `leases:expire` cancels it (meeting 2026-09-02, point 1 — *"valid for X days"*).
+     * Yardi's unit hold carries the same expiry. **0 = never**, the shipped default: nothing an
+     * install does changes on deploy.
+     */
+    public int $reservation_valid_days = 0;
 
     /**
      * Recognise rent on a STRAIGHT-LINE basis over the lease term (story RA-02, EAS 49 / IFRS 16).

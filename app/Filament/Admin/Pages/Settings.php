@@ -9,8 +9,10 @@ use App\Models\TaxCode;
 use App\Services\GratuityService;
 use App\Settings\TaxSettings;
 use App\Support\DeletionPolicy;
+use App\Support\DepositBasis;
 use App\Support\DocumentNumbering;
 use App\Support\FiscalYearStart;
+use App\Support\LeaseActivation;
 use App\Support\Modules;
 use App\Support\ProrationMethod;
 use App\Support\SettingsRegistry;
@@ -336,6 +338,35 @@ class Settings extends Page implements HasSchemas
                         ->label(__('admin.settings.fields.default_security_deposit_months'))
                         ->helperText(__('admin.settings.fields.default_security_deposit_months_helper'))
                         ->numeric()
+                        ->minValue(0)
+                        ->required(),
+                    // Meeting 2026-09-02, points 1 and 3. Every default is Yardi's; the client's
+                    // rule is what they set here (or per property on the overrides page).
+                    Select::make('billing.default_security_deposit_basis')
+                        ->label(__('admin.settings.fields.default_security_deposit_basis'))
+                        ->helperText(__('admin.settings.fields.default_security_deposit_basis_helper'))
+                        ->options(DepositBasis::options())
+                        ->native(false)
+                        ->required(),
+                    TextInput::make('billing.default_security_deposit_percent')
+                        ->label(__('admin.settings.fields.default_security_deposit_percent'))
+                        ->helperText(__('admin.settings.fields.default_security_deposit_percent_helper'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->required(),
+                    Select::make('billing.lease_activation_requires')
+                        ->label(__('admin.settings.fields.lease_activation_requires'))
+                        ->helperText(__('admin.settings.fields.lease_activation_requires_helper'))
+                        ->options(LeaseActivation::options())
+                        ->native(false)
+                        ->required(),
+                    TextInput::make('billing.reservation_valid_days')
+                        ->label(__('admin.settings.fields.reservation_valid_days'))
+                        ->helperText(__('admin.settings.fields.reservation_valid_days_helper'))
+                        ->suffix(__('admin.fields.days'))
+                        ->integer()
                         ->minValue(0)
                         ->required(),
                     // 0 = off, and that is how it ships. The action that charges it stays hidden

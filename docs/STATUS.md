@@ -237,6 +237,7 @@ the cutover posture.
 
 | # | Confirm | Ships as |
 |---|---|---|
+| **M-1/2/3** *(meeting 2026-09-02)* | **Lease activation gated on money, the reservation window, and the deposit basis** — all four are per-property settings (Settings → Billing, or Property overrides). You asked for *deposit or cheques before activation* and *a reservation valid for X days*: **`deposit_or_cheques` is set on both staging properties; X is yours to state** (0 = never lapses, which is what ships). | Yardi's defaults: entry executes (`none`), no window (`0`), deposit as months of rent. Your rule is a setting, never the code default — [modules/04](modules/04-leases.md). |
 | A1.2–A1.6 | Percentage rent, CAM true-up, late fees and the marketing levy are **VAT-exempt**; levy **5% of base rent only**, accrued and never shown to the tenant; CAM allocated **pro-rata by leased m²** | Every one is a row on `/admin/charge-codes` — a different ruling is a row, not a release |
 | A1.7 | Late fee **2%** of outstanding, **minimum 50 EGP**, **7-day grace**, charged **once**, **no cap** | Five settings on three tiers (lease → property → portfolio); 0 = no cap, 0 = charge once |
 | A1.8 | **Security deposit 3 months**, **escalation 7% fixed** | Deposit is a per-property setting; escalation is per lease, with a CPI-indexed option |
@@ -395,6 +396,10 @@ movement · closing, each a debit/credit pair that foots ([modules/21](modules/2
 **Points 5 · 6 · 8 · 9 · 10 shipped the same day** — the Statement of Account is the tenant ledger
 printed: balance forward, running balance at line grain, the deposit account, two totals, the
 operator's footer ([modules/02](modules/02-tenants.md#tenantstatementpdfservice)).
+**Points 1 · 2 · 3 shipped the same day** — activation is an act (`leases.activate`, accounting's),
+gated per property on the deposit or lodged cheques; a reservation window per property, lapsed by
+`leases:expire`; the deposit agreed as months, % of annual rent or a fixed sum. Every default is
+Yardi's; §4 row M-1/2/3 records what the client sets ([modules/04](modules/04-leases.md)).
 
 ### 9.1 · The accountant's sitting
 

@@ -7,11 +7,13 @@ use App\Filament\Exports\LeaseExporter;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\ActivateLeaseService;
 use App\Services\LeaseCreationService;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\LeaseActivation;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
 use App\Support\StatusOptions;
@@ -162,6 +164,21 @@ class LeasesTable
 
                         return null;
                     }),
+                // The reservation window (meeting 2026-09-02, point 1): a draft or pending lease
+                // holds its shop off the market until this day; past it, `leases:expire` cancels the
+                // lease and frees the unit unless the money has arrived. Red once it has passed —
+                // a reservation the sweep could not lapse (an issued invoice stands on it) is the
+                // one a person must decide.
+                // Toggleable and shown by default only where a window is set — never HIDDEN by the
+                // policy, because a row can carry a date stamped under an earlier policy, and a
+                // column that vanishes exactly when a date is on it is the opposite of a reminder.
+                TextColumn::make('reserved_until')
+                    ->label(__('admin.fields.reserved_until'))
+                    ->date('d/m/Y')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: LeaseActivation::reservationDaysFor(TenantScope::currentAssetId()) === 0)
+                    ->color(fn (Lease $record): ?string => $record->reserved_until && $record->reserved_until->isPast() && LeaseActivation::isAwaiting($record) ? 'danger' : null)
+                    ->icon(fn (Lease $record) => $record->reserved_until && $record->reserved_until->isPast() && LeaseActivation::isAwaiting($record) ? Heroicon::OutlinedExclamationTriangle : null),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
@@ -543,6 +560,52 @@ class LeasesTable
                     ->authorize(fn ($record) => LeaseResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => LeaseResource::canEdit($record)),
+                // ── Activate (meeting 2026-09-02, points 1 and 2) ────────────────────────────
+                // ON THE ROW, deliberately, and registered as such in `RowActionPolicy`: the act is
+                // held by `accounting`, which holds `leases.view` and NOT `leases.edit`, so on the
+                // record page it would be unreachable by exactly the people whose job it is — the
+                // same reason `tenant_sales.lock` stays on its row. The "Awaiting activation" tab
+                // above plus this button IS the accountant's worklist. Visible and authorised on
+                // the same predicate; the SERVICE re-asks the money gate under a lock and adds the
+                // one check a button cannot show — that no other lease took the shop meanwhile —
+                // which it refuses in words if it fires.
+                Action::make('activate')
+                    ->label(__('admin.lease_activation.action'))
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(fn (Lease $record): bool => LeaseActivation::isAwaiting($record)
+                        && (auth()->user()?->can('leases.activate') ?? false))
+                    ->authorize(fn (): bool => auth()->user()?->can('leases.activate') ?? false)
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Lease $record) => __('admin.lease_activation.modal_heading', ['ref' => $record->reference]))
+                    // What is still missing is said BEFORE the button, in figures — a refusal on
+                    // submit is the worse half of the same sentence.
+                    ->modalDescription(function (Lease $record): string {
+                        $shortfall = LeaseActivation::shortfall($record);
+
+                        return $shortfall === null
+                            ? __('admin.lease_activation.modal_description')
+                            : LeaseActivation::explain($shortfall);
+                    })
+                    ->modalSubmitActionLabel(__('admin.lease_activation.action'))
+                    ->disabled(fn (Lease $record): bool => LeaseActivation::shortfall($record) !== null)
+                    ->tooltip(fn (Lease $record): ?string => ($shortfall = LeaseActivation::shortfall($record)) === null
+                        ? null
+                        : LeaseActivation::explain($shortfall))
+                    ->action(function (Lease $record): void {
+                        abort_unless(auth()->user()?->can('leases.activate') ?? false, 403);
+
+                        $activated = app(ActivateLeaseService::class)->activate($record, auth()->id());
+
+                        Notification::make()
+                            ->title(__('admin.lease_activation.activated'))
+                            ->body(__('admin.lease_activation.activated_body', [
+                                'ref' => $activated->reference,
+                                'status' => __('admin.statuses.lease.'.$activated->status),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
                 // ── The list FINDS; the record ACTS ───────────────────────────────────────
                 // Nine commercial actions used to hang off every row here while the lease's own
                 // page carried one, so an operator who opened a lease had to go back to the list to

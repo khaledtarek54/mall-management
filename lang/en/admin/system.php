@@ -169,6 +169,14 @@ return [
             'late_fee_maximum_helper' => 'The most one late fee may be. 0 for no cap. Applied after the minimum, so a cap below it still wins.',
             'default_security_deposit_months' => 'Default deposit (months of rent)',
             'default_security_deposit_months_helper' => 'Proposed on a new lease. The agreed amount on the lease always wins.',
+            'default_security_deposit_basis' => 'Default deposit basis',
+            'default_security_deposit_basis_helper' => 'How a new lease proposes its deposit: months of rent (the market shape), a % of annual rent, or a fixed sum.',
+            'default_security_deposit_percent' => 'Default deposit (% of annual rent)',
+            'default_security_deposit_percent_helper' => 'Proposed when the basis is a percentage of annual rent. The agreed figure on the lease always wins.',
+            'lease_activation_requires' => 'Before a lease is activated',
+            'lease_activation_requires_helper' => 'Nothing (a lease is executed on entry, Yardi\'s default); the deposit received; or the deposit received or cheques lodged to cover it. Per property.',
+            'reservation_valid_days' => 'Reservation valid for (days)',
+            'reservation_valid_days_helper' => 'A lease awaiting activation holds its unit for this many days; past it, the nightly sweep cancels the lease and frees the unit. 0 = no limit.',
             'late_fee_minimum' => 'Minimum late fee',
             'nsf_fee_amount' => 'Returned-cheque fee',
             'nsf_fee_amount_helper' => 'Charged when a post-dated cheque bounces, as its own invoice. 0 turns it off — the action stays hidden until you set a figure.',
@@ -662,6 +670,8 @@ return [
         'lease_option_closing_body' => 'The :type for :tenant (:lease, unit :unit) must be exercised by :deadline — :days days left. After that the right is gone.',
         'lease_option_lapsed_title' => ':type has lapsed',
         'lease_option_lapsed_body' => 'The notice window for the :type on :lease (:tenant, unit :unit) closed on :deadline without notice being served. It is now recorded as lapsed.',
+        'reservation_lapsed_title' => 'Reservation on unit :unit lapsed',
+        'reservation_lapsed_body' => 'Lease :lease (:tenant, unit :unit) was held until :date and the deposit never arrived. The lease is cancelled and the unit is back on the market.',
         // Shared by every bell alert that is ALSO emailed (AlsoSendsByMail) — the mail reuses the
         // bell's own title/body, so only the button and a fallback subject are new strings.
         'mail_open_cta' => 'Open Atriom',

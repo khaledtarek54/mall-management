@@ -1,6 +1,30 @@
 <?php
 
 return [
+    // How a deposit was agreed (meeting 2026-09-02, point 3) — see App\Support\DepositBasis.
+    'deposit_basis' => [
+        'months' => 'Months of rent',
+        'percent_of_annual_rent' => '% of annual rent',
+        'fixed' => 'Fixed amount',
+    ],
+
+    // What must be in before a lease is activated (point 1) — see App\Support\LeaseActivation.
+    'lease_activation' => [
+        'none' => 'Nothing — a lease is executed on entry',
+        'deposit_received' => 'The security deposit must be received',
+        'deposit_or_cheques' => 'The deposit must be received, or cheques lodged to cover it',
+        'action' => 'Activate',
+        'modal_heading' => 'Activate lease :ref',
+        'modal_description' => 'The lease becomes active (or future, if its commencement is ahead) and starts to hold its unit and to bill. This is the act the entered lease has been waiting for.',
+        'ready' => 'Ready to activate',
+        'requirement_label' => 'Before activation',
+        'activated' => 'Lease activated',
+        'activated_body' => ':ref is now :status.',
+        'reserved_until_expired' => 'Reservation expired :date',
+        'reserved_until_hint' => 'Reservation valid until :date',
+        'coverage' => 'Deposit :held / :required · cheques :cheques',
+    ],
+
     'proration_methods' => [
         'actual' => 'Actual days in the month',
         'thirty_day' => 'One thirtieth per day (30/360)',
@@ -71,6 +95,8 @@ return [
             'converted_to_holdover' => 'Converted to holdover at :rate_pct% of the contracted rent.',
             'lease_terminated' => 'Lease terminated. Contracted expiry was :contracted_expiry.',
             'move_out_settled' => 'Final account settled.',
+            'lease_activated' => 'Lease activated — :status from :commencement.',
+            'reservation_lapsed' => 'Reservation lapsed on :reserved_until with the deposit still unpaid — the lease was cancelled and the unit released.',
             'cam_estimate_applied' => 'CAM estimate applied — :amount_to per month, based on :based_on_year actuals.',
         ],
         'termination_default_reason' => 'Lease terminated',
@@ -94,6 +120,8 @@ return [
             'extension' => 'Extension',
             'holdover' => 'Holdover',
             'termination' => 'Termination',
+            'activation' => 'Activation',
+            'cancellation' => 'Cancellation',
         ],
     ],
     'lease_cam_terms' => [

@@ -325,6 +325,7 @@ return [
         'expiring' => 'تقارب الانتهاء',
         'ended' => 'منتهية',
         'pending_approval' => 'بانتظار الاعتماد',
+        'awaiting_activation' => 'بانتظار التفعيل',
         'approved' => 'معتمدة',
         'needs_review' => 'تحتاج مراجعة',
         'locked' => 'مُقفلة',

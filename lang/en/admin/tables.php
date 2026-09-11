@@ -325,6 +325,7 @@ return [
         'expiring' => 'Expiring soon',
         'ended' => 'Ended',
         'pending_approval' => 'Pending approval',
+        'awaiting_activation' => 'Awaiting activation',
         'approved' => 'Approved',
         'needs_review' => 'Needs review',
         'locked' => 'Locked',

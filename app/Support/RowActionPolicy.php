@@ -77,6 +77,11 @@ final class RowActionPolicy
             .'would be worse than either surface alone.',
         'Admin/Resources/TenantRequests/Tables/TenantRequestsTable' => 'technician holds requests.change_status and NOT requests.edit — the same role and the '
             .'same reason as the work-order board it sits beside.',
+        'Admin/Resources/Leases/Tables/LeasesTable' => 'activate gates on leases.activate, which accounting holds beside leases.view and NOT '
+            .'leases.edit (meeting 2026-09-02: leasing enters, accounting executes — Yardi\'s '
+            .'entering-vs-posting split). The record page is reached through canEdit(), so on it '
+            .'the act would be unreachable by exactly the role whose job it is; the "Awaiting '
+            .'activation" tab plus this button is that role\'s worklist.',
         'Admin/Resources/Violations/Tables/ViolationTable' => 'billFine gates on invoices.create, which accounting holds while NOT holding '
             .'violations.edit: the role that raises AR can bill a fine today and would be refused '
             .'the violation record page. Cross-module gating, so it is invisible to any check that '

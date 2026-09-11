@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\PostDatedCheques\Schemas;
 
 use App\Models\Invoice;
+use App\Models\Lease;
 use App\Models\PostDatedCheque;
 use App\Models\Tenant;
 use App\Support\Filament\EntitySelect;
@@ -76,6 +77,23 @@ class PostDatedChequeForm
                                 ->find($value)?->number;
                         })
                         ->helperText(__('admin.post_dated_cheques.fields.invoice_hint')),
+                    // WHICH LEASE this cheque secures (2026-09-11). `post_dated_cheques.lease_id`
+                    // had existed since the register shipped and NO door wrote it — so a lease
+                    // awaiting activation on a property that counts lodged cheques toward its
+                    // deposit (`LeaseActivation::DEPOSIT_OR_CHEQUES`) could never be satisfied from
+                    // the panel. The model fills it from the invoice when one is picked and guards
+                    // it against another tenant's or another mall's lease.
+                    EntitySelect::make('lease_id')
+                        ->label(__('admin.post_dated_cheques.fields.lease'))
+                        ->entity(Lease::class)
+                        ->modifyOptionsQuery(fn ($query, Get $get) => $get('tenant_id')
+                            ? $query
+                                ->where('tenant_id', $get('tenant_id'))
+                                ->whereIn('status', [...Lease::OPEN_TO_COMMERCIAL_ACTS, 'draft'])
+                                ->when($get('asset_id'), fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+                            : $query->whereRaw('1 = 0'))
+                        ->preload()
+                        ->helperText(__('admin.post_dated_cheques.fields.lease_hint')),
                     TextInput::make('cheque_number')
                         ->label(__('admin.post_dated_cheques.fields.cheque_number'))
                         ->required()

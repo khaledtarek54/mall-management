@@ -118,6 +118,9 @@ class RolesPermissionsSeeder extends Seeder
             'leases.terminate' => 'Terminate leases',
             'leases.renew' => 'Renew leases',
             'leases.generate_invoice' => 'Generate invoices from a lease',
+            // Activation is an ACT since 2026-09-11 (meeting 2026-09-02): entering a lease and
+            // executing it are two rights, the way `invoices.issue` splits entering from posting.
+            'leases.activate' => 'Activate a lease (execute it once the deposit or cheques are in)',
         ],
         'invoices' => [
             'invoices.view' => 'View invoices',
@@ -812,6 +815,12 @@ class RolesPermissionsSeeder extends Seeder
 
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
         $grants['accounting'] = [
+            // The client's own flow (meeting 2026-09-02, point 2): leasing ENTERS a lease, and the
+            // accountant ACTIVATES it once the deposit or the cheques are in — Yardi's
+            // entering-vs-posting split, the same shape as `invoices.issue` below. `leases.view`
+            // with it, because an act on a record one cannot open is unreachable; deliberately
+            // NOT `leases.edit` — activating a lease is not a licence to change its terms.
+            'leases.view', 'leases.activate',
             'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.issue', 'invoices.void',
             'invoices.run_monthly_billing',
             'payments.view', 'payments.create', 'payments.edit', 'payments.void',

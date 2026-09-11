@@ -32,7 +32,7 @@ return [
         ],
         'lease' => [
             'draft' => 'مسودة',
-            'pending_approval' => 'بانتظار الموافقة',
+            'pending_approval' => 'بانتظار التفعيل',
             'future' => 'مستقبلي',
             'active' => 'نشط',
             'expired' => 'منتهي',

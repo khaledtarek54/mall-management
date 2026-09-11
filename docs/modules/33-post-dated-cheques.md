@@ -20,7 +20,7 @@ from the competitive gap analysis, and a **differentiator** (no Western benchmar
 | `reference` | PDC-YYYY-NNNN, race-safe |
 | `asset_id` | the property (isolation dimension) |
 | `tenant_id` | the drawer |
-| `lease_id` / `invoice_id` | optional links; `invoice_id` = the invoice it settles on clearing |
+| `lease_id` / `invoice_id` | optional links; `invoice_id` = the invoice it settles on clearing. **`lease_id` had NO door until 2026-09-11** — the column shipped with the register and nothing wrote it, which meant a lease awaiting activation on a property that counts lodged cheques toward its deposit (`LeaseActivation::DEPOSIT_OR_CHEQUES`, module 04) could never be satisfied from the panel. The cheque form and the *Lodge a series* modal carry a lease picker now (the tenant's open leases in the property), the model fills it from the invoice when a cheque is lodged against one, and refuses another tenant's or another mall's lease in words. |
 | `cheque_number`, `bank_name`, `amount`, `currency` | the instrument |
 | `cheque_date` | **maturity** (the post-date) — the register sorts/filters on this = the maturity schedule |
 | `received_date` | when the operator took it in |

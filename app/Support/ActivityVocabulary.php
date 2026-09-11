@@ -235,6 +235,7 @@ class ActivityVocabulary
         'lease.rent_pricing_basis' => 'admin.enums.rent_pricing_basis',
         'lease.billing_frequency' => 'admin.billing_frequency',
         'lease.escalation_type' => 'admin.enums.escalation_type',
+        'lease.security_deposit_basis' => 'admin.deposit_basis',
         'lease.percentage_rent_calculation_type' => 'admin.enums.percentage_rent_calculation_type',
         'lease.percentage_rent_frequency' => 'admin.enums.percentage_rent_frequency',
         'lease.percentage_rent_billing_frequency' => 'admin.enums.percentage_rent_billing_frequency',

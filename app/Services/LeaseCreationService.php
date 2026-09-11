@@ -6,6 +6,8 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Support\DepositBasis;
+use App\Support\LeaseActivation;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
 use Carbon\CarbonImmutable;
@@ -69,7 +71,12 @@ class LeaseCreationService
                 // unit it is being given.
                 'unit_id' => $unit->id,
                 'tenant_id' => $tenant->id,
-                'status' => 'active',
+                // ENTRY EXECUTES only where the property says so (meeting 2026-09-02, point 1).
+                // With `lease_activation_requires` at `none` — Yardi Commercial's default and the
+                // shipped one — a lease entered through the wizard is active, exactly as before.
+                // With money required it is entered AWAITING ACTIVATION, holds its shop as
+                // `reserved`, and the Activate act is the only door to `active`.
+                'status' => LeaseActivation::entryExecutes($unit->asset_id) ? 'active' : 'pending_approval',
                 'commencement_date' => $commencement,
                 'expiry_date' => $expiry,
                 'term_months' => $termMonths,
@@ -77,9 +84,13 @@ class LeaseCreationService
                 'service_charge_monthly' => $service,
                 'currency' => 'EGP',
                 // The house policy, not a literal 3 (EG-35, finding M-11). Per-property, because
-                // deposit terms are negotiated per building. An agreed figure still wins.
-                'security_deposit' => (float) ($payload['lease']['security_deposit']
-                    ?? $rent * (float) PropertySettings::get('billing.default_security_deposit_months', $unit->asset_id)),
+                // deposit terms are negotiated per building. An agreed figure still wins — and
+                // since 2026-09-11 it wins as a FIXED basis, while a lease that states none takes
+                // the property's basis (months or % of annual rent) and lets `Lease::saving`
+                // derive the figure through `DepositBasis`, the one arithmetic every writer reads.
+                // Before this the wizard wrote the derived SUM and no multiple, so a wizard lease's
+                // deposit never tracked its rent the way a form lease's did (EG-35's own rule).
+                ...self::depositTerms($payload, $unit->asset_id),
                 'escalation_rate' => (float) ($payload['lease']['escalation_rate'] ?? 7),
                 'escalation_type' => 'fixed_percent',
                 // The property's convention, not a literal 7 — the same shape as the deposit
@@ -111,6 +122,34 @@ class LeaseCreationService
      * `CreateLease::handleRecordCreation()` so the standard Filament form
      * gets the same charges the wizard produces.
      */
+    /**
+     * The deposit columns a new lease is created with — agreed figure, else the property's basis.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private static function depositTerms(array $payload, ?int $assetId): array
+    {
+        if (isset($payload['lease']['security_deposit'])) {
+            return [
+                'security_deposit' => (float) $payload['lease']['security_deposit'],
+                'security_deposit_basis' => DepositBasis::FIXED,
+                'security_deposit_months' => null,
+                'security_deposit_percent' => null,
+            ];
+        }
+
+        $defaults = DepositBasis::defaultsFor($assetId);
+
+        return [
+            // Derived by `Lease::saving` from the basis; 0 here is a placeholder the hook replaces.
+            'security_deposit' => 0.0,
+            'security_deposit_basis' => $defaults['basis'],
+            'security_deposit_months' => $defaults['months'],
+            'security_deposit_percent' => $defaults['percent'],
+        ];
+    }
+
     public static function seedStandardCharges(
         Lease $lease,
         float $rent,

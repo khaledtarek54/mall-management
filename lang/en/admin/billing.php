@@ -246,6 +246,8 @@ return [
             'tenant' => 'Tenant',
             'invoice' => 'Invoice',
             'invoice_hint' => 'Optional — the invoice this cheque is meant to settle when it clears.',
+            'lease' => 'Lease',
+            'lease_hint' => 'Which agreement this cheque secures. Filled from the invoice when one is picked; a lease awaiting activation counts lodged cheques toward its deposit.',
             'bank_account' => 'Deposited to',
             'bank_account_hint' => 'Which of your accounts you handed it to. Left blank, clearing falls back to the rail.',
             'deposited_on' => 'Deposited on',

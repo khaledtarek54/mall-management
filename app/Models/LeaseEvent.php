@@ -50,6 +50,12 @@ class LeaseEvent extends Model
 
     public const TYPE_TERMINATION = 'termination';
 
+    /** The lease was ACTIVATED — entered, then executed by an authorised act (2026-09-11). */
+    public const TYPE_ACTIVATION = 'activation';
+
+    /** A never-executed lease was cancelled — today, only by a reservation that lapsed. */
+    public const TYPE_CANCELLATION = 'cancellation';
+
     public const TYPES = [
         self::TYPE_RENT_MODIFICATION,
         self::TYPE_ABATEMENT,
@@ -59,6 +65,8 @@ class LeaseEvent extends Model
         self::TYPE_EXTENSION,
         self::TYPE_HOLDOVER,
         self::TYPE_TERMINATION,
+        self::TYPE_ACTIVATION,
+        self::TYPE_CANCELLATION,
     ];
 
     protected $fillable = [

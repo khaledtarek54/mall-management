@@ -165,6 +165,14 @@ return [
             'late_fee_maximum_helper' => 'أقصى قيمة لغرامة واحدة. اكتب صفرًا لإلغاء الحد. ويُطبَّق بعد الحد الأدنى، فإن كان أقل منه فهو الغالب.',
             'default_security_deposit_months' => 'التأمين الافتراضي (بعدد شهور الإيجار)',
             'default_security_deposit_months_helper' => 'يُقترح على العقد الجديد. والمبلغ المتفق عليه في العقد هو الغالب دائمًا.',
+            'default_security_deposit_basis' => 'أساس التأمين الافتراضي',
+            'default_security_deposit_basis_helper' => 'كيف يقترح العقد الجديد تأمينه: عدد شهور إيجار (الشكل السائد في السوق)، أو نسبة من الإيجار السنوي، أو مبلغ ثابت.',
+            'default_security_deposit_percent' => 'التأمين الافتراضي (نسبة من الإيجار السنوي)',
+            'default_security_deposit_percent_helper' => 'يُقترح عندما يكون الأساس نسبة من الإيجار السنوي. والرقم المتفق عليه في العقد هو الغالب دائمًا.',
+            'lease_activation_requires' => 'قبل تفعيل العقد',
+            'lease_activation_requires_helper' => 'لا شيء (يُنفَّذ العقد بمجرد إدخاله — وهو الافتراضي في Yardi)؛ أو استلام التأمين؛ أو استلام التأمين أو إيداع شيكات تغطيه. لكل عقار على حدة.',
+            'reservation_valid_days' => 'مدة صلاحية الحجز (بالأيام)',
+            'reservation_valid_days_helper' => 'يحجز العقد المنتظر تفعيله وحدته لهذا العدد من الأيام؛ وبعدها يلغي المسح الليلي العقد ويُفرج عن الوحدة. صفر = بلا حد.',
             'late_fee_minimum' => 'الحد الأدنى لغرامة التأخير',
             'nsf_fee_amount' => 'رسوم الشيك المرتجع',
             'nsf_fee_amount_helper' => 'تُحتسب عند ارتجاع شيك مؤجَّل، كفاتورة مستقلة. الصفر يعطّلها — ويبقى الإجراء مخفيًا حتى تحدد قيمة.',
@@ -644,6 +652,8 @@ return [
         'lease_option_closing_body' => 'يجب استخدام :type للمستأجر :tenant (:lease، وحدة :unit) قبل :deadline — تبقّى :days يومًا. بعد ذلك يسقط الحق.',
         'lease_option_lapsed_title' => 'سقوط :type',
         'lease_option_lapsed_body' => 'أُغلقت نافذة الإخطار الخاصة بـ :type على :lease (:tenant، وحدة :unit) في :deadline دون تقديم إخطار. تم تسجيله كساقط.',
+        'reservation_lapsed_title' => 'انتهى حجز الوحدة :unit',
+        'reservation_lapsed_body' => 'كان العقد :lease (:tenant، وحدة :unit) محجوزًا حتى :date ولم يصل التأمين. أُلغي العقد وعادت الوحدة إلى السوق.',
         // مشتركة بين كل تنبيه يُرسل بالبريد أيضاً (AlsoSendsByMail) — الرسالة تعيد استخدام عنوان
         // ونص الجرس نفسه، فلا يوجد جديد سوى الزر وعنوان احتياطي.
         'mail_open_cta' => 'فتح أتريوم',

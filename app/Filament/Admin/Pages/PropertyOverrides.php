@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Support\DepositBasis;
+use App\Support\LeaseActivation;
 use App\Support\PropertySettings;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
@@ -247,9 +249,16 @@ class PropertyOverrides extends Page implements HasSchemas
 
             // Normalise before comparing: the form hands back strings, the store holds JSON scalars,
             // and without this every Save would log a "change" from 2 to "2".
-            $normalised = ($after === null || $after === '') ? null : (float) $after;
+            //
+            // BY THE PORTFOLIO VALUE'S TYPE, not `(float)` for everything (2026-09-11). The render
+            // side had learned that a string setting is a CHOICE (`choicesFor()`, 2026-08-23) and
+            // the save side had not: every override was cast to a float, so picking
+            // `deposit_received` stored `0`, the page re-opened showing "inherit", and the gate
+            // stayed off on the mall everybody believed it was on — `billing.proration_method` had
+            // been dead the same way since the day its dropdown was added. A bool arrives as '1'/'0'.
+            $normalised = self::normalise($after, PropertySettings::portfolio($key));
 
-            if ($before !== null && (float) $before === $normalised) {
+            if ($before !== null && self::normalise($before, PropertySettings::portfolio($key)) === $normalised) {
                 continue;
             }
 
@@ -280,6 +289,24 @@ class PropertyOverrides extends Page implements HasSchemas
         return str_replace('.', '__', $key);
     }
 
+    /**
+     * The override in the TYPE the portfolio holds it in — string for a choice, bool for a switch,
+     * float for a figure — or null for "inherit".
+     */
+    private static function normalise(mixed $value, mixed $portfolio): string|bool|float|null
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return match (true) {
+            // '1' / '0' from the Select, 1.0 / 0.0 from a row this page wrote before it typed.
+            is_bool($portfolio) => is_string($value) ? filter_var($value, FILTER_VALIDATE_BOOLEAN) : (bool) $value,
+            is_string($portfolio) => (string) $value,
+            default => (float) $value,
+        };
+    }
+
     private static function name(string $key): string
     {
         return explode('.', $key, 2)[1];
@@ -297,6 +324,18 @@ class PropertyOverrides extends Page implements HasSchemas
      */
     private static function choicesFor(string $key): array
     {
+        // A setting that is not a column of any table reads its vocabulary off the class that owns
+        // it — the same words the Settings page offers, never a second list here.
+        $own = match ($key) {
+            'billing.lease_activation_requires' => LeaseActivation::options(),
+            'billing.default_security_deposit_basis' => DepositBasis::options(),
+            default => null,
+        };
+
+        if ($own !== null) {
+            return $own;
+        }
+
         $column = match ($key) {
             'billing.proration_method' => ['leases', 'proration_method'],
             default => null,

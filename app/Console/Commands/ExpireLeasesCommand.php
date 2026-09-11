@@ -6,12 +6,19 @@ use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Models\RentableItem;
 use App\Models\Unit;
+use App\Notifications\ReservationLapsedNotification;
+use App\Services\AssetStaffRecipients;
 use App\Services\BillFinalPeriodService;
+use App\Services\RecordLeaseEventService;
+use App\Support\LeaseActivation;
+use App\Support\LeaseEventNarrative;
 use App\Support\OpsLog;
 use App\Support\ProjectedState;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+use Throwable;
 
 /**
  * Move a lease whose term has run out to `expired`, and re-project the units it held.
@@ -66,6 +73,9 @@ class ExpireLeasesCommand extends Command
         // since nothing both starts and ends on the same run.
         $commenced = $this->commenceLeases();
         $expired = $this->expireLeases();
+        // The lease observer frees the shop on the status write itself; lapsing before the
+        // re-projection below is only so the two halves are read in one order.
+        $lapsed = $this->lapseReservations();
         $reprojected = $this->reprojectUnits();
         $items = $this->reprojectRentableItems();
 
@@ -73,12 +83,132 @@ class ExpireLeasesCommand extends Command
             OpsLog::info('Lease expiry sweep complete', [
                 'commenced' => $commenced,
                 'expired' => $expired,
+                'reservations_lapsed' => $lapsed,
                 'units_reprojected' => $reprojected,
                 'rentable_items_reprojected' => $items,
             ]);
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Cancel a lease AWAITING ACTIVATION whose reservation window has run out with the money still
+     * not in (meeting 2026-09-02, point 1 — *"the reservation is valid for X days"*; Yardi's unit
+     * hold expires the same way). Idempotent + lock-safe: each lease is locked and re-checked
+     * inside its own transaction. A `draft` is never a candidate — it is terms still being
+     * written, and `LeaseActivation::AWAITING` says so.
+     *
+     * Four things are deliberately NOT lapsed, and each is a person's decision rather than a
+     * sweep's: a lease whose money HAS arrived by the day (`LeaseActivation::shortfall()` null —
+     * the accountant activates it, the sweep does not); one on a property that gates nothing, or
+     * whose window is now 0 (no money to wait for, or no policy: the stamped date is a reminder and
+     * the red date on the list says so); and one carrying an ISSUED invoice — a deposit invoice the
+     * tenant was sent — because cancelling the lease under a live document is the move-out service's
+     * job, not this one's. Those stay on the "Awaiting activation" tab with the date in red.
+     */
+    private function lapseReservations(): int
+    {
+        $candidates = Lease::query()
+            ->whereIn('status', LeaseActivation::AWAITING)
+            ->whereNotNull('reserved_until')
+            ->whereDate('reserved_until', '<', today());
+
+        $count = $candidates->count();
+
+        if ($count === 0) {
+            $this->info('No reservation has run out.');
+
+            return 0;
+        }
+
+        if ($this->option('dry-run')) {
+            $this->warn("{$count} reservation(s) have run out:");
+            $candidates->with('tenant:id,name', 'unit:id,code')->get()->each(function (Lease $l) {
+                $this->line(sprintf(
+                    '  #%d %s · %s · unit %s · reserved until %s',
+                    $l->id,
+                    $l->reference ?: '—',
+                    $l->tenant?->name ?? '—',
+                    $l->unit?->code ?? '—',
+                    $l->reserved_until->format('Y-m-d'),
+                ));
+            });
+
+            return 0;
+        }
+
+        $lapsed = 0;
+
+        foreach ($candidates->select('id')->get() as $row) {
+            DB::transaction(function () use ($row, &$lapsed) {
+                /** @var Lease|null $lease */
+                $lease = Lease::query()->with('unit')->lockForUpdate()->find($row->id);
+
+                if (! $lease
+                    || ! LeaseActivation::isAwaiting($lease)
+                    || $lease->reserved_until === null
+                    || ! $lease->reserved_until->lt(today())) {
+                    return;
+                }
+
+                // Four reasons to leave it alone, each a person's decision rather than a sweep's;
+                // the first two read the property's CURRENT policy, so switching the gate or the
+                // window off stops every stamped date lapsing rather than only new ones ("0 = never"
+                // must mean never, or the column that shows the date hides exactly when the sweep
+                // still reads it). `draft`/`cancelled` invoices claim nothing — the same pair
+                // `TenantLedger` leaves out; a `credited` one was asked for and answered, and a
+                // lease under any answered document is a person's call.
+                if (LeaseActivation::requirementFor($lease->unit?->asset_id) === LeaseActivation::NONE
+                    || LeaseActivation::reservationDaysFor($lease->unit?->asset_id) === 0
+                    || LeaseActivation::shortfall($lease, forUpdate: true) === null
+                    || $lease->invoices()->whereNotIn('status', ['draft', 'cancelled'])->exists()) {
+                    return;
+                }
+
+                $reservedUntil = $lease->reserved_until;
+
+                $lease->forceFill(['status' => 'cancelled'])->save();
+
+                app(RecordLeaseEventService::class)->record(
+                    $lease,
+                    LeaseEvent::TYPE_CANCELLATION,
+                    CarbonImmutable::today(),
+                    null,
+                    [
+                        LeaseEventNarrative::KEY => 'reservation_lapsed',
+                        'reserved_until' => $reservedUntil->toDateString(),
+                    ],
+                );
+
+                $lapsed++;
+
+                // After the commit, never under the lock (SW-213), and best-effort: a dropped
+                // email cannot make the cancellation invisible — the red date on the list and the
+                // timeline row are the record.
+                DB::afterCommit(function () use ($lease, $reservedUntil) {
+                    try {
+                        $recipients = app(AssetStaffRecipients::class)
+                            ->for($lease->unit?->asset_id, ['manager', 'leasing']);
+
+                        if ($recipients->isNotEmpty()) {
+                            Notification::send($recipients, new ReservationLapsedNotification(
+                                $lease->fresh(['tenant', 'unit']),
+                                $reservedUntil->toDateString(),
+                            ));
+                        }
+                    } catch (Throwable $e) {
+                        OpsLog::warning('reservation_lapse.delivery_failed', [
+                            'lease_id' => $lease->id, 'error' => $e->getMessage(),
+                        ]);
+                    }
+                });
+            });
+        }
+
+        $this->info("Lapsed {$lapsed} reservation(s).");
+
+        return $lapsed;
     }
 
     /**
@@ -254,7 +384,7 @@ class ExpireLeasesCommand extends Command
                     // that silently does nothing for the rest of the portfolio.
                     try {
                         app(BillFinalPeriodService::class)->billFor($lease->fresh(), CarbonImmutable::parse($lease->expiry_date));
-                    } catch (\Throwable $e) {
+                    } catch (Throwable $e) {
                         OpsLog::warning('Final consumed period could not be billed while expiring a lease', [
                             'lease_id' => $lease->id,
                             'error' => $e->getMessage(),

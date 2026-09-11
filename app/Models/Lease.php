@@ -19,8 +19,10 @@ use App\Services\RentEscalationService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\DepositBasis;
 use App\Support\DepositBilling;
 use App\Support\DocumentNumbering;
+use App\Support\LeaseActivation;
 use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -454,15 +456,63 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // **Null means flat, and nothing moves.** A deposit agreed as a sum unrelated to rent is a
         // real deal; inferring a multiple by dividing the deposit by the rent would invent a term
         // nobody agreed to.
+        //
+        // **Since 2026-09-11 the deposit has a BASIS** (`security_deposit_basis`, meeting 2026-09-02
+        // point 3): `months` is what the multiple above always meant, `percent_of_annual_rent` is
+        // the Egyptian / GCC clause, `fixed` is what a null multiple always meant. One arithmetic —
+        // `DepositBasis::derive()` — read here, by the wizard and by the form's preview, so a
+        // renewal, an escalation and an import cannot price one clause three ways. A rent-linked
+        // basis re-derives; a fixed one is the operator's figure and nothing touches it.
         static::saving(function (self $lease) {
-            if ($lease->security_deposit_months === null) {
+            // A writer that states a multiple and no basis (every writer before the basis existed;
+            // the importer still) means `months` — the backfill's own rule, applied on the way in.
+            if ($lease->security_deposit_basis === null) {
+                $lease->security_deposit_basis = $lease->security_deposit_months === null
+                    ? DepositBasis::FIXED
+                    : DepositBasis::MONTHS;
+            }
+
+            $required = DepositBasis::for($lease);
+
+            if ($required !== null && (float) $lease->security_deposit !== $required) {
+                $lease->security_deposit = $required;
+            }
+        });
+
+        // ── A reservation has a window (meeting 2026-09-02, point 1) ──────────────────────────
+        // A draft or pending lease holds its shop off the market (`Unit::recomputeStatus()` reads
+        // it as `reserved`), so it opens with the property's hold window stamped on it — Yardi's
+        // unit-hold expiry. On the MODEL, so the form, the wizard and the importer all stamp it;
+        // a window of 0 days (the shipped default) stamps nothing, and `leases:expire` lapses a
+        // reservation whose day has passed with the money still not in.
+        //
+        // Stamped when a lease ENTERS the awaiting state — created there, or a draft promoted into
+        // it — and CLEARED on every exit from it, whichever door took it out (the Activate act, the
+        // dropdown on an ungated property, a cancellation, the importer): a date on an active lease
+        // is a hold that no longer exists, and a renewal must not inherit it either
+        // (`RENEWAL_RESETS`). Found by the review of this change, which activated a draft through
+        // the dropdown and read `reserved_until` still standing on the active lease.
+        static::saving(function (self $lease) {
+            $awaiting = LeaseActivation::isAwaiting($lease);
+
+            if (! $awaiting) {
+                if ($lease->reserved_until !== null) {
+                    $lease->reserved_until = null;
+                }
+
                 return;
             }
 
-            $required = round((float) $lease->base_rent_monthly * (float) $lease->security_deposit_months, 2);
+            $enteredNow = ! $lease->exists || $lease->isDirty('status');
 
-            if ((float) $lease->security_deposit !== $required) {
-                $lease->security_deposit = $required;
+            if ($lease->reserved_until !== null || ! $enteredNow) {
+                return;
+            }
+
+            $days = LeaseActivation::reservationDaysFor($lease->unit?->asset_id);
+
+            if ($days > 0) {
+                $lease->reserved_until = CarbonImmutable::today()->addDays($days);
             }
         });
 
@@ -530,6 +580,8 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'base_rent_rate_per_sqm_year',
         'rent_pricing_basis',
         'security_deposit_months',
+        'security_deposit_basis',
+        'security_deposit_percent',
         'previous_lease_id',
         'deleted_at',
     ];
@@ -611,6 +663,8 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'base_rent_rate_per_sqm_year',
         'rent_pricing_basis',
         'security_deposit_months',
+        'security_deposit_basis',
+        'security_deposit_percent',
         'previous_lease_id',
         'deleted_at',
     ];
@@ -702,6 +756,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
         // ── State that belonged to the ORIGINAL tenancy ───────────────────────────────────────
         'possession_date' => 'the tenant took possession once, at the start of the original lease.',
+        'reserved_until' => 'a hold on the ORIGINAL while it awaited activation; a renewal is executed and holds nothing.',
         'rent_commencement_date' => 'fit-out grace was for the original build-out; a renewal has no new one.',
         'fit_out_scope' => 'same — there is no fit-out to scope on a renewal.',
         'next_escalation_date' => 'recomputed by the escalation hook in `Lease::booted` from the renewal\'s own dates; copying the original\'s would escalate against a term that has ended.',
@@ -741,6 +796,9 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'currency',
         'security_deposit',
         'security_deposit_months',
+        'security_deposit_basis',
+        'security_deposit_percent',
+        'reserved_until',
         'escalation_rate',
         'escalation_amount',
         'escalation_floor_rate',
@@ -805,6 +863,8 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'service_charge_monthly' => 'decimal:2',
         'security_deposit' => 'decimal:2',
         'security_deposit_months' => 'decimal:2',
+        'security_deposit_percent' => 'decimal:2',
+        'reserved_until' => 'date',
         // Cast declared purely so static analysis reads the column as a string. It was created as a
         // DB-level `enum('none','fixed_percent','cpi')` in 2024, and larastan derives the attribute
         // type from that migration while ignoring the `->change()` that converted it to a varchar —

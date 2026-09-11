@@ -21,6 +21,14 @@
 
 return [
     'refusals' => [
+        'cheque_lease_other_tenant' => 'That lease belongs to a different tenant than this cheque. A cheque secures its own tenant\'s agreement.',
+        'cheque_lease_other_property' => 'That lease is in a different property than this cheque. Lodge the cheque under the property the lease is in.',
+        // Lease activation (meeting 2026-09-02, point 1). The figures in the sentence are the ones the
+        // decision was made from, under the same lock.
+        'lease_activation_needs_deposit' => 'This lease cannot be activated yet: the security deposit of EGP :required must be received first, and EGP :held is held. Record the deposit receipt, or have the deposit invoice paid, then activate.',
+        'lease_activation_needs_deposit_or_cheques' => 'This lease cannot be activated yet: the security deposit of EGP :required must be received (EGP :held held), or post-dated cheques worth at least that must be lodged on it (EGP :cheques lodged). Record the receipt or lodge the cheques, then activate.',
+        'lease_not_awaiting_activation' => 'Lease :reference is :status — only a lease awaiting activation can be activated. A draft is promoted to awaiting activation once the deal is signed.',
+        'lease_activation_unit_taken' => 'Unit :unit has been let to somebody else since this lease was entered, so it cannot be activated on it. Re-home the lease to a free unit first.',
         'stock_movement_quantity_zero' => 'A receipt or a consumption has to move something, so its quantity cannot be zero. Type the number of units that actually moved — a correction that nets to nothing is recorded as an Adjustment, which is the one movement allowed to be zero.',
         'stock_movement_has_no_value' => ':item carries no unit cost, and none has ever been received at one either — so moving it would change the stock on hand and post nothing to the general ledger. Set a unit cost on the item, or record a receipt that carries one, and try again.',
         'stock_transfer_quantity_zero' => 'A transfer has to move something — type how many units are going to the other store.',

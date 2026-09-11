@@ -172,6 +172,25 @@ class PostDatedCheque extends Model
             // invoice, and clearing the cheque would settle it. Re-checked on any invoice_id /
             // asset_id / tenant_id change — the `tenant_id` trigger closes the edit-the-tenant path
             // the property-only check missed (audit M33 F-2).
+            // WHICH LEASE the cheque secures (2026-09-11). Filled from the invoice when the door
+            // named one and no lease — the register's own column that no door had ever written —
+            // and guarded exactly as the invoice is: a lease of another tenant, or in another mall,
+            // would let a cheque lodged here count toward a deposit it never secured.
+            if ($cheque->lease_id === null && $cheque->invoice_id) {
+                $cheque->lease_id = Invoice::whereKey($cheque->invoice_id)->value('lease_id');
+            }
+
+            if ($cheque->lease_id && ($cheque->isDirty('lease_id') || $cheque->isDirty('asset_id') || $cheque->isDirty('tenant_id'))) {
+                $lease = Lease::with('unit:id,asset_id')->find($cheque->lease_id);
+
+                if ($lease !== null && (int) $lease->tenant_id !== (int) $cheque->tenant_id) {
+                    throw new \DomainException(__('admin.refusals.cheque_lease_other_tenant'));
+                }
+                if ($lease?->unit?->asset_id !== null && $cheque->asset_id !== null && (int) $lease->unit->asset_id !== (int) $cheque->asset_id) {
+                    throw new \DomainException(__('admin.refusals.cheque_lease_other_property'));
+                }
+            }
+
             if ($cheque->invoice_id && ($cheque->isDirty('invoice_id') || $cheque->isDirty('asset_id') || $cheque->isDirty('tenant_id'))) {
                 $invoice = Invoice::whereKey($cheque->invoice_id)->first();
                 // The invoice's own column. Via the lease chain an owner assessment answered null,

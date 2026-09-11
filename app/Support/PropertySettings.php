@@ -62,6 +62,22 @@ class PropertySettings
             'class' => BillingSettings::class,
             'reason' => 'How a part month is priced is a lease clause, and clauses differ by building: a mall let on standing "one thirtieth per day" terms cannot share a default with one whose leases prorate on actual days. It is per property for the same reason the whole late-fee sentence is — the lease tier above already assumes the term varies, so a single portfolio answer underneath it would be the odd one out.',
         ],
+        'billing.default_security_deposit_basis' => [
+            'class' => BillingSettings::class,
+            'reason' => 'How a deposit is agreed follows the building\'s own leases: an office tower whose clauses say "10% of the annual rent" and a kiosk mall whose say "three months" are two conventions in one portfolio, and the basis sits beside the months figure that has been per-property since EG-35.',
+        ],
+        'billing.default_security_deposit_percent' => [
+            'class' => BillingSettings::class,
+            'reason' => 'The percentage the basis above proposes, per building for the same reason the months figure is: deposit terms are negotiated against what the local market will bear.',
+        ],
+        'billing.lease_activation_requires' => [
+            'class' => BillingSettings::class,
+            'reason' => 'Whether a lease goes live on entry or only once the deposit or the cheques are in is a property\'s own control (Yardi\'s residential "no move-in with a balance" is set per property): a mall that takes cash at signing and one that takes twelve post-dated cheques differ, and one portfolio switch would force the stricter rule on both.',
+        ],
+        'billing.reservation_valid_days' => [
+            'class' => BillingSettings::class,
+            'reason' => 'How long a shop is held for a signed-but-unpaid tenant is a leasing-market decision per building — a mall with a waiting list holds for a week, one with vacancies holds for a month — and Yardi\'s unit hold expiry is set per property too.',
+        ],
         'billing.default_security_deposit_months' => [
             'class' => BillingSettings::class,
             'reason' => 'Deposit policy is negotiated per building against what the local market bears — three months at the flagship, two at the outlet. It was the literal 3 in `LeaseCreationService`\'s `$rent * 3`, so a policy change reached nothing and a per-mall policy was unsayable. It PROPOSES the amount; the lease still records what was agreed.',
