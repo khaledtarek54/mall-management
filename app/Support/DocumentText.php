@@ -58,6 +58,7 @@ final class DocumentText
         'invoice.footer',
         'invoice.payment_instructions',
         'invoice.terms',
+        'statement.footer',
         'lease.agreement_terms',
         'dunning.overdue_reminder',
         'dunning.final_notice',
@@ -84,6 +85,11 @@ final class DocumentText
 
         // NEW. Late-payment terms, disputes window, whatever the lease says in general.
         'invoice.terms' => ['floor' => null, 'tokens' => []],
+
+        // The line under the Statement of Account (meeting 2026-09-02, point 10 — *"valid for X
+        // days"*). The validity period is the operator's own sentence, so there is no token: they
+        // write the number. The floor is what the document always printed.
+        'statement.footer' => ['floor' => 'admin.statement.footer', 'tokens' => []],
 
         // The standing wording on the LEASE AGREEMENT — governing law, notices, whatever the
         // operator's lawyer settled. No floor, and that is deliberate: this system does not know

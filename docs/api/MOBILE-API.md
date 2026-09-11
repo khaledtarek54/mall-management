@@ -424,9 +424,18 @@ Query: **`from`**, **`to`** (YYYY-MM-DD), **`lang`** (`en|ar`, CHANGED 2026-08-2
 PDF above for the rule). Omit both for the documented **12-month trailing**
 window. State the window if you intend to print it: the endpoint used to hard-code the period and
 report nothing about what it covered, so a client printing a range beside the PDF was printing a
-device-clock guess. — Statement of Account PDF
-12-month trailing window of invoices + payments + summary. Streams
-`application/pdf`.
+device-clock guess. — Statement of Account PDF. Streams `application/pdf`.
+
+**CHANGED 2026-09-11 — the document is the tenant's ledger, printed.** A balance brought forward
+at `from`, then every movement with a running balance (date · reference · description · debit ·
+credit · balance): one row per invoice LINE, worded in the document's language; one row per
+receipt naming the rail and the invoices it settled; credit notes, credit on account, the netted
+deposit and write-offs as credit rows. Then the security-deposit account (held, and its movements)
+and the open invoices. Two totals: **Due from you** (the ledger's closing balance, GROSS of any
+credit note not yet applied) and **Held for you** (deposit + unapplied credit notes + credit on
+account). **Note for the app:** `/me/balance.outstanding` NETS unapplied credit notes, so it can
+read lower than the PDF's *Due from you* by exactly the *credit notes not yet applied* line — both
+are right; the PDF shows both sides. The footer is the operator's own wording per property.
 
 ---
 

@@ -107,9 +107,10 @@ it('keeps a draft off the statement of account', function () {
 
     expect($data)->toBeArray();  // null here means the statement view never rendered
 
-    $numbers = collect($data['openInvoices'])
-        ->merge($data['recentInvoices'])
-        ->pluck('number');
+    // Both surfaces of the document: the open-invoice table and the ledger rows (which replaced
+    // the "recent invoices" table on 2026-09-11 — a ledger row's reference is its invoice number).
+    $numbers = collect($data['openInvoices'])->pluck('number')
+        ->merge($data['ledger']['rows']->pluck('reference'));
 
     expect($numbers)->not->toContain($draft->number)
         ->and($numbers)->toContain($issued->number);

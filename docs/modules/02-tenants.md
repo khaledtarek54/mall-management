@@ -130,11 +130,11 @@ operator on a collections call held both in their head and did the subtraction t
 answers it with a tenant ledger; this is that.
 
 **It stores nothing, and the tie-out is the point.** Every row is derived from the documents, and
-the CLOSING BALANCE equals the sum of open invoice balances — the same figure the statement, the AR
-report and `billing:reconcile` produce. A stored running balance would be a second truth about money
-that already has one. `TenantLedgerTiesOutTest` asserts that equality first and everything else
-after: a ledger that lists movements but lands on a different number is worse than no ledger,
-because it looks authoritative.
+the CLOSING BALANCE equals what the invoices say is still **collectable** — the same figure the
+statement headline, the AR report and `billing:reconcile` produce. A stored running balance would be
+a second truth about money that already has one. `TenantLedgerTiesOutTest` asserts that equality
+first and everything else after: a ledger that lists movements but lands on a different number is
+worse than no ledger, because it looks authoritative.
 
 Rules worth knowing: it nets **all four settlement channels**, not just cash (omitting one would
 still list movements and quietly stop tying out); a payment contributes only the part **allocated to
@@ -142,16 +142,75 @@ this tenant's invoices**; `draft` and `cancelled` invoices are excluded — one 
 tenant has seen, the other claims nothing; and a same-day tie breaks on the DEBIT, because the
 other order dips the balance negative on its way to the same answer and reads as an error.
 
+**Since 2026-09-11 it is also the Statement of Account** (client meeting 2026-09-02, points 5·6·8·9·10
+— see the service below), and making it the printed document changed its grain and closed two
+defects of its own:
+
+- **One row per invoice LINE** — Yardi's charge-code grain: rent, service charge and a late fee on
+  one invoice are three rows a tenant reads separately, each worded by `LineNarrative` in the
+  reader's language. An invoice with no lines (imported) is one row at its total, described by its
+  period; a header that disagrees with its lines gets a residual row under the period, so the debit
+  is always the document's own figure. Same-day rows sort debit-first, then by reference and the
+  line's own order — a tie-break on AMOUNT alone interleaved two same-day invoices (A, B, A).
+- **A payment row names the rail AND the invoices it settled** (*"Bank transfer — for INV-…, INV-…"*),
+  one row per receipt, the receipt number as its reference.
+- **Credit-note rows come from `credit_note_applications`**, one per application at its
+  `applied_at`, reconciled to the invoice's own `credit_applied_amount` (the figure
+  `recomputeTotals()` settles with — an imported invoice carrying the figure and no application rows
+  shows its relief as one row). Keyed on `credit_notes.invoice_id` they were dropped for every note
+  raised with no invoice — every negative CAM true-up, and any note applied to an invoice other than
+  the one it names — and the ledger closed above the collectable figure by exactly their amount.
+  Found by the review of the change, not by the tests, which had built every note WITH an
+  `invoice_id`.
+- **A WRITE-OFF is a row** (type `write_off`, a credit). It is not a settlement channel — `paid_amount`
+  never sees it — but every collections read uses `collectableBalance()`, and a ledger stopping at
+  the raw balance closed above the headline printed beside it by the forgiven slice. A `written_off`
+  or legacy `credited` invoice is therefore INCLUDED with its relief; one carrying no write-off row
+  and no stored credit relief stays out, because it would print a debit nobody relieved.
+- **`statement($tenant, $ids, $since, $upTo)`** folds every row before `$since` into an opening
+  balance and runs the window's rows from it — the rule `LedgerReportService::accountLedger()`
+  applies to a GL account. `$upTo` is optional because the DEFAULT statement is unbounded above (an
+  invoice issued in advance is a first-class state).
+
+`AStatementOfAccountIsTheLedgerPrintedTest` — nineteen mutations across the ledger, the service and
+the template, each killing its own tooth.
+
 ---
 
 ### TenantStatementPdfService
 **Location:** `app/Services/TenantStatementPdfService`
 **Signature:** `build(Tenant $tenant, ?array $visibleAssetIds = null, $from = null, $to = null): string` (returns mPDF binary) · `data(...)` (the same figures, before rendering) · `filename(Tenant $tenant): string`
-**What it does:**
-- Generates a 12-month statement PDF for a tenant: outstanding invoices (open balance, by due date), recent invoices (last 12 months, sorted by issue date), recent payments (captured status only), **applied credit notes**, summary (outstanding/overdue/total_billed/total_paid/open_count).
-- Loads tenant leases + units + assets for context.
-- Uses mPDF library with RTL/LTR rendering based on `app()->getLocale()`.
-- Renders via Blade view `tenants.statement`.
+**What it does (since 2026-09-11 — the ledger, printed):**
+- Renders the tenant's ledger (`App\Support\TenantLedger::statement()`) over the window — a
+  **balance brought forward**, then every movement with a running balance (date · reference ·
+  description · debit · credit · balance), closing on what the invoices say is collectable. The
+  screen's ledger tab and this document are ONE derivation; they cannot disagree in grain or figure.
+- **Two totals**, because an account has two sides (point 5): *Due from you* = the ledger's closing
+  balance; *Held for you* = security deposit held + credit notes issued and not yet applied +
+  credit on account — each itemised. `Tenant::outstandingBalance()` (the portal/API headline) NETS
+  unapplied notes; this document prints both sides, so the two agree once the reader adds them.
+- **The deposit account** — a liability, so its own small table and never in the running balance:
+  an opening derived from the pot (so opening + received − returned = held, by construction), the
+  window's receipts / refunds / forfeits / applications, and a row per deposit **billed and paid**
+  (`depositHeld()` counts those through `settledDepositBillings()`, and without the row the account
+  printed a header, an empty body and a footer holding 99,000).
+- **Balance due, by invoice** — the closing balance's breakdown by document, the figure a tenant
+  pays against. Struck TODAY, as the overdue tile is; on a statement bounded in the past the page
+  dates them *"as of <today>"* beside a ledger that closes as at the date, rather than printing two
+  balances on two bases with nothing to tell them apart.
+- **The footer is the operator's** (`DocumentText` block `statement.footer`, per property — *"valid
+  for 7 days"*, whatever they wrote; point 10). The floor is the sentence the document always
+  carried.
+- Uses mPDF through `PdfDocument`, in the READER's language (`DocumentLocale`); every ledger
+  description is resolved inside that locale.
+- `data()` keys: `summary` (`due_from_tenant` · `overdue` · `due_to_tenant` · `deposit_held` ·
+  `credit_notes_unapplied` · `credit_on_account` · `outstanding` · `total_billed` · `total_paid` ·
+  `open_count`), `ledger` (`opening` · `rows` · `closing`), `deposit` (`opening` · `rows` · `held`),
+  `openInvoices`, `footerText`, `figuresAsOfToday`. The four tables it replaced (`recentInvoices`,
+  `payments`, `credits`, `settlements`) are gone — every reader was moved.
+- Renders via Blade view `tenants.statement`; money columns are 14% each, measured
+  (`StatementColumnsFitTest`), and the footers carry the currency on their LABEL because an
+  `EGP ` prefix wrapped a seven-digit closing balance in the cell.
 
 **⚠️ The statement must explain its own arithmetic (fixed 2026-08-17).** An invoice's balance falls
 through **four** channels and this document listed exactly one of them — payments — while its
@@ -176,7 +235,8 @@ both years. And the status column was 8% wide, breaking the header to "STATU S" 
 "PARTIAL LY PAID" on the document the tenant receives.
 
 **Called by:**
-- TenantsTable record action "Statement" (available to all authorized users; downloads the PDF).
+- The tenant record page and the tenants list ("Statement"), the AR collections worklist, the
+  tenant portal's invoices page and `GET /api/v1/me/statement` — one service, one document.
 - Not scheduled or cached; generated on-demand.
 
 **Idempotency:** Yes — reads only, no side effects.

@@ -530,6 +530,10 @@ return [
         'balance' => 'Balance',
         'from_deposit' => 'Netted from the security deposit',
         'from_tenant_credit' => 'Applied from credit on account',
+        'written_off' => 'Written off',
+        // A receipt names how it arrived and what it settled; a note names why and what it relieved.
+        'payment_description' => ':method — for :invoices',
+        'credit_note_description' => ':reason — against :invoice',
         'empty_heading' => 'Nothing on this tenant\'s account',
         'empty_body' => 'Every issued invoice and every settlement against it appears here in date order, with the running balance.',
         'types' => [
@@ -538,6 +542,7 @@ return [
             'credit_note' => 'Credit note',
             'tenant_credit' => 'Credit on account',
             'deposit' => 'Deposit',
+            'write_off' => 'Write-off',
         ],
     ],
     'statement' => [
@@ -562,20 +567,37 @@ return [
         'recent_payments' => 'Recent Payments (Last 12 Months)',
         'total_outstanding' => 'Total Outstanding',
         'total_received' => 'Total Received',
-        'credits_applied' => 'Credits Applied',
-        'total_credited' => 'Total Credited',
-        'other_settlements' => 'Other Settlements',
-        'total_other_settlements' => 'Total Other Settlements',
-        'settlement_kind' => 'Settled by',
-        'settlement_kinds' => [
-            'tenant_credit' => 'Credit on account applied',
-            'deposit' => 'Security deposit applied',
-        ],
         'no_open_invoices' => 'No open invoices — property is fully settled.',
         'no_recent_payments' => 'No payments captured in this period.',
         'truncated_note' => 'Showing :shown of :total. Download CSV from the invoices list for the full set.',
         'footer' => 'This statement is computer-generated.',
         'footer_queries' => 'For queries',
+        // The ledger form of the statement (2026-09-11): a balance forward, every movement with
+        // a running balance, the deposit account, and the two sides of the account.
+        'account_ledger' => 'Account statement',
+        'balance_forward' => 'Balance brought forward',
+        'closing_balance' => 'Closing balance',
+        'due_from_you' => 'Due from you',
+        'due_to_you' => 'Held for you',
+        'deposit_held' => 'Security deposit held',
+        'credit_notes_unapplied' => 'Credit notes not yet applied',
+        'credit_on_account' => 'Credit on account',
+        'deposit_account' => 'Security deposit',
+        'deposit_in' => 'Received',
+        'deposit_out' => 'Returned / applied',
+        'deposit_kinds' => [
+            'receipt' => 'Deposit received',
+            'refund' => 'Deposit refunded',
+            'forfeit' => 'Deposit forfeited',
+            'applied' => 'Applied to an invoice',
+            'billed' => 'Deposit billed and paid',
+        ],
+        'balance_by_invoice' => 'Balance due, by invoice',
+        // On a statement bounded in the past the ledger closes as at the date while the per-invoice
+        // figures are today's — said out loud rather than left to be noticed.
+        'figures_as_of' => 'as of :date',
+        'no_movements' => 'No movements in this period.',
+        'no_deposit' => 'No security deposit is held.',
     ],
 
     'ar_aging_by_type' => [

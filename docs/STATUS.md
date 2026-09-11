@@ -392,6 +392,9 @@ Decided points move here as rows; built ones close into §8. Three of the twenty
 built and five go back to the client as questions of meaning. **Point 7 shipped 2026-09-11** — the
 month trial balance had no opening balance and was a movement summary; it now carries opening ·
 movement · closing, each a debit/credit pair that foots ([modules/21](modules/21-general-ledger.md#a-months-trial-balance-opens-with-the-balance-brought-forward-2026-09-11)).
+**Points 5 · 6 · 8 · 9 · 10 shipped the same day** — the Statement of Account is the tenant ledger
+printed: balance forward, running balance at line grain, the deposit account, two totals, the
+operator's footer ([modules/02](modules/02-tenants.md#tenantstatementpdfservice)).
 
 ### 9.1 · The accountant's sitting
 

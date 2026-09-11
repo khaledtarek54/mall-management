@@ -53,8 +53,10 @@ it('lists no invoice issued after the end date it prints', function () {
 
     // The control and the refusal together: a window that excluded everything would satisfy the
     // second assertion on its own and silently produce an empty statement.
-    expect($data['recentInvoices']->pluck('id'))->toContain($inside->id)
-        ->and($data['recentInvoices']->pluck('id'))->not->toContain($after->id)
+    // Since 2026-09-11 the statement is the ledger, so "listed" means "has a ledger row".
+    $references = $data['ledger']['rows']->pluck('reference');
+    expect($references)->toContain($inside->number)
+        ->and($references)->not->toContain($after->number)
         ->and($data['openInvoices']->pluck('id'))->not->toContain($after->id)
         ->and($data['summary']['total_billed'])->toEqual(10000.0)
         ->and($data['summary']['outstanding'])->toEqual(10000.0);
@@ -76,8 +78,11 @@ it('keeps a transaction dated the LAST day of the window', function () {
     ]);
     $edge->invoices()->attach($invoice->id, ['allocated_amount' => 7000]);
 
-    expect(statementBetween('2026-01-01', '2026-03-31')['payments']->pluck('id'))
-        ->toContain($edge->id);
+    $rows = statementBetween('2026-01-01', '2026-03-31')['ledger']['rows'];
+
+    expect($rows->where('type', 'payment')->pluck('credit')->all())->toBe([7000.0])
+        // …and the ledger lands where it should: the invoice is settled by the day's end.
+        ->and(statementBetween('2026-01-01', '2026-03-31')['ledger']['closing'])->toBe(0.0);
 });
 
 it('lists no payment or credit note after the end date either', function () {
@@ -107,9 +112,13 @@ it('lists no payment or credit note after the end date either', function () {
 
     $data = statementBetween('2026-01-01', '2026-03-31');
 
-    expect($data['payments']->pluck('id'))->toContain($inWindow->id)
-        ->and($data['payments']->pluck('id'))->not->toContain($afterWindow->id)
-        ->and($data['credits'])->toBeEmpty();
+    $payments = $data['ledger']['rows']->where('type', 'payment')->pluck('credit')->values()->all();
+
+    expect($payments)->toBe([5000.0])
+        ->and($data['ledger']['rows']->where('type', 'credit_note'))->toBeEmpty()
+        // The balance carried on the page is struck at the window's end: 20,000 billed, 5,000
+        // received by 31 March — the 6,000 of May is a later page.
+        ->and($data['ledger']['closing'])->toBe(15000.0);
 });
 
 it('still renders the whole history when no window is asked for', function () {
@@ -123,7 +132,7 @@ it('still renders the whole history when no window is asked for', function () {
 
     $data = app(TenantStatementPdfService::class)->data($this->tenant->fresh());
 
-    expect($data['recentInvoices'])->toHaveCount(1)
+    expect($data['ledger']['rows']->where('type', 'invoice'))->toHaveCount(1)
         ->and($data['summary']['outstanding'])->toEqual(9000.0);
 });
 
@@ -171,20 +180,30 @@ it('prints the collectable figure on the tenant s own document', function () {
 
     $html = view('tenants.statement', app(TenantStatementPdfService::class)->data($this->tenant->fresh()))->render();
 
-    // The TABLE FOOTER specifically, not just "somewhere on the page": the summary tiles print the
-    // same figure, so a page-wide count stays satisfied when only the footer regresses — measured,
-    // reverting the footer to `sum('balance')` left a page-wide assertion fully green.
-    preg_match('#<tfoot>.*?</tfoot>#s', $html, $footer);
-
-    // …and the ROW itself, which the footer cannot vouch for: a per-line figure quoting `balance`
-    // asks the tenant for the forgiven slice on the very line they would query.
-    preg_match('#<tbody>.*?</tbody>#s', $html, $body);
+    // The open-invoice TABLE FOOTER specifically, not just "somewhere on the page": the summary
+    // tiles print the same figure, so a page-wide count stays satisfied when only the footer
+    // regresses — measured, reverting the footer to `sum('balance')` left a page-wide assertion
+    // fully green. Since 2026-09-11 that table closes the document, after the ledger and the
+    // deposit account, so it is the LAST tfoot; the ledger's own footer legitimately carries the
+    // 20,000 as the period's total debit beside the 5,000 write-off credit.
+    preg_match_all('#<tfoot>.*?</tfoot>#s', $html, $footers);
+    $footer = end($footers[0]);
+    preg_match_all('#<tbody>.*?</tbody>#s', $html, $bodies);
+    $body = end($bodies[0]);
 
     expect($footer)->not->toBeEmpty('the statement lost its outstanding total')
-        ->and($footer[0])->toContain('15,000.00')
-        ->and($footer[0])->not->toContain('20,000.00')
+        ->and($footer)->toContain('15,000.00')
+        ->and($footer)->not->toContain('20,000.00')
         ->and($body)->not->toBeEmpty()
         // 20,000 is legitimately in the row as the TOTAL billed; 15,000 must be there as the
         // balance, and a row printing `balance` would show 20,000 twice and 15,000 not at all.
-        ->and($body[0])->toContain('15,000.00');
+        ->and($body)->toContain('15,000.00');
+
+    // …and the LEDGER agrees: 20,000 charged, 5,000 forgiven as its own row, closing at 15,000 —
+    // the same figure the headline prints. Before the write-off row existed the ledger closed at
+    // 20,000 beside a headline of 15,000, on one page.
+    $data = app(TenantStatementPdfService::class)->data($this->tenant->fresh());
+    expect($data['ledger']['rows']->where('type', 'write_off')->pluck('credit')->all())->toBe([5000.0])
+        ->and($data['ledger']['closing'])->toBe(15000.0)
+        ->and($data['summary']['due_from_tenant'])->toBe($data['summary']['outstanding']);
 });

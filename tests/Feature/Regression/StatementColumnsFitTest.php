@@ -57,6 +57,10 @@ it('gives every column of the open-invoices table room for its widest content', 
     // status is the longest translated one.
     $columns = [
         // label                width%   sample                       pt    mono
+        // The ledger's own columns (2026-09-11) — the reference is the same document number.
+        ['ledger date',         11,     '24/08/2026',                 8.5,  false],
+        ['ledger reference',    18,     'INV-AW-202604-0001',         8.0,  true],
+        ['ledger balance',      14,     '1,300,500.00',               8.5,  false],
         ['invoice number',      19,     'INV-AW-202604-0001',         8.0,  true],
         ['period',              14,     'Apr – Jun 2026',             8.5,  false],
         ['due date',            12,     '24/08/2026',                 8.5,  false],
@@ -90,11 +94,15 @@ it('gives each table TOTAL room for its figure — the row the body measurements
     // A totals cell is NOT the column above it: it carries an "EGP " prefix, renders bold, and may
     // span columns. Measuring the body alone passed while "Total Outstanding" wrapped to
     // "EGP / 300,500.00" directly beneath two rows that fitted.
+    // The ledger and deposit footers (2026-09-11) carry NO "EGP " prefix — the currency sits on
+    // their label, because a prefixed six-digit figure wrapped in a 12% cell — so their samples
+    // are bare. The open-invoice footer keeps its prefix and its spanned width.
     $totals = [
         // label                 spanned width%   sample
         ['total outstanding',    13 + 17,        'EGP 1,300,500.00'],
-        ['total credited',       18,             'EGP 1,080,100.00'],
-        ['total received',       18,             'EGP 1,152,000.00'],
+        ['ledger closing',       14,             '1,300,500.00'],
+        ['ledger period debit',  14,             '1,080,100.00'],
+        ['deposit held',         14,             '1,152,000.00'],
     ];
 
     $tooNarrow = [];
@@ -113,6 +121,13 @@ it('gives each table TOTAL room for its figure — the row the body measurements
 
     expect($tooNarrow)->toBe([], "These totals will wrap on the tenant's statement:\n  "
         .implode("\n  ", $tooNarrow));
+
+    // …and the measurement above is only true of the template while the two 14% footers carry
+    // NO "EGP " prefix — the sample is bare because the cell is. A prefix put back in the blade
+    // would wrap the closing balance again while this test measured the wrong string.
+    $blade = file_get_contents(resource_path('views/tenants/statement.blade.php'));
+    expect($blade)->not->toContain("EGP {{ number_format(\$ledger['closing']")
+        ->and($blade)->not->toContain("EGP {{ number_format(\$deposit['held']");
 });
 
 it('holds the longest status label on one line, in both languages', function () {
@@ -151,21 +166,31 @@ it('holds the longest status label on one line, in both languages', function () 
         .implode("\n  ", $tooNarrow));
 });
 
-it('keeps the seven columns summing to the full width, and no more', function () {
+it('keeps every table\'s columns summing to the full width, and no more', function () {
     $blade = file_get_contents(resource_path('views/tenants/statement.blade.php'));
 
-    // The open-invoices header block. Anchored on the section title and sliced to </thead> — an
-    // anchor on the first column's LABEL sits after that column's own width and silently measures
-    // six of the seven.
-    $start = strpos($blade, "__('admin.statement.open_invoices')");
-    $end = strpos($blade, '</thead>', $start);
-    $header = substr($blade, $start, $end - $start);
+    // Each header block, anchored on its section title and sliced to </thead> — an anchor on the
+    // first column's LABEL sits after that column's own width and silently measures one fewer.
+    // `strpos` must FIND the anchor: a renamed title returns false, `substr` from 0 measures the
+    // wrong table, and the test reports on a table it did not mean to.
+    $tables = [
+        'admin.statement.account_ledger' => 6,      // the ledger (2026-09-11)
+        'admin.statement.deposit_account' => 6,     // the deposit account
+        'admin.statement.balance_by_invoice' => 7,  // the open-invoice breakdown (was "open invoices")
+    ];
 
-    preg_match_all('/width:(\d+)%/', $header, $m);
-    $widths = array_map('intval', $m[1]);
+    foreach ($tables as $anchor => $columns) {
+        $start = strpos($blade, "__('{$anchor}')");
+        expect($start)->not->toBeFalse("anchor {$anchor} not found in the template");
+        $end = strpos($blade, '</thead>', $start);
+        $header = substr($blade, $start, $end - $start);
 
-    // Over 100% and mPDF rescales every column, quietly undoing whatever was tuned here; under, and
-    // the table stops short of the margin for no reason.
-    expect($widths)->toHaveCount(7)
-        ->and(array_sum($widths))->toBe(100);
+        preg_match_all('/width:(\d+)%/', $header, $m);
+        $widths = array_map('intval', $m[1]);
+
+        // Over 100% and mPDF rescales every column, quietly undoing whatever was tuned here; under,
+        // and the table stops short of the margin for no reason.
+        expect($widths)->toHaveCount($columns, "{$anchor}: column count")
+            ->and(array_sum($widths))->toBe(100, "{$anchor}: widths sum");
+    }
 });

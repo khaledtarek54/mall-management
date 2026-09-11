@@ -634,7 +634,10 @@ found something first, because a sweep whose regex matches nothing passes every 
 
 ### `TenantStatementPdfService` (app/Services/TenantStatementPdfService.php)
 
-**Tenant statement for tenant portal + API.** 12-month trailing invoices/payments for a single tenant.
+**Tenant statement for the panel, the portal and the API.** Since 2026-09-11 it is the tenant
+LEDGER printed — balance brought forward, every movement with a running balance, the deposit
+account, two totals (due from / held for the tenant) and an operator-editable footer — over a
+12-month trailing window by default. Detail: [modules/02](02-tenants.md#tenantstatementpdfservice).
 
 #### `build(Tenant $tenant): string`
 **Returns:** PDF binary.

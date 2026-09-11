@@ -198,12 +198,12 @@ These four decisions steer the FRs below:
 | 2 | A page for the accountant to activate | — | **Build as a worklist tab + the act on the record**, not a page | S | |
 | 3 | Deposit as % or fixed | Months-of-rent (= % of a month) or fixed | **Extend** with a basis: months · % of annual rent · fixed | S | |
 | 4 | Lease PDF from the lease fields; template from Jawad | ✅ **Built** (`LeaseAgreementPdfService`) | **No code until the template arrives**; transpose it into the wording block | S | |
-| 5 | Statement: totals due to you / due from you | One-sided (AR only) | **Build** — two totals from figures that already exist | (with 6) | |
-| 6 | Statement shows the deposit, reservation money, debit / credit / balance | Sectioned PDF; deposit held appears nowhere | **Build** — the PDF renders the ledger (one source) | M | |
+| 5 | Statement: totals due to you / due from you | One-sided (AR only) | ✅ **Shipped 2026-09-11** — *Due from you* / *Held for you*, itemised | (with 6) | ✅ built |
+| 6 | Statement shows the deposit, reservation money, debit / credit / balance | Sectioned PDF; deposit held appears nowhere | ✅ **Shipped 2026-09-11** — the PDF is the ledger printed, with a deposit account ([modules/02](../modules/02-tenants.md#tenantstatementpdfservice)) | M | ✅ built |
 | 7 | Trial balance: opening · debit · credit · closing | Net movement of the window only — **a correctness defect** | ✅ **Shipped 2026-09-11** — three debit/credit pairs on screen, CSV and PDF ([modules/21](../modules/21-general-ledger.md#a-months-trial-balance-opens-with-the-balance-brought-forward-2026-09-11)) | S–M | ✅ built |
-| 8 | Ledger column "Charge" → "Debit"; PDF = the screen, every detail | ✅ **Rename shipped 2026-09-03**; PDF still a different document | **Build** the PDF half (with 6) — per-line grain | (with 6) | |
-| 9 | Description says which invoice was paid and how | Method only | **Build** (with 6) | (with 6) | |
-| 10 | Statement footer "valid for X days" | Fixed sentence | **Build** as an operator wording block — no setting needed | XS | |
+| 8 | Ledger column "Charge" → "Debit"; PDF = the screen, every detail | ✅ **Rename shipped 2026-09-03**; PDF still a different document | ✅ **Shipped 2026-09-11** — one row per invoice line, screen and PDF one derivation | (with 6) | ✅ built |
+| 9 | Description says which invoice was paid and how | Method only | ✅ **Shipped 2026-09-11** — *"Bank transfer — for INV-…, INV-…"* | (with 6) | ✅ built |
+| 10 | Statement footer "valid for X days" | Fixed sentence | ✅ **Shipped 2026-09-11** — `statement.footer` block at /admin/document-wording | XS | ✅ built |
 | 11 | Fixed asset: category first; asset number auto from category; description | Tag typed by hand; category free text | **Build** a category catalogue + auto tag | M | |
 | 12 | "Tax depreciation" → "Depreciation" | Two bases by law; only the tax one has a screen | **Do not rename**; show the BOOK rate, add the book schedule | S | |
 | 13 | Salvage value default 1 | Default 0; nothing hides at 0 | **Build** as the category's memo value (SAP's rule) | XS | |
@@ -375,6 +375,14 @@ disagree.**
 - Column headings Debit / Credit / Balance (مدين / دائن / الرصيد) on both surfaces, as the ledger tab
   already says.
 - Effort **M**. The CAM statement and the owner statement are separate documents and untouched.
+
+**✅ Shipped 2026-09-11.** As recommended, plus what the review of it found and closed: credit-note
+rows now come from the APPLICATIONS table (a note raised with no `invoice_id` — every negative CAM
+true-up — had no row and the ledger closed above the headline by its amount); a write-off is a
+ledger row; same-day lines of one invoice stay together; the deposit account opens with a balance
+forward and lists a billed-and-paid deposit; a statement bounded in the past dates its today's
+figures; the money columns were widened after a seven-digit closing balance wrapped. Detail in
+[modules/02](../modules/02-tenants.md#tenant-ledger-on-screen).
 
 ---
 

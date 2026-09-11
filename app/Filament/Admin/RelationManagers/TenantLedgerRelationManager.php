@@ -49,7 +49,13 @@ class TenantLedgerRelationManager extends RelationManager
                     ->label(__('admin.fields.type'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __('admin.ledger.types.'.$state))
-                    ->color(fn (string $state) => $state === 'invoice' ? 'warning' : 'success'),
+                    // A write-off is neither a charge nor a settlement — the tenant was asked for it
+                    // and then not — so it wears neither colour.
+                    ->color(fn (string $state) => match ($state) {
+                        'invoice' => 'warning',
+                        'write_off' => 'gray',
+                        default => 'success',
+                    }),
                 TextColumn::make('reference')
                     ->label(__('admin.fields.reference'))
                     ->fontFamily('mono')

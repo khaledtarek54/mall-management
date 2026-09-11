@@ -10,6 +10,7 @@ return [
             'invoice_footer' => 'Invoice — footer',
             'invoice_payment_instructions' => 'Invoice — how to pay',
             'invoice_terms' => 'Invoice — terms',
+            'statement_footer' => 'Statement of account — footer',
             'lease_agreement_terms' => 'Lease agreement — standing terms',
             'invoice_email_body' => 'Invoice email — covering note',
             'dunning_overdue_reminder' => 'Overdue reminder — email',

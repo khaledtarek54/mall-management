@@ -5,13 +5,15 @@ namespace App\Services;
 use App\Enums\UnitOwnershipStatus;
 use App\Models\Asset;
 use App\Models\DepositApplication;
+use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\Payment;
 use App\Models\Tenant;
-use App\Models\TenantCreditApplication;
+use App\Support\DepositBilling;
+use App\Support\DocumentText;
 use App\Support\IssuingEntity;
 use App\Support\Pdf\DocumentLocale;
 use App\Support\Pdf\PdfDocument;
+use App\Support\TenantLedger;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -125,104 +127,124 @@ class TenantStatementPdfService
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->get();
 
-        // **The balances are as they stand TODAY, not as they stood on `$asOf`** — a payment made
-        // after the window still shows against an invoice inside it. Reconstructing a historical
-        // balance means replaying four settlement channels to a date, which is a different document
-        // (an aged-debt-as-at report) and not what this one claims to be. What it does claim is
-        // which TRANSACTIONS fall in the window, and that is now true.
+        // **The per-invoice figures are as they stand TODAY, not as they stood on `$asOf`** — a
+        // payment made after the window still shows against an invoice inside it. The LEDGER below
+        // does close as at the date, because a running balance is exactly that replay and costs
+        // nothing here; the per-invoice breakdown and the overdue tile are not replayed (an
+        // aged-debt-as-at report is a different document), so on a statement bounded in the past
+        // the template dates them "as of today" beside the ledger's own closing.
         $openInvoices = $invoicesAll
             ->filter(fn ($i): bool => $i->collectableBalance() > 0)
             ->sortBy('due_date')
             ->values();
 
-        $recentInvoices = $invoicesAll
-            ->where('issue_date', '>=', $since)
-            ->sortByDesc('issue_date')
-            ->values();
+        // **THE STATEMENT IS THE LEDGER, PRINTED** (meeting 2026-09-02, points 5·6·8·9·10). Until
+        // 2026-09-11 this page was a different document from the tenant's on-screen ledger — open
+        // invoices, credits, payments and "other settlements" as four tables, no balance brought
+        // forward, no running balance, a payment row that named its rail and nothing it settled,
+        // and the deposit HELD printed nowhere. The client asked for the كشف حساب every Egyptian
+        // accountant reconciles from: date · reference · description · debit · credit · balance,
+        // opening with the balance forward. Yardi's tenant statement is the same shape. So the
+        // rows come from `TenantLedger` — the one derivation the screen already shows — and the
+        // two cannot disagree in figure or in grain. `$since` is where the balance forward is
+        // struck; `$asOf` bounds the rows only when the caller stated a window, for the reason
+        // above.
+        $ledger = TenantLedger::statement($tenant, $visibleAssetIds, $since, $bounded ? $asOf : null);
 
-        $payments = $tenant->payments()
-            ->whereIn('status', Payment::RECEIVED_STATUSES)
-            ->where('payment_date', '>=', $since)
-            ->when($bounded, fn ($q) => $q->where('payment_date', '<=', $asOf))
-            ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $visibleAssetIds)))
-            ->orderByDesc('payment_date')
+        // **The deposit is a LIABILITY, not a receivable, so it has its own account** — printed,
+        // held, and kept out of the running balance above. Yardi shows it as "deposit on hand"
+        // beside the ledger for the same reason. Only RECORDED movements (a cancelled one is not
+        // money), and a deposit netted at move-out appears here as the other half of the ledger's
+        // credit. A deposit BILLED on an invoice and since paid is held too (`Lease::depositHeld()`
+        // counts it through `settledDepositBillings()`), so it gets a row of its own, dated at the
+        // invoice — without it the account printed a header, an empty body and a footer holding
+        // 99,000 (found by the review of this change).
+        $leases = $tenant->leases()
+            ->with(['unit:id,asset_id', 'deposits', 'depositApplications.invoice:id,number', 'depositBillings'])
+            ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
             ->get();
 
-        // The settlements that are NOT payments. An invoice's balance falls through four channels
-        // and this document listed exactly one of them, so `total_paid` — which counts all four —
-        // could not be reconciled from anything printed on the page. Measured on a terminated lease:
-        // Total Billed 532,600, Total Settled 232,100, Total Received 152,000, and the missing
-        // 80,100 was an applied credit note that appeared nowhere. A tenant cannot query a number
-        // they cannot see, and "your statement is wrong" is the call it produces.
-        //
-        // `visibleToTenant()` for the same reason the invoice query has it: this service renders the
-        // portal's and the mobile API's statement too, and `credit_notes.status` DEFAULTS to draft at
-        // the column — a note that has not been issued is not the tenant's business. Void notes claim
-        // nothing, so they are excluded as well; an applied or issued one is a real document.
-        $credits = $tenant->creditNotes()
-            ->with('invoice')
-            ->visibleToTenant()
-            ->where('status', '!=', 'void')
-            ->whereDate('issue_date', '>=', $since)
-            ->when($bounded, fn ($q) => $q->whereDate('issue_date', '<=', $asOf))
+        $allDepositMovements = $leases
+            ->flatMap(fn (Lease $lease) => $lease->deposits
+                ->where('status', 'recorded')
+                ->map(fn ($row): array => [
+                    'date' => $row->transaction_date,
+                    'kind' => __("admin.statement.deposit_kinds.{$row->type}"),
+                    'reference' => $row->number ?? $lease->reference,
+                    'lease' => $lease->reference,
+                    'in' => $row->type === 'receipt' ? round((float) $row->amount, 2) : 0.0,
+                    'out' => $row->type === 'receipt' ? 0.0 : round((float) $row->amount, 2),
+                ])
+                ->concat($lease->depositApplications->map(fn (DepositApplication $row): array => [
+                    'date' => $row->entry_date ?? $row->created_at,
+                    'kind' => __('admin.statement.deposit_kinds.applied'),
+                    'reference' => $row->invoice?->number ?? '',
+                    'lease' => $lease->reference,
+                    'in' => 0.0,
+                    'out' => round((float) $row->amount, 2),
+                ]))
+                ->concat($lease->depositBillings
+                    ->map(fn (Invoice $invoice): array => [
+                        'date' => $invoice->issue_date,
+                        'kind' => __('admin.statement.deposit_kinds.billed'),
+                        'reference' => $invoice->number,
+                        'lease' => $lease->reference,
+                        // What has been SETTLED on the deposit line to date, net of credit relief —
+                        // the same reading `depositHeld()` makes. The row is dated at the invoice,
+                        // though the money may have arrived later: it is the document the tenant
+                        // can quote, and the account still foots to the pot either way.
+                        'in' => round(DepositBilling::heldOn($invoice), 2),
+                        'out' => 0.0,
+                    ])
+                    ->filter(fn (array $row): bool => $row['in'] > 0)))
+            ->filter(fn (array $row): bool => $row['date'] !== null && (! $bounded || ! $row['date']->gt($asOf)))
+            ->sortBy('date')
+            ->values();
+
+        $depositMovements = $allDepositMovements->filter(fn (array $row): bool => ! $row['date']->lt($since))->values();
+
+        // `Lease::depositHeld()` — the ONE definition of the pot: receipts, less refunds, forfeits
+        // and anything netted, plus a deposit billed and since paid. The account's opening is
+        // DERIVED from it — held, less the window's own movements — rather than re-summed from the
+        // history, so the account foots to the pot by construction: opening + in − out = held,
+        // whatever was recorded before `$since` and however it was recorded.
+        $held = round((float) $leases->sum(fn (Lease $lease): float => $lease->depositHeld()), 2);
+
+        $deposit = [
+            'rows' => $depositMovements,
+            'opening' => round($held - (float) $depositMovements->sum('in') + (float) $depositMovements->sum('out'), 2),
+            'held' => $held,
+        ];
+
+        // Two totals, because a statement has two sides (point 5 — «إجمالي المستحقات لكم وعليكم»).
+        // DUE FROM YOU is the ledger's own closing balance — what the invoices say is collectable,
+        // GROSS of any credit note not yet applied. `Tenant::outstandingBalance()`, the portal and
+        // API headline, NETS unapplied notes; the difference is exactly the "credit notes not yet
+        // applied" line under HELD FOR YOU, so the two documents agree once the reader adds the
+        // two sides — which is why both sides are printed. DUE TO YOU is what the operator holds
+        // for this tenant and has not netted: the deposit, credit notes issued and not yet
+        // applied, and money paid on account — each already answered by its own one definition.
+        $creditNotesUnapplied = round((float) $tenant->creditNotes()
+            ->where('status', 'issued')
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
-            ->orderByDesc('issue_date')
-            ->get();
-
-        // The OTHER two channels (AR-GL-03). `Invoice::recomputeTotals()` settles a balance through
-        // FOUR of them — captured payments, an applied credit note, applied on-account tenant credit
-        // and a netted security deposit — and this page listed the first two. So a statement could
-        // say Total Settled 232,100 against Total Received 152,000 with the difference itemised
-        // nowhere, which is worst on a final move-out statement, where netting the deposit is
-        // usually the largest single settlement the tenant will see.
-        //
-        // ONE section rather than two more tables: both answer the same question a tenant is asking
-        // ("what settled this, if not a payment or a credit note?"), both carry the same four facts,
-        // and a fourth five-column table on a one-page statement buys nothing. The KIND column is
-        // what makes them readable apart.
-        //
-        // Soft-deleted rows are excluded by the models' own `SoftDeletes`, which is what makes a
-        // reversal disappear from the statement as well as from the balance.
-        $settlements = collect()
-            ->concat($tenant->creditApplications()
-                ->with('invoice')
-                ->whereDate('entry_date', '>=', $since)
-                ->when($bounded, fn ($q) => $q->whereDate('entry_date', '<=', $asOf))
-                ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
-                ->get()
-                ->map(fn (TenantCreditApplication $row): array => [
-                    'kind' => __('admin.statement.settlement_kinds.tenant_credit'),
-                    'date' => $row->entry_date,
-                    'invoice' => $row->invoice?->number,
-                    'notes' => $row->notes,
-                    'amount' => (float) $row->amount,
-                ]))
-            ->concat(DepositApplication::query()
-                ->with('invoice')
-                ->where('tenant_id', $tenant->getKey())
-                ->whereDate('entry_date', '>=', $since)
-                ->when($bounded, fn ($q) => $q->whereDate('entry_date', '<=', $asOf))
-                ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
-                ->get()
-                ->map(fn (DepositApplication $row): array => [
-                    'kind' => __('admin.statement.settlement_kinds.deposit'),
-                    'date' => $row->entry_date,
-                    'invoice' => $row->invoice?->number,
-                    'notes' => $row->notes,
-                    'amount' => (float) $row->amount,
-                ]))
-            ->sortByDesc('date')
-            ->values();
+            ->sum('balance'), 2);
+        $creditOnAccount = round($tenant->creditBalance($visibleAssetIds), 2);
 
         $summary = [
-            // The same figure `Tenant::outstandingBalance()` gives the portal headline and the API.
-            // Summing `balance` here made the statement a tenant downloads disagree with the number
-            // on the screen they downloaded it from.
+            'due_from_tenant' => $ledger['closing'],
+            // Σ collectable over the invoices as they stand TODAY — kept under its old key for the
+            // readers that already ask for it. Equal to `due_from_tenant` on an unbounded
+            // statement; on one bounded in the past the ledger closes AS AT the date and this does
+            // not, which is why the template dates the tiles it draws from here.
             'outstanding' => (float) $invoicesAll->sum(fn ($i): float => $i->collectableBalance()),
             'overdue' => (float) $invoicesAll
                 ->filter(fn ($i): bool => $i->collectableBalance() > 0)
                 ->filter(fn ($inv) => $inv->due_date && $inv->due_date->isPast())
                 ->sum(fn ($i): float => $i->collectableBalance()),
+            'deposit_held' => $deposit['held'],
+            'credit_notes_unapplied' => $creditNotesUnapplied,
+            'credit_on_account' => $creditOnAccount,
+            'due_to_tenant' => round($deposit['held'] + $creditNotesUnapplied + $creditOnAccount, 2),
             'total_billed' => (float) $invoicesAll->sum('total'),
             // Every channel, not just cash — which is why it is labelled "settled" and not "paid".
             'total_paid' => (float) $invoicesAll->sum('paid_amount'),
@@ -295,11 +317,16 @@ class TenantStatementPdfService
             'asOf' => $asOf,
             'since' => $since,
             'summary' => $summary,
+            'ledger' => $ledger,
+            'deposit' => $deposit,
             'openInvoices' => $openInvoices,
-            'recentInvoices' => $recentInvoices,
-            'payments' => $payments,
-            'credits' => $credits,
-            'settlements' => $settlements,
+            // True when the per-invoice figures are struck on a later day than the ledger's
+            // closing — a statement bounded in the past — so the template can say so.
+            'figuresAsOfToday' => $bounded && $asOf->lt(CarbonImmutable::now()->startOfDay()),
+            'today' => CarbonImmutable::now(),
+            // The operator's own footer, per property — "valid for 7 days", whatever they wrote
+            // (point 10); the floor is the sentence this document always carried.
+            'footerText' => DocumentText::for('statement.footer', $asset?->id),
         ];
     }
 

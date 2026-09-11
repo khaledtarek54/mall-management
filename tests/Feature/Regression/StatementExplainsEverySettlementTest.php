@@ -31,6 +31,11 @@
 | it is the one they are most likely to query. Both now render in one "Other settlements" section
 | with a KIND column — one table rather than two, because both answer the same question and carry
 | the same four facts.
+|
+| **Since 2026-09-11 the statement IS the tenant ledger, printed** (meeting 2026-09-02): every
+| channel is a CREDIT ROW on one running-balance table rather than its own section, so "every
+| settlement is on the page" is now "every channel is a ledger row and the four channels' credits
+| sum to Total Settled". The assertions below say that; the property they pin is unchanged.
 */
 
 use App\Models\CreditNote;
@@ -90,21 +95,29 @@ function statementInvoiceWithCredit($ctx, float $total, float $credited): Invoic
     return $invoice;
 }
 
+/** The four settlement channels' credits on the printed ledger — what must equal Total Settled. */
+function channelCredits(array $data): float
+{
+    return round((float) $data['ledger']['rows']
+        ->whereIn('type', ['payment', 'credit_note', 'tenant_credit', 'deposit'])
+        ->sum('credit'), 2);
+}
+
 it('lists an applied credit note, so Total Settled can be reconciled from the page', function () {
     statementInvoiceWithCredit($this, 240300, 80100);
 
     $data = $this->svc->data($this->tenant);
+    $rows = $data['ledger']['rows'];
 
     // The gap this closes: settled (80,100) with nothing received, and until now nothing printed.
     expect($data['summary']['total_paid'])->toBe(80100.0)
-        ->and($data['payments'])->toHaveCount(0)
-        ->and($data['credits'])->toHaveCount(1)
-        ->and((float) $data['credits']->first()->applied_amount)->toBe(80100.0);
+        ->and($rows->where('type', 'payment'))->toHaveCount(0)
+        ->and($rows->where('type', 'credit_note'))->toHaveCount(1)
+        ->and((float) $rows->firstWhere('type', 'credit_note')['credit'])->toBe(80100.0);
 
-    // Settled must equal what the page itself accounts for — payments plus credits. That equality
-    // IS the fix; asserting only that a credits key exists would pass on an empty collection.
-    $accountedFor = (float) $data['payments']->sum('amount') + (float) $data['credits']->sum('applied_amount');
-    expect($accountedFor)->toBe($data['summary']['total_paid']);
+    // Settled must equal what the page itself accounts for. That equality IS the fix; asserting
+    // only that a row type exists would pass on an empty collection.
+    expect(channelCredits($data))->toBe($data['summary']['total_paid']);
 });
 
 it('never shows a DRAFT credit note — the portal and the API render this same statement', function () {
@@ -122,11 +135,11 @@ it('never shows a DRAFT credit note — the portal and the API render this same 
         'reason' => 'dispute',
     ]);
 
-    $numbers = $this->svc->data($this->tenant)['credits']->pluck('number');
+    $notes = $this->svc->data($this->tenant)['ledger']['rows']->where('type', 'credit_note');
 
     // Paired with the control above (the applied note IS listed) — a scope that hid everything would
     // satisfy this refusal on its own and read as a pass.
-    expect($numbers)->toHaveCount(1)
+    expect($notes)->toHaveCount(1)
         ->and(CreditNote::where('tenant_id', $this->tenant->id)->count())->toBe(2);
 });
 
@@ -145,7 +158,7 @@ it('leaves a VOID credit note off — it settles nothing', function () {
         'reason' => 'other',
     ]);
 
-    expect($this->svc->data($this->tenant)['credits'])->toHaveCount(1);
+    expect($this->svc->data($this->tenant)['ledger']['rows']->where('type', 'credit_note'))->toHaveCount(1);
 });
 
 it('states the period a multi-month invoice covers, not the month it opens in', function () {
@@ -168,14 +181,14 @@ it('states the period a multi-month invoice covers, not the month it opens in', 
     expect($annual->periodLabel())->toBe('Dec 2026 – Nov 2027');
 });
 
-it('renders the credits section into the document itself', function () {
+it('renders the credit-note row into the document itself', function () {
     statementInvoiceWithCredit($this, 240300, 80100);
 
     // The service can hold the figures and the template still drop them — which is precisely how the
     // settlement went missing. Render the real view.
     $html = View::make('tenants.statement', $this->svc->data($this->tenant))->render();
 
-    expect($html)->toContain(__('admin.statement.credits_applied'))
+    expect($html)->toContain(__('admin.statement.account_ledger'))
         ->and($html)->toContain('80,100.00')
         // The reason reads as WORDS, in the reader's language. `toContain` matched the TAIL of a
         // raw translation key for as long as this test existed: the fixture wrote free text into
@@ -187,6 +200,7 @@ it('renders the credits section into the document itself', function () {
         // only for rows written before that; `Translate::orFallback()` is what still prints them.
         ->and($html)->toContain(__('admin.enums.credit_note_reason.adjustment'))
         ->and($html)->not->toContain('admin.enums')
+        // An invoice with no lines is one ledger row described by its period.
         ->and($html)->toContain('Jul – Sep 2026');
 });
 
@@ -218,13 +232,15 @@ it('lists applied on-account credit — the third channel', function () {
     ]);
 
     $data = $this->svc->data($this->tenant);
+    $row = $data['ledger']['rows']->firstWhere('type', 'tenant_credit');
 
     expect($data['summary']['total_paid'])->toBe(12000.0)
-        ->and($data['payments'])->toHaveCount(0)
-        ->and($data['credits'])->toHaveCount(0)
-        ->and($data['settlements'])->toHaveCount(1)
-        ->and($data['settlements']->first()['amount'])->toBe(12000.0)
-        ->and($data['settlements']->first()['invoice'])->toBe($invoice->number);
+        ->and($data['ledger']['rows']->where('type', 'payment'))->toHaveCount(0)
+        ->and($data['ledger']['rows']->where('type', 'credit_note'))->toHaveCount(0)
+        ->and($row)->not->toBeNull()
+        ->and($row['credit'])->toBe(12000.0)
+        // …and the row says WHICH invoice it relieved (point 9).
+        ->and($row['description'])->toContain($invoice->number);
 });
 
 it('lists a netted security deposit — the fourth, and the one a move-out turns on', function () {
@@ -242,16 +258,15 @@ it('lists a netted security deposit — the fourth, and the one a move-out turns
 
     $data = $this->svc->data($this->tenant);
 
-    expect($data['settlements'])->toHaveCount(1)
-        ->and($data['settlements']->first()['amount'])->toBe(90000.0);
+    expect($data['ledger']['rows']->where('type', 'deposit'))->toHaveCount(1)
+        ->and($data['ledger']['rows']->firstWhere('type', 'deposit')['credit'])->toBe(90000.0)
+        // …and the deposit ACCOUNT shows the same movement going out — the other half of the entry.
+        ->and($data['deposit']['rows'])->toHaveCount(1)
+        ->and($data['deposit']['rows']->first()['out'])->toBe(90000.0);
 
     // Everything the page accounts for must equal what it says was settled. That equality is the
-    // whole point — a `settlements` key that existed but stayed empty would satisfy a weaker test.
-    $accountedFor = (float) $data['payments']->sum('amount')
-        + (float) $data['credits']->sum('applied_amount')
-        + (float) $data['settlements']->sum('amount');
-
-    expect($accountedFor)->toBe($data['summary']['total_paid']);
+    // whole point — a row type that existed but stayed empty would satisfy a weaker test.
+    expect(channelCredits($data))->toBe($data['summary']['total_paid']);
 });
 
 it('reconciles a statement settled through all FOUR channels at once', function () {
@@ -296,20 +311,21 @@ it('reconciles a statement settled through all FOUR channels at once', function 
     ]);
 
     $data = $this->svc->data($this->tenant);
-
-    $accountedFor = (float) $data['payments']->sum('amount')
-        + (float) $data['credits']->sum('applied_amount')
-        + (float) $data['settlements']->sum('amount');
+    $types = $data['ledger']['rows']->pluck('type');
 
     expect($data['summary']['total_paid'])->toBe(100000.0)
-        ->and($accountedFor)->toBe(100000.0)
+        ->and(channelCredits($data))->toBe(100000.0)
         // …and each channel is separately visible, not merged into one unexplained figure.
-        ->and($data['payments'])->toHaveCount(1)
-        ->and($data['credits'])->toHaveCount(1)
-        ->and($data['settlements'])->toHaveCount(2);
+        ->and($types->filter(fn ($t) => $t === 'payment'))->toHaveCount(1)
+        ->and($types->filter(fn ($t) => $t === 'credit_note'))->toHaveCount(1)
+        ->and($types->filter(fn ($t) => $t === 'tenant_credit'))->toHaveCount(1)
+        ->and($types->filter(fn ($t) => $t === 'deposit'))->toHaveCount(1)
+        // …and the running balance lands where the invoice says: fully settled.
+        ->and($data['ledger']['closing'])->toBe(0.0)
+        ->and($data['summary']['due_from_tenant'])->toBe(0.0);
 });
 
-it('renders the other-settlements section into the document itself', function () {
+it('renders the deposit row into the document itself', function () {
     // The data being right is not the same as the page printing it — the credits half of this fix
     // needed exactly this assertion too.
     $invoice = statementInvoiceSettledOffLedger($this, 90000, 90000);
@@ -321,17 +337,16 @@ it('renders the other-settlements section into the document itself', function ()
 
     $html = View::make('tenants.statement', $this->svc->data($this->tenant))->render();
 
-    expect($html)->toContain(__('admin.statement.other_settlements'))
-        ->and($html)->toContain(__('admin.statement.settlement_kinds.deposit'))
+    expect($html)->toContain(__('admin.ledger.from_deposit'))
+        ->and($html)->toContain(__('admin.statement.deposit_kinds.applied'))
         ->and($html)->toContain('90,000.00');
 });
 
-it('leaves the section off a statement that needs no explaining', function () {
-    // An empty "Other settlements" table on every ordinary statement is noise — the same rule the
-    // credits table follows.
+it('says plainly when no deposit is held, rather than printing an empty account', function () {
     statementInvoiceSettledOffLedger($this, 50000, 0);
 
     $html = View::make('tenants.statement', $this->svc->data($this->tenant))->render();
 
-    expect($html)->not->toContain(__('admin.statement.other_settlements'));
+    expect($html)->toContain(__('admin.statement.no_deposit'))
+        ->and($html)->not->toContain(__('admin.statement.deposit_kinds.receipt'));
 });

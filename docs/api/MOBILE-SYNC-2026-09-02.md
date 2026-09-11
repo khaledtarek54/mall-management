@@ -19,7 +19,7 @@
 |---|---|
 | **Backend** | ✅ Complete. 67 live endpoints. **Nothing is pending on our side.** |
 | **App** | ⏳ The 20 tasks in §1. Until those land, the two are out of step. |
-| **Last backend change** | 2026-09-10 — `resolutionEvidence` on requests (task 19) |
+| **Last backend change** | 2026-09-11 — `GET /me/statement` PDF is now the tenant ledger with a balance forward (no contract change; see the note under that endpoint in MOBILE-API.md) |
 
 **What the backend gained on 2026-09-02** — this is the sync record; each line is an app task above.
 
@@ -42,6 +42,7 @@
 | Sales | Which shop a declaration is for | **`lease.unit`** |
 | Billing | A chase letter no longer goes out for a debt just paid | fixed |
 | Requests *(2026-09-10)* | Proof of the fix, apart from the tenant's own photo | **`resolutionEvidence[]`** on every request; the stream endpoint serves it |
+| Money *(2026-09-11)* | The statement PDF is the ledger: balance forward, running balance, deposit account, two totals, operator footer | `GET /me/statement` — same contract, new document; `/me/balance.outstanding` nets unapplied credit notes, the PDF prints them as their own line |
 
 Two gates now keep the surfaces together, so this list should not grow again on its own:
 `PortalAndApiAnswerTheSameQuestionsConformanceTest` (the web portal and `/api/v1` must answer the

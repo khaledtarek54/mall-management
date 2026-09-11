@@ -1,15 +1,26 @@
 {{--
-    The statement of account — every open invoice, every settlement, over a period.
+    The statement of account — the tenant's ledger, printed (meeting 2026-09-02, points 5·6·8·9·10).
+
+    Balance brought forward, then every movement in date order with a running balance — date ·
+    reference · description · debit · credit · balance — the كشف حساب an Egyptian accountant
+    reconciles from and the shape of Yardi's tenant statement. Every row comes from
+    `App\Support\TenantLedger`, the same derivation the on-screen ledger tab shows, so the paper
+    and the screen cannot disagree. Until 2026-09-11 this was a different document: four tables
+    (open invoices, credits, payments, other settlements) with no running balance, a payment line
+    that named its rail and nothing it settled, and the deposit HELD printed nowhere.
+
+    Two sides, because an account has two: DUE FROM YOU (the closing balance) and HELD FOR YOU (the
+    deposit, unapplied credit notes, credit on account). The deposit is a liability, not a
+    receivable, so it has its own small account below the ledger and never enters the running
+    balance. The open-invoice table closes the document as the balance's breakdown by document —
+    the figure a tenant pays against — struck TODAY: on a statement bounded in the past it is dated
+    beside a ledger that closes as at the date, rather than left to be noticed.
 
     The longest document this system issues, and the one most likely to run to several pages, which
     is why the running footer (`App\Support\Pdf\PdfDocument`) carries the tenant's name and
     `page x of y`: a loose sheet of somebody's ledger with no name on it cannot be filed or
-    challenged.
-
-    The listings keep their own column widths — each one was measured against real content and the
-    comments beside them record what broke at the previous value. What changed here is the shell:
-    the masthead, palette and type scale are now the shared ones (`pdf.layout`), so this document and
-    the invoices it lists are set in the same voice.
+    challenged. Column widths were measured against real content; the comments beside them record
+    what broke at the previous value.
 --}}
 @php
     use App\Support\Pdf\Bidi;
@@ -60,28 +71,147 @@
         </tr>
     </table>
 
+    {{-- The two sides of the account. DUE FROM YOU is the ledger's closing balance — the amber
+         figure, the one thing a tenant reads first; HELD FOR YOU is what the operator holds and has
+         not netted, itemised on the line below so the tenant can see what makes it up. --}}
     <table class="summary">
         <tr>
             <td>
-                <div class="stat-label">{{ __('admin.statement.outstanding') }}</div>
-                <div class="stat-value {{ $summary['outstanding'] > 0 ? 'warn' : '' }}">EGP {{ number_format($summary['outstanding'], 2) }}</div>
+                <div class="stat-label">{{ __('admin.statement.due_from_you') }}</div>
+                <div class="stat-value {{ $summary['due_from_tenant'] > 0 ? 'warn' : '' }}">EGP {{ number_format($summary['due_from_tenant'], 2) }}</div>
             </td>
             <td>
-                <div class="stat-label">{{ __('admin.statement.overdue') }}</div>
+                {{-- Overdue is struck TODAY (it is not replayed to the date); on a statement bounded
+                     in the past it says so, beside a ledger that closes as at the date. --}}
+                <div class="stat-label">{{ __('admin.statement.overdue') }}@if($figuresAsOfToday ?? false) — {{ __('admin.statement.figures_as_of', ['date' => $today->format('d/m/Y')]) }}@endif</div>
                 <div class="stat-value {{ $summary['overdue'] > 0 ? 'warn' : '' }}">EGP {{ number_format($summary['overdue'], 2) }}</div>
             </td>
             <td>
-                <div class="stat-label">{{ __('admin.statement.total_billed') }}</div>
-                <div class="stat-value">EGP {{ number_format($summary['total_billed'], 2) }}</div>
+                <div class="stat-label">{{ __('admin.statement.due_to_you') }}</div>
+                <div class="stat-value">EGP {{ number_format($summary['due_to_tenant'], 2) }}</div>
             </td>
             <td>
-                <div class="stat-label">{{ __('admin.statement.total_paid') }}</div>
-                <div class="stat-value">EGP {{ number_format($summary['total_paid'], 2) }}</div>
+                <div class="stat-label">{{ __('admin.statement.deposit_held') }}</div>
+                <div class="stat-value">EGP {{ number_format($summary['deposit_held'], 2) }}</div>
             </td>
         </tr>
     </table>
+    @if($summary['credit_notes_unapplied'] > 0 || $summary['credit_on_account'] > 0)
+        <div class="muted" style="font-size:8.5pt; margin:-4pt 0 8pt;">
+            {{ __('admin.statement.due_to_you') }}:
+            {{ __('admin.statement.deposit_held') }} {{ number_format($summary['deposit_held'], 2) }}
+            @if($summary['credit_notes_unapplied'] > 0) · {{ __('admin.statement.credit_notes_unapplied') }} {{ number_format($summary['credit_notes_unapplied'], 2) }}@endif
+            @if($summary['credit_on_account'] > 0) · {{ __('admin.statement.credit_on_account') }} {{ number_format($summary['credit_on_account'], 2) }}@endif
+        </div>
+    @endif
 
-    <div class="section-title">{{ __('admin.statement.open_invoices') }} ({{ $summary['open_count'] }})</div>
+    {{-- ── The ledger ──────────────────────────────────────────────────────────────────────── --}}
+    <div class="section-title">{{ __('admin.statement.account_ledger') }}</div>
+    <table class="data">
+        <thead>
+            <tr>
+                {{-- 14% on each money column: a seven-digit closing figure in bold needs 22.2mm
+                     and a 12% cell had 19.7mm — measured by `StatementColumnsFitTest`. The
+                     reference column keeps 18% (`INV-AW-202604-0001` needs 30.6mm) and the description gives up the rest. --}}
+                <th style="width:11%;">{{ __('admin.fields.date') }}</th>
+                <th style="width:18%;">{{ __('admin.fields.reference') }}</th>
+                <th style="width:29%;">{{ __('admin.fields.description') }}</th>
+                <th class="num" style="width:14%;">{{ __('admin.ledger.debit') }}</th>
+                <th class="num" style="width:14%;">{{ __('admin.ledger.credit') }}</th>
+                <th class="num" style="width:14%;">{{ __('admin.ledger.balance') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{-- Balance forward, always — a zero says "nothing was owed going in", which is a
+                 statement, where an absent line is a question. --}}
+            <tr>
+                <td>{{ $since->format('d/m/Y') }}</td>
+                <td></td>
+                <td><em>{{ __('admin.statement.balance_forward') }}</em></td>
+                <td class="num"></td>
+                <td class="num"></td>
+                <td class="num {{ $ledger['opening'] > 0 ? 'due' : '' }}">{{ number_format($ledger['opening'], 2) }}</td>
+            </tr>
+            @forelse($ledger['rows'] as $row)
+                <tr>
+                    <td>{{ $row['date']?->format('d/m/Y') ?? '—' }}</td>
+                    <td class="mono">{{ Bidi::isolate($row['reference'] ?: '—') }}</td>
+                    <td>{{ Bidi::isolate($row['description']) }}</td>
+                    <td class="num">{{ $row['debit'] > 0 ? number_format($row['debit'], 2) : '' }}</td>
+                    <td class="num settled">{{ $row['credit'] > 0 ? number_format($row['credit'], 2) : '' }}</td>
+                    <td class="num {{ $row['balance'] > 0 ? 'due' : '' }}">{{ number_format($row['balance'], 2) }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="6" class="muted" style="text-align:center;">{{ __('admin.statement.no_movements') }}</td></tr>
+            @endforelse
+        </tbody>
+        <tfoot>
+            {{-- The currency is on the LABEL: an "EGP " prefix in a 12% cell wrapped a six-digit
+                 closing balance to "EGP / 83,797.99" — the exact defect the open-invoice footer
+                 below records for its own cell. --}}
+            <tr>
+                <td colspan="3" class="num">{{ __('admin.statement.closing_balance') }} (EGP)</td>
+                <td class="num">{{ number_format((float) $ledger['rows']->sum('debit'), 2) }}</td>
+                <td class="num settled">{{ number_format((float) $ledger['rows']->sum('credit'), 2) }}</td>
+                <td class="num {{ $ledger['closing'] > 0 ? 'due' : 'settled' }}">{{ number_format($ledger['closing'], 2) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {{-- ── The deposit account ─────────────────────────────────────────────────────────────── --}}
+    {{-- A liability the operator holds, so it is its own small account and never enters the
+         running balance above. Opens with what was held going into the window (derived from the
+         pot, so the account always foots: opening + received − returned = held), lists the
+         window's movements, and reads as one line when nothing is held — a tenant who paid a
+         deposit expects to find it on their statement, and its absence reads as lost. --}}
+    <div class="section-title">{{ __('admin.statement.deposit_account') }}</div>
+    @if($deposit['rows']->isEmpty() && $deposit['held'] <= 0)
+        <div class="empty">{{ __('admin.statement.no_deposit') }}</div>
+    @else
+        <table class="data">
+            <thead>
+                <tr>
+                    <th style="width:11%;">{{ __('admin.fields.date') }}</th>
+                    <th style="width:18%;">{{ __('admin.fields.reference') }}</th>
+                    <th style="width:29%;">{{ __('admin.fields.description') }}</th>
+                    <th class="num" style="width:14%;">{{ __('admin.statement.deposit_in') }}</th>
+                    <th class="num" style="width:14%;">{{ __('admin.statement.deposit_out') }}</th>
+                    <th class="num" style="width:14%;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ $since->format('d/m/Y') }}</td>
+                    <td></td>
+                    <td><em>{{ __('admin.statement.balance_forward') }}</em></td>
+                    <td class="num"></td>
+                    <td class="num"></td>
+                    <td class="num">{{ number_format($deposit['opening'] ?? 0, 2) }}</td>
+                </tr>
+                @foreach($deposit['rows'] as $row)
+                    <tr>
+                        <td>{{ $row['date']->format('d/m/Y') }}</td>
+                        <td class="mono">{{ Bidi::isolate($row['reference'] ?: '—') }}</td>
+                        <td>{{ $row['kind'] }} · {{ Bidi::isolate($row['lease']) }}</td>
+                        <td class="num">{{ $row['in'] > 0 ? number_format($row['in'], 2) : '' }}</td>
+                        <td class="num">{{ $row['out'] > 0 ? number_format($row['out'], 2) : '' }}</td>
+                        <td class="num"></td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="num">{{ __('admin.statement.deposit_held') }} (EGP)</td>
+                    <td class="num">{{ number_format((float) $deposit['rows']->sum('in'), 2) }}</td>
+                    <td class="num">{{ number_format((float) $deposit['rows']->sum('out'), 2) }}</td>
+                    <td class="num">{{ number_format($deposit['held'], 2) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    @endif
+
+    {{-- ── The balance, by document ────────────────────────────────────────────────────────── --}}
+    <div class="section-title">{{ __('admin.statement.balance_by_invoice') }} ({{ $summary['open_count'] }})@if($figuresAsOfToday ?? false) — {{ __('admin.statement.figures_as_of', ['date' => $today->format('d/m/Y')]) }}@endif</div>
     @if($openInvoices->isEmpty())
         <div class="empty">{{ __('admin.statement.no_open_invoices') }}</div>
     @else
@@ -133,117 +263,11 @@
             </tfoot>
         </table>
     @endif
-
-    {{-- Credits settle an invoice exactly as a payment does, and they were counted in Total Settled
-         while appearing nowhere on the page. Only rendered when there are any: an empty "Credits"
-         table on every ordinary statement is noise, and unlike payments a tenant does not expect
-         one. --}}
-    @if($credits->isNotEmpty())
-        <div class="section-title">{{ __('admin.statement.credits_applied') }} ({{ $credits->count() }})</div>
-        <table class="data">
-            <thead>
-                <tr>
-                    <th style="width:18%;">{{ __('admin.tables.credit_note.number') }}</th>
-                    <th style="width:14%;">{{ __('admin.tables.payment.date') }}</th>
-                    <th style="width:20%;">{{ __('admin.tables.invoice.number') }}</th>
-                    <th style="width:30%;">{{ __('admin.fields.reason') }}</th>
-                    <th class="num" style="width:18%;">{{ __('admin.tables.credit_note.applied') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($credits as $cn)
-                    <tr>
-                        <td class="mono">{{ Bidi::isolate($cn->number) }}</td>
-                        <td>{{ $cn->issue_date?->format('d/m/Y') ?? '—' }}</td>
-                        <td class="mono">{{ Bidi::isolate($cn->invoice?->number ?? '—') }}</td>
-                        <td>{{ $cn->reason ? \App\Support\Translate::orFallback('admin.enums.credit_note_reason.'.$cn->reason, (string) $cn->reason) : '—' }}</td>
-                        <td class="num settled">{{ number_format((float) $cn->applied_amount, 2) }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="4" class="num">{{ __('admin.statement.total_credited') }}</td>
-                    <td class="num settled">EGP {{ number_format((float) $credits->sum('applied_amount'), 2) }}</td>
-                </tr>
-            </tfoot>
-        </table>
-    @endif
-
-    {{-- The other two settlement channels (AR-GL-03). An invoice's balance falls through FOUR of
-         them and this page listed two, so Total Settled could exceed Total Received with the
-         difference itemised nowhere — worst on a final move-out statement, where netting the
-         deposit is usually the largest single settlement the tenant will ever see.
-
-         One table with a KIND column rather than two more: both answer the same question and carry
-         the same four facts. Rendered only when there are any, for the reason the credits table
-         gives — an empty section on every ordinary statement is noise. --}}
-    @if($settlements->isNotEmpty())
-        <div class="section-title">{{ __('admin.statement.other_settlements') }} ({{ $settlements->count() }})</div>
-        <table class="data">
-            <thead>
-                <tr>
-                    <th style="width:26%;">{{ __('admin.statement.settlement_kind') }}</th>
-                    <th style="width:14%;">{{ __('admin.tables.payment.date') }}</th>
-                    <th style="width:20%;">{{ __('admin.tables.invoice.number') }}</th>
-                    <th style="width:22%;">{{ __('admin.fields.notes') }}</th>
-                    <th class="num" style="width:18%;">{{ __('admin.tables.credit_note.applied') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($settlements as $row)
-                    <tr>
-                        <td>{{ $row['kind'] }}</td>
-                        <td>{{ $row['date']?->format('d/m/Y') ?? '—' }}</td>
-                        <td class="mono">{{ Bidi::isolate($row['invoice'] ?? '—') }}</td>
-                        <td>{{ Bidi::isolateLines($row['notes'] ?? '—') }}</td>
-                        <td class="num settled">{{ number_format($row['amount'], 2) }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="4" class="num">{{ __('admin.statement.total_other_settlements') }}</td>
-                    <td class="num settled">EGP {{ number_format((float) $settlements->sum('amount'), 2) }}</td>
-                </tr>
-            </tfoot>
-        </table>
-    @endif
-
-    <div class="section-title">{{ __('admin.statement.recent_payments') }} ({{ $payments->count() }})</div>
-    @if($payments->isEmpty())
-        <div class="empty">{{ __('admin.statement.no_recent_payments') }}</div>
-    @else
-        <table class="data">
-            <thead>
-                <tr>
-                    <th style="width:18%;">{{ __('admin.tables.payment.reference') }}</th>
-                    <th style="width:18%;">{{ __('admin.tables.payment.date') }}</th>
-                    <th style="width:18%;">{{ __('admin.tables.payment.method') }}</th>
-                    <th class="num" style="width:18%;">{{ __('admin.tables.payment.amount') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($payments as $p)
-                    <tr>
-                        <td class="mono">{{ Bidi::isolate($p->reference) }}</td>
-                        <td>{{ $p->payment_date->format('d/m/Y') }}</td>
-                        <td>{{ \App\Models\PaymentMethod::labelFor($p->method) }}</td>
-                        <td class="num settled">{{ number_format((float) $p->amount, 2) }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="3" class="num">{{ __('admin.statement.total_received') }}</td>
-                    <td class="num settled">EGP {{ number_format((float) $payments->sum('amount'), 2) }}</td>
-                </tr>
-            </tfoot>
-        </table>
-    @endif
-
 @endsection
 
 @section('closing')
-    {{ __('admin.statement.footer') }}@if($billingEmail) {{ __('admin.statement.footer_queries') }}: {{ Bidi::isolate($billingEmail) }}@endif
+    {{-- The operator's own line (`DocumentText`, block `statement.footer`) — "valid for 7 days",
+         whatever they wrote per property; the floor is the sentence this document always carried.
+         `e()` INSIDE `nl2br`, or nl2br's own <br> gets escaped. --}}
+    {!! nl2br(e(Bidi::isolateLines($footerText ?? __('admin.statement.footer')))) !!}@if($billingEmail) · {{ __('admin.statement.footer_queries') }}: {{ Bidi::isolate($billingEmail) }}@endif
 @endsection
