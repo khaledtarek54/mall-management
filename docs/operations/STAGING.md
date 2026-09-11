@@ -220,6 +220,7 @@ rows in this order:
 | `admin_access` | **OK** | Nobody holds `super_admin`; the login page will simply reject everyone. |
 | `mobile_reset_url` | **OK** | Set `APP_MOBILE_RESET_URL`, or mobile reset mail 404s for every tester. |
 | `runtime_drivers` | **OK** | Still on the `database` driver — staging is then not rehearsing the production topology. |
+| `notification_delivery` | **OK** | A transport dropped a notification in the last 24h (`notification.delivery_failed` on the ops log). The bell rows stand; the e-mails never left. On this box `MAIL_MAILER=log` by decision, so a red here is a real fault — read the last miss the row names. |
 | `redis_memory` | **OK** | `maxmemory 0` (no cap), an eviction policy, or ≥80% of the cap. The box shipped with no cap: set `maxmemory 256mb` + `noeviction` in `redis.conf` (INFRASTRUCTURE.md §5, OPS-09). Red until that is done — deliberately. |
 | `php_extensions` | **OK** | An extension is in `php-cli` and not in `php-fpm`. Everything installs and schedules; every money column throws. Read it over HTTP — the console cannot see this. |
 | `demo_payments` | **OK** | `DEMO_PAYMENTS_ENABLED` is set. Unset it. See §2. |

@@ -38,6 +38,9 @@ const EXPECTED_HEALTH_CHECKS = [
     'demo_accounts',
     'demo_payments',
     'mobile_reset_url',
+    // OPS-10: a transport dropping a notification is an ops-log line since SW-252, not a failed
+    // job — this is what turns it into something Discord hears about.
+    'notification_delivery',
     // Rotating the Paymob HMAC secret means accepting the OLD one for a few hours — Paymob signs
     // with whatever their dashboard holds, so callbacks in flight carry the previous signature.
     // This row fails in production once that window has closed and the secret is still in `.env`.

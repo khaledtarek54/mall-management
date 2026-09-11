@@ -133,7 +133,7 @@ round changed the reading.
 
 ## 3 · Ops hygiene (XS each)
 
-- **OPS-10** — **OPEN.** A `Health` row that counts `notification.delivery_failed` over the last 24h.
+- ~~**OPS-10**~~ — **DONE 2026-09-11.** `notification_delivery` on `atriom:health`: `OpsLog::countEventSince()` reads `notification.delivery_failed` off the daily ops files for the last 24h — the durable record everything already writes to, a file a Redis flush cannot zero — and the row goes red naming the last miss (notification, recipient, error), so `atriom:notify-status` posts to Discord once when a token dies and once when the window has been clean for 24h — a day after the fix, not the moment of it. Refuses to call a file it cannot see clean (`ops_daily` out of the stack, or `OPS_LOG_LEVEL` above warning) and advises by exception class (a malformed address on the record is not the transport's fault). Deployed boxes only. `ADroppedNotificationReachesTheHealthRowTest`, four mutations. Also closed on the way: SW-252's `BestEffortMailChannel` had left `TenantFacingWordingIsTheOperatorsConformanceTest` red on `main` (a channel read as a mail notice) — fixed by derivation (a notice composes in `toMail()`, its own or `AlsoSendsByMail`'s), and the first cut of that clause silently dropped the thirteen trait users, which the gate's own premise count caught. Was: **OPEN.** A `Health` row that counts `notification.delivery_failed` over the last 24h.
   Since SW-252 an inline mail failure is one ops-log WARNING line and no longer a failed job, so on
   production a dead mail token would show ONLY there — the soak check now puts the count in its
   verdict, but `atriom:notify-status` (Discord) watches `Health` rows and would not fire. XS: the

@@ -84,6 +84,7 @@ class Health
             'mobile_reset_url' => self::checkMobileResetUrl(),
             'runtime_drivers' => self::checkRuntimeDrivers(),
             'redis_memory' => self::checkRedisMemory(),
+            'notification_delivery' => self::checkNotificationDelivery(),
             'php_extensions' => self::checkPhpExtensions(),
             'translations' => self::checkTranslations(),
         ];
@@ -1193,6 +1194,64 @@ class Health
         }
 
         return ['ok' => true, 'detail' => $mb($facts['used']).' of '.$mb($facts['maxmemory'])." ({$pct}%), noeviction"];
+    }
+
+    /**
+     * No notification was dropped by its transport in the last 24 hours (OPS-10, 2026-09-11).
+     *
+     * Since SW-252 an inline mail failure is one ops-log WARNING (`notification.delivery_failed`,
+     * written by `BestEffortMailChannel` and `BestEffortNotification`) and no longer a failed job —
+     * which is right for the record (the bell row survives) and wrong for the monitoring: on
+     * production a dead mail token would show ONLY in that file. `atriom:notify-status` posts to
+     * Discord on a CHANGE of the failing set, so this row fires once when the token dies and once
+     * when the window has been clean for 24h — a day after the fix, not the moment of it — rather
+     * than every fifteen minutes about a condition nobody has acted on.
+     * Read off the daily ops files (the durable record everything already writes to — a Redis key
+     * a flush zeroes is not one), deployed boxes only.
+     */
+    private static function checkNotificationDelivery(): array
+    {
+        if (! Deployment::isDeployed()) {
+            return ['ok' => true, 'detail' => 'not checked on a workstation'];
+        }
+
+        // A count of zero is a statement about the FILE, and the file is only the record while
+        // warnings reach it — "examined nothing" is never a pass (review, 2026-09-11: with
+        // OPS_LOG_LEVEL=error or a stack without ops_daily this row said "no delivery failures"
+        // one line after a real one).
+        if ($blind = OpsLog::warningsReachTheDailyFile()) {
+            return ['ok' => false, 'detail' => "cannot see delivery failures — {$blind}; a dropped notification would go unreported"];
+        }
+
+        try {
+            $dropped = OpsLog::countEventSince('notification.delivery_failed', now()->subDay());
+        } catch (Throwable $e) {
+            return ['ok' => false, 'detail' => 'could not read the ops log: '.Str::limit($e->getMessage(), 80)];
+        }
+
+        if ($dropped['count'] === 0) {
+            return ['ok' => true, 'detail' => 'no delivery failures in the last 24h'];
+        }
+
+        $last = json_decode((string) $dropped['last'], true) ?: [];
+        $exception = class_basename((string) ($last['exception'] ?? ''));
+
+        // The two writers log more than transport faults under this event — a malformed address
+        // on the RECORD (`RfcComplianceException`, raised before any transport is asked) and, from
+        // `BestEffortNotification`, any Throwable — so the advice follows the exception class
+        // rather than blaming the mail token for a tenant's bad e-mail address.
+        $advice = match (true) {
+            $exception === 'RfcComplianceException' => 'a recipient address on the record is malformed — fix the address.',
+            str_contains($exception, 'Transport') || str_contains($exception, 'MailerSend') || str_contains($exception, 'Client') => 'check MAIL_MAILER and its token.',
+            default => 'not a transport fault — read the ops log.',
+        };
+
+        return [
+            'ok' => false,
+            'detail' => "{$dropped['count']} notification(s) dropped in the last 24h — the bell rows stand, the messages never left. "
+                .'Last: '.($last['notification'] ?? '?').' to '.($last['notifiable'] ?? $last['scan'] ?? '?')
+                .' — '.($exception ?: '?').' ('.Str::limit((string) ($last['error'] ?? ''), 80).'). '.ucfirst($advice),
+        ];
     }
 
     /** @return array{ok: bool, detail: string} */

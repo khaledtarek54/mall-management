@@ -54,6 +54,19 @@ it('templates every tenant-facing mail notice, or says why not', function () {
             continue;
         }
 
+        // …and only NOTIFICATIONS: a mail notice composes its words in `toMail()` — its own, or
+        // the one `AlsoSendsByMail` lends to thirteen of them (the first cut of this clause read
+        // the method name off the file alone and silently dropped every trait user from the
+        // sweep, which the `$checked` premise below is what caught). A CHANNEL under
+        // `app/Notifications/Channels` (`BestEffortMailChannel`, SW-252) names the mail channel
+        // and the word tenant in its docblock and composes nothing — the gate read it as an
+        // un-templated notice and went red on `main`. Derived, not exempted by name, so the next
+        // channel is not the next red. (Derived by METHOD; the trait is a name, and a second trait
+        // lending `toMail` would need adding here — the premise below counts what the sweep sees.)
+        if (! str_contains($code, 'function toMail(') && ! str_contains($code, 'AlsoSendsByMail')) {
+            continue;
+        }
+
         // …and only those a TENANT receives. An owner or an internal alert is the operator talking
         // to themselves, where a shipped sentence is the right default.
         if (! preg_match('/\b(tenant|Tenant)\b/', $code)) {
@@ -91,7 +104,10 @@ it('templates every tenant-facing mail notice, or says why not', function () {
 
     // The sweep must have found something before it reports on nothing — the vacuity trap this
     // codebase has hit three times, most memorably a gate that swept zero models for a year.
-    expect($checked)->toBeGreaterThan(8);
+    // The premise, and it is what caught the clause above dropping the trait users (15 → 10):
+    // the sweep must still see every mail notice a tenant receives. 15 at 2026-09-11 — the 16th
+    // file the older sweep counted was the channel.
+    expect($checked)->toBeGreaterThanOrEqual(15);
 
     expect($notTemplated)->toBe([], implode("\n", [
         'These notifications email a TENANT and their wording is not the operator\'s:',
