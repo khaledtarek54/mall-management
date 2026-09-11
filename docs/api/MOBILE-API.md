@@ -774,13 +774,21 @@ ambiguity**, corrected 2026-08-15: a pre-review `0` was indistinguishable from a
 that came in below the threshold and genuinely owes `0.00`. Those are opposite facts. The rule is
 now the same on both figures — **`null` means nobody has looked yet; `0` is an answer.**
 
+**One exception, and `isEstimate` names it** (since 2026-09-11). When a tenant is chased and still
+files nothing, the mall raises the period on their behalf (`sales:estimate-missing`, from their own
+trailing average): `isEstimate` is `true`, `declaredSales` holds the **mall's** estimate — not a figure
+the tenant typed — and `calculatedPercentageRent` is `0` until staff lock it, which is NOT "reviewed,
+nothing due". Label it as the mall's estimate and hold the rent as pending until `isLocked`. The
+tenant cannot file over an estimate today (the period is refused as a duplicate), so do not build a
+"replace the estimate" action on this field.
+
 #### 🔒 `GET /me/sales-declarations` — paginated, newest period first
 Query: `status`, `page`, `per_page`.
 ```json
 { "data": [ { "id": 7, "periodStart": "2026-05-01", "periodEnd": "2026-05-31",
   "periodLabel": "May 2026", "declaredSales": null,
   "calculatedPercentageRent": null, "status": "submitted",
-  "isLocked": false, "declaredAt": "2026-06-01T08:00:00+00:00", "lockedAt": null,
+  "isLocked": false, "isEstimate": false, "declaredAt": "2026-06-01T08:00:00+00:00", "lockedAt": null,
   "hasReport": true,
   "attachments": [ { "id": 12, "name": "may-sales.pdf", "mimeType": "application/pdf",
     "size": 84213, "url": "https://…/api/v1/me/sales-declarations/7/attachments/12" } ],

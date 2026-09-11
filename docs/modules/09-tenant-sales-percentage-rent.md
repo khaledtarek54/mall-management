@@ -919,6 +919,11 @@ chased and never estimated (SW-254; reported as `reporting_only` on `sales.estim
   instead. Same rule that stops the escalation sweep guessing a CPI figure.
 - Marked `is_estimate`, and **not locked**: an estimate is a prompt for a decision, not a fact, so
   it passes the same operator review gate as every other percentage-rent charge.
+- **The tenant is told it is one** (2026-09-11, mobile §L L4): `TenantSalesDeclarationResource`
+  sends `isEstimate` from this column. Until then an estimate reached the app looking exactly like a
+  declaration the tenant filed — their "own" turnover, beside a percentage rent of 0 that reads
+  "reviewed, nothing due". Not to be confused with the `is_estimate` in
+  `PercentageRentCalculationService::explain()`, which means "not locked yet".
 - Never overwrites a real declaration — re-checked under a lock inside the transaction.
 - **An estimate follows a RECORDED reminder, never a date (SW-253, 2026-09-11).** The 17th used
   to be "a week after the chase" as a schedule day, and never asked whether the chase had happened

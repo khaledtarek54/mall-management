@@ -219,7 +219,10 @@ Every key is **camelCase**. Every money value is a JSON number that is an **`int
 { id, periodStart, periodEnd, periodLabel,
   declaredSales,              // null = nobody has looked yet. 0 = an answer.
   calculatedPercentageRent,   // same rule
-  status, isLocked, declaredAt, lockedAt, hasReport,
+  status, isLocked,
+  isEstimate,                 // true = the MALL estimated this period because nothing was filed —
+                              // declaredSales is not the tenant's figure; rent is pending until isLocked
+  declaredAt, lockedAt, hasReport,
   lease:{id,reference,unit:{id,code}},
   attachments:[{id,name,mimeType,size,url}] }
 
