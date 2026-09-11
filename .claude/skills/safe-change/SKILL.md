@@ -197,19 +197,21 @@ Not "it deployed". **Drive the behaviour**:
 
 *(There is no production box yet — staging IS the deployed environment the tester works against.)*
 
-## 11. Close the loop on Trello
+## 11. Close the loop on Trello — to `QA`, never to `Done`
 
 Comment on the card — **short and precise**: what was wrong, what changed, the commit, what to
 re-test on staging. Long reasoning belongs in the commit message and the module doc. **Verify the
 SHA with `git rev-parse` before quoting it** (an invented one has had to be corrected in place).
-Then move the card to `Done ✅`. A card needing HIS decision stays put, with a comment saying what
-is needed.
+Then move the card to **`QA`** (`6a9ae690c125df66093fee27`) — **not `Done ✅`** (Khaled,
+2026-09-11): the tester re-tests it on staging and is the one who moves it to Done. Done is their
+verdict, not ours; a card we move there is a fix nobody outside this session has seen work. A
+card needing HIS decision stays put, with a comment saying what is needed.
 
 **No card? Make one.** A change that came from a meeting, a client list or a defect you found
-yourself gets a NEW, simple card created straight into `Done ✅` when it is finished — one card per
-item, never an edit of an existing card, never a second item folded into one. The recipe is
-[`/trello` §4b](../trello/SKILL.md). The board is the record of what shipped, whichever way the
-work arrived.
+yourself gets a NEW, simple card created into **`QA`** when it is finished — one card per item,
+never an edit of an existing card, never a second item folded into one — so the tester tests it
+like any other. The recipe is [`/trello` §4b](../trello/SKILL.md). The board is the record of what
+shipped, whichever way the work arrived.
 
 ## 12. Say what you found and did NOT do
 

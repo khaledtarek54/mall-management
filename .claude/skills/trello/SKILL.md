@@ -53,8 +53,9 @@ the token is generated from the link beside it. The 32-char key has not changed.
 
 ## 2. The board: lists ARE severities
 
-There is no status column — **which list a card sits in is its severity**, and `Done ✅` is the
-terminal one.
+There is no status column — **which list a card sits in is its severity**; `QA` is where a fixed
+card goes for the TESTER to re-test, and `Done ✅` is the tester's verdict, **never ours** (Khaled,
+2026-09-11).
 
 | List | id |
 |---|---|
@@ -127,9 +128,10 @@ Then **Read the file** so you actually see it.
 
 ---
 
-## 4. Closing a card — `/safe-change` step 11
+## 4. Closing a card — `/safe-change` step 11 — into `QA`, never `Done`
 
-Only after the fix is committed, deployed and **verified on the box**.
+Only after the fix is committed, deployed and **verified on the box**. The card moves to **`QA`**
+for the tester; **they** move it to `Done ✅` once it re-tests clean. Done is not ours to set.
 
 **Verify the SHA before quoting it** — an invented one has had to be corrected in place:
 
@@ -164,18 +166,18 @@ curl -s -o /dev/null -w "comment -> HTTP %{http_code}\n" -X POST \
 `--data-urlencode`, always: a raw `-d` mangles `&`, `+` and newlines, and Arabic comes out as
 mojibake.
 
-### Move, then READ IT BACK
+### Move to QA, then READ IT BACK
 
 ```bash
 source ~/.trello.env
-C=M6scQfGu; DONE=6a9ae694cc2563e59bfdb5d0
+C=M6scQfGu; QA=6a9ae690c125df66093fee27
 curl -s -o /dev/null -w "move -> HTTP %{http_code}\n" -X PUT \
-  "https://api.trello.com/1/cards/$C?key=$TRELLO_KEY&token=$TRELLO_TOKEN&idList=$DONE"
+  "https://api.trello.com/1/cards/$C?key=$TRELLO_KEY&token=$TRELLO_TOKEN&idList=$QA"
 curl -s "https://api.trello.com/1/cards/$C?key=$TRELLO_KEY&token=$TRELLO_TOKEN&fields=name,idList" \
  | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
-print(('DONE  ' if d['idList']=='6a9ae694cc2563e59bfdb5d0' else 'NOT MOVED  ')+d['name'])"
+print(('QA  ' if d['idList']=='6a9ae690c125df66093fee27' else 'NOT MOVED  ')+d['name'])"
 ```
 
 A 200 is not proof the card moved. Read it back.
@@ -185,19 +187,20 @@ A 200 is not proof the card moved. Read it back.
 ## 4b. A change with NO card gets one — created, not edited (Khaled, 2026-09-11)
 
 A meeting decision, a found defect, a point off a client list: it ships through `/safe-change`
-exactly like a card, and **when it is finished a card is CREATED for it in `Done ✅`** so the board
-is the one record of what shipped. Rules, all three of them:
+exactly like a card, and **when it is finished a card is CREATED for it in `QA`** — the tester
+tests it like any other, and moves it to `Done ✅` themselves — so the board is the one record of
+what shipped. Rules, all three of them:
 
 - **One card per finished item. Simple.** Name = the source and the item, description = the same
   four things a closing comment carries (what was wrong · what changed · the commit · what to
   re-test on staging). No essay — the commit message and the module doc hold the reasoning.
 - **Never overwrite.** Create a NEW card; never rename, re-describe or reuse an existing one to
   hold a second item, and never edit a card's description after it is filed. History is the record.
-- **Created straight into `Done ✅`, then READ BACK** — a 200 is not proof.
+- **Created into `QA`, then READ BACK** — a 200 is not proof.
 
 ```bash
 source ~/.trello.env
-DONE=6a9ae694cc2563e59bfdb5d0
+QA=6a9ae690c125df66093fee27
 NAME='[Meeting 2 Sep] #7 — Trial balance: opening · movement · closing'
 read -r -d '' DESC <<'EOF'
 Was: <one sentence>
@@ -206,9 +209,9 @@ Commit: <sha, verified with git rev-parse>
 Re-test on staging: <what to open, what should show>
 EOF
 curl -s -X POST "https://api.trello.com/1/cards?key=$TRELLO_KEY&token=$TRELLO_TOKEN" \
-  --data-urlencode "idList=$DONE" --data-urlencode "name=$NAME" --data-urlencode "desc=$DESC" \
+  --data-urlencode "idList=$QA" --data-urlencode "name=$NAME" --data-urlencode "desc=$DESC" \
  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['shortLink'], d['shortUrl'])"
-# then read it back with the snippet in §4 and confirm idList is Done.
+# then read it back with the snippet in §4 and confirm idList is QA.
 ```
 
 Name prefix by source: `[Meeting <date>]` for a client-meeting point, `[Found]` for a defect the
