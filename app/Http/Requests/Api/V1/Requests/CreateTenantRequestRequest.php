@@ -40,9 +40,11 @@ class CreateTenantRequestRequest extends FormRequest
                 ? ['prohibited']
                 : ['required', Rule::in($subcategories)],
             'priority' => ['sometimes', Rule::in(TenantRequest::PRIORITIES)],
-            // If supplied, the unit must belong to one of THIS tenant's leases.
-            // Prevents a tenant from filing against someone else's unit. When
-            // omitted, the service derives it from the active lease.
+            // If supplied, the unit must be on one of THIS tenant's leases or be a shop they own
+            // (handed over, covering today) — and the request is filed against it, even for a party
+            // that also leases another shop (`TenantRequestService::create()`, mobile §L L3).
+            // Prevents a tenant from filing against someone else's unit. When omitted, the service
+            // derives it from the active lease.
             // Matched against the lease_unit PIVOT, not just `leases.unit_id`: the column holds
             // only a multi-unit lease's MASTER, so an exists-rule on it rejected a tenant's own
             // additional units with "the selected unit id is invalid".

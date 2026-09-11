@@ -580,7 +580,12 @@ Both halves moved, and the write clamp is the one that matters (the picker only 
 rendering; the mobile API reaches the same service):
 
 - `TenantRequestForm::reportableUnitIds()` unions the tenant's leased units with their owned ones.
-- `TenantRequestService::create()` falls back to the owned set when no lease resolves the unit.
+- `TenantRequestService::create()` files against an owned shop the party NAMED before it falls back to
+  their active lease, and uses the owned set when no lease resolves the unit at all. **Until 2026-09-11
+  it only did the second**, which made the owned branch unreachable for anyone who ALSO holds a lease:
+  naming the owned shop returned the leased shop's master, and the ticket went to that shop's mall,
+  SLA calendar and supervisor (mobile §L L3). A unit a lease of theirs holds still resolves through the
+  lease; one that is neither leased nor owned still collapses to their own lease.
 
 **The predicate is `handed_over` AND covering today** — the same one the assessment run bills from,
 so the two cannot disagree about which shops are theirs. A `contracted` or `reserved` shop has not

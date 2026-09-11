@@ -35,7 +35,7 @@
 | Money | What a credit note credited | **`items[]`** on credit notes |
 | Money | Chasing a cheque or a card charge | **`chequeNumber`**, **`chequeClearanceDate`**, **`gatewayTransactionId`**, **`notes`** on payments |
 | Recoveries | The annual service charge, previously web-only | **`GET /me/cam-allocations`**, `/{id}`, `/{id}/statement` |
-| Owners | A unit owner is a first-class user | **`GET /me/unit-ownerships`**; `unitId` on a request now accepts an owned shop |
+| Owners | A unit owner is a first-class user | **`GET /me/unit-ownerships`**; `unitId` on a request now accepts an owned shop — and, since 2026-09-11, files against it for a party that ALSO leases (it used to swap in the leased shop) |
 | Requests | The category catalogue the operator edits | **`GET /me/request-types`** |
 | i18n | Every code, both languages, worded as the panel words it | **`GET /me/vocabulary`** |
 | Profile | The language push and e-mail are written in | **`locale`** on `GET`/`PATCH /me` |

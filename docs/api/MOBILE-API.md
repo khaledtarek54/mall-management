@@ -689,7 +689,10 @@ only send `category` keep working). `category` is required for types that define
 sub-categories (maintenance, access, document, complaint) and must be one of
 that type's values; types without sub-categories (inquiry, billing) omit it.
 `unitId` is optional — if omitted the server uses your active lease's unit; if
-provided it must be a unit on one of *your* leases (else `422`). → `201` with
+provided it must be a unit on one of *your* leases **or a shop you own** (handed
+over, covering today — see `/me/unit-ownerships`), else `422`. The request is
+filed against the shop you name: until 2026-09-11 a party that owned one shop and
+leased another had the owned shop silently replaced by the leased one. → `201` with
 the created request, auto-routed to the type's default team, which is notified.
 
 #### 🔒 `GET /me/requests/{id}` — detail with public comment thread

@@ -4756,7 +4756,7 @@
                             "integer",
                             "null"
                         ],
-                        "description": "If supplied, the unit must belong to one of THIS tenant's leases.\nPrevents a tenant from filing against someone else's unit. When\nomitted, the service derives it from the active lease.\nMatched against the lease_unit PIVOT, not just `leases.unit_id`: the column holds\nonly a multi-unit lease's MASTER, so an exists-rule on it rejected a tenant's own\nadditional units with \"the selected unit id is invalid\"."
+                        "description": "If supplied, the unit must be on one of THIS tenant's leases or be a shop they own\n(handed over, covering today) \u2014 and the request is filed against it, even for a party\nthat also leases another shop (`TenantRequestService::create()`, mobile \u00a7L L3).\nPrevents a tenant from filing against someone else's unit. When omitted, the service\nderives it from the active lease.\nMatched against the lease_unit PIVOT, not just `leases.unit_id`: the column holds\nonly a multi-unit lease's MASTER, so an exists-rule on it rejected a tenant's own\nadditional units with \"the selected unit id is invalid\"."
                     },
                     "attachments": {
                         "type": "array",

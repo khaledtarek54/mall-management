@@ -569,7 +569,8 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 *Form* (Portal):
 - title, category, priority (no status/assigned_to/department).
-- unit_id: pre-populated from tenant's active lease; multi-select if multiple leases.
+- unit_id: one unit — every unit on the tenant's leases (through the pivot) plus the shops they own,
+  handed over and covering today (`reportableUnitIds()`); opens on the first of them.
 - description, attachments (image/pdf only, max 5 files).
 
 *Comments* (PortalTenantRequestCommentsRelationManager):

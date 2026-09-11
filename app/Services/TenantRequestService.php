@@ -68,24 +68,46 @@ class TenantRequestService
             // report faults for A-01. Matching the column too is belt-and-braces for any lease
             // whose master was never synced into the pivot.
             $requestedUnitId = isset($data['unit_id']) ? (int) $data['unit_id'] : null;
-            /** @var Lease|null $lease — the `?? activeLeases()->first()` fallback otherwise widens it to Model, hiding units()/unit. */
-            $lease = ($requestedUnitId !== null
+            $holdingLease = $requestedUnitId !== null
                 ? $tenant->leases()
                     ->where(fn ($q) => $q
                         ->where('unit_id', $requestedUnitId)
                         ->orWhereHas('units', fn ($u) => $u->whereKey($requestedUnitId)))
                     ->first()
-                : null)
-                ?? $tenant->activeLeases()->first();
+                : null;
+
+            // **A SHOP THEY OWN IS NOT SOMEBODY ELSE'S.** A party can lease one shop and own another —
+            // module 37 makes an owner a `tenants` row like any other — and until 2026-09-11 naming the
+            // OWNED one filed the fault against the LEASED one: no lease held the unit named, so the
+            // `activeLeases()->first()` fallback below answered first, `$unit` came back as that
+            // lease's master and never null, and the owned-unit branch further down was unreachable
+            // for anyone who held a lease. The validator had accepted the owned shop; this discarded it
+            // without a word. And the wrong unit is not cosmetic: it decides the reference's mall code,
+            // the SLA calendar, the staff notified and the area supervisor — an owned shop in another
+            // mall went to the wrong mall's board (mobile §L L3, drift A4; the portal picker offers
+            // owned shops into this same method, so it had the same bug). So the ownership is asked
+            // BEFORE the fallback, on the predicate the owner-only branch uses — `handed_over` AND
+            // covering today — and a unit a lease of theirs holds still resolves through the lease.
+            $namedOwnedUnit = $holdingLease === null && $requestedUnitId !== null && $tenant->unitOwnerships()
+                ->where('status', UnitOwnershipStatus::HandedOver)
+                ->covering()
+                ->where('unit_id', $requestedUnitId)
+                ->exists();
+
+            /** @var Lease|null $lease — the `?? activeLeases()->first()` fallback otherwise widens it to Model, hiding units()/unit. */
+            $lease = $namedOwnedUnit ? null : ($holdingLease ?? $tenant->activeLeases()->first());
 
             // The unit the tenant actually ASKED about, when it belongs to the resolved lease —
             // not that lease's master, which is what made a fault in the second shop arrive
             // labelled as the first. Falls back to the master when the request named nothing, or
-            // named a unit that is not on this lease (i.e. someone else's — the clamp still holds).
+            // named a unit that is neither on this lease nor theirs (i.e. someone else's — the
+            // clamp still holds).
             /** @var Unit|null $unit — units() (BelongsToMany) ->first() resolves to base Model, so narrow. */
-            $unit = $requestedUnitId !== null
-                ? ($lease?->units()->whereKey($requestedUnitId)->first() ?? $lease?->unit)
-                : $lease?->unit;
+            $unit = match (true) {
+                $namedOwnedUnit => Unit::find($requestedUnitId),
+                $requestedUnitId !== null => $lease?->units()->whereKey($requestedUnitId)->first() ?? $lease?->unit,
+                default => $lease?->unit,
+            };
 
             // **A UNIT OWNER HOLDS NO LEASE, AND COULD THEREFORE REPORT NOTHING.** Module 37's rule
             // is that an owner IS a `tenants` row, and every other portal surface treats them as
