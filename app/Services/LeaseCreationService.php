@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Support\ChargeEscalation;
 use App\Support\DepositBasis;
 use App\Support\LeaseActivation;
 use App\Support\LeaseTerm;
@@ -150,17 +151,31 @@ class LeaseCreationService
         ];
     }
 
+    /**
+     * @param  array{escalation_mode?: ?string, escalation_rate?: ?float, escalation_amount?: ?float}  $serviceEscalation
+     *                                                                                                                     how the service charge steps on the anniversary (meeting 2026-09-02, point 24) — the
+     *                                                                                                                     lease form asks; a caller that says nothing gets the PROPERTY's proposal
+     *                                                                                                                     (`ChargeEscalation::defaultModeFor()`), which is what the wizard and the importer
+     *                                                                                                                     take, so a migrating operator's file lands under the mall's own convention.
+     */
     public static function seedStandardCharges(
         Lease $lease,
         float $rent,
         float $service,
         ?\DateTimeInterface $commencement = null,
+        array $serviceEscalation = [],
     ): void {
         if ($lease->charges()->exists()) {
             return;
         }
 
         $commencement = $commencement ?? $lease->commencement_date;
+
+        $serviceEscalation += [
+            'escalation_mode' => ChargeEscalation::defaultModeFor($lease->unit?->asset_id),
+            'escalation_rate' => null,
+            'escalation_amount' => null,
+        ];
 
         if ($rent > 0) {
             Charge::create([
@@ -191,6 +206,11 @@ class LeaseCreationService
                 // null on both = the catalogue answers at billing time (Charge::resolvedVatRate);
                 // a value on either is an override somebody chose.
                 'vat_rate' => null,
+                // The row's own annual-increase rule — the model clears the figure its mode
+                // does not read.
+                'escalation_mode' => $serviceEscalation['escalation_mode'],
+                'escalation_rate' => $serviceEscalation['escalation_rate'],
+                'escalation_amount' => $serviceEscalation['escalation_amount'],
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);

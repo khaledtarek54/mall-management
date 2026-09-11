@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Models\ChargeCode;
 use App\Models\LeaseEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\App;
@@ -59,6 +60,12 @@ class LeaseEventNarrative
         // itself would print one mid-sentence on every rent-only row already written.
         'rent_escalated_with_service',
         'rent_escalated_collared_with_service',
+        // A charge stepping by ITS OWN rule — a bay's fixed step, a service charge on its own
+        // percentage (meeting 2026-09-02, point 24). One event per charge, naming it: the
+        // `_with_service` pair states ONE percentage for rent and service together, and a charge
+        // on a different rule cannot share that sentence.
+        'charge_escalated',
+        'charge_escalated_amount',
         'rent_changed',
         'relief_granted',
         'term_extended',
@@ -146,6 +153,13 @@ class LeaseEventNarrative
             if (isset($tokens[$name])) {
                 $tokens[$name] = trans($group.$tokens[$name], [], $locale);
             }
+        }
+
+        // A charge TYPE is a catalogue row, not a lang key: the operator may have renamed it, and
+        // a code they added has no translation at all. Resolved through the same reader every
+        // screen uses, in the requested language.
+        if (isset($tokens['charge_type']) && $tokens['charge_type'] !== '—') {
+            $tokens['charge_type'] = ChargeCode::labelFor($tokens['charge_type'], $locale);
         }
 
         foreach (['notice_given_at', 'effective_from', 'contracted_expiry', 'commencement', 'reserved_until'] as $name) {

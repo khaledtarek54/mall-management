@@ -20,6 +20,7 @@ use App\Services\RentEscalationService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\ChargeEscalation;
 use App\Support\DepositBasis;
 use App\Support\DepositBilling;
 use App\Support\DocumentNumbering;
@@ -35,8 +36,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
@@ -173,8 +174,14 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 $lease->escalation_amount = null;
                 $lease->escalation_floor_rate = null;
                 $lease->escalation_ceiling_rate = null;
-                $lease->escalation_applies_to_service_charge = false;
-                $lease->next_escalation_date = null;
+
+                // The pointer is the SWEEP's, not the clause's (meeting 2026-09-02, point 24): a
+                // charge row carrying its own rule steps on the same anniversary, so a lease
+                // whose rent never escalates still needs one while its parking does. Cleared
+                // only when nothing on the schedule steps either.
+                if (! $lease->escalatesAnyCharge()) {
+                    $lease->next_escalation_date = null;
+                }
 
                 return;
             }
@@ -192,7 +199,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
             // `base_rent_monthly` was never bumped, armed the pointer past the sweep, and every
             // later sweep amended the projected rungs DOWN one step for the rest of the term.
             if ($lease->exists
-                && $lease->escalatesContractually()
+                && $lease->escalates()
                 && $lease->isDirty('escalation_interval_months')
                 && $lease->commencement_date !== null
                 && $lease->getOriginal('next_escalation_date') !== null) {
@@ -223,7 +230,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
             // invoiced lease refuses the move below), so the first anniversary is simply re-armed
             // from the date the term now starts on.
             if ($lease->exists
-                && $lease->escalatesContractually()
+                && $lease->escalates()
                 && $lease->isDirty('commencement_date')
                 && $lease->commencement_date !== null) {
                 $lease->next_escalation_date = $lease
@@ -904,7 +911,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'reserved_until' => 'a hold on the ORIGINAL while it awaited activation; a renewal is executed and holds nothing.',
         'rent_commencement_date' => 'fit-out grace was for the original build-out; a renewal has no new one.',
         'fit_out_scope' => 'same — there is no fit-out to scope on a renewal.',
-        'next_escalation_date' => 'recomputed by the escalation hook in `Lease::booted` from the renewal\'s own dates; copying the original\'s would escalate against a term that has ended.',
+        'next_escalation_date' => 'recomputed from the renewal\'s own dates — by the escalation hook in `Lease::booted` for the rent\'s clause, and by the ladder projection for a charge carrying its own rule; copying the original\'s would escalate against a term that has ended.',
         'holdover_from' => 'holdover is a state the ORIGINAL entered by running past expiry. A renewal starts inside its term. (`holdover_rate_pct` — the negotiated uplift — DOES carry.)',
         'expiry_reminder_notified_at' => 'a notification stamp about the original\'s expiry.',
     ];
@@ -953,7 +960,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_index_lag_months',
         'escalation_type',
         'escalation_interval_months',
-        'escalation_applies_to_service_charge',
         'next_escalation_date',
         'has_percentage_rent',
         'requires_sales_reporting',
@@ -985,7 +991,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // migration. See the migration and docs/gap-analysis/README.md Q2.
         'fit_out_scope' => self::FIT_OUT_RENT_ONLY,
         'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
-        'escalation_applies_to_service_charge' => false, // the clause steps the rent alone unless it says otherwise
         'percentage_rent_frequency' => 'monthly', // fresh monthly breakpoint unless set to annual (cumulative)
         'percentage_rent_billing_frequency' => 'monthly', // WHEN the overage is charged — a separate term from the basis above
     ];
@@ -1024,7 +1029,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_index_base_value' => 'decimal:4',
         'escalation_index_lag_months' => 'integer',
         'escalation_interval_months' => 'integer',
-        'escalation_applies_to_service_charge' => 'boolean',
         'percentage_rent_threshold' => 'decimal:2',
         'percentage_rent_rate' => 'decimal:2',
         'has_percentage_rent' => 'boolean',
@@ -1117,7 +1121,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_rate',
         'escalation_amount',
         'escalation_interval_months',
-        'escalation_applies_to_service_charge',
         'has_marketing_levy',
         'marketing_levy_rate',
     ];
@@ -1252,7 +1255,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         return $rung ? CarbonImmutable::instance($rung->start_date) : null;
     }
 
-
     public function escalatesContractually(): bool
     {
         return match ($this->escalation_type) {
@@ -1266,20 +1268,34 @@ class Lease extends Model implements BillableAgreement, HasMedia
     }
 
     /**
-     * Does this lease's escalation clause step the SERVICE CHARGE alongside the rent?
+     * Does any charge ROW on this lease carry an annual-increase rule of its own?
      *
-     * The one predicate the sweep and the ladder projection both read, so they cannot disagree
-     * about what a lease's clause covers. Percent-derived clause types only: a step stated in
-     * POUNDS is a statement about the rent, and adding the same figure to a service charge a
-     * fraction of its size charges nobody what they agreed — the same reasoning that keeps the
-     * collar off `fixed_amount`. The type test is here rather than only on the form, because the
-     * flag survives a `fixed_percent` → `fixed_amount` switch on purpose (like the collar, it is
-     * inert rather than cleared, so switching back does not silently drop a recorded term).
+     * The service charge, a bay, a signage licence — since meeting 2026-09-02 (point 24) each
+     * recurring charge row states how it steps (`ChargeEscalation`), Yardi's per-charge grain, and
+     * this is the lease-level reading of it: the sweep selects on it, the pointer that names the
+     * next anniversary is kept while it holds, and the ladder projects for it even when the rent's
+     * own clause is `none`. A row nobody ruled on (null mode) steps nothing and does not count.
+     * The rent's rows carry no rule — the clause below IS theirs — and the levy is derived.
      */
-    public function escalatesServiceCharge(): bool
+    public function escalatesAnyCharge(): bool
     {
-        return (bool) $this->escalation_applies_to_service_charge
-            && in_array((string) $this->escalation_type, ['fixed_percent', 'cpi'], true);
+        if (! $this->exists) {
+            return false;
+        }
+
+        return $this->charges()
+            ->where('is_active', true)
+            ->where('frequency', '!=', 'one_time')
+            ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
+            ->whereNotNull('escalation_mode')
+            ->where('escalation_mode', '!=', ChargeEscalation::NONE)
+            ->exists();
+    }
+
+    /** Whether ANYTHING on this lease steps on its anniversary — the rent's clause or a charge's rule. */
+    public function escalates(): bool
+    {
+        return $this->escalatesContractually() || $this->escalatesAnyCharge();
     }
 
     /** @return BelongsTo<Tenant, $this> */

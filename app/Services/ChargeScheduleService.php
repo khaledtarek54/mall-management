@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Contracts\BillableAgreement;
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Support\ChargeEscalation;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -47,7 +49,10 @@ class ChargeScheduleService
      * - Otherwise → close it at `effectiveFrom - 1 day` and open the next, inheriting the old
      *   row's `end_date` so a bounded schedule stays bounded.
      *
-     * @param  array<string, mixed>  $attributes  name / vat_applicable / vat_rate / frequency for a new row
+     * @param  array<string, mixed>  $attributes  name / vat_applicable / vat_rate / frequency for a new
+     *                                            row, plus any of `Charge::CARRIED_TERMS` (billing
+     *                                            timing, proration, the escalation rule) — a stated
+     *                                            term reaches the row in force as well as a successor
      */
     /**
      * The `charges` column that keys this agreement, and its id.
@@ -87,14 +92,28 @@ class ChargeScheduleService
             return $this->openFirstRow($lease, $type, $amount, $effectiveFrom, $attributes, $origin);
         }
 
+        // A TERM the caller STATES reaches the row in force on the two branches that keep it —
+        // the same-money no-op and the not-yet-started amendment. Found by review: an importer
+        // row restating the seeded service charge at its own figure "with `percent 5`" reported
+        // success and stored nothing, because both branches below returned before `$attributes`
+        // was ever read — pre-existing for `billing_timing` and `prorate`, and the door this
+        // change adds made the sentence in the importer's docblock false. Null means inherit,
+        // exactly as it does on the successor row.
+        $stated = array_filter(Arr::only($attributes, Charge::CARRIED_TERMS), fn ($v) => $v !== null);
+        $statedDiffers = array_filter($stated, fn ($v, $k) => (string) $current->{$k} !== (string) $v, ARRAY_FILTER_USE_BOTH) !== [];
+
         if ($this->sameMoney((float) $current->amount, $amount)) {
+            if ($statedDiffers) {
+                $current->update($stated);
+            }
+
             return $current;
         }
 
         // A row that has not started yet has billed nothing — correct it rather than closing it
         // the day before it began, which would leave an unbillable stub in the schedule.
         if ($current->start_date && CarbonImmutable::instance($current->start_date)->gte($effectiveFrom)) {
-            $current->update(['amount' => $amount, 'origin' => $origin]);
+            $current->update(['amount' => $amount, 'origin' => $origin, ...$stated]);
 
             return $current;
         }
@@ -115,21 +134,16 @@ class ChargeScheduleService
             'frequency' => $attributes['frequency'] ?? $current->frequency,
             'vat_applicable' => $attributes['vat_applicable'] ?? $current->vat_applicable,
             'vat_rate' => $attributes['vat_rate'] ?? $current->vat_rate,
-            // INHERITED, like every other override on this row — and it was the one EG-30 forgot.
-            // A rent change, an escalation step and a CAM estimate all come through here. A RELIEF
-            // and a RENEWAL do NOT — `overlayWindow()` below and `LeaseRenewalService` build their
-            // rows directly, and this comment used to claim otherwise, which is precisely why both
-            // of them were still dropping these terms a fortnight later. Dropping it reverted an
-            // arrears service
-            // charge to ADVANCE on the next rung, so the tenant would be billed September's
-            // service in September having been billed August's in September the month before —
-            // one month charged twice, with the schedule looking entirely ordinary.
-            'billing_timing' => $attributes['billing_timing'] ?? $current->billing_timing,
-            // Carried onto the next rung, like every other term of the row. A signage licence that
-            // does not prorate must not start prorating because its amount was revised — and this
-            // method builds an EXPLICIT attribute list, which is exactly how `billing_timing` came
-            // to be rendered on a form and thrown away on save.
-            'prorate' => $attributes['prorate'] ?? $current->prorate,
+            // THE ROW'S TERMS ARE INHERITED — billing timing, proration, and since 2026-09-12 the
+            // row's own escalation rule — and the list is `Charge::CARRIED_TERMS`, named once.
+            // Each was spelled out here by hand before: `billing_timing` was the one EG-30 forgot
+            // (an arrears service charge reverted to ADVANCE on the next rung, one month billed
+            // twice), and a relief row and a renewal were each still dropping `prorate` a
+            // fortnight after this method learned to keep it. A caller that STATES a term wins;
+            // one that says nothing (or says null) inherits, which is what the `??` per column
+            // meant.
+            ...$current->carriedTerms(),
+            ...$stated,
             'start_date' => $effectiveFrom->toDateString(),
             // Inherit the boundary, so closing a bounded schedule doesn't quietly make it open.
             'end_date' => $inheritedEnd,
@@ -168,10 +182,17 @@ class ChargeScheduleService
      * `projectUntil` bounds the walk short of the lease's own expiry — a termination or a
      * close-out moved the expiry and the tenancy ENDS there, it does not step (see the hook).
      *
+     * `chargeTypes` is a CHARGE's own half (meeting 2026-09-02, point 24): its rule changed on its
+     * rows, so only its projected rungs are thrown away and re-walked — the rent ladder and the
+     * levy keep their rows and ids (the walk over them is a `sameMoney` no-op), so a change to a
+     * signage licence re-mints nothing on the rent. Composes with `clause: false` the way the
+     * levy's half does.
+     *
      * One transaction either way. The hook already runs inside the save's own, but this is also
      * the on-demand repair from a console, and a refusal from `Charge::saving` half-way through
      * the projection would otherwise leave a ladder pruned with nothing projected in its place.
      *
+     * @param  list<string>  $chargeTypes
      * @return int rungs written by the re-projection
      */
     public function retrueProjectedLadder(
@@ -179,26 +200,39 @@ class ChargeScheduleService
         bool $clause = true,
         ?CarbonImmutable $redateFrom = null,
         ?CarbonImmutable $projectUntil = null,
+        array $chargeTypes = [],
     ): int {
-        return DB::transaction(function () use ($lease, $clause, $redateFrom, $projectUntil): int {
+        return DB::transaction(function () use ($lease, $clause, $redateFrom, $projectUntil, $chargeTypes): int {
             $today = CarbonImmutable::now()->startOfDay();
 
             if ($clause) {
                 $rentPruned = $this->pruneProjectedLadder($lease, 'base_rent', $today);
-                $this->pruneProjectedLadder($lease, 'service_charge', $today);
+
+                // Every charge the projection writes a ladder for — the service charge and, since
+                // point 24, any row carrying its own rule. Derived from the schedule rather than
+                // listed, so a charge type that acquires a rule is pruned by having one.
+                foreach ($this->typesWithProjectedRungs($lease, $today) as $type) {
+                    $this->pruneProjectedLadder($lease, $type, $today);
+                }
 
                 if ($rentPruned !== []) {
                     $this->pruneProjectedLadder($lease, 'marketing', $today, Charge::ORIGIN_LEVY, $rentPruned);
                 }
-            } else {
+            } elseif ($chargeTypes === []) {
                 $this->pruneProjectedLadder($lease, 'marketing', $today, Charge::ORIGIN_LEVY);
+            } else {
+                // A charge's own half: its rungs only. The levy is left standing too — its
+                // re-walk below is a `sameMoney` no-op over an intact rent ladder.
+                foreach ($chargeTypes as $type) {
+                    $this->pruneProjectedLadder($lease, $type, $today);
+                }
             }
 
             if ($redateFrom !== null && $lease->commencement_date !== null) {
                 $this->redateRowsAnchoredOn($lease, $redateFrom, CarbonImmutable::instance($lease->commencement_date));
             }
 
-            if (! $lease->escalatesContractually()) {
+            if (! $lease->escalates()) {
                 return 0;
             }
 
@@ -206,6 +240,105 @@ class ChargeScheduleService
             // writing into, and must see the rows the prune just closed.
             return $this->projectTermEscalations($lease->fresh(), $projectUntil);
         });
+    }
+
+    /**
+     * Every charge type on this lease with a not-yet-started projected rung — what a clause
+     * re-true has to prune. The rent is walked separately (its prune drives the levy's), so it is
+     * excluded here; the levy never carries `ORIGIN_ESCALATION` rungs at all.
+     *
+     * @return list<string>
+     */
+    private function typesWithProjectedRungs(BillableAgreement $lease, CarbonImmutable $from): array
+    {
+        return Charge::query()
+            ->where(...self::keyFor($lease))
+            ->where('origin', Charge::ORIGIN_ESCALATION)
+            ->where('is_active', true)
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '>', $from->toDateString())
+            ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
+            ->distinct()
+            ->pluck('type')
+            ->all();
+    }
+
+    /**
+     * Rule on a charge's annual increase — the ONE writer of a row's escalation terms on a lease
+     * that already has its schedule (meeting 2026-09-02, point 24).
+     *
+     * The mode and its figure go onto every active recurring row of the type that has not yet
+     * ended: the sweep reads the rung billing INTO each anniversary and the projection the rung
+     * covering its eve, so every rung of the type must say the same thing or the clause stops at
+     * whichever rung was left silent. Rows already ended are history and keep what they carried.
+     * Then the type's own projected ladder is thrown away and re-walked — and nothing else is,
+     * which is why this is not `retrueProjectedLadder($lease)`: the rent's rungs keep their ids
+     * and a relief window on the rent is not walked over for a change to the parking.
+     *
+     * **A charge-level rule needs the anniversary the sweep keys on**, and the projection this
+     * ends in arms it (`projectTermEscalations()`) — at the first anniversary ON OR AFTER today
+     * where the lease had none, never in the past. A pointer the lease ALREADY carries is kept
+     * as it stands: a late sweep's pointer sits in the past by design (the backlog model — one
+     * step per run), and the walk then writes from it exactly as the rent's would.
+     *
+     * @return int projected rungs written
+     */
+    public function setEscalation(Lease $lease, string $type, string $mode, ?float $rate = null, ?float $amount = null): int
+    {
+        if (in_array($type, ChargeEscalation::DERIVED_TYPES, true)) {
+            throw new \InvalidArgumentException("The {$type} charge's step is derived — the rent from the lease's clause, the levy from the rent — and carries no rule of its own.");
+        }
+
+        if (! in_array($mode, ChargeEscalation::MODES, true)) {
+            throw new \InvalidArgumentException("Unknown escalation mode [{$mode}].");
+        }
+
+        return DB::transaction(function () use ($lease, $type, $mode, $rate, $amount): int {
+            $today = CarbonImmutable::now()->startOfDay();
+
+            $rows = Charge::query()
+                ->where(...self::keyFor($lease))
+                ->where('type', $type)
+                ->where('is_active', true)
+                ->where('frequency', '!=', 'one_time')
+                ->get()
+                ->filter(fn (Charge $c) => $c->end_date === null || CarbonImmutable::instance($c->end_date)->gte($today));
+
+            foreach ($rows as $row) {
+                // The model clears whichever figure the mode does not read.
+                $row->update([
+                    'escalation_mode' => $mode,
+                    'escalation_rate' => $rate,
+                    'escalation_amount' => $amount,
+                ]);
+            }
+
+            // The pointer the sweep keys on is armed by the projection below (one seam for every
+            // door), at the first anniversary on or after today.
+            return $this->retrueProjectedLadder($lease->fresh(), clause: false, chargeTypes: [$type]);
+        });
+    }
+
+    /**
+     * The charge types on this lease that carry a rule of their own — what the sweep steps and
+     * the projection walks beside the rent. Rent and the levy are never in it: the one is the
+     * lease's clause and the other is derived from it. One-offs are not a schedule.
+     *
+     * @return list<string>
+     */
+    public function escalatingChargeTypes(Lease $lease): array
+    {
+        return Charge::query()
+            ->where(...self::keyFor($lease))
+            ->where('is_active', true)
+            ->where('frequency', '!=', 'one_time')
+            ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
+            ->whereNotNull('escalation_mode')
+            ->where('escalation_mode', '!=', ChargeEscalation::NONE)
+            ->distinct()
+            ->orderBy('type')
+            ->pluck('type')
+            ->all();
     }
 
     /**
@@ -224,7 +357,9 @@ class ChargeScheduleService
      * `next_escalation_date`, so "the rent in force" stays correct without a second writer of the
      * schedule. A projected lease and a swept one converge on identical rows.
      *
-     * **`fixed_percent` AND `fixed_amount` are projected; only CPI is not.** CPI has no index feed
+     * **`fixed_percent` AND `fixed_amount` are projected; only CPI is not** (a charge on its OWN
+     * percentage or amount projects under any clause, CPI included — only a follows-lease row
+     * waits for the index with the rent). CPI has no index feed
      * and inventing the number here would be inventing data — the same reason the sweep skips it.
      * An amount step has no such problem: "+EGP 4,000 a month each year" is as knowable at signing
      * as a percentage, and it is an ordinary anchor-tenant term. Excluding it was an omission rather
@@ -241,7 +376,14 @@ class ChargeScheduleService
      * complete rent schedule beside a single-row levy would bill a future month's rent correctly
      * next to a levy derived from year one.
      *
-     * @return int rows created (rent + levy)
+     * **And every charge carrying a rule of its own projects ITS ladder beside the rent's**
+     * (meeting 2026-09-02, point 24 — the service charge that follows the clause, a bay on
+     * +500 a year, a licence on its own 8%), one rung per anniversary through
+     * {@see projectChargeRung()}, sized from the rung covering each eve exactly as the rent is.
+     * A lease whose own clause is `none` still projects its ruled charges; under such a clause
+     * the rent and the levy are not walked at all.
+     *
+     * @return int rows created (rent + levy + every ruled charge)
      */
     public function projectTermEscalations(Lease $lease, ?CarbonImmutable $until = null): int
     {
@@ -254,8 +396,14 @@ class ChargeScheduleService
 
         $byPercent = $type === 'fixed_percent' && (float) $lease->escalation_rate > 0;
         $byAmount = $type === 'fixed_amount' && (float) $lease->escalation_amount > 0;
+        $rentSteps = $byPercent || $byAmount;
 
-        if ((! $byPercent && ! $byAmount)
+        // Every charge carrying a rule of its own — the service charge and, since meeting
+        // 2026-09-02 point 24, any row on the schedule (Yardi's per-charge grain). A lease whose
+        // own clause is `none` still projects a parking bay's +500 a year.
+        $chargeTypes = $this->escalatingChargeTypes($lease);
+
+        if ((! $rentSteps && $chargeTypes === [])
             || blank($lease->commencement_date)
             || blank($lease->expiry_date)) {
             return 0;
@@ -280,6 +428,13 @@ class ChargeScheduleService
         $expiry = $until !== null ? $expiry->min($until) : $expiry;
         $rent = (float) $lease->base_rent_monthly;
 
+        // What a FOLLOWS-LEASE row inherits: the COLLARED stated rate under a percent clause (the
+        // same clamp the sweep applies, so the two converge rung for rung), and nothing under an
+        // index clause — an unpublished figure cannot be projected, which is the sweep's own
+        // refusal to invent — or an amount clause, where a step stated in pounds is a statement
+        // about the rent (`ChargeEscalation`).
+        $leasePercent = $byPercent ? $rate : null;
+
         // Anchor on the lease's OWN next anniversary, not on commencement + N.
         //
         // For a lease being created the two are identical (Lease::creating arms
@@ -288,38 +443,51 @@ class ChargeScheduleService
         // `next_escalation_date` is the next step due — which is exactly the case a backfill of
         // the existing portfolio hits. Projecting from commencement there would re-apply years
         // that have already been applied and date every step wrongly.
-        $firstStep = $lease->next_escalation_date
-            ? CarbonImmutable::instance($lease->next_escalation_date)
-            : $lease->escalationDateAfter(CarbonImmutable::instance($lease->commencement_date));
+        // A CHARGE-LEVEL RULE NEEDS THE ANNIVERSARY THE SWEEP KEYS ON, and this is the one seam
+        // every door reaches — the create form, the wizard, the importer, a renewal, Add charge,
+        // the lease form's table. `Lease::saving` arms the pointer for the rent's own clause and
+        // cannot see a charge row at creation (`escalatesAnyCharge()` is false before the lease
+        // exists), so a `none`-clause lease whose service charge carried its own 4 % projected a
+        // ladder and was never swept: the schedule billed 260 while `service_charge_monthly`
+        // read 250 for the life of the lease (found by review). Armed at the first anniversary ON
+        // OR AFTER today — never in the past, where the sweep would back-date a step over months
+        // already billed — and persisted, so the sweep's `whereNotNull` finds the lease.
+        if ($lease->next_escalation_date === null) {
+            $next = $lease->escalationDateAfter(CarbonImmutable::instance($lease->commencement_date));
+            $today = CarbonImmutable::today();
 
-        // A clause covering the service charge projects ITS ladder too — otherwise the forecast
-        // shows the rent stepping beside a service charge the sweep will in fact raise every
-        // anniversary, and the budget under-states a recorded term. Percent clauses only, by the
-        // predicate's own rule (`fixed_amount` is a statement about the rent), which also means
-        // an amount-stepped lease projects exactly what it projected before.
-        //
-        // The BASE is the schedule's row covering the eve of the first step, never
-        // `service_charge_monthly`: the schedule tab can end or restate a service charge without
-        // touching the lease column (only `base_rent` is barred there), and a ladder compounded
-        // from a stale figure would fight the schedule it is being written into. No covering
-        // row = no ladder — the safe reading of a charge that was ended or never scheduled.
-        $serviceBase = $lease->escalatesServiceCharge()
-            ? $this->rowCovering($lease, 'service_charge', self::billingBoundary($firstStep)->subDay())
-            : null;
+            while ($next->lessThan($today)) {
+                $next = $lease->escalationDateAfter($next);
+            }
 
-        // A CAM re-estimate is never a ladder's base: the annual true-up re-prices it, and a
-        // ladder compounded from an estimate would double-adjust what the reconciliation corrects.
-        if ($serviceBase?->origin === Charge::ORIGIN_CAM_ESTIMATE) {
-            $serviceBase = null;
+            $lease->forceFill(['next_escalation_date' => $next->format('Y-m-d')])->save();
         }
 
-        $service = $serviceBase !== null ? (float) $serviceBase->amount : 0.0;
-        $projectService = $byPercent && $service > 0;
+        $firstStep = CarbonImmutable::instance($lease->next_escalation_date);
 
-        // A service-only lease (rent 0, a live service charge, the clause covering it) still
-        // deserves its service-charge ladder; everything else with no rent projects nothing,
+        // Each escalating charge projects ITS ladder beside the rent's — otherwise the forecast
+        // shows the rent stepping beside a service charge the sweep will in fact raise every
+        // anniversary, and the budget under-states a recorded term. The CARRIED figure per type
+        // is the rung covering the eve of the first step, never a lease column: the schedule tab
+        // can end or restate a service charge without touching `service_charge_monthly` (only
+        // `base_rent` is barred there), and a ladder compounded from a stale figure would fight
+        // the schedule it is being written into. It is read only where the eve rung is a RELIEF
+        // (its amount is the concession, not the contract); a CAM re-estimate is never a base,
+        // because the annual true-up re-prices it and a ladder compounded from an estimate would
+        // double-adjust what the reconciliation corrects.
+        $carry = [];
+
+        foreach ($chargeTypes as $chargeType) {
+            $base = $this->contractedRowBefore($lease, $chargeType, self::billingBoundary($firstStep)->subDay());
+            $carry[$chargeType] = $base !== null && $base->origin !== Charge::ORIGIN_CAM_ESTIMATE
+                ? (float) $base->amount
+                : 0.0;
+        }
+
+        // A service-only lease (rent 0, a live service charge carrying a rule) still deserves its
+        // service-charge ladder; a lease with no rent and no ruled charge projects nothing,
         // exactly as before.
-        if ($rent <= 0 && ! $projectService) {
+        if ($rent <= 0 && $chargeTypes === []) {
             return 0;
         }
 
@@ -362,108 +530,157 @@ class ChargeScheduleService
             // concession, not the contract, and stepping from it compounded the whole ladder from
             // the relieved figure. The carried figure is the contracted rent the relief was
             // granted against, so it is the base there.
-            $eveRent = $this->rowCovering($lease, 'base_rent', $effective->subDay());
-            $rentBase = $eveRent !== null && $eveRent->origin !== Charge::ORIGIN_RELIEF
-                ? (float) $eveRent->amount
-                : $rent;
+            // Under a `none` clause the rent and the levy are NOT walked — the walk is here for
+            // the charges below. "Write the unchanged figure and let `sameMoney` no-op" was the
+            // first cut and it was wrong: the base is read off the EVE, and a STARTED rung the
+            // prune kept (107,000 from 1 January) covers the anniversary itself, so writing the
+            // eve's 100,000 there amended history down a step. Measured by the sibling test.
+            if ($rentSteps) {
+                $eveRent = $this->rowCovering($lease, 'base_rent', $effective->subDay());
+                $rentBase = $eveRent !== null && $eveRent->origin !== Charge::ORIGIN_RELIEF
+                    ? (float) $eveRent->amount
+                    : $rent;
 
-            $rent = $byAmount
-                ? round($rentBase + $step, 2)
-                : round($rentBase * (1 + $rate / 100), 2);
+                $rent = $byAmount
+                    ? round($rentBase + $step, 2)
+                    : round($rentBase * (1 + $rate / 100), 2);
 
-            // A rung the operator STATED outranks the derivation. A future-dated Change Rent
-            // amended this anniversary's rung in place and flipped it `manual` — a negotiated
-            // term, which re-truing the ladder must not overwrite with arithmetic. Its figure is
-            // ADOPTED instead: the levy below follows it, and the next step compounds from it
-            // through the eve read above, which is the contract's own reading (escalation applies
-            // to the rent in force). `start >= effective` is what makes it a stated STEP — a
-            // manual row that began in the past is simply the current rent, and the ladder steps
-            // it normally.
-            $standing = $this->rowCovering($lease, 'base_rent', $effective);
-            $statedStep = $standing !== null
-                && $standing->origin === Charge::ORIGIN_MANUAL
-                && $standing->start_date !== null
-                && CarbonImmutable::instance($standing->start_date)->gte($effective);
+                // A rung the operator STATED outranks the derivation. A future-dated Change Rent
+                // amended this anniversary's rung in place and flipped it `manual` — a negotiated
+                // term, which re-truing the ladder must not overwrite with arithmetic. Its figure is
+                // ADOPTED instead: the levy below follows it, and the next step compounds from it
+                // through the eve read above, which is the contract's own reading (escalation applies
+                // to the rent in force). `start >= effective` is what makes it a stated STEP — a
+                // manual row that began in the past is simply the current rent, and the ladder steps
+                // it normally.
+                $standing = $this->rowCovering($lease, 'base_rent', $effective);
+                $statedStep = $standing !== null
+                    && $standing->origin === Charge::ORIGIN_MANUAL
+                    && $standing->start_date !== null
+                    && CarbonImmutable::instance($standing->start_date)->gte($effective);
 
-            // An anniversary INSIDE a relief window is neither adopted nor written: the relief row
-            // standing on it is the operator's concession (it carried `manual` until 2026-09-11
-            // and WAS adopted — the rent, and the levy derived from it, came out at half), and
-            // `setAmount()` would amend it in place. The step still happens contractually:
-            // `$rent` carries it, the levy below is derived from it, and the rung that resumes
-            // after the window is what the next anniversary steps from — the prune keeps it.
-            $insideRelief = $standing?->origin === Charge::ORIGIN_RELIEF;
+                // An anniversary INSIDE a relief window is neither adopted nor written: the relief row
+                // standing on it is the operator's concession (it carried `manual` until 2026-09-11
+                // and WAS adopted — the rent, and the levy derived from it, came out at half), and
+                // `setAmount()` would amend it in place. The step still happens contractually:
+                // `$rent` carries it, the levy below is derived from it, and the rung that resumes
+                // after the window is what the next anniversary steps from — the prune keeps it.
+                $insideRelief = $standing?->origin === Charge::ORIGIN_RELIEF;
 
-            if ($statedStep) {
-                $rent = (float) $standing->amount;
-            } elseif ($insideRelief) {
-                // The clause applies to the whole contract and only the window's own rows are
-                // stated, so the rung that RESUMES after it is re-priced to the step — the
-                // figure the levy below is derived from, or the two disagree for a year.
-                $this->repriceResumption($lease, 'base_rent', $standing, $rent, $expiry);
-            } elseif ($rent > 0 && $this->setAmount($lease, 'base_rent', $rent, $effective, [
-                // `$rent > 0` guards the service-only shape: a zero rent must not mint zero rent
-                // and levy rows just because the service-charge ladder earned the walk.
-                'name' => 'Base Rent',
-            ], Charge::ORIGIN_ESCALATION)) {
-                $created++;
-            }
-
-            if ($rent > 0 && $levyRate > 0 && $this->setAmount($lease, 'marketing', round($rent * $levyRate / 100, 2), $effective, [
-                'name' => 'Marketing Levy',
-                'frequency' => 'monthly',
-            ], Charge::ORIGIN_LEVY)) {
-                $created++;
-            }
-
-            // Same per-rung rounding and the same COLLARED rate as the sweep, so a projected
-            // lease and a swept one converge rung for rung (the projection stated the raw rate
-            // until 2026-09-11 and the sweep corrected each rung as it landed — see the rate
-            // above). No attributes beyond the name: the successor row inherits VAT,
-            // billing timing and proration from the row in force, which is the seeded
-            // service-charge row this lease actually bills under.
-            //
-            // Guarded per step: a service charge bounded to end mid-term stops its ladder where
-            // it stops billing — past its end no row covers the step, and `setAmount`'s
-            // latest-active fallback would otherwise stretch the ended row and build an inverted
-            // range out of its inherited end date. An estimate on EITHER side of the boundary
-            // stops it too (the sweep's own two-sided rule): an estimate is no base for a step,
-            // and an estimate-governed step would overwrite the reconciliation's answer. And a
-            // STATED service rung is adopted exactly as a stated rent rung is.
-            if ($projectService) {
-                $eveService = $this->rowCovering($lease, 'service_charge', $effective->subDay());
-
-                if ($eveService?->origin !== Charge::ORIGIN_CAM_ESTIMATE) {
-                    // The rent's two relief rules, mirrored: a relief eve is not the base, and a
-                    // relief-covered anniversary is neither adopted nor written.
-                    $serviceBase = $eveService !== null && $eveService->origin !== Charge::ORIGIN_RELIEF
-                        ? (float) $eveService->amount
-                        : $service;
-                    $service = round($serviceBase * (1 + $rate / 100), 2);
-
-                    $covering = $this->rowCovering($lease, 'service_charge', $effective);
-                    $statedService = $covering !== null
-                        && $covering->origin === Charge::ORIGIN_MANUAL
-                        && $covering->start_date !== null
-                        && CarbonImmutable::instance($covering->start_date)->gte($effective);
-
-                    if ($statedService) {
-                        $service = (float) $covering->amount;
-                    } elseif ($covering?->origin === Charge::ORIGIN_RELIEF) {
-                        $this->repriceResumption($lease, 'service_charge', $covering, $service, $expiry);
-                    } elseif ($covering !== null
-                        && $covering->origin !== Charge::ORIGIN_CAM_ESTIMATE
-                        && $this->setAmount($lease, 'service_charge', $service, $effective, [
-                            'name' => 'Service Charge',
-                        ], Charge::ORIGIN_ESCALATION)) {
-                        $created++;
-                    }
+                if ($statedStep) {
+                    $rent = (float) $standing->amount;
+                } elseif ($insideRelief) {
+                    // The clause applies to the whole contract and only the window's own rows are
+                    // stated, so the rung that RESUMES after it is re-priced to the step — the
+                    // figure the levy below is derived from, or the two disagree for a year.
+                    $this->repriceResumption($lease, 'base_rent', $standing, $rent, $expiry);
+                } elseif ($rent > 0 && $this->setAmount($lease, 'base_rent', $rent, $effective, [
+                    // `$rent > 0` guards the service-only shape: a zero rent must not mint zero rent
+                    // and levy rows just because the service-charge ladder earned the walk.
+                    'name' => 'Base Rent',
+                ], Charge::ORIGIN_ESCALATION)) {
+                    $created++;
                 }
+
+                if ($rent > 0 && $levyRate > 0 && $this->setAmount($lease, 'marketing', round($rent * $levyRate / 100, 2), $effective, [
+                    'name' => 'Marketing Levy',
+                    'frequency' => 'monthly',
+                ], Charge::ORIGIN_LEVY)) {
+                    $created++;
+                }
+            }
+
+            // Every charge carrying a rule steps beside the rent — each by ITS rule, read off
+            // the rung billing into the anniversary, so a row that acquires or loses a rule
+            // mid-ladder is honoured from that rung on.
+            foreach ($chargeTypes as $chargeType) {
+                $created += $this->projectChargeRung($lease, $chargeType, $effective, $expiry, $leasePercent, $carry[$chargeType]);
             }
 
             $stepDate = $lease->escalationDateAfter($stepDate);
         }
 
         return $created;
+    }
+
+    /**
+     * One charge's rung for one anniversary — the service-charge branch of 2026-09-05, made the
+     * rule for every charge carrying one (meeting 2026-09-02, point 24).
+     *
+     * Same per-rung rounding and the same COLLARED rate as the sweep for a follows-lease row, so
+     * a projected lease and a swept one converge rung for rung. No attributes: the
+     * successor row inherits its name, VAT, timing, proration and the rule itself from the rung
+     * in force, which is the row this lease actually bills under.
+     *
+     * Guarded per step: a charge bounded to end mid-term stops its ladder where it stops billing —
+     * past its end no row covers the step, and `setAmount`'s latest-active fallback would
+     * otherwise stretch the ended row and build an inverted range out of its inherited end date.
+     * An estimate on EITHER side of the boundary stops it too (the sweep's own two-sided rule): an
+     * estimate is no base for a step, and an estimate-governed step would overwrite the
+     * reconciliation's answer. A STATED rung is adopted exactly as a stated rent rung is, and the
+     * rent's two relief rules are mirrored: a relief eve is not the base, and a relief-covered
+     * anniversary is neither adopted nor written — the resumption after the window is re-priced.
+     *
+     * `$carry` is the figure the walk carries for this type — the contracted amount a relief was
+     * granted against — and is advanced to whatever this rung settles on.
+     *
+     * @return int rungs written (0 or 1)
+     */
+    private function projectChargeRung(
+        Lease $lease,
+        string $type,
+        CarbonImmutable $effective,
+        CarbonImmutable $expiry,
+        ?float $leasePercent,
+        float &$carry,
+    ): int {
+        $eve = $this->rowCovering($lease, $type, $effective->subDay());
+
+        // No rung billing into the anniversary is no rule to read: a charge ended before it, or
+        // never scheduled, projects nothing — the safe reading.
+        if ($eve === null || $eve->origin === Charge::ORIGIN_CAM_ESTIMATE) {
+            return 0;
+        }
+
+        $rule = ChargeEscalation::stepFor($eve, $lease, $leasePercent);
+
+        if ($rule === null) {
+            return 0;
+        }
+
+        $base = $eve->origin !== Charge::ORIGIN_RELIEF ? (float) $eve->amount : $carry;
+
+        if ($base <= 0) {
+            return 0;
+        }
+
+        $amount = ChargeEscalation::apply($base, $rule);
+
+        $covering = $this->rowCovering($lease, $type, $effective);
+        $stated = $covering !== null
+            && $covering->origin === Charge::ORIGIN_MANUAL
+            && $covering->start_date !== null
+            && CarbonImmutable::instance($covering->start_date)->gte($effective);
+
+        if ($stated) {
+            $carry = (float) $covering->amount;
+
+            return 0;
+        }
+
+        $carry = $amount;
+
+        if ($covering?->origin === Charge::ORIGIN_RELIEF) {
+            $this->repriceResumption($lease, $type, $covering, $amount, $expiry);
+
+            return 0;
+        }
+
+        return $covering !== null
+            && $covering->origin !== Charge::ORIGIN_CAM_ESTIMATE
+            && $this->setAmount($lease, $type, $amount, $effective, [], Charge::ORIGIN_ESCALATION)
+                ? 1
+                : 0;
     }
 
     /**
@@ -617,14 +834,15 @@ class ChargeScheduleService
                 'frequency' => $row->frequency,
                 'vat_applicable' => $row->vat_applicable,
                 'vat_rate' => $row->vat_rate,
-                // The row's own TERMS, carried like everything else above. `setAmount()`'s comment
-                // claims "every successor comes through here", and relief is the one that does not —
-                // it builds its rows directly. Dropping `billing_timing` reverts an arrears-billed
-                // service charge to advance for the relief segments only, so the crossover months
-                // bill twice or not at all; dropping `prorate` makes a flat licence start prorating
-                // the month relief begins and ends.
-                'billing_timing' => $row->billing_timing,
-                'prorate' => $row->prorate,
+                // The row's own TERMS, carried like everything else above — `Charge::CARRIED_TERMS`,
+                // the one list. `setAmount()` once claimed "every successor comes through here",
+                // and relief is the one that does not — it builds its rows directly. Dropping
+                // `billing_timing` reverted an arrears-billed service charge to advance for the
+                // relief segments only, so the crossover months billed twice or not at all;
+                // dropping `prorate` made a flat licence start prorating the month relief begins
+                // and ends; and a relief row without the escalation rule would have been read by
+                // the ladder as a charge that stops stepping for the length of the concession.
+                ...$row->carriedTerms(),
                 'start_date' => $step['segment_start']->toDateString(),
                 'end_date' => $step['segment_end']->toDateString(),
                 'is_active' => true,
@@ -653,8 +871,7 @@ class ChargeScheduleService
                 'vat_rate' => $row->vat_rate,
                 // Same terms as the row this RESUMES — the whole point of the resumed row is that
                 // the contract goes back to what it was before the relief window.
-                'billing_timing' => $row->billing_timing,
-                'prorate' => $row->prorate,
+                ...$row->carriedTerms(),
                 'start_date' => $to->addDay()->toDateString(),
                 'end_date' => $resumeAfter['inherited_end']?->toDateString(),
                 'is_active' => true,
@@ -936,6 +1153,28 @@ class ChargeScheduleService
     }
 
     /**
+     * The CONTRACTED rung in force on a date — `rowCovering()` walked back over any relief row,
+     * to the row the concession was granted against.
+     *
+     * A relief row's amount is the concession, not the contract, so it is never the base of a
+     * step: the sweep sizing a charge's step from it stepped the concession (measured by review —
+     * a flat 5,000 relief on a 20,000 service charge came out of the sweep as 6,000 for the three
+     * months of the window, and `service_charge_monthly` was written as the relieved figure), and
+     * the projection seeding its carried figure from it compounded the whole ladder from the
+     * relieved amount. Bounded, because a window may abut another window.
+     */
+    public function contractedRowBefore(BillableAgreement $lease, string $type, CarbonImmutable $on): ?Charge
+    {
+        $row = $this->rowCovering($lease, $type, $on);
+
+        for ($hops = 0; $row?->origin === Charge::ORIGIN_RELIEF && $row->start_date !== null && $hops < 12; $hops++) {
+            $row = $this->rowCovering($lease, $type, CarbonImmutable::instance($row->start_date)->subDay());
+        }
+
+        return $row?->origin === Charge::ORIGIN_RELIEF ? null : $row;
+    }
+
+    /**
      * Move every active row that starts ON one date to another — the commencement half of a
      * term edit. Through the model, one row at a time, so `Charge::saving`'s own guards (an
      * inverted range, an overlap) still stand between a bad move and the schedule.
@@ -1153,6 +1392,13 @@ class ChargeScheduleService
             // Null, not false: null means the operator ruled on nothing and the lease's own
             // proration method stands, which is what every charge did before the flag existed.
             'prorate' => $attributes['prorate'] ?? null,
+            // The row's own annual-increase rule (meeting 2026-09-02, point 24). Null reads as
+            // `none` — a charge nobody ruled on steps nothing, which is what every charge but the
+            // rent did before the column existed. A caller offering the property's proposal
+            // (`ChargeEscalation::defaultModeFor()`) passes it explicitly.
+            'escalation_mode' => $attributes['escalation_mode'] ?? null,
+            'escalation_rate' => $attributes['escalation_rate'] ?? null,
+            'escalation_amount' => $attributes['escalation_amount'] ?? null,
             // The FIRST row is dated to the lease commencement, not the effective date: a charge
             // that never existed should bill the lease's term, not only from today. This matches
             // what LeaseCreationService/LeaseRentChangeService did before schedules existed.

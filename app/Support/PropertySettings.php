@@ -78,6 +78,10 @@ class PropertySettings
             'class' => BillingSettings::class,
             'reason' => 'How long a shop is held for a signed-but-unpaid tenant is a leasing-market decision per building — a mall with a waiting list holds for a week, one with vacancies holds for a month — and Yardi\'s unit hold expiry is set per property too.',
         ],
+        'billing.new_charges_follow_escalation' => [
+            'class' => BillingSettings::class,
+            'reason' => 'Whether a charge added to a lease is proposed as following the annual-increase clause is a building\'s own leasing convention: a mall whose standard contract raises the rent, the service charge and every bay together differs from one whose contract steps the rent alone. Yardi\'s charge templates are per property for the same reason; the operator still rules per charge.',
+        ],
         'billing.default_security_deposit_months' => [
             'class' => BillingSettings::class,
             'reason' => 'Deposit policy is negotiated per building against what the local market bears — three months at the flagship, two at the outlet. It was the literal 3 in `LeaseCreationService`\'s `$rent * 3`, so a policy change reached nothing and a per-mall policy was unsayable. It PROPOSES the amount; the lease still records what was agreed.',

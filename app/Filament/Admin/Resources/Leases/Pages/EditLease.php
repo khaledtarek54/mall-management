@@ -12,6 +12,7 @@ use App\Services\LeaseAgreementPdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\BillingRefusal;
 use App\Support\BillingWindow;
+use App\Support\ChargeEscalation;
 use App\Support\Filament\MonthPicker;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
@@ -90,7 +91,55 @@ class EditLease extends EditRecord
             ->pluck('units.id')
             ->all();
 
+        // The "Which charges step" table (meeting 2026-09-02, point 24): one row per recurring
+        // charge TYPE on the schedule, read from the rung in force today — the rent and the levy
+        // are never asked (the clause and the rent answer for them). Not a lease column, so it
+        // is filled here and written back in `afterSave()` through the one writer.
+        $data['charge_escalations'] = self::chargeEscalationRows($this->record);
+
         return $data;
+    }
+
+    /**
+     * @return list<array{type: string, escalation_mode: string, escalation_rate: ?float, escalation_amount: ?float}>
+     */
+    public static function chargeEscalationRows(Lease $lease): array
+    {
+        $today = CarbonImmutable::now()->startOfDay();
+        $schedule = app(ChargeScheduleService::class);
+
+        $types = $lease->charges()
+            ->where('is_active', true)
+            ->where('frequency', '!=', 'one_time')
+            ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
+            ->distinct()
+            ->orderBy('type')
+            ->pluck('type');
+
+        return $types
+            ->map(function (string $type) use ($lease, $schedule, $today): ?array {
+                // COVERING today, or the first rung still to start — never `rowInForce()`'s
+                // latest-active fallback, which would offer a rule for a charge the operator
+                // ENDED (active, past its end date) that `setEscalation()` then writes to no row.
+                $row = $schedule->rowCovering($lease, $type, $today)
+                    ?? $lease->charges()->where('type', $type)->where('is_active', true)
+                        ->whereNotNull('start_date')->whereDate('start_date', '>', $today->toDateString())
+                        ->orderBy('start_date')->first();
+
+                if ($row === null) {
+                    return null;
+                }
+
+                return [
+                    'type' => $type,
+                    'escalation_mode' => ChargeEscalation::modeOf($row),
+                    'escalation_rate' => $row->escalation_rate === null ? null : (float) $row->escalation_rate,
+                    'escalation_amount' => $row->escalation_amount === null ? null : (float) $row->escalation_amount,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /** Sync the full unit set (master = unit_id) after saving the lease. */
@@ -144,6 +193,53 @@ class EditLease extends EditRecord
             // `repriceSeededRent()` reads the row and no-ops when it already agrees.
             $this->record->repriceFromPremises();
             app(ChargeScheduleService::class)->repriceSeededRent($this->record->fresh());
+        }
+
+        // ── EACH CHARGE'S OWN RULE, THROUGH THE ONE WRITER (point 24) ────────────────────────
+        //
+        // Only the rows the operator CHANGED: `setEscalation()` throws that type's projected
+        // rungs away and re-walks them, so writing every row on every save would re-mint the
+        // ladder (new ids, an audit trail full of churn) for a lease whose escalation nobody
+        // touched. Compared against what the schedule holds now, not against the form's
+        // initial state — a save is what the operator meant, whatever the form had shown.
+        $carried = collect(self::chargeEscalationRows($this->record))->keyBy('type');
+        $schedule = app(ChargeScheduleService::class);
+
+        foreach ($this->data['charge_escalations'] ?? [] as $row) {
+            $type = (string) ($row['type'] ?? '');
+
+            if ($type === '' || in_array($type, ChargeEscalation::DERIVED_TYPES, true)) {
+                continue;
+            }
+
+            $mode = in_array($row['escalation_mode'] ?? null, ChargeEscalation::MODES, true)
+                ? $row['escalation_mode']
+                : ChargeEscalation::NONE;
+
+            // Normalised BY MODE before comparing, exactly as the model stores it: a hidden figure
+            // lingers in the repeater's state after a mode switch (percent → fixed amount keeps
+            // the rate box's value), the model clears it on write, and comparing the raw state
+            // then re-minted the ladder on every later save (found by review).
+            $ruled = [
+                'escalation_mode' => $mode,
+                'escalation_rate' => $mode === ChargeEscalation::PERCENT && filled($row['escalation_rate'] ?? null)
+                    ? round((float) $row['escalation_rate'], 2)
+                    : null,
+                'escalation_amount' => $mode === ChargeEscalation::FIXED_AMOUNT && filled($row['escalation_amount'] ?? null)
+                    ? round((float) $row['escalation_amount'], 2)
+                    : null,
+            ];
+
+            $standing = $carried->get($type);
+
+            if ($standing !== null
+                && $standing['escalation_mode'] === $ruled['escalation_mode']
+                && $standing['escalation_rate'] === $ruled['escalation_rate']
+                && $standing['escalation_amount'] === $ruled['escalation_amount']) {
+                continue;
+            }
+
+            $schedule->setEscalation($this->record, $type, $ruled['escalation_mode'], $ruled['escalation_rate'], $ruled['escalation_amount']);
         }
 
         // The marketing levy is NOT re-synced here any more (2026-09-11). `Lease::updated` does

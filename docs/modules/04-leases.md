@@ -1227,68 +1227,103 @@
 > lease; `base_rent`, `marketing` and `parking` are excluded there because their own services derive
 > them.
 >
-> **An escalation clause can cover the SERVICE CHARGE too (2026-09-05).**
-> `leases.escalation_applies_to_service_charge` (default **false** — nothing an install bills moved
-> on deploy) is the clause as a row: Egyptian mall leases routinely state one escalation for both
-> (*"the rent and service charge shall increase by 7% annually"*), and Yardi models this as
-> per-charge escalation. `Lease::escalatesServiceCharge()` is the **one predicate** both writers
-> read — the sweep steps the service charge by the **same collared percentage on the same
-> anniversary** through the same `LeaseRentChangeService::apply()` call (one transaction, one lease
-> event, the new `rent_escalated_with_service` narratives naming both figures), and
-> `projectTermEscalations()` writes the service-charge ladder up front beside the rent ladder, so
-> the forecast and the budget show a recorded term instead of under-stating it. Three deliberate
-> bounds: **percent-derived clause types only** (`fixed_percent`/`cpi` — a step stated in pounds is
-> a statement about the rent, the same reasoning that keeps the collar off `fixed_amount`; the flag
-> survives a type switch *inert*, like the collar, and is cleared only by `none` with the rest of
-> the clause); **no second rate** (the common clause is "the same percentage", and a separate
-> service-charge percentage is a term nobody has stated); and **keep it OFF where the service
-> charge is a reconciled CAM estimate** — the annual true-up already re-prices an estimate, and
-> escalating what the reconciliation corrects would double-adjust it. CPI stays unprojected for
-> the service charge exactly as for rent (no index feed), and the sweep lands both steps the day
-> the statistic does.
+> **EVERY CHARGE STEPS BY ITS OWN RULE — the annual increase is a term of the charge row, Yardi's
+> per-charge grain (2026-09-12, meeting 2026-09-02 point 24).** The client's ask — *"the annual
+> increase should be on all expenses not only on rent — better to be an option to be a percentage
+> or a fixed number"* — is not a custom request: Voyager holds the escalation schedule PER CHARGE
+> CODE (method · floor and ceiling · frequency) and generates the future rows from it (benchmark
+> [01 §4](../benchmarks/yardi/01-yardi-lease-administration.md#4-escalations)), MRI's recurring
+> charge carries its own step, and the 2026-09-05 service-charge toggle's own docblock had named
+> per-charge escalation as the shape it stood in for. Until this, parking, signage, storage and
+> every other row never escalated at all, so a bay contracted at +500 a year held its signing
+> figure until somebody remembered. **The rule is on the row**: `charges.escalation_mode`
+> (`follows_lease` · `percent` · `fixed_amount` · `none`, null read as none) with the row's own
+> `escalation_rate` / `escalation_amount`, carried onto every successor rung and every copy of the
+> row through **`Charge::CARRIED_TERMS`** — the ONE list `setAmount()`, `overlayWindow()` (relief
+> rows and the resumed row) and `LeaseRenewalService` spread, replacing four hand-written column
+> lists that had each dropped a term at some point. `App\Support\ChargeEscalation` is the one
+> reading the sweep, the projection, the schedule tab and the lease form take: a follows-lease row
+> takes the rent's COLLARED percentage on the same anniversary (what the toggle meant, and what
+> *"the rent and service charge shall increase by 7%"* says), its own percent or amount step by
+> that, and the rent's own rows carry no rule because the lease's clause IS theirs; the marketing
+> levy follows the rent by derivation. **Deliberately not copied from Voyager: a per-row frequency
+> and effective date** — every clause these malls sign steps on the contract's anniversary, so the
+> lease's interval is the one calendar (skill §3b); a `follows_lease` row under an AMOUNT clause
+> steps nothing (a step in pounds is a statement about the rent — the 2026-09-05 rule, kept); and
+> a CAM re-estimate is never stepped on either side of the boundary, exactly as before.
 >
-> **The step is sized from the SCHEDULE, never from `leases.service_charge_monthly`** — the
-> adversarial review's two blocking finds, and the reason is a tab asymmetry: `base_rent` is barred
-> from the schedule tab (`DERIVED_TYPES`) precisely so its column cannot drift, and
-> `service_charge` is not — the tab can **end** or **restate** it without touching the column. A
-> column-sized step would have *resurrected an ended charge* (`setAmount` finds no active row and
-> mints an open-ended rung dated to the COMMENCEMENT, at 107%, by an unattended nightly job) and
-> *cut a tab-restated amount back* to a stale figure while the lease event quoted money that never
-> billed. `ChargeScheduleService::rowCovering()` — `pickInForce()` **without its fallback**, one
-> shared covering predicate — answers both guards: the rung covering the **eve** of the
-> anniversary is the base (on a projected lease the anniversary itself is covered by the NEW rung,
-> and sizing from that steps the step), and a rung covering the **anniversary itself** proves the
-> charge is still live — a charge bounded to end at the boundary, or a future-dated stop's
-> active-with-past-end residue (`close()`'s own documented leftover), produces **no step**, because
-> `setAmount`'s latest-active fallback would inherit the past end date, build an inverted range,
-> and the refusal would roll back the RENT step in the same transaction and repeat every night
-> with `next_escalation_date` never advancing. The projection guards each rung the same way, so a
-> bounded service charge stops its ladder where it stops billing; the column heals to the stepped
-> figure as a side effect of `apply()`. **Flipping the toggle on mid-term projects the ladder**
-> (`Lease::updated` — the backfill command skips any lease already carrying `ORIGIN_ESCALATION`
-> rows, so without the hook a flagged existing lease had no remedy path). A service-only
-> lease (rent 0) projects its service ladder without minting zero rent or levy rows. *(The
-> projection wrote the **raw** rate and left the sweep to collar each rung the night it landed —
-> a "standing caveat, stated" — until 2026-09-11; it writes the collared rate now, see the ladder
-> passage below.)* (`ServiceChargeEscalatesWithRentTest` — every guard
-> mutation-proved, including the resurrection, the residue rollback and the inverted range.)
+> **The sweep steps each charge by its rule; the projection writes each charge's ladder at
+> signing.** `RentEscalationService::applyOne()` sizes every step from the SCHEDULE (the rung
+> billing INTO the anniversary, never a lease column — the tab can end or restate a service charge
+> without touching `service_charge_monthly`, and a charge with no rung live on the anniversary is
+> skipped rather than resurrected); a service charge that FOLLOWS rides in the rent's own
+> `LeaseRentChangeService::apply()` call (one transaction, the `_with_service` event naming both
+> figures), and every other stepped charge — including a service charge on its OWN percentage,
+> whose figure the `_with_service` sentence cannot carry — gets its own rung and its own
+> `charge_escalated` / `charge_escalated_amount` event, naming the charge through the catalogue in
+> the reader's language. **A lease whose rent never steps is still swept** for the bay that does:
+> the sweep selects on the clause OR a row carrying a rule, `Lease::escalates()` is the clause OR
+> `escalatesAnyCharge()`, and `Lease::saving` clears the pointer under `none` only when nothing on
+> the schedule steps either. **Ruling on a charge is `ChargeScheduleService::setEscalation()`**,
+> the one writer: it stamps the mode onto every active rung of the type that has not yet ended (the
+> sweep reads the rung billing into each anniversary, so every rung must agree), arms
+> `next_escalation_date` at the first anniversary ON OR AFTER today where the lease had none
+> (never in the past, where the sweep would back-date a step over months already billed — the
+> interval-change rule), and re-trues ONLY that type's ladder (`retrueProjectedLadder(clause:
+> false, chargeTypes: [$type])`), so the rent's rungs keep their ids and a relief window on the
+> rent is not walked over for a change to the parking. **Under a `none` clause the walk does not
+> touch the rent or the levy at all** — the first cut wrote the unchanged figure and let
+> `sameMoney` no-op, and the sibling test broke it: the base is read off the EVE, a STARTED rung
+> the prune kept covers the anniversary itself, and writing the eve's figure there amended history
+> down a step. **Where the operator rules**: the lease form's new **Annual increase** tab (below)
+> holds the clause and a "Which charges step" TABLE — one row per recurring charge type on the
+> schedule, read from the rung in force today, written back through `setEscalation()` only for the
+> rows that changed; the schedule tab's *Add charge* asks the rule where the charge is born and
+> projects its ladder at once; the charge importer takes the three columns. **The default is the
+> PROPERTY's proposal**: `billing.new_charges_follow_escalation` (per property, off = Yardi's
+> answer, a charge carries no escalation until one is stated) makes the client's *"on all
+> expenses"* a configuration act — on, the service charge the form seeds, every *Add charge* and
+> every blank importer cell is PROPOSED as following the clause, and the operator still rules per
+> row. The 2026-09-05 column is gone: the migration writes `follows_lease` onto every active
+> service-charge row of a flagged lease and drops it, so nothing an install bills moved on deploy.
+> (`EveryChargeStepsByItsOwnRuleTest`, twenty-two cases, nineteen mutations each killing their own
+> tooth — including the `clauseIsFollowable()` guard inside `stepFor()`, which the driven cases
+> could not see because both callers pass null under an amount clause, so it is asked directly.)
 >
-> **A CAM RE-ESTIMATE IS NEVER STEPPED, and it can now be told apart (2026-09-05).**
-> `ApplyCamEstimateService` stamps its rungs **`Charge::ORIGIN_CAM_ESTIMATE`** (they carried
-> `manual` before, indistinguishable from an operator's own figure), because the docblocks said
-> *"keep the toggle off where the service charge is a reconciled CAM estimate"* three times and
-> nothing enforced it. The sweep asks BOTH rungs — an estimate as the **outgoing** rung is no base
-> for a step (estimate × 1.07 is nobody's contract), and an estimate taking over **on** the
-> anniversary owns that date (`setAmount` would amend it in place, silently overwriting the
-> reconciliation's answer) — and the projection refuses an estimate base and stops at an
-> estimate-governed step. The toggle's helper turns into a warning on a lease whose current
-> service charge is an estimate, so a ticked toggle cannot read as configured while doing nothing.
+> **The adversarial review found three blockers and four should-fixes, every one verified by
+> driving the code, and each is a tooth now.** A PARKING BAY IS DERIVED: it is priced in the
+> rentable-items register and `AssignRentableItemService::rebuildCharge()` re-derives the parking
+> row from the sum on every assignment, so a rule on the row was undone by the next bay (+500
+> vanished on the third) — `parking` joins `ChargeEscalation::DERIVED_TYPES`, the tab says
+> *"priced by the bays in the register"*, and stepping a bay per item belongs to that register
+> (not built; the first cut's flagship test case was a bay). THE POINTER WAS ARMED IN ONE DOOR:
+> `Lease::saving` cannot see a charge row at creation, so a `none`-clause lease ruled at birth
+> projected a ladder and was never swept (`service_charge_monthly` 250 while the schedule billed
+> 260) — the PROJECTION arms `next_escalation_date` now, the seam every door reaches. RESTATING A
+> RULED CHARGE SWITCHED ITS RULE OFF: the Add-charge modal and the importer defaulted every row to
+> the property's proposal, so re-pricing a +500 charge stored `none` on the successor while the
+> stale rungs went on stepping (and with the property set to follow, +500 became 7 %) — the modal
+> proposes the rule the type already carries, a blank importer cell INHERITS (null on every
+> `setAmount()` branch), and the type's ladder is re-walked whether or not the new row states a
+> rule. A RELIEF ROW WAS A BASE AND A TARGET for the sweep's charge step (a flat 5,000 concession
+> came out as 6,000 for the window): `contractedRowBefore()` walks back over the window, the
+> sweep never writes into one, and the carry the projection seeds is the contract's, not the
+> concession's. A STATED TERM NEVER REACHED THE ROW IN FORCE — `setAmount()` returned on the
+> same-money branch before reading its attributes, so an importer row restating the seeded
+> service charge *with percent 5* reported success and stored nothing (pre-existing for
+> `billing_timing`/`prorate`, fixed for all three). The form's diff compares rules normalised by
+> mode, or a figure lingering in a hidden box re-minted the ladder on every save. **Recorded, not
+> built**: a `manual` resumption after a relief is not re-priced by the walk (shared with the
+> rent's ladder, pre-existing), the RENT's own sweep step inside a relief window has the same
+> shape on the rent path (pre-existing; its own `/safe-change`), and a charge on its own rule under
+> a CPI lease waits for the index with the rent — one anniversary, deliberate.)
 >
 > **Clearing a clause takes its projected future with it (2026-09-05).** The `saving` hook clears
 > the clause's COLUMNS; `ChargeScheduleService::pruneProjectedLadder()` now clears its SCHEDULE on
 > the two events where the sweep's rung-by-rung self-correction dies — `escalation_type` → `none`
-> (rent + service + the levy's lock-step rungs, matched to the rent rungs actually pruned) and the
-> service-charge toggle → off. Only **not-yet-started** rungs carrying the projection's own origin
+> (rent + every ruled charge's rungs + the levy's lock-step rungs, matched to the rent rungs
+> actually pruned) and a charge ruled to stand still (`setEscalation(…, none)` since 2026-09-12;
+> the service-charge toggle → off before that). Only **not-yet-started** rungs carrying the projection's own origin
 > go: a rung already billing is history, and a future rung the operator amended through Change
 > Rent carries `manual` and is a stated term — it survives, and **the chain re-links around it**
 > (every surviving row whose end abuts a pruned rung extends to the next survivor's eve or the
@@ -1325,9 +1360,10 @@
 > on nothing else, so the tester's ordinary editing session on staging lease #21 (set the rate,
 > save, change the interval, save, change the rate again, save) left the ladder written at the
 > FIRST save: rungs at 10% where the clause read 100%, stepping every month where it read every
-> year — two cards, one cause, reproduced rung for rung. **`Lease::LADDER_TERMS`** names the seven
-> columns the projection is a function of (type · rate · amount · interval · the service-charge
-> toggle · the levy toggle and rate), the hook asks `wasChanged()` of the list, and
+> year — two cards, one cause, reproduced rung for rung. **`Lease::LADDER_TERMS`** names the six
+> columns the projection is a function of (type · rate · amount · interval · the levy toggle and
+> rate — the service-charge toggle was the seventh until 2026-09-12, when the rule moved onto the
+> charge row and `setEscalation()` became its own re-true), the hook asks `wasChanged()` of the list, and
 > **`ChargeScheduleService::retrueProjectedLadder()`** does the whole of it: prune every
 > not-yet-started projected rent and service rung and the levy rungs riding on exactly those rent
 > rungs, then project again from the clause as it NOW reads — a cleared clause projects nothing,
@@ -2349,7 +2385,14 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `term_months` (TextInput, numeric, 1–120, default 36).
    - `expiry_date` (DatePicker, required).
 
-3. **Financial Terms** (3 cols)
+3. **Financial Terms** — FOUR SECTIONS since 2026-09-12 (meeting point 24, and the operator's own
+   words: *"the lease form looks so bad"*): the tab had grown to thirty-five fields in one
+   five-column grid with the escalation's thirteen inputs appearing and vanishing between the
+   deposit's and the late fee's as the clause type changed. Now **Rent & service charge** ·
+   **Billing** (possession, rent commencement, fit-out scope, frequency, payment terms, proration)
+   · **Security deposit** · **Late fees** (collapsed — overrides of the property's terms, blank
+   on almost every lease). Yardi's lease screen groups the same facts under headings, and UX-13's
+   own rule is one concern at a time. The annual increase moved to its own tab (4 below).
    - `rent_pricing_basis` (Radio: flat | rate; disabled on edit) — choosing `rate` reveals the rate field and makes the monthly figure derived.
    - `base_rent_rate_per_sqm_year` (TextInput, EGP/m²/yr; required + visible only when the basis is `rate`) — the helper text shows the let area the derivation is using, updated live as units are picked.
    - `base_rent_monthly` (TextInput, numeric, ≥0; disabled on edit **and** on a rate-priced lease, dehydrated) — read-only on edit to enforce use of LeaseRentChangeService, read-only on `rate` because it is derived.
@@ -2359,21 +2402,37 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `possession_date` + `rent_commencement_date` (DatePickers) — the handover date and the start of rent. Blank rent-commencement = no grace. The billing gate lives on the model: `Lease::periodInFitOut()` / `firstBillableMonth()` / `rentCommencesOn()`, shared by `MonthlyBillingService` and the ActionRequired "unbilled leases" card (so a lease in grace is neither billed nor flagged).
    - `billing_frequency` (Select: monthly / quarterly / semiannual / annual, default monthly) — the invoicing cadence. The cadence rule lives on the model: `Lease::billingCycleMonths()` (1/3/6/12) and `isBillingCycleStart()` (commencement-anchored, post-fit-out), used by `MonthlyBillingService` (bill the whole cycle on cycle-start months) and the "unbilled leases" card (don't nag off-cycle months). A manual "Generate Invoice" for an off-cycle month returns reason `off_cycle` with a clear notice.
    - `security_deposit` (TextInput, numeric, ≥0).
-   - `escalation_rate` (TextInput, numeric, 0–100, default 7, suffix '%').
-   - `escalation_type` (Select) — none, fixed_percent, fixed_amount, cpi (options derived from `ValueSets`); default fixed_percent.
    - `payment_terms_days` (TextInput, numeric, default 7, suffix ' days').
    - `security_deposit_received` (Toggle, column full).
 
-4. **Percentage Rent** (3 cols, collapsed, collapsible)
+4. **Annual increase** (since 2026-09-12 — meeting point 24) — two sections.
+   - **The rent's clause**: `escalation_type` (Select — none, fixed_percent, fixed_amount, cpi;
+     options derived from `ValueSets`; default fixed_percent), `escalation_rate` (0–100, default
+     7, with the collar's live "what will actually step" hint), `escalation_amount`, the index
+     code / base value / lag for CPI, `escalation_interval_months`, the floor and ceiling. The
+     type is asked first and every other field shows only for its own type.
+   - **Which charges step**: a TABLE (`Repeater::table()`, not stored on the lease —
+     `dehydrated(false)`, read from form state by the page) with one row per recurring charge
+     type on the schedule: the charge · its rule (`ChargeEscalation::options()`, whose
+     follows-lease option NAMES the percentage it would inherit, read live off the clause fields
+     above) · its own % or EGP figure, or a sentence saying what it inherits. On CREATE the only
+     row is the service charge the form seeds, proposed from the property
+     (`billing.new_charges_follow_escalation`); on EDIT every type the schedule holds, filled by
+     `EditLease::chargeEscalationRows()` from the rung in force today and written back in
+     `afterSave()` through `ChargeScheduleService::setEscalation()` — only for rows that changed,
+     because ruling re-walks that type's ladder. The rent and the levy are never rows: the clause
+     and the rent answer for them, and the section says so.
+
+5. **Percentage Rent** (3 cols, collapsed, collapsible)
    - `has_percentage_rent` (Toggle, live).
    - `percentage_rent_calculation_type` (Select, visible if has_percentage_rent) — artificial, natural_breakpoint; default artificial.
    - `percentage_rent_threshold` (TextInput, numeric, ≥0, prefix 'EGP', visible if has_percentage_rent).
    - `percentage_rent_rate` (TextInput, numeric, 0–100, suffix '%', visible if has_percentage_rent).
 
-5. **Notes** (collapsed)
+6. **Notes** (collapsed)
    - `notes` (Textarea, 3 rows).
 
-6. **Documents** (collapsible)
+7. **Documents** (collapsible)
    - `documents` (SpatieMediaLibraryFileUpload, multiple, PDF/image/Word, max 10 MB, collection='documents').
 
 ---
@@ -2466,12 +2525,28 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
 6. **Tests:** Add scenario in `LeaseObserverTest` + `LeaseLifecycleScenarioTest`.
 7. **Permissions:** Add new permission entry in `RolesPermissionsSeeder::PERMISSIONS['leases']` if needed (e.g., 'leases.hold').
 
-### Changing escalation logic (e.g., adding CPI indexing)
+### Changing escalation logic
 
-1. **Lease model:** escalation_type already supports 'cpi' enum value.
-2. **Escalation job/command:** Create a new command (e.g., `ApplyLeaseEscalationsCommand`) that queries leases with escalation_type='cpi' and next_escalation_date ≤ now, fetches CPI index, calculates new rent, calls `LeaseRentChangeService::apply()` for each.
-3. **Invoices:** Escalation changes take effect on the next invoice (monthly billing reads Charge.amount).
-4. **Do NOT:** Directly edit Lease.base_rent_monthly without updating the matching Charge; use the service.
+The rent's clause is on the lease (`escalation_type` · rate · amount · CPI index/base/lag · interval
+· collar) and is applied by `RentEscalationService` (the nightly `leases:apply-escalations` sweep)
+and projected up front by `ChargeScheduleService::projectTermEscalations()`; every OTHER charge's
+rule is on its own rows (`charges.escalation_mode` + figure, `App\Support\ChargeEscalation`).
+
+1. **A new MODE** (say, "follows the rent by half"): add it to `ChargeEscalation::MODES`, teach
+   `stepFor()` what it resolves to, add its label to `admin.charge_escalation.modes` in BOTH lang
+   files, and `describe()` for the schedule tab. The sweep, the projection, the form and the
+   importer read the registry and need no change. `ValueSets` refuses an unregistered mode.
+2. **A new TERM every successor rung must inherit** (a cap per charge, say): a column on
+   `charges`, added to `Charge::CARRIED_TERMS` — that ONE list is what `setAmount()`,
+   `overlayWindow()` and the renewal spread, so a term added there reaches every writer.
+3. **A new lease-level CLAUSE term the ladder depends on**: add it to `Lease::LADDER_TERMS` so an
+   edit re-trues the ladder (the hook asks `wasChanged()` of the list).
+4. **Invoices:** every step takes effect on the next invoice — billing reads the ladder's
+   `Charge.amount`, never the clause.
+5. **Do NOT:** edit `Lease.base_rent_monthly` or `service_charge_monthly` without the matching
+   schedule row — `LeaseRentChangeService` and `setAmount()` are the writers; and do NOT step a
+   charge from a lease column — the sweep sizes every step from the SCHEDULE, because the tab can
+   end or restate a charge without touching the column.
 
 ### Supporting multi-unit lease rent differentiation (per-unit rents)
 

@@ -7,6 +7,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\UnitOwnership;
 use App\Services\ChargeScheduleService;
+use App\Support\ChargeEscalation;
 use App\Support\DataTransferNotice;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
@@ -115,6 +116,25 @@ class ChargeImporter extends Importer
                 ->boolean()
                 ->rules(['nullable', 'boolean'])),
 
+            // The row's own annual-increase rule (meeting 2026-09-02, point 24 — Yardi's
+            // per-charge grain). A migrating operator's spreadsheet says which bays step by a
+            // fixed sum and which charges follow the rent; blank means the PROPERTY's proposal,
+            // exactly what the form and the wizard propose, so a file that says nothing lands
+            // under the mall's own convention rather than a silent `none`.
+            $inputOnly(ImportColumn::make('escalation_mode')
+                ->label(__('admin.fields.escalation_mode'))
+                ->rules(['nullable', Rule::in(ChargeEscalation::MODES)])),
+
+            $inputOnly(ImportColumn::make('escalation_rate')
+                ->label(__('admin.imports.columns.escalation_rate'))
+                ->numeric()
+                ->rules(['nullable', 'numeric', 'min:0', 'max:100'])),
+
+            $inputOnly(ImportColumn::make('escalation_amount')
+                ->label(__('admin.imports.columns.escalation_amount'))
+                ->numeric()
+                ->rules(['nullable', 'numeric', 'min:0'])),
+
             $inputOnly(ImportColumn::make('effective_from')
                 ->label(__('admin.imports.columns.effective_from'))
                 ->requiredMapping()
@@ -158,15 +178,40 @@ class ChargeImporter extends Importer
 
         $type = trim((string) ($this->data['type'] ?? ''));
         $rawRate = $this->data['vat_rate'] ?? null;
+        $frequency = trim((string) ($this->data['frequency'] ?? '')) ?: 'monthly';
+        $mode = trim((string) ($this->data['escalation_mode'] ?? ''));
+        $escalationRate = $this->data['escalation_rate'] ?? null;
+        $escalationAmount = $this->data['escalation_amount'] ?? null;
 
-        return app(ChargeScheduleService::class)->setAmount(
+        // A one-off has no anniversary and carries no rule; so does an ownership's assessment
+        // (no lease clause) and a derived type (the rent, the levy, a bay). A recurring lease
+        // row with a BLANK cell inherits the rule the type already carries (null = inherit, on
+        // every branch of `setAmount()`) and, for a type new to the lease, takes the property's
+        // proposal — the same default every other door offers. Defaulting a restated row to the
+        // proposal switched its rule off on the successor (found by review).
+        $schedule = app(ChargeScheduleService::class);
+        $ruleable = $frequency !== 'one_time'
+            && $agreement instanceof Lease
+            && ! in_array($type, ChargeEscalation::DERIVED_TYPES, true);
+
+        $mode = match (true) {
+            ! $ruleable => null,
+            $mode !== '' => $mode,
+            $schedule->rowInForce($agreement, $type, CarbonImmutable::parse((string) $this->data['effective_from'])) !== null => null,
+            default => ChargeEscalation::defaultModeFor($agreement->unit?->asset_id),
+        };
+
+        $charge = $schedule->setAmount(
             $agreement,
             $type,
             (float) ($this->data['amount'] ?? 0),
             CarbonImmutable::parse((string) $this->data['effective_from']),
             array_filter([
                 'name' => trim((string) ($this->data['name'] ?? '')) ?: null,
-                'frequency' => trim((string) ($this->data['frequency'] ?? '')) ?: 'monthly',
+                'frequency' => $frequency,
+                'escalation_mode' => $mode,
+                'escalation_rate' => $ruleable && $escalationRate !== null && $escalationRate !== '' ? (float) $escalationRate : null,
+                'escalation_amount' => $ruleable && $escalationAmount !== null && $escalationAmount !== '' ? (float) $escalationAmount : null,
                 // Null, not 'advance', when the column is absent or blank — null IS advance, and
                 // writing the word would claim the operator ruled on a row they never mentioned.
                 'billing_timing' => trim((string) ($this->data['billing_timing'] ?? '')) ?: null,
@@ -187,6 +232,16 @@ class ChargeImporter extends Importer
             ], fn ($v): bool => $v !== null),
             Charge::ORIGIN_MANUAL,
         );
+
+        // The type's ladder is re-walked on every recurring lease row, ruled or not — a charge
+        // arriving with a rule projects at once (an import is how a whole portfolio's charges
+        // arrive, and each would otherwise show a term that steps "later"), and one restated to
+        // stand still takes its stale projected rungs with it.
+        if ($charge !== null && $ruleable) {
+            $schedule->retrueProjectedLadder($agreement->fresh(), clause: false, chargeTypes: [$type]);
+        }
+
+        return $charge;
     }
 
     /**

@@ -217,7 +217,7 @@ These four decisions steer the FRs below:
 | 21 | The management contract is between the unit owner and Jawad | Terms stored, fee charged by nothing (gap B1) | **Decision, not code** — it answers half of B1 | (M once ruled) | |
 | 22 | Possession date: better description if blank → today | Helper exists; nothing computes it | **Ask** what "calculated from today" means; wording only | XS | |
 | 23 | Late fees → notify Eltizam to cut electricity/water; anything else? | Tenant + owner notified; no operations step | **Build** a collections stage that raises an operations request | M | |
-| 24 | Annual increase on all charges, % or fixed | Base rent (+ same % on service charge) | **Build** per-charge escalation — Yardi's grain | M | |
+| 24 | Annual increase on all charges, % or fixed | Base rent (+ same % on service charge) | ✅ **Shipped 2026-09-12** — every charge row carries its own rule (follows the clause · own % · own fixed EGP · none), Yardi's grain; the lease form's *Annual increase* tab and its "Which charges step" table; `billing.new_charges_follow_escalation` per property (off = Yardi) ([modules/04](../modules/04-leases.md)) | M | ✅ built |
 | 25 | Vending machines, toy cars — "like units", later | ✅ **Built** (rentable items, module 35) | **Nothing now**; a unit type or a rentable item when they return to it | XS | |
 
 **Suggested order for the `/safe-change` runs** — correctness first, then the documents the client reads
@@ -637,29 +637,36 @@ and a person turns the switch. Effort **M**.
 
 ---
 
-### 6.7 Escalation (24)
+### 6.7 Escalation (24) — ✅ shipped 2026-09-12
 
 **#24 — *"The annual increase should be on all expenses not only on rent — better to be an option to be
 a percentage or a fixed number."***
 
-**Atriom today.** The clause is **lease-level** and applies to **base rent** (`fixed_percent` ·
-`fixed_amount` · `cpi`, floor/ceiling, generates schedule rows — `RentEscalationService`); an
-`escalation_applies_to_service_charge` toggle steps the service charge by the **same %** (percent
-types only); the marketing levy follows rent because it is a % of it; **parking, signage, storage and
-every other charge row never escalate**.
+**Atriom before.** The clause was **lease-level** and applied to **base rent** (`fixed_percent` ·
+`fixed_amount` · `cpi`, floor/ceiling, generates schedule rows — `RentEscalationService`); a
+toggle stepped the service charge by the **same %**; the marketing levy follows rent because it is
+a % of it; **parking, signage, storage and every other charge row never escalated**.
 
 **Yardi.** The escalation schedule is held **per charge code** — method (% / amount / CPI / market
 review), floor and ceiling, frequency — and it generates future rows *(cited, [01
-§4](../benchmarks/yardi/01-yardi-lease-administration.md))*. The client is asking for Yardi's grain.
+§4](../benchmarks/yardi/01-yardi-lease-administration.md))*. The client asked for Yardi's grain.
 
-**Recommendation — BUILD per-charge escalation.** On `charges`: `escalation_mode` = `follows_lease`
-· `percent` · `fixed_amount` · `none`, with its own rate or amount; the migration maps today's shape
-(base rent and a toggled service charge → `follows_lease`, everything else → `none`, so **nothing
-moves on deploy**); the anniversary sweep steps every charge carrying a clause through
-`LeaseRentChangeService` and the schedule; the forecast and the lease agreement read the projected
-rungs; the service-charge toggle retires into the mode. The CAM-estimate caveat in the sweep's
-docblock (an estimate the reconciliation re-prices must not also escalate) becomes a per-charge
-choice, which is where it belonged. Effort **M**.
+**Shipped.** The rule is a term of each **charge row** — `charges.escalation_mode` (`follows_lease`
+· `percent` · `fixed_amount` · `none`) with its own rate or amount, carried onto every successor
+rung with the row's other terms; the service-charge toggle retired into it (the migration writes
+`follows_lease` onto flagged leases' service rows, so nothing moved on deploy). The nightly sweep
+steps every ruled charge on the lease anniversary by its own rule, the ladder is projected per
+charge at signing, and each stepped charge writes its own timeline event. The lease form gained an
+**Annual increase** tab (the clause, and a "Which charges step" table — one row per charge), the
+schedule tab asks the rule on *Add charge*, the importer takes the three columns.
+**Configurable the market's way**: `billing.new_charges_follow_escalation` per property proposes
+every new charge as following the clause — **off by default (Yardi: a charge carries no escalation
+until stated)**; the client's *"on all expenses"* is what they SET on their malls. **Deviation,
+stated**: one anniversary and one interval per lease (Voyager allows a frequency per charge; no
+Egyptian clause these malls sign needs it), and a follows-lease row under an AMOUNT clause steps
+nothing (a pound step is a statement about the rent). The financial-terms tab was also split into
+four sections in the same change — thirty-five fields in one grid was the operator's own
+complaint.
 
 ---
 

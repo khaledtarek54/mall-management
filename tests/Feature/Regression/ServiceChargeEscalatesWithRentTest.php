@@ -5,6 +5,7 @@ use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Services\ChargeScheduleService;
 use App\Services\RentEscalationService;
+use App\Support\ChargeEscalation;
 use App\Support\LeaseEventNarrative;
 use Carbon\CarbonImmutable;
 
@@ -17,16 +18,23 @@ use Carbon\CarbonImmutable;
  * signing figure for the life of the lease unless an operator remembered to raise it by hand:
  * the exact revenue leak the sweep exists to close, one column over.
  *
- * `leases.escalation_applies_to_service_charge` is the clause as a row (default false, so nothing
- * an install bills moved on deploy), `Lease::escalatesServiceCharge()` is the ONE predicate both
- * writers read, and the step is the SAME collared percentage on the SAME anniversary — there is
- * deliberately no second rate. Percent-derived clause types only: a step stated in pounds is a
- * statement about the rent, the same reasoning that keeps the collar off `fixed_amount`.
+ * Since 2026-09-12 (meeting 2026-09-02, point 24) the rule is a TERM OF THE CHARGE ROW —
+ * `charges.escalation_mode = follows_lease` on the service-charge rows, Yardi's per-charge grain,
+ * replacing the lease-level toggle this file was written against — and `ChargeEscalation` is the
+ * one reading both writers take. A follows-lease row steps by the SAME collared percentage on the
+ * SAME anniversary; percent-derived clause types only, because a step stated in pounds is a
+ * statement about the rent, the same reasoning that keeps the collar off `fixed_amount`. Every
+ * behaviour below is unchanged; only where the rule is stored moved.
  */
 afterEach(fn () => CarbonImmutable::setTestNow());
 
 function serviceEscalationLease(array $attributes = []): Lease
 {
+    // `service_follows` is the fixture's own switch, not a lease column: the rule lives on the
+    // service-charge ROW since point 24, and this helper writes it there.
+    $serviceFollows = $attributes['service_follows'] ?? true;
+    unset($attributes['service_follows']);
+
     $lease = makeLease(makeUnit(makeAsset()), null, array_merge([
         'status' => 'active',
         'commencement_date' => '2025-01-01',
@@ -35,7 +43,6 @@ function serviceEscalationLease(array $attributes = []): Lease
         'service_charge_monthly' => 20000,
         'escalation_type' => 'fixed_percent',
         'escalation_rate' => 7,
-        'escalation_applies_to_service_charge' => true,
         'next_escalation_date' => '2026-01-01',
     ], $attributes));
 
@@ -55,6 +62,7 @@ function serviceEscalationLease(array $attributes = []): Lease
             'amount' => $amount,
             'currency' => 'EGP',
             'frequency' => 'monthly',
+            'escalation_mode' => $type === 'service_charge' && $serviceFollows ? ChargeEscalation::FOLLOWS_LEASE : null,
             'start_date' => $lease->commencement_date,
             'is_active' => true,
         ]);
@@ -85,7 +93,7 @@ it('steps the service charge by the same percentage on the same anniversary when
 
 it('leaves the service charge alone when the clause does not cover it', function () {
     CarbonImmutable::setTestNow('2026-01-02');
-    $lease = serviceEscalationLease(['escalation_applies_to_service_charge' => false]);
+    $lease = serviceEscalationLease(['service_follows' => false]);
 
     app(RentEscalationService::class)->runForToday();
 
@@ -108,10 +116,11 @@ it('applies the COLLARED rate to the service charge, not the stated one', functi
         ->and((float) $lease->service_charge_monthly)->toBe(21000.0);
 });
 
-it('never steps the service charge on an amount clause, even with the flag set', function () {
+it('never steps the service charge on an amount clause, even with the row set to follow', function () {
     // "+EGP 5,000 a month" is a statement about the RENT — carrying the same figure onto a
-    // service charge a fraction of its size charges nobody what they agreed. The flag survives
-    // the type switch (like the collar) and is inert until a percent type can read it again.
+    // service charge a fraction of its size charges nobody what they agreed. The row's mode
+    // survives the type switch (like the collar) and is inert until a percent type can read it
+    // again — a charge that should step by its own amount says so in its own mode.
     CarbonImmutable::setTestNow('2026-01-02');
     $lease = serviceEscalationLease([
         'escalation_type' => 'fixed_amount',
@@ -119,7 +128,8 @@ it('never steps the service charge on an amount clause, even with the flag set',
         'escalation_amount' => 5000,
     ]);
 
-    expect($lease->escalation_applies_to_service_charge)->toBeTrue();
+    expect(ChargeEscalation::modeOf($lease->charges()->where('type', 'service_charge')->first()))
+        ->toBe(ChargeEscalation::FOLLOWS_LEASE);
 
     app(RentEscalationService::class)->runForToday();
 
@@ -149,7 +159,7 @@ it('projects the service-charge ladder up front beside the rent ladder', functio
 });
 
 it('does not project a service-charge ladder the clause does not state', function () {
-    $lease = serviceEscalationLease(['expiry_date' => '2027-12-31', 'escalation_applies_to_service_charge' => false]);
+    $lease = serviceEscalationLease(['expiry_date' => '2027-12-31', 'service_follows' => false]);
 
     app(ChargeScheduleService::class)->projectTermEscalations($lease);
 
@@ -316,17 +326,19 @@ it('stops the projected service ladder where the charge stops billing', function
         ->and($lease->charges()->where('type', 'base_rent')->count())->toBe(3);
 });
 
-it('projects the ladder when the toggle is flipped on mid-term', function () {
-    // The remedy path a flipped flag would otherwise not have: every creation door projects, and
+it('projects the ladder when the service charge is set to follow mid-term', function () {
+    // The remedy path a ruled row would otherwise not have: every creation door projects, and
     // the backfill command skips any lease that already carries ORIGIN_ESCALATION rows — exactly
-    // the leases an operator will flag after this ships. Note the projection walks the whole
-    // contracted ladder, so the rent rungs appear too — idempotent, and the contract's own terms.
+    // the leases an operator will rule on after this ships. `setEscalation()` is the one writer
+    // of a row's rule and re-walks that type's ladder; the rent rungs are the projection's own
+    // (idempotent, the contract's terms) and are written here because none existed yet.
     $lease = serviceEscalationLease([
         'expiry_date' => '2027-12-31',
-        'escalation_applies_to_service_charge' => false,
+        'service_follows' => false,
     ]);
 
-    $lease->update(['escalation_applies_to_service_charge' => true]);
+    app(ChargeScheduleService::class)->setEscalation($lease, 'service_charge', ChargeEscalation::FOLLOWS_LEASE);
+    app(ChargeScheduleService::class)->projectTermEscalations($lease->fresh());
 
     $amounts = $lease->charges()->where('type', 'service_charge')
         ->orderBy('start_date')->pluck('amount')->map(fn ($a) => (float) $a)->all();
@@ -461,14 +473,30 @@ it('projects no ladder from an estimate base onto a stated successor', function 
         ->orderByDesc('start_date')->first()->amount)->toBe(24000.0);
 });
 
-it('drops the flag with the rest of the clause when a lease is switched to none', function () {
-    // A field the operator cannot see must not hold a value that can take effect — the same
-    // clearing the rate, amount and collar already get.
-    $lease = serviceEscalationLease();
+it('steps nothing for a following service charge once the clause is switched to none', function () {
+    // The row's mode is the CHARGE's term and survives the clause being cleared — but it follows
+    // a clause that no longer exists, so it steps nothing: the projected service rungs go with
+    // the rent's, and the sweep finds no step to apply.
+    CarbonImmutable::setTestNow('2026-01-02');
+    $lease = serviceEscalationLease(['expiry_date' => '2027-12-31']);
+    app(ChargeScheduleService::class)->projectTermEscalations($lease);
+    expect($lease->charges()->where('type', 'service_charge')->where('is_active', true)->count())->toBe(3);
 
     $lease->update(['escalation_type' => 'none']);
 
-    expect($lease->fresh()->escalation_applies_to_service_charge)->toBeFalse();
+    // The 2026 rung has STARTED (it is 2 January) and is history — the prune keeps it, as the
+    // clause-clearing test states; only the 2027 rung goes. The row's own mode survives.
+    expect($lease->charges()->where('type', 'service_charge')->where('is_active', true)->count())->toBe(2)
+        ->and(ChargeEscalation::modeOf($lease->charges()->where('type', 'service_charge')->where('is_active', true)->first()))
+        ->toBe(ChargeEscalation::FOLLOWS_LEASE);
+
+    // The sweep still selects the lease (a row carries a rule) and finds nothing to step: a
+    // follows-lease row under a `none` clause inherits no percentage.
+    $stats = app(RentEscalationService::class)->runForToday();
+
+    expect($stats['considered'])->toBe(1)
+        ->and($stats['applied'])->toBe(0)
+        ->and((float) $lease->fresh()->service_charge_monthly)->toBe(20000.0);
 });
 
 it('mints nothing for a lease whose clause covers a service charge it does not have', function () {

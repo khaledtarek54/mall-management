@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\ChargeEscalation;
 use App\Support\ProrationMethod;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
@@ -83,6 +84,26 @@ class Charge extends Model
     /** @var array<int, string> */
     public const BILLING_TIMINGS = [self::TIMING_ADVANCE, self::TIMING_ARREARS];
 
+    /**
+     * The row's own TERMS — what every successor rung and every copy of the row inherits.
+     *
+     * A rent change, an escalation step, a relief window's rows and the rung that resumes after
+     * it, a renewal, a holdover: each opens a new row from an existing one, and each used to spell
+     * out the columns it carried by hand. That is how `billing_timing` came to be rendered on a
+     * form and thrown away on save, and how a relief row dropped `prorate` a fortnight after the
+     * successor rung had learned to keep it. Named ONCE; a writer spreads {@see carriedTerms()}
+     * and a term added here reaches every writer at once.
+     *
+     * @var list<string>
+     */
+    public const CARRIED_TERMS = [
+        'billing_timing',
+        'prorate',
+        'escalation_mode',
+        'escalation_rate',
+        'escalation_amount',
+    ];
+
     protected $fillable = [
         'lease_id',
         'unit_ownership_id',
@@ -94,6 +115,9 @@ class Charge extends Model
         'frequency',
         'billing_timing',
         'prorate',
+        'escalation_mode',
+        'escalation_rate',
+        'escalation_amount',
         'vat_applicable',
         'vat_rate',
         'start_date',
@@ -104,6 +128,8 @@ class Charge extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'vat_rate' => 'decimal:2',
+        'escalation_rate' => 'decimal:2',
+        'escalation_amount' => 'decimal:2',
         'vat_applicable' => 'boolean',
         'prorate' => 'boolean',
         'is_active' => 'boolean',
@@ -145,7 +171,38 @@ class Charge extends Model
             $charge->assertTypeIsAKnownChargeCode();
             $charge->assertFrequencyIsBillable();
             $charge->assertNoScheduleOverlap();
+            $charge->clearEscalationFiguresTheModeDoesNotRead();
         });
+    }
+
+    /**
+     * The row's carried terms, as attributes for the row that succeeds or copies it.
+     *
+     * @return array<string, mixed>
+     */
+    public function carriedTerms(): array
+    {
+        return $this->only(self::CARRIED_TERMS);
+    }
+
+    /**
+     * A field the operator cannot see must not hold a value that can take effect — the rule
+     * `Lease::saving` applies to the clause, applied to the row. The form shows the rate box only
+     * under `percent` and the amount box only under `fixed_amount`, so switching mode would
+     * otherwise leave the other figure in its column, invisible, read again the moment the mode
+     * switched back. On the MODEL so the importer and every service are covered too.
+     */
+    public function clearEscalationFiguresTheModeDoesNotRead(): void
+    {
+        $mode = ChargeEscalation::modeOf($this);
+
+        if ($mode !== ChargeEscalation::PERCENT) {
+            $this->escalation_rate = null;
+        }
+
+        if ($mode !== ChargeEscalation::FIXED_AMOUNT) {
+            $this->escalation_amount = null;
+        }
     }
 
     /**

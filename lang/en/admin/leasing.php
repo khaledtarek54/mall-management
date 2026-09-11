@@ -8,6 +8,28 @@ return [
         'fixed' => 'Fixed amount',
     ],
 
+    // How a charge row steps on the lease anniversary (point 24) — see App\Support\ChargeEscalation.
+    'charge_escalation' => [
+        'modes' => [
+            'follows_lease' => 'Follows the rent\'s clause',
+            'follows_lease_rate' => 'Follows the rent\'s clause (+:rate%)',
+            'follows_lease_index' => 'Follows the rent\'s clause (the index)',
+            'follows_lease_inert' => 'Follows the rent\'s clause (no percentage to follow)',
+            'percent' => 'Its own percentage',
+            'fixed_amount' => 'Its own fixed amount',
+            'none' => 'No increase',
+        ],
+        'follows_rate' => 'Follows the rent — +:rate% a year',
+        'follows_index' => 'Follows the rent — the index, collared',
+        'follows_nothing' => 'Follows the rent — which steps by an amount, so this charge stands still',
+        'own_percent' => '+:rate% a year',
+        'own_amount' => '+EGP :amount a year',
+        'none' => 'Stands still',
+        'rent_follows_clause' => 'Follows the rent\'s clause',
+        'levy_follows_rent' => 'Follows the rent',
+        'parking_follows_register' => 'Priced by the bays in the rentable-items register',
+    ],
+
     // What must be in before a lease is activated (point 1) — see App\Support\LeaseActivation.
     'lease_activation' => [
         'none' => 'Nothing — a lease is executed on entry',
@@ -87,6 +109,10 @@ return [
             // dash, which would land mid-sentence on every rent-only row already stored.
             'rent_escalated_with_service' => 'Contractual escalation +:step_pct% — rent :amount_from to :amount_to; service charge :service_amount_from to :service_amount_to.',
             'rent_escalated_collared_with_service' => 'Contractual escalation +:step_pct% (index :index_pct%, collared) — rent :amount_from to :amount_to; service charge :service_amount_from to :service_amount_to.',
+            // A charge stepping by ITS OWN rule (meeting 2026-09-02, point 24): the charge is named
+            // through the catalogue in the reader's language, one event per charge.
+            'charge_escalated' => 'Contractual increase on :charge_type +:step_pct% — :amount_from to :amount_to.',
+            'charge_escalated_amount' => 'Contractual increase on :charge_type +:step_amount — :amount_from to :amount_to.',
             'rent_changed' => 'Rent changed from :amount_from to :amount_to.',
             'relief_granted' => 'Rent relief granted — :amount_from reduced to :amount_to.',
             'term_extended' => 'Term extended to :expiry_date.',

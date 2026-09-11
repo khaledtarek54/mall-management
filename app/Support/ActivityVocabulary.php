@@ -228,6 +228,9 @@ class ActivityVocabulary
         'cam_pool.estimate_basis' => 'admin.cam.estimate_bases',
         'cam_pool.denominator_basis' => 'admin.cam.denominator_bases',
         'charge.billing_timing' => 'admin.enums.billing_timing',
+        // How the row steps on the anniversary (meeting 2026-09-02, point 24) — the group the
+        // lease form's "Which charges step" table and the schedule tab both read.
+        'charge.escalation_mode' => 'admin.charge_escalation.modes',
         'fixed_asset.method' => 'admin.enums.depreciation_method',
         'fixed_asset.tax_pool' => 'admin.tax_depreciation.pools',
         'fixed_asset.funded_from' => 'admin.enums.cash_or_bank',

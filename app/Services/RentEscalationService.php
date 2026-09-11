@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\LeaseEvent;
 use App\Models\RentIndex;
+use App\Support\ChargeEscalation;
 use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -39,17 +41,18 @@ use Illuminate\Support\Facades\DB;
  * inventing an index number is inventing the money a tenant pays. A clause naming no index, or
  * carrying no base, produces no step rather than a guess.
  *
- * **A clause may cover the service charge too** (`escalation_applies_to_service_charge`,
- * 2026-09-05): the SAME collared percentage steps the service charge on the SAME anniversary,
- * through the same `LeaseRentChangeService` call, so one lease event records both figures.
- * Percent-derived types only — `Lease::escalatesServiceCharge()` is the predicate this sweep and
- * `ChargeScheduleService::projectTermEscalations()` both read. The step is SIZED FROM THE
- * SCHEDULE (the rung billing into the anniversary), never from `service_charge_monthly` — the
- * schedule tab can end or restate a service charge without touching that column, and only
- * `base_rent` is barred from the tab — and a charge with no rung live on the anniversary is
- * skipped rather than resurrected. Where the service charge is a reconciled CAM estimate the
- * toggle should stay off: the annual true-up already re-prices it, and escalating an estimate the
- * reconciliation corrects would double-adjust it.
+ * **Every charge steps by ITS OWN rule** (meeting 2026-09-02, point 24 — Yardi's per-charge
+ * grain, replacing the 2026-09-05 service-charge toggle). Each recurring row carries a mode
+ * (`ChargeEscalation`): FOLLOWS the lease's clause — the same collared percentage on the same
+ * anniversary, which for the service charge rides in the SAME `LeaseRentChangeService` call as the
+ * rent so one lease event records both figures — or its OWN percentage or amount, stepped here
+ * through `ChargeScheduleService::setAmount()` with an event of its own, or nothing. The step is
+ * SIZED FROM THE SCHEDULE (the rung billing into the anniversary), never from a lease column —
+ * the schedule tab can end or restate a service charge without touching `service_charge_monthly`,
+ * and only `base_rent` is barred from the tab — and a charge with no rung live on the anniversary
+ * is skipped rather than resurrected. A CAM re-estimate is never stepped: the annual true-up
+ * re-prices it, and escalating an estimate the reconciliation corrects would double-adjust it.
+ * A lease whose own clause is `none` is still swept for the charges that carry one.
  */
 class RentEscalationService
 {
@@ -83,7 +86,16 @@ class RentEscalationService
                 ->whereNull('expiry_date')
                 ->orWhereDate('expiry_date', '>=', $today->toDateString())
                 ->orWhereNotNull('holdover_from'))
-            ->whereIn('escalation_type', ['fixed_percent', 'fixed_amount', 'cpi'])
+            // The rent's own clause, OR a charge row carrying a rule of its own — a lease whose
+            // rent never steps is still swept for the bay that does (point 24).
+            ->where(fn ($q) => $q
+                ->whereIn('escalation_type', ['fixed_percent', 'fixed_amount', 'cpi'])
+                ->orWhereHas('charges', fn ($c) => $c
+                    ->where('is_active', true)
+                    ->where('frequency', '!=', 'one_time')
+                    ->whereNotIn('type', ChargeEscalation::DERIVED_TYPES)
+                    ->whereNotNull('escalation_mode')
+                    ->where('escalation_mode', '!=', ChargeEscalation::NONE)))
             ->whereNotNull('next_escalation_date')
             ->whereDate('next_escalation_date', '<=', $today->toDateString())
             ->pluck('id');
@@ -219,10 +231,7 @@ class RentEscalationService
             // attribute type from that migration, ignoring the `->change()` that made it a varchar —
             // so comparing the attribute directly against `fixed_amount` reads as "always false".
             $type = (string) $lease->escalation_type;
-
-            if (! in_array($type, ['fixed_percent', 'fixed_amount', 'cpi'], true)) {
-                return 'skipped';
-            }
+            $rentClause = in_array($type, ['fixed_percent', 'fixed_amount', 'cpi'], true);
 
             // The clause's own interval, not a literal year (EG-30 / M-6). `escalationIntervalMonths()`
             // floors a null at 12, so a lease that has never been ruled on steps annually exactly as
@@ -237,8 +246,13 @@ class RentEscalationService
             $nextDate = $lease->escalationDateAfter(
                 CarbonImmutable::instance($lease->next_escalation_date)
             );
+            $anniversary = ChargeScheduleService::billingBoundary(
+                CarbonImmutable::instance($lease->next_escalation_date)
+            );
             $current = (float) $lease->base_rent_monthly;
 
+            // ── THE RENT — the lease's own clause ─────────────────────────────────────────────
+            //
             // The two kinds differ only in how the step is SIZED. Everything after this — the
             // anniversary dating, the schedule row, the marketing levy resync, the date roll — is
             // one path, so an amount lease can never drift from a percentage one.
@@ -246,8 +260,19 @@ class RentEscalationService
             // same collar, same anniversary dating, same schedule row. Null means the figure has
             // not been published yet (or the clause is incomplete), and the answer to that is to
             // wait, never to invent: the sweep runs daily and will pick it up the day it lands,
-            // which is Voyager's "it generates the row when the index publishes".
+            // which is Voyager's "it generates the row when the index publishes". The WHOLE lease
+            // waits with it — a charge on its own percentage too, deliberately: one anniversary,
+            // one sweep, and a lease whose rent is unknowable on the day is not half-stepped.
             $indexFigure = null;
+            $step = 0.0;
+            $newRent = $current;
+            $narrative = null;
+            $narrativeData = [];
+            $collared = false;
+
+            // What a FOLLOWS-LEASE row inherits: the collared percentage the rent steps by. Null
+            // under an amount clause (a step in pounds is a statement about the rent) or none.
+            $leasePercent = null;
 
             if ($type === 'cpi') {
                 // Read ONCE and carry it. The rate and the new base both derive from this single
@@ -265,8 +290,6 @@ class RentEscalationService
                 }
             }
 
-            $newService = null;
-
             if ($type === 'fixed_amount') {
                 $step = round((float) $lease->escalation_amount, 2);
                 $newRent = round($current + $step, 2);
@@ -276,10 +299,11 @@ class RentEscalationService
                 // the collar for amount leases for the same reason.
                 $narrative = 'rent_escalated_amount';
                 $narrativeData = ['step_amount' => $step];
-            } else {
+            } elseif ($rentClause) {
                 $stated = $type === 'cpi' ? $indexRate : (float) $lease->escalation_rate;
                 $rate = self::collar($lease, $stated);
                 $step = $rate;
+                $leasePercent = $rate;
                 $newRent = round($current * (1 + $rate / 100), 2);
 
                 // The narrative names the RAW index movement beside the applied rate whenever the
@@ -292,96 +316,165 @@ class RentEscalationService
                     'step_pct' => $rate,
                     'index_pct' => $collared ? number_format($stated, 2) : null,
                 ], fn ($v) => $v !== null);
-
-                // The clause may cover the service charge too — the SAME collared percentage on
-                // the SAME anniversary, which is what "escalates with the rent" means and why
-                // there is no second rate to read. Percent-derived types only, and the predicate
-                // lives on the model so the ladder projection cannot disagree with this sweep
-                // about what one clause covers. Nothing here for `fixed_amount`: a step stated in
-                // pounds is a statement about the rent (the collar's own rule).
-                //
-                // The base comes from the SCHEDULE, never `service_charge_monthly`. `base_rent`
-                // is barred from the schedule tab precisely so its column cannot drift;
-                // `service_charge` is NOT — the tab can end or restate it without touching the
-                // lease column — so a column-sized step would resurrect an ENDED charge
-                // (`setAmount` finds no active row and mints an open-ended one dated to the
-                // COMMENCEMENT) or cut a tab-restated amount back to a stale figure, both by an
-                // unattended nightly job. Two covering reads, both load-bearing:
-                //
-                //  - the row covering the EVE of the anniversary is the outgoing rung, the base
-                //    the step is sized from — on a projected lease the anniversary itself is
-                //    covered by the NEW rung, and sizing from that would step the step;
-                //  - a row covering the anniversary itself proves the charge is still live to
-                //    bill the stepped amount. A charge bounded to end at the boundary — or a
-                //    future-dated stop's active-with-past-end residue — must produce NO step:
-                //    `setAmount` would fall back to the ended row, inherit its past end date and
-                //    build an inverted range, whose refusal rolls back the RENT step beside it
-                //    and repeats every night.
-                if ($lease->escalatesServiceCharge()) {
-                    $anniversary = ChargeScheduleService::billingBoundary(
-                        CarbonImmutable::instance($lease->next_escalation_date)
-                    );
-
-                    $outgoing = $this->schedule->rowCovering($lease, 'service_charge', $anniversary->subDay());
-                    $incoming = $this->schedule->rowCovering($lease, 'service_charge', $anniversary);
-
-                    // A CAM RE-ESTIMATE IS NEVER STEPPED — the annual true-up re-prices it, so
-                    // escalating it double-adjusts. Both rungs are asked: an estimate as the
-                    // OUTGOING rung must not be the base of a step, and an estimate taking over
-                    // ON the anniversary owns that date — `setAmount` would amend it in place
-                    // with the escalated figure, silently overwriting the reconciliation's own
-                    // answer.
-                    if ($outgoing !== null
-                        && (float) $outgoing->amount > 0
-                        && $outgoing->origin !== Charge::ORIGIN_CAM_ESTIMATE
-                        && $incoming !== null
-                        && $incoming->origin !== Charge::ORIGIN_CAM_ESTIMATE) {
-                        $currentService = (float) $outgoing->amount;
-                        $newService = round($currentService * (1 + $rate / 100), 2);
-
-                        // The timeline must say BOTH figures moved — the `_with_service`
-                        // narratives exist because rendering a rent-only sentence over a
-                        // two-charge step would under-tell the one place an operator audits what
-                        // the sweep did. FULL key literals, not a suffix appended to
-                        // `$narrative`: the vocabulary gate proves every key has a writer by
-                        // finding the quoted key in `app/`, and a concatenation is a writer it
-                        // cannot see.
-                        $narrative = $collared ? 'rent_escalated_collared_with_service' : 'rent_escalated_with_service';
-                        $narrativeData['service_amount_from'] = $currentService;
-                        $narrativeData['service_amount_to'] = $newService;
-                    }
-                }
             }
 
-            if ($step <= 0) {
+            $rentSteps = $rentClause && $step > 0;
+
+            // ── EVERY OTHER CHARGE — its own rule against the clause (point 24) ───────────────
+            //
+            // The base comes from the SCHEDULE, never a lease column. `base_rent` is barred from
+            // the schedule tab precisely so its column cannot drift; `service_charge` is NOT — the
+            // tab can end or restate it without touching `service_charge_monthly` — so a
+            // column-sized step would resurrect an ENDED charge (`setAmount` finds no active row
+            // and mints an open-ended one dated to the COMMENCEMENT) or cut a tab-restated amount
+            // back to a stale figure, both by an unattended nightly job. Two covering reads, both
+            // load-bearing:
+            //
+            //  - the row covering the EVE of the anniversary is the outgoing rung, the base the
+            //    step is sized from and the rung whose RULE governs — on a projected lease the
+            //    anniversary itself is covered by the NEW rung, and sizing from that would step
+            //    the step;
+            //  - a row covering the anniversary itself proves the charge is still live to bill
+            //    the stepped amount. A charge bounded to end at the boundary — or a future-dated
+            //    stop's active-with-past-end residue — must produce NO step: `setAmount` would
+            //    fall back to the ended row, inherit its past end date and build an inverted
+            //    range, whose refusal rolls back the RENT step beside it and repeats every night.
+            //
+            // A CAM RE-ESTIMATE IS NEVER STEPPED — the annual true-up re-prices it, so escalating
+            // it double-adjusts. Both rungs are asked: an estimate as the OUTGOING rung must not
+            // be the base of a step, and an estimate taking over ON the anniversary owns that
+            // date — `setAmount` would amend it in place with the escalated figure, silently
+            // overwriting the reconciliation's own answer.
+            /** @var array<string, array{from: float, to: float, rule: array, follows: bool}> $chargeSteps */
+            $chargeSteps = [];
+
+            foreach ($this->schedule->escalatingChargeTypes($lease) as $chargeType) {
+                $outgoing = $this->schedule->rowCovering($lease, $chargeType, $anniversary->subDay());
+                $incoming = $this->schedule->rowCovering($lease, $chargeType, $anniversary);
+
+                if ($outgoing === null
+                    || (float) $outgoing->amount <= 0
+                    || $outgoing->origin === Charge::ORIGIN_CAM_ESTIMATE
+                    || $incoming === null
+                    || $incoming->origin === Charge::ORIGIN_CAM_ESTIMATE) {
+                    continue;
+                }
+
+                $rule = ChargeEscalation::stepFor($outgoing, $lease, $leasePercent);
+
+                if ($rule === null) {
+                    continue;
+                }
+
+                // A RELIEF row is never a base and never a target (found by review — the sweep
+                // stepped a flat concession and wrote the stepped figure INTO the window). The
+                // contract still steps: the base is the contracted rung the concession was granted
+                // against, and where the anniversary itself sits inside the window no rung is
+                // written — the projection has already re-priced the rung that resumes after it —
+                // while the column and the timeline still record the contractual step.
+                $contracted = $outgoing->origin === Charge::ORIGIN_RELIEF
+                    ? $this->schedule->contractedRowBefore($lease, $chargeType, $anniversary->subDay())
+                    : $outgoing;
+
+                if ($contracted === null || (float) $contracted->amount <= 0) {
+                    continue;
+                }
+
+                $from = (float) $contracted->amount;
+                $to = ChargeEscalation::apply($from, $rule);
+
+                if (abs($to - $from) < 0.005) {
+                    continue;
+                }
+
+                $chargeSteps[$chargeType] = [
+                    'from' => $from,
+                    'to' => $to,
+                    'rule' => $rule,
+                    'follows' => ChargeEscalation::modeOf($outgoing) === ChargeEscalation::FOLLOWS_LEASE,
+                    'relieved' => $incoming->origin === Charge::ORIGIN_RELIEF,
+                ];
+            }
+
+            if (! $rentSteps && $chargeSteps === []) {
                 // Nothing to escalate; still roll the date so it isn't re-considered every day.
                 $lease->forceFill(['next_escalation_date' => $nextDate])->save();
 
                 return 'skipped';
             }
 
-            $change = [
-                'base_rent_monthly' => $newRent,
-                // No prose: this sweep runs unattended, so there is no reader whose language it
-                // could compose in. The key and its figures are stored and read back in whichever
-                // language the person looking at the history is using.
-                'narrative' => $narrative,
-                'narrative_data' => $narrativeData,
-                // The step takes effect on the ANNIVERSARY, not the night the sweep happens to
-                // run. A sweep delayed by a weekend or a failed cron used to silently move the
-                // increase; now the schedule row starts where the contract says it starts.
-                'effective_from' => $lease->next_escalation_date,
-                'origin' => Charge::ORIGIN_ESCALATION,
-            ];
+            $roll = ['next_escalation_date' => $nextDate];
 
-            // Added only when the clause covers it — `apply()` reads a present key as an
-            // instruction, and a null there means "no service update", so omitting is the
-            // unambiguous way to leave the service charge alone.
-            if ($newService !== null) {
-                $change['service_charge_monthly'] = $newService;
+            if ($rentSteps) {
+                $change = [
+                    'base_rent_monthly' => $newRent,
+                    // No prose: this sweep runs unattended, so there is no reader whose language it
+                    // could compose in. The key and its figures are stored and read back in whichever
+                    // language the person looking at the history is using.
+                    'narrative' => $narrative,
+                    'narrative_data' => $narrativeData,
+                    // The step takes effect on the ANNIVERSARY, not the night the sweep happens to
+                    // run. A sweep delayed by a weekend or a failed cron used to silently move the
+                    // increase; now the schedule row starts where the contract says it starts.
+                    'effective_from' => $lease->next_escalation_date,
+                    'origin' => Charge::ORIGIN_ESCALATION,
+                ];
+
+                // A service charge that FOLLOWS the clause rides in the rent's own call — the same
+                // percentage, one transaction, one lease event naming both figures. One with a
+                // rule of its own is stepped below like any other charge, under its own event,
+                // because the `_with_service` sentence states ONE percentage for both. Added only
+                // when it steps — `apply()` reads a present key as an instruction, and a null
+                // there means "no service update", so omitting is the unambiguous way to leave
+                // the service charge alone.
+                if (($chargeSteps['service_charge']['follows'] ?? false) === true
+                    && ! $chargeSteps['service_charge']['relieved']) {
+                    $change['service_charge_monthly'] = $chargeSteps['service_charge']['to'];
+                    // The timeline must say BOTH figures moved — the `_with_service` narratives
+                    // exist because rendering a rent-only sentence over a two-charge step would
+                    // under-tell the one place an operator audits what the sweep did. FULL key
+                    // literals, not a suffix appended to `$narrative`: the vocabulary gate proves
+                    // every key has a writer by finding the quoted key in `app/`, and a
+                    // concatenation is a writer it cannot see.
+                    $change['narrative'] = $collared ? 'rent_escalated_collared_with_service' : 'rent_escalated_with_service';
+                    $change['narrative_data']['service_amount_from'] = $chargeSteps['service_charge']['from'];
+                    $change['narrative_data']['service_amount_to'] = $chargeSteps['service_charge']['to'];
+                    unset($chargeSteps['service_charge']);
+                }
+
+                $this->rentChange->apply($lease, $change);
             }
 
-            $this->rentChange->apply($lease, $change);
+            // Each remaining charge steps on its own rung, under its own event — the same
+            // close-and-open discipline, the same anniversary, its own sentence naming the charge.
+            foreach ($chargeSteps as $chargeType => $chargeStep) {
+                $opened = $chargeStep['relieved']
+                    ? null
+                    : $this->schedule->setAmount($lease, $chargeType, $chargeStep['to'], $anniversary, [], Charge::ORIGIN_ESCALATION);
+
+                // The lease column tracks the charge in force, as `apply()` keeps it for the
+                // rent — every widget and form reads it.
+                if ($chargeType === 'service_charge') {
+                    $roll['service_charge_monthly'] = $chargeStep['to'];
+                }
+
+                app(RecordLeaseEventService::class)->record(
+                    $lease,
+                    LeaseEvent::TYPE_RENT_MODIFICATION,
+                    $anniversary,
+                    null,
+                    RecordLeaseEventService::scheduleChangePayload(
+                        $chargeType,
+                        $chargeStep['from'],
+                        $chargeStep['to'],
+                        [$opened],
+                        isset($chargeStep['rule']['amount']) ? 'charge_escalated_amount' : 'charge_escalated',
+                        isset($chargeStep['rule']['amount'])
+                            ? ['step_amount' => $chargeStep['rule']['amount']]
+                            : ['step_pct' => $chargeStep['rule']['percent']],
+                    ),
+                );
+            }
 
             // Advance by the clause's interval (the base_rent Charge + marketing levy were synced
             // by apply()), and
@@ -390,8 +483,6 @@ class RentEscalationService
             // Voyager offers both readings; this codebase already resolves compounding one way
             // ("a percentage step multiplies the current rent"), and two opposite conventions under
             // one word is how an escalation type comes to mean something nobody agreed.
-            $roll = ['next_escalation_date' => $nextDate];
-
             if ($type === 'cpi') {
                 $roll['escalation_index_base_value'] = $indexFigure;
             }

@@ -121,8 +121,13 @@ class ChargeCode extends Model
      * charge schedule and the billing forecast — and a second copy is how one of them ends up
      * showing `base_rent` in Arabic.
      */
-    public static function labelFor(string $type): string
+    public static function labelFor(string $type, ?string $locale = null): string
     {
+        // Threaded in rather than read off the app where the caller says which language the
+        // READER is in — a lease-event narrative resolved in Arabic must not name the charge in
+        // whichever session happens to be rendering it (the `LeaseEventNarrative::tokens()` rule).
+        $locale ??= app()->getLocale();
+
         // ── THE ROW WINS, THEN THE TRANSLATION (2026-08-28) ─────────────────────────────────
         //
         // This asked the lang file FIRST and fell back to the catalogue, which is the opposite of
@@ -140,12 +145,12 @@ class ChargeCode extends Model
         // `admin.enums.invoice_item_type.chiller_charge`.
         // Memoised per locale: the billing forecast asks once per line per period, so a query per
         // call turned one screen into scores of them for a table of twelve rows.
-        $memo = self::LABEL_MEMO.'.'.app()->getLocale();
+        $memo = self::LABEL_MEMO.'.'.$locale;
 
         $labels = app()->has($memo)
             ? app($memo)
             : tap(
-                static::query()->get()->mapWithKeys(fn (self $c) => [$c->code => $c->label()])->all(),
+                static::query()->get()->mapWithKeys(fn (self $c) => [$c->code => $c->label($locale)])->all(),
                 fn (array $map) => app()->instance($memo, $map),
             );
 
@@ -154,7 +159,7 @@ class ChargeCode extends Model
         }
 
         $key = "admin.enums.invoice_item_type.{$type}";
-        $translated = __($key);
+        $translated = __($key, [], $locale);
 
         return $translated === $key
             ? str($type)->replace('_', ' ')->title()->toString()

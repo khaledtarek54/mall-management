@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Charge;
+use App\Models\ChargeCode;
 use App\Models\Concerns\Lease\DeterminesFitOutGrace;
 use App\Models\Lease;
 use App\Models\RentIndex;
@@ -13,6 +14,7 @@ use App\Services\ChargeScheduleService;
 use App\Services\MarketingLevyService;
 use App\Services\RentEscalationService;
 use App\Settings\BillingSettings;
+use App\Support\ChargeEscalation;
 use App\Support\DepositBasis;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
@@ -29,12 +31,18 @@ use App\Support\ValueSets;
 use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -470,561 +478,675 @@ class LeaseForm
                     ])->columns(3),
 
                     FormTab::make('admin.sections.financial_terms', [
-                        // Rent fields are read-only on Edit. Operators change them
-                        // through the "Change rent" record action so the matching
-                        // Charge.amount stays in sync (audit M04 F-20 / D-13). On
-                        // Create the LeaseObserver seeds the charges from these
-                        // values, so they remain editable here.
-                        // ── How the rent is priced (LS-04) ────────────────────────────────────────
-                        // Commercial rent is negotiated per m² per year almost everywhere, and until
-                        // now `units.area_sqm` priced nothing. Choosing `rate` makes the monthly figure
-                        // DERIVED — which is what lets an expansion re-price the lease by itself, and
-                        // lets two deals be compared on the only basis that makes them comparable.
-                        Radio::make('rent_pricing_basis')
-                            ->label(__('admin.fields.rent_pricing_basis'))
-                            ->options(fn () => __('admin.enums.rent_pricing_basis'))
-                            ->default(Lease::RENT_FLAT)
-                            ->inline()
-                            ->inlineLabel(false)
-                            ->live()
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
-                            ->disabled(fn (string $operation): bool => $operation === 'edit')
-                            ->dehydrated()
-                            ->helperText(__('admin.helpers.rent_pricing_basis'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rent_pricing_basis')),
-                        TextInput::make('base_rent_rate_per_sqm_year')
-                            ->label(__('admin.fields.base_rent_rate_per_sqm_year'))
-                            ->prefix('EGP')
-                            ->suffix('/m²/'.__('admin.fields.per_year_suffix'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
-                            ->required(fn (Get $get): bool => $get('rent_pricing_basis') === Lease::RENT_RATE)
-                            ->visible(fn (Get $get): bool => $get('rent_pricing_basis') === Lease::RENT_RATE)
-                            ->disabled(fn (string $operation): bool => $operation === 'edit')
-                            ->dehydrated()
-                            ->helperText(fn (Get $get): string => __('admin.helpers.base_rent_rate_per_sqm_year', [
-                                'area' => number_format(self::formArea($get), 2),
-                            ])),
-                        TextInput::make('base_rent_monthly')
-                            ->label(__('admin.fields.base_rent_monthly'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->required(fn (Get $get): bool => $get('rent_pricing_basis') !== Lease::RENT_RATE)
-                            ->minValue(0)
-                            // Live so a deposit stated as a MULTIPLE follows the rent as it is typed.
-                            // On the rate basis this field is disabled and never fires, which is why
-                            // deriveRentInto() cascades into the deposit itself.
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
-                            // Read-only on Edit (rent changes go through the "Change rent" action so the
-                            // schedule stays in step), and read-only on a rate-priced lease because it
-                            // is derived — `Lease::deriveBaseRentFromRate()` is the authority either way.
-                            ->disabled(fn (string $operation, Get $get): bool => $operation === 'edit'
-                                || $get('rent_pricing_basis') === Lease::RENT_RATE)
-                            ->dehydrated()
-                            ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            ->helperText(fn (string $operation, Get $get): string => match (true) {
-                                $operation === 'edit' => __('admin.helpers.base_rent_monthly_edit_lock'),
-                                $get('rent_pricing_basis') === Lease::RENT_RATE => __('admin.helpers.base_rent_monthly_derived'),
-                                default => __('admin.helpers.base_rent_monthly'),
-                            })
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.base_rent_monthly_edit_lock')),
-                        TextInput::make('service_charge_monthly')
-                            ->label(__('admin.fields.service_charge_monthly'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->minValue(0)
-                            ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            ->disabled(fn (string $operation): bool => $operation === 'edit')
-                            ->dehydrated()
-                            ->helperText(fn (string $operation): string => $operation === 'edit'
-                                ? __('admin.helpers.service_charge_monthly_edit_lock')
-                                : __('admin.helpers.service_charge_monthly'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.service_charge_monthly_edit_lock')),
-                        Toggle::make('has_marketing_levy')
-                            ->label(__('admin.fields.has_marketing_levy'))
-                            ->default(true)
-                            ->live()
-                            ->helperText(__('admin.helpers.has_marketing_levy'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.has_marketing_levy')),
-                        TextInput::make('marketing_levy_rate')
-                            ->label(__('admin.fields.marketing_levy_rate'))
-                            ->numeric()
-                            ->suffix('%')
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->step('0.01')
-                            // Blank = use the mall's default rate (shown as the placeholder).
-                            ->placeholder(fn () => number_format(app(MarketingLevyService::class)->ratePercent(), 2))
-                            ->helperText(__('admin.helpers.marketing_levy_rate'))
-                            ->visible(fn (Get $get) => (bool) $get('has_marketing_levy')),
-                        // Replaced the old `fit_out_months` count: a lease says "rent commences 1
-                        // April", not "three months of fit-out", and a whole-month integer could not
-                        // express a mid-month start at all.
-                        DatePicker::make('possession_date')
-                            ->label(__('admin.fields.possession_date'))
-                            ->native(false)
-                            // Live because the note below is computed from it. Without a
-                            // round-trip the field binds DEFERRED, so recording a late handover —
-                            // the case the note exists for — would never re-render and the warning
-                            // would be invisible in exactly that direction.
-                            ->live(onBlur: true)
-                            ->helperText(__('admin.helpers.possession_date'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.possession_date')),
-                        DatePicker::make('rent_commencement_date')
-                            ->label(__('admin.fields.rent_commencement_date'))
-                            ->native(false)
-                            ->live()
-                            // ── RENT STARTING BEFORE THE TENANT HAD THE KEYS ─────────────────
-                            //
-                            // Asked by the tester before logging it (Trello M6scQfGu): should
-                            // possession <= rent commencement be enforced? WARNED, not refused, and
-                            // the asymmetry between the two fields is the reason. The date rent
-                            // starts DRIVES billing — `firstBillableMonth()` opens there and
-                            // `graceAbates()` decides what the grace covers — while
-                            // `possession_date` is computed on by NOTHING; it is a recorded fact
-                            // about when the keys changed hands.
-                            //
-                            // So the wrong order costs no money and breaks no rule. It is also a
-                            // real thing an operator may need to record: a landlord who handed over
-                            // LATE has rent running from a day the tenant could not trade, and that
-                            // fact is the basis of the relief claim that follows — refusing it would
-                            // leave the system unable to describe the dispute. Yardi does not
-                            // enforce the order either: its own lease-administration model calls
-                            // rent commencement *usually* after possession — a description of the
-                            // ordinary deal, not a constraint on the record.
-                            //
-                            // The note fires on an INVOICED lease too, deliberately, where the
-                            // term/expiry note beside it bails: both dates it reads are locked
-                            // there, but `possession_date` stays editable, so the correction the
-                            // note asks for is still available.
-                            //
-                            // Colour on the same predicate as the text — `hintColor` also paints
-                            // the field's question-mark icon (`HasHint::setUpHint()` hands it
-                            // `getHintColor()`), so an unconditional amber marks every ordinary
-                            // lease as if something were wrong.
-                            ->hintColor(fn (Get $get): ?string => self::rentStartsBeforePossession($get) === null ? null : 'warning')
-                            ->hint(fn (Get $get): ?string => self::rentStartsBeforePossession($get))
-                            // Earlier than commencement is not a grace period, and the model guards
-                            // against it pulling the first billable month backwards; refused here too
-                            // so the operator gets an inline error rather than a silent no-op.
-                            ->minDate(TenureRange::endsOnOrAfter('commencement_date'))
-                            // Locked once invoiced, with `fit_out_scope`: together they decided what
-                            // was abated on invoices already issued, and moving them afterwards
-                            // makes the system disagree with its own documents.
-                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
-                            ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
-                                ? __('admin.helpers.locked_after_invoicing')
-                                : __('admin.helpers.rent_commencement_date'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rent_commencement_date')),
-                        Select::make('fit_out_scope')
-                            ->label(__('admin.fields.fit_out_scope'))
-                            ->options([
-                                Lease::FIT_OUT_RENT_ONLY => __('admin.fit_out_scope.rent_only'),
-                                Lease::FIT_OUT_GROSS => __('admin.fit_out_scope.gross'),
-                            ])
-                            ->native(false)
-                            // The industry standard is net abatement: rent free, service charge still
-                            // payable. Existing leases keep whatever they were billed under (the column
-                            // default is gross); this is the default for NEW deals only.
-                            ->default(Lease::FIT_OUT_RENT_ONLY)
-                            ->visible(fn ($get) => filled($get('rent_commencement_date')))
-                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
-                            ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
-                                ? __('admin.helpers.locked_after_invoicing')
-                                : __('admin.helpers.fit_out_scope'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.fit_out_scope')),
-                        Select::make('billing_frequency')
-                            ->label(__('admin.fields.billing_frequency'))
-                            ->options([
-                                'monthly' => __('admin.billing_frequency.monthly'),
-                                'quarterly' => __('admin.billing_frequency.quarterly'),
-                                'semiannual' => __('admin.billing_frequency.semiannual'),
-                                'annual' => __('admin.billing_frequency.annual'),
-                            ])
-                            ->default('monthly')
-                            ->selectablePlaceholder(false)
-                            ->native(false)
-                            // Lock once invoicing has started. Cycles are anchored to the commencement,
-                            // so switching cadence mid-term could strand an unaligned month (billed on
-                            // neither the old nor the new cadence). Set it before the first invoice.
-                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
-                            // The helper text reports the STATE (locked or not), which changes; the
-                            // hint icon explains the FIELD, which does not.
-                            ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
-                                ? __('admin.helpers.billing_frequency_locked')
-                                : __('admin.helpers.billing_frequency'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_frequency')),
-                        // ── HOW the deposit was agreed (meeting 2026-09-02, point 3) ─────────
-                        // Months of rent (Yardi's and MRI's shape, the default), a % of ANNUAL
-                        // rent (the Egyptian / GCC clause), or a fixed sum. One field asked first;
-                        // the two figure fields below show only for their own basis, and
-                        // `DepositBasis::derive()` is the one arithmetic the preview, the model and
-                        // the wizard share.
-                        Select::make('security_deposit_basis')
-                            ->label(__('admin.fields.security_deposit_basis'))
-                            ->options(DepositBasis::options())
-                            ->default(fn (): string => DepositBasis::defaultsFor(TenantScope::currentAssetId())['basis'])
-                            ->native(false)
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function (Get $get, Set $set, ?string $state): void {
-                                // Switching basis re-proposes the property's figure for that basis
-                                // and clears the other's, so a percent never lingers under months.
-                                $defaults = DepositBasis::defaultsFor(TenantScope::currentAssetId());
-                                $set('security_deposit_months', $state === DepositBasis::MONTHS ? ($get('security_deposit_months') ?: $defaults['months']) : null);
-                                $set('security_deposit_percent', $state === DepositBasis::PERCENT_OF_ANNUAL_RENT ? ($get('security_deposit_percent') ?: $defaults['percent']) : null);
-                                self::deriveDepositInto($get, $set);
-                            })
-                            ->helperText(__('admin.helpers.security_deposit_basis')),
-                        TextInput::make('security_deposit_percent')
-                            ->label(__('admin.fields.security_deposit_percent'))
-                            ->suffix('%')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->step('0.01')
-                            ->live(onBlur: true)
-                            // Proposed from the property, as the months figure is — the CREATE FORM
-                            // is the door EG-35's own finding says gets forgotten; the wizard alone
-                            // proposing it is exactly that finding again.
-                            ->default(fn (): ?float => DepositBasis::defaultsFor(TenantScope::currentAssetId())['percent'])
-                            // REQUIRED under its own basis: a rent-linked basis with no figure
-                            // derives nothing, leaves the disabled amount reading whatever it last
-                            // held, and stores a deposit nobody agreed (found by review).
-                            ->required(fn (Get $get): bool => $get('security_deposit_basis') === DepositBasis::PERCENT_OF_ANNUAL_RENT)
-                            ->visible(fn (Get $get): bool => $get('security_deposit_basis') === DepositBasis::PERCENT_OF_ANNUAL_RENT)
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
-                            ->helperText(__('admin.helpers.security_deposit_percent')),
-                        // The MULTIPLE, where the deposit was negotiated as one. Blank = a flat sum
-                        // that never moves; filled = the deposit tracks the rent, so an escalation
-                        // no longer erodes the landlord's security (3× becomes 2.29× by year five
-                        // on a 7% clause, silently).
-                        TextInput::make('security_deposit_months')
-                            ->label(__('admin.fields.security_deposit_months'))
-                            // The house policy, per property (EG-35). Without this the setting
-                            // reached the WIZARD only: `LeaseCreationService` reads it, and a lease
-                            // created through this form was typed from scratch — so "three months
-                            // from Q1" changed one of the two create paths and looked done.
-                            ->default(fn (): ?float => DepositBasis::defaultsFor(TenantScope::currentAssetId())['months'])
-                            ->visible(fn (Get $get): bool => ($get('security_deposit_basis') ?? DepositBasis::MONTHS) === DepositBasis::MONTHS)
-                            ->required(fn (Get $get): bool => ($get('security_deposit_basis') ?? DepositBasis::MONTHS) === DepositBasis::MONTHS)
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(24)
-                            ->step('0.5')
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
-                            // ── A DEPOSIT LONGER THAN THE TERM IT SECURES ────────────────────
-                            //
-                            // The tester's other question (Trello pqvmFQa9): is 24 months' deposit
-                            // on a 12-month lease valid? It IS — a weak covenant, a new foreign
-                            // brand or a first-time operator is routinely asked for security beyond
-                            // the term, and neither Yardi nor MRI constrains the deposit against it.
-                            // Nothing downstream misbehaves: the months are a multiplier on the
-                            // rent and `security_deposit` is the sum actually held.
-                            //
-                            // But it is far more often a typo — the term typed into the months box,
-                            // or 24 for 2.4 — and the figure that matters is the SUM the tenant is
-                            // asked to hand over. So it is said out loud and left to the operator,
-                            // which is the answer the collar and the term/expiry pair on this board
-                            // also got: show the truth, do not forbid the value. (The 24-month
-                            // ceiling above is the FIELD's own bound and predates this; the point
-                            // here is that nothing between 0 and it is refused.)
-                            ->hintColor(fn (Get $get): ?string => self::depositOutrunsItsTerm($get) === null ? null : 'warning')
-                            ->hint(fn (Get $get): ?string => self::depositOutrunsItsTerm($get))
-                            ->suffix(__('admin.fields.months'))
-                            ->helperText(__('admin.helpers.security_deposit_months'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.security_deposit_months')),
-                        TextInput::make('security_deposit')
-                            ->label(__('admin.fields.security_deposit'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->minValue(0)
-                            ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            // Derived once a multiple is stated — the same rule as a rate-priced
-                            // rent, and for the same reason: two editable fields that derive from
-                            // each other is how they end up disagreeing.
-                            ->disabled(fn (Get $get): bool => DepositBasis::isRentLinked($get('security_deposit_basis') ?? DepositBasis::MONTHS))
-                            ->dehydrated()
-                            ->helperText(fn (Get $get): string => DepositBasis::isRentLinked($get('security_deposit_basis') ?? DepositBasis::MONTHS)
-                                ? __('admin.helpers.security_deposit_derived')
-                                : __('admin.helpers.security_deposit')),
-                        // ── Escalation: the TYPE is asked first, and it is the only field always on
-                        // screen ─────────────────────────────────────────────────────────────────
-                        // Every other field here belongs to exactly one type, so each appears only
-                        // once that type is chosen, and `none` shows nothing at all. Before this the
-                        // visibility was written as "not fixed_amount", which put a rate box and a
-                        // collar on a lease that had just declared it never escalates — three inputs
-                        // that could be filled in and would then be read by nothing. What the
-                        // operator can see and what the contract states now match.
+                        // ── FOUR SECTIONS, NOT ONE GRID (meeting 2026-09-02, point 24 — and the
+                        // operator's own words: "the lease form looks so bad"). This tab had grown
+                        // to thirty-five fields in one five-column grid — rent, deposit, thirteen
+                        // escalation inputs, payment terms and late fees interleaved, with the
+                        // escalation's fields appearing and vanishing between the deposit's and the
+                        // late fee's as the clause type changed. Yardi's lease screen groups the
+                        // same facts under headings (rent · charges · deposits · escalations), and
+                        // UX-13's own rule is one concern at a time. The annual increase is a
+                        // concern of its own and has its own tab below.
+                        Section::make(__('admin.sections.rent'))
+                            ->description(__('admin.sections.rent_description'))
+                            ->columns(3)
+                            ->components([
+                                // Rent fields are read-only on Edit. Operators change them
+                                // through the "Change rent" record action so the matching
+                                // Charge.amount stays in sync (audit M04 F-20 / D-13). On
+                                // Create the LeaseObserver seeds the charges from these
+                                // values, so they remain editable here.
+                                // ── How the rent is priced (LS-04) ────────────────────────────────────────
+                                // Commercial rent is negotiated per m² per year almost everywhere, and until
+                                // now `units.area_sqm` priced nothing. Choosing `rate` makes the monthly figure
+                                // DERIVED — which is what lets an expansion re-price the lease by itself, and
+                                // lets two deals be compared on the only basis that makes them comparable.
+                                Radio::make('rent_pricing_basis')
+                                    ->label(__('admin.fields.rent_pricing_basis'))
+                                    ->options(fn () => __('admin.enums.rent_pricing_basis'))
+                                    ->default(Lease::RENT_FLAT)
+                                    ->inline()
+                                    ->inlineLabel(false)
+                                    ->columnSpanFull()
+                                    ->live()
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
+                                    ->disabled(fn (string $operation): bool => $operation === 'edit')
+                                    ->dehydrated()
+                                    ->helperText(__('admin.helpers.rent_pricing_basis'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rent_pricing_basis')),
+                                TextInput::make('base_rent_rate_per_sqm_year')
+                                    ->label(__('admin.fields.base_rent_rate_per_sqm_year'))
+                                    ->prefix('EGP')
+                                    ->suffix('/m²/'.__('admin.fields.per_year_suffix'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
+                                    ->required(fn (Get $get): bool => $get('rent_pricing_basis') === Lease::RENT_RATE)
+                                    ->visible(fn (Get $get): bool => $get('rent_pricing_basis') === Lease::RENT_RATE)
+                                    ->disabled(fn (string $operation): bool => $operation === 'edit')
+                                    ->dehydrated()
+                                    ->helperText(fn (Get $get): string => __('admin.helpers.base_rent_rate_per_sqm_year', [
+                                        'area' => number_format(self::formArea($get), 2),
+                                    ])),
+                                TextInput::make('base_rent_monthly')
+                                    ->label(__('admin.fields.base_rent_monthly'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->required(fn (Get $get): bool => $get('rent_pricing_basis') !== Lease::RENT_RATE)
+                                    ->minValue(0)
+                                    // Live so a deposit stated as a MULTIPLE follows the rent as it is typed.
+                                    // On the rate basis this field is disabled and never fires, which is why
+                                    // deriveRentInto() cascades into the deposit itself.
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
+                                    // Read-only on Edit (rent changes go through the "Change rent" action so the
+                                    // schedule stays in step), and read-only on a rate-priced lease because it
+                                    // is derived — `Lease::deriveBaseRentFromRate()` is the authority either way.
+                                    ->disabled(fn (string $operation, Get $get): bool => $operation === 'edit'
+                                        || $get('rent_pricing_basis') === Lease::RENT_RATE)
+                                    ->dehydrated()
+                                    ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                                    ->helperText(fn (string $operation, Get $get): string => match (true) {
+                                        $operation === 'edit' => __('admin.helpers.base_rent_monthly_edit_lock'),
+                                        $get('rent_pricing_basis') === Lease::RENT_RATE => __('admin.helpers.base_rent_monthly_derived'),
+                                        default => __('admin.helpers.base_rent_monthly'),
+                                    })
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.base_rent_monthly_edit_lock')),
+                                TextInput::make('service_charge_monthly')
+                                    ->label(__('admin.fields.service_charge_monthly'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->default(0)
+                                    ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                                    ->disabled(fn (string $operation): bool => $operation === 'edit')
+                                    ->dehydrated()
+                                    ->helperText(fn (string $operation): string => $operation === 'edit'
+                                        ? __('admin.helpers.service_charge_monthly_edit_lock')
+                                        : __('admin.helpers.service_charge_monthly'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.service_charge_monthly_edit_lock')),
+                                Toggle::make('has_marketing_levy')
+                                    ->label(__('admin.fields.has_marketing_levy'))
+                                    ->default(true)
+                                    ->live()
+                                    ->helperText(__('admin.helpers.has_marketing_levy'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.has_marketing_levy')),
+                                TextInput::make('marketing_levy_rate')
+                                    ->label(__('admin.fields.marketing_levy_rate'))
+                                    ->numeric()
+                                    ->suffix('%')
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->step('0.01')
+                                    // Blank = use the mall's default rate (shown as the placeholder).
+                                    ->placeholder(fn () => number_format(app(MarketingLevyService::class)->ratePercent(), 2))
+                                    ->helperText(__('admin.helpers.marketing_levy_rate'))
+                                    ->visible(fn (Get $get) => (bool) $get('has_marketing_levy')),
+                            ]),
+                        Section::make(__('admin.sections.billing_terms'))
+                            ->description(__('admin.sections.billing_terms_description'))
+                            ->columns(3)
+                            ->components([
+                                // Replaced the old `fit_out_months` count: a lease says "rent commences 1
+                                // April", not "three months of fit-out", and a whole-month integer could not
+                                // express a mid-month start at all.
+                                DatePicker::make('possession_date')
+                                    ->label(__('admin.fields.possession_date'))
+                                    ->native(false)
+                                    // Live because the note below is computed from it. Without a
+                                    // round-trip the field binds DEFERRED, so recording a late handover —
+                                    // the case the note exists for — would never re-render and the warning
+                                    // would be invisible in exactly that direction.
+                                    ->live(onBlur: true)
+                                    ->helperText(__('admin.helpers.possession_date'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.possession_date')),
+                                DatePicker::make('rent_commencement_date')
+                                    ->label(__('admin.fields.rent_commencement_date'))
+                                    ->native(false)
+                                    ->live()
+                                    // ── RENT STARTING BEFORE THE TENANT HAD THE KEYS ─────────────────
+                                    //
+                                    // Asked by the tester before logging it (Trello M6scQfGu): should
+                                    // possession <= rent commencement be enforced? WARNED, not refused, and
+                                    // the asymmetry between the two fields is the reason. The date rent
+                                    // starts DRIVES billing — `firstBillableMonth()` opens there and
+                                    // `graceAbates()` decides what the grace covers — while
+                                    // `possession_date` is computed on by NOTHING; it is a recorded fact
+                                    // about when the keys changed hands.
+                                    //
+                                    // So the wrong order costs no money and breaks no rule. It is also a
+                                    // real thing an operator may need to record: a landlord who handed over
+                                    // LATE has rent running from a day the tenant could not trade, and that
+                                    // fact is the basis of the relief claim that follows — refusing it would
+                                    // leave the system unable to describe the dispute. Yardi does not
+                                    // enforce the order either: its own lease-administration model calls
+                                    // rent commencement *usually* after possession — a description of the
+                                    // ordinary deal, not a constraint on the record.
+                                    //
+                                    // The note fires on an INVOICED lease too, deliberately, where the
+                                    // term/expiry note beside it bails: both dates it reads are locked
+                                    // there, but `possession_date` stays editable, so the correction the
+                                    // note asks for is still available.
+                                    //
+                                    // Colour on the same predicate as the text — `hintColor` also paints
+                                    // the field's question-mark icon (`HasHint::setUpHint()` hands it
+                                    // `getHintColor()`), so an unconditional amber marks every ordinary
+                                    // lease as if something were wrong.
+                                    ->hintColor(fn (Get $get): ?string => self::rentStartsBeforePossession($get) === null ? null : 'warning')
+                                    ->hint(fn (Get $get): ?string => self::rentStartsBeforePossession($get))
+                                    // Earlier than commencement is not a grace period, and the model guards
+                                    // against it pulling the first billable month backwards; refused here too
+                                    // so the operator gets an inline error rather than a silent no-op.
+                                    ->minDate(TenureRange::endsOnOrAfter('commencement_date'))
+                                    // Locked once invoiced, with `fit_out_scope`: together they decided what
+                                    // was abated on invoices already issued, and moving them afterwards
+                                    // makes the system disagree with its own documents.
+                                    ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
+                                    ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
+                                        ? __('admin.helpers.locked_after_invoicing')
+                                        : __('admin.helpers.rent_commencement_date'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rent_commencement_date')),
+                                Select::make('fit_out_scope')
+                                    ->label(__('admin.fields.fit_out_scope'))
+                                    ->options([
+                                        Lease::FIT_OUT_RENT_ONLY => __('admin.fit_out_scope.rent_only'),
+                                        Lease::FIT_OUT_GROSS => __('admin.fit_out_scope.gross'),
+                                    ])
+                                    ->native(false)
+                                    // The industry standard is net abatement: rent free, service charge still
+                                    // payable. Existing leases keep whatever they were billed under (the column
+                                    // default is gross); this is the default for NEW deals only.
+                                    ->default(Lease::FIT_OUT_RENT_ONLY)
+                                    ->visible(fn ($get) => filled($get('rent_commencement_date')))
+                                    ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
+                                    ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
+                                        ? __('admin.helpers.locked_after_invoicing')
+                                        : __('admin.helpers.fit_out_scope'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.fit_out_scope')),
+                                Select::make('billing_frequency')
+                                    ->label(__('admin.fields.billing_frequency'))
+                                    ->options([
+                                        'monthly' => __('admin.billing_frequency.monthly'),
+                                        'quarterly' => __('admin.billing_frequency.quarterly'),
+                                        'semiannual' => __('admin.billing_frequency.semiannual'),
+                                        'annual' => __('admin.billing_frequency.annual'),
+                                    ])
+                                    ->default('monthly')
+                                    ->selectablePlaceholder(false)
+                                    ->native(false)
+                                    // Lock once invoicing has started. Cycles are anchored to the commencement,
+                                    // so switching cadence mid-term could strand an unaligned month (billed on
+                                    // neither the old nor the new cadence). Set it before the first invoice.
+                                    ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
+                                    // The helper text reports the STATE (locked or not), which changes; the
+                                    // hint icon explains the FIELD, which does not.
+                                    ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
+                                        ? __('admin.helpers.billing_frequency_locked')
+                                        : __('admin.helpers.billing_frequency'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_frequency')),
+                                TextInput::make('payment_terms_days')
+                                    ->label(__('admin.fields.payment_terms_days'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    // The property's convention, falling back to the portfolio's — NOT a
+                                    // hard-coded 7. `payment_terms_days` is NOT NULL with a database default,
+                                    // so the `?? setting` that used to sit at eight billing call sites could
+                                    // never fire and the configured default reached nothing. ORIGINATION is
+                                    // where it belongs: a new lease starts from its mall's convention and then
+                                    // carries its own number, so changing the setting later cannot move the due
+                                    // date on receivables already raised. This is what Yardi does too.
+                                    ->default(fn () => PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
+                                    ->dehydrateStateUsing(fn ($state) => $state ?? PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
+                                    ->suffix(__('admin.fields.days')),
+                                Select::make('proration_method')
+                                    ->label(__('admin.fields.proration_method'))
+                                    ->helperText(__('admin.fields.proration_method_helper'))
+                                    ->options(fn (): array => collect(ProrationMethod::METHODS)
+                                        ->mapWithKeys(fn (string $m): array => [$m => __("admin.proration_methods.{$m}")])
+                                        ->all())
+                                    ->native(false)
+                                    // Null is the normal state: the property's answer, then the portfolio's.
+                                    ->placeholder(__('admin.fields.proration_method_inherited')),
+                            ]),
+                        Section::make(__('admin.sections.security_deposit'))
+                            ->description(__('admin.sections.security_deposit_description'))
+                            ->columns(4)
+                            ->components([
+                                // ── HOW the deposit was agreed (meeting 2026-09-02, point 3) ─────────
+                                // Months of rent (Yardi's and MRI's shape, the default), a % of ANNUAL
+                                // rent (the Egyptian / GCC clause), or a fixed sum. One field asked first;
+                                // the two figure fields below show only for their own basis, and
+                                // `DepositBasis::derive()` is the one arithmetic the preview, the model and
+                                // the wizard share.
+                                Select::make('security_deposit_basis')
+                                    ->label(__('admin.fields.security_deposit_basis'))
+                                    ->options(DepositBasis::options())
+                                    ->default(fn (): string => DepositBasis::defaultsFor(TenantScope::currentAssetId())['basis'])
+                                    ->native(false)
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function (Get $get, Set $set, ?string $state): void {
+                                        // Switching basis re-proposes the property's figure for that basis
+                                        // and clears the other's, so a percent never lingers under months.
+                                        $defaults = DepositBasis::defaultsFor(TenantScope::currentAssetId());
+                                        $set('security_deposit_months', $state === DepositBasis::MONTHS ? ($get('security_deposit_months') ?: $defaults['months']) : null);
+                                        $set('security_deposit_percent', $state === DepositBasis::PERCENT_OF_ANNUAL_RENT ? ($get('security_deposit_percent') ?: $defaults['percent']) : null);
+                                        self::deriveDepositInto($get, $set);
+                                    })
+                                    ->helperText(__('admin.helpers.security_deposit_basis')),
+                                TextInput::make('security_deposit_percent')
+                                    ->label(__('admin.fields.security_deposit_percent'))
+                                    ->suffix('%')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->step('0.01')
+                                    ->live(onBlur: true)
+                                    // Proposed from the property, as the months figure is — the CREATE FORM
+                                    // is the door EG-35's own finding says gets forgotten; the wizard alone
+                                    // proposing it is exactly that finding again.
+                                    ->default(fn (): ?float => DepositBasis::defaultsFor(TenantScope::currentAssetId())['percent'])
+                                    // REQUIRED under its own basis: a rent-linked basis with no figure
+                                    // derives nothing, leaves the disabled amount reading whatever it last
+                                    // held, and stores a deposit nobody agreed (found by review).
+                                    ->required(fn (Get $get): bool => $get('security_deposit_basis') === DepositBasis::PERCENT_OF_ANNUAL_RENT)
+                                    ->visible(fn (Get $get): bool => $get('security_deposit_basis') === DepositBasis::PERCENT_OF_ANNUAL_RENT)
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
+                                    ->helperText(__('admin.helpers.security_deposit_percent')),
+                                // The MULTIPLE, where the deposit was negotiated as one. Blank = a flat sum
+                                // that never moves; filled = the deposit tracks the rent, so an escalation
+                                // no longer erodes the landlord's security (3× becomes 2.29× by year five
+                                // on a 7% clause, silently).
+                                TextInput::make('security_deposit_months')
+                                    ->label(__('admin.fields.security_deposit_months'))
+                                    // The house policy, per property (EG-35). Without this the setting
+                                    // reached the WIZARD only: `LeaseCreationService` reads it, and a lease
+                                    // created through this form was typed from scratch — so "three months
+                                    // from Q1" changed one of the two create paths and looked done.
+                                    ->default(fn (): ?float => DepositBasis::defaultsFor(TenantScope::currentAssetId())['months'])
+                                    ->visible(fn (Get $get): bool => ($get('security_deposit_basis') ?? DepositBasis::MONTHS) === DepositBasis::MONTHS)
+                                    ->required(fn (Get $get): bool => ($get('security_deposit_basis') ?? DepositBasis::MONTHS) === DepositBasis::MONTHS)
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(24)
+                                    ->step('0.5')
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
+                                    // ── A DEPOSIT LONGER THAN THE TERM IT SECURES ────────────────────
+                                    //
+                                    // The tester's other question (Trello pqvmFQa9): is 24 months' deposit
+                                    // on a 12-month lease valid? It IS — a weak covenant, a new foreign
+                                    // brand or a first-time operator is routinely asked for security beyond
+                                    // the term, and neither Yardi nor MRI constrains the deposit against it.
+                                    // Nothing downstream misbehaves: the months are a multiplier on the
+                                    // rent and `security_deposit` is the sum actually held.
+                                    //
+                                    // But it is far more often a typo — the term typed into the months box,
+                                    // or 24 for 2.4 — and the figure that matters is the SUM the tenant is
+                                    // asked to hand over. So it is said out loud and left to the operator,
+                                    // which is the answer the collar and the term/expiry pair on this board
+                                    // also got: show the truth, do not forbid the value. (The 24-month
+                                    // ceiling above is the FIELD's own bound and predates this; the point
+                                    // here is that nothing between 0 and it is refused.)
+                                    ->hintColor(fn (Get $get): ?string => self::depositOutrunsItsTerm($get) === null ? null : 'warning')
+                                    ->hint(fn (Get $get): ?string => self::depositOutrunsItsTerm($get))
+                                    ->suffix(__('admin.fields.months'))
+                                    ->helperText(__('admin.helpers.security_deposit_months'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.security_deposit_months')),
+                                TextInput::make('security_deposit')
+                                    ->label(__('admin.fields.security_deposit'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->default(0)
+                                    ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                                    // Derived once a multiple is stated — the same rule as a rate-priced
+                                    // rent, and for the same reason: two editable fields that derive from
+                                    // each other is how they end up disagreeing.
+                                    ->disabled(fn (Get $get): bool => DepositBasis::isRentLinked($get('security_deposit_basis') ?? DepositBasis::MONTHS))
+                                    ->dehydrated()
+                                    ->helperText(fn (Get $get): string => DepositBasis::isRentLinked($get('security_deposit_basis') ?? DepositBasis::MONTHS)
+                                        ? __('admin.helpers.security_deposit_derived')
+                                        : __('admin.helpers.security_deposit')),
+                            ]),
+                        Section::make(__('admin.sections.late_fees'))
+                            ->description(__('admin.sections.late_fees_description'))
+                            ->columns(3)
+                            // Overrides of the property's terms, blank on almost every lease — collapsed
+                            // so the ordinary deal is not scrolled past five empty boxes.
+                            ->collapsed()
+                            ->components([
+                                // Per-lease late-fee terms (MF-08). All three are OPTIONAL: blank means the
+                                // portfolio default from Settings → Billing, which is what almost every lease
+                                // uses. Only the negotiated ones get filled in, and the placeholder shows what
+                                // they would otherwise inherit so the operator is never guessing.
+                                TextInput::make('late_fee_percent')
+                                    ->label(__('admin.fields.late_fee_percent'))
+                                    ->helperText(__('admin.helpers.late_fee_override'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->suffix('%')
+                                    ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_percent),
+                                TextInput::make('late_fee_grace_days')
+                                    ->label(__('admin.fields.late_fee_grace_days'))
+                                    ->helperText(__('admin.helpers.late_fee_override'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->suffix(__('admin.fields.days'))
+                                    ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_grace_days),
+                                TextInput::make('late_fee_minimum')
+                                    ->label(__('admin.fields.late_fee_minimum'))
+                                    ->helperText(__('admin.helpers.late_fee_override'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->prefix('EGP')
+                                    ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_minimum),
+                                // The ceiling the clause states. 0 anywhere in the chain means no cap, so
+                                // blank here inherits the property's answer exactly as the other three do.
+                                TextInput::make('late_fee_maximum')
+                                    ->label(__('admin.fields.late_fee_maximum'))
+                                    // Inline, so the operator is told at the field rather than on submit —
+                                    // and again in the model, so an import or an API write cannot get round
+                                    // it. NOT `->gte('late_fee_minimum')`: zero here means NO CAP, the
+                                    // meaning every install had before the column existed, so the plain
+                                    // rule would refuse the commonest value on the form.
+                                    ->rule(fn (Get $get) => function (string $attribute, $value, Closure $fail) use ($get) {
+                                        $min = $get('late_fee_minimum');
+
+                                        if (filled($value) && (float) $value > 0 && filled($min) && (float) $min > (float) $value) {
+                                            $fail(__('admin.errors.late_fee_minimum_above_cap', [
+                                                'minimum' => number_format((float) $min, 2),
+                                                'maximum' => number_format((float) $value, 2),
+                                            ]));
+                                        }
+                                    })
+                                    ->helperText(__('admin.helpers.late_fee_maximum'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->prefix('EGP')
+                                    ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_maximum),
+                                // How often the clause lets the fee be charged again while the balance
+                                // stands. Blank inherits the property; 0 anywhere means charge once.
+                                TextInput::make('late_fee_recurrence_days')
+                                    ->label(__('admin.fields.late_fee_recurrence_days'))
+                                    ->helperText(__('admin.helpers.late_fee_recurrence_days'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->suffix(__('admin.fields.days'))
+                                    ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_recurrence_days),
+                            ]),
+                    ])->columns(1),
+
+                    FormTab::make('admin.sections.escalation', [
+                        Section::make(__('admin.sections.escalation_clause'))
+                            ->description(__('admin.sections.escalation_clause_description'))
+                            ->columns(3)
+                            ->components([
+                                // ── Escalation: the TYPE is asked first, and it is the only field always on
+                                // screen ─────────────────────────────────────────────────────────────────
+                                // Every other field here belongs to exactly one type, so each appears only
+                                // once that type is chosen, and `none` shows nothing at all. Before this the
+                                // visibility was written as "not fixed_amount", which put a rate box and a
+                                // collar on a lease that had just declared it never escalates — three inputs
+                                // that could be filled in and would then be read by nothing. What the
+                                // operator can see and what the contract states now match.
+                                //
+                                // The stale-value half of this is enforced in `Lease::saving`, not here: a
+                                // field Filament has hidden is not dehydrated, so on an EDIT the old value
+                                // simply survives in the column, invisible. The model clears the terms when
+                                // no clause is configured, which also covers the importer and the API.
+                                Select::make('escalation_type')
+                                    ->label(__('admin.fields.escalation_type'))
+                                    // Options from the REGISTRY, labels from the catalogue — so the picker
+                                    // can only offer what the model will accept on save. Reading the
+                                    // translation array for both let the two drift, which is how a
+                                    // helper advertising a "Step" type nobody implemented survived.
+                                    ->options(function (): array {
+                                        $labels = __('admin.enums.escalation_type');
+
+                                        return collect(ValueSets::allowed('leases', 'escalation_type'))
+                                            ->mapWithKeys(fn (string $type): array => [$type => is_array($labels) ? ($labels[$type] ?? $type) : $type])
+                                            ->all();
+                                    })
+                                    ->default('fixed_percent')
+                                    ->required() // NOT-NULL column — never dehydrate null
+                                    ->native(false)
+                                    ->live()
+                                    ->helperText(__('admin.helpers.escalation_type')),
+                                TextInput::make('escalation_rate')
+                                    ->label(__('admin.fields.escalation_rate'))
+                                    // WHAT THIS LEASE WILL ACTUALLY STEP. On a fixed clause the collar below
+                                    // CLAMPS this figure — `RentEscalationService::collar()`, the same call
+                                    // the sweep and the rent-change reason use — so a stated 10 under a
+                                    // floor of 30 steps the rent thirty percent while this field reads 10.
+                                    // Reported as the collar being purposeless (Trello kZ77DQa7); it is the
+                                    // opposite, and what was missing is that nobody could see it.
+                                    ->hintColor('warning')
+                                    ->hint(function (Get $get, ?Lease $record): ?string {
+                                        if ($get('escalation_type') !== 'fixed_percent' || blank($get('escalation_rate'))) {
+                                            return null;
+                                        }
+
+                                        $stated = (float) $get('escalation_rate');
+                                        $applied = RentEscalationService::collar(
+                                            ($record ?? new Lease)->fill([
+                                                'escalation_floor_rate' => $get('escalation_floor_rate'),
+                                                'escalation_ceiling_rate' => $get('escalation_ceiling_rate'),
+                                            ]),
+                                            $stated,
+                                        );
+
+                                        return abs($applied - $stated) < 0.005 ? null : __('admin.helpers.escalation_rate_collared', [
+                                            'applied' => rtrim(rtrim(number_format($applied, 2), '0'), '.'),
+                                        ]);
+                                    })
+                                    ->numeric()
+                                    ->suffix('%')
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->default(7)
+                                    // Live on blur: the "Which charges step" table's follows-lease
+                                    // option names this figure, and read it one round-trip late.
+                                    ->live(onBlur: true)
+                                    ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                                    // Stated-percentage clauses only. `cpi` used to show this too, because a
+                                    // typed rate was the only way an index clause could be expressed at all;
+                                    // since 2026-08-19 a CPI lease derives its rate from the index register,
+                                    // and leaving the box on that clause would offer a number the sweep
+                                    // ignores — the most confusing kind of field there is.
+                                    ->visible(fn (Get $get) => $get('escalation_type') === 'fixed_percent')
+                                    ->required(fn (Get $get) => $get('escalation_type') === 'fixed_percent')
+                                    ->helperText(__('admin.helpers.escalation_rate')),
+                                TextInput::make('escalation_amount')
+                                    ->label(__('admin.fields.escalation_amount'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->visible(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
+                                    ->required(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
+                                    ->helperText(__('admin.helpers.escalation_amount'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_amount')),
+                                // The index clause: WHICH index, measured from WHAT, read HOW FAR back.
+                                // Voyager's index source / base index value / publication lag
+                                // (`docs/benchmarks/yardi/01-yardi-lease-administration.md` §4).
+                                Select::make('escalation_index_code')
+                                    ->label(__('admin.fields.escalation_index_code'))
+                                    ->options(fn (): array => RentIndex::query()
+                                        ->select('code')->distinct()->orderBy('code')->pluck('code', 'code')->all())
+                                    ->native(false)
+                                    ->searchable()
+                                    ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
+                                    ->required(fn (Get $get) => $get('escalation_type') === 'cpi')
+                                    ->helperText(__('admin.helpers.escalation_index_code')),
+                                TextInput::make('escalation_index_base_value')
+                                    ->label(__('admin.fields.escalation_index_base_value'))
+                                    ->numeric()
+                                    ->minValue(0.0001)
+                                    ->step('0.0001')
+                                    ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
+                                    ->required(fn (Get $get) => $get('escalation_type') === 'cpi')
+                                    ->helperText(__('admin.helpers.escalation_index_base_value')),
+                                TextInput::make('escalation_index_lag_months')
+                                    ->label(__('admin.fields.escalation_index_lag_months'))
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(24)
+                                    ->default(0)
+                                    ->dehydrateStateUsing(fn ($state) => (int) ($state ?? 0))
+                                    ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
+                                    ->helperText(__('admin.helpers.escalation_index_lag_months'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_index_lag_months')),
+                                TextInput::make('escalation_interval_months')
+                                    ->label(__('admin.fields.escalation_interval_months'))
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->maxValue(120)
+                                    ->placeholder('12')
+                                    // Nullable on purpose — blank means annual, and typing 12 records the
+                                    // same thing deliberately. Defaulting the field to 12 would make every
+                                    // lease claim it had been ruled on.
+                                    ->dehydrateStateUsing(fn ($state) => blank($state) ? null : (int) $state)
+                                    ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'fixed_amount', 'cpi'], true))
+                                    ->helperText(__('admin.helpers.escalation_interval_months'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_interval_months')),
+                                // The collar. Left blank on most leases — a bound of zero would read as "never
+                                // increase", which is why these are nullable rather than defaulted. Shown only
+                                // for the rate-stated types: a bound written in percent has no meaning against
+                                // a step written in pounds, which is why `RentEscalationService::collar()`
+                                // never applies it to `fixed_amount`.
+                                TextInput::make('escalation_floor_rate')
+                                    ->label(__('admin.fields.escalation_floor_rate'))
+                                    ->numeric()
+                                    ->suffix('%')
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
+                                    // On a FIXED clause the bound OVERRIDES the stated rate — `collar()`
+                                    // clamps it, which is the documented semantic `EscalationCollarTest`
+                                    // pins. "The increase never falls below this" reads as vacuous when the
+                                    // increase is constant, and reading it that way is exactly what
+                                    // produced the card that called these fields purposeless.
+                                    ->helperText(fn (Get $get) => $get('escalation_type') === 'fixed_percent'
+                                        ? __('admin.helpers.escalation_collar_on_fixed')
+                                        : __('admin.helpers.escalation_floor_rate'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_floor_rate')),
+                                TextInput::make('escalation_ceiling_rate')
+                                    ->label(__('admin.fields.escalation_ceiling_rate'))
+                                    ->numeric()
+                                    ->suffix('%')
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    // Caught here for an inline error, and again in the model so an import or an
+                                    // API write cannot get round it.
+                                    ->gte('escalation_floor_rate')
+                                    ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
+                                    // On a FIXED clause the bound OVERRIDES the stated rate — `collar()`
+                                    // clamps it, which is the documented semantic `EscalationCollarTest`
+                                    // pins. "The increase never falls below this" reads as vacuous when the
+                                    // increase is constant, and reading it that way is exactly what
+                                    // produced the card that called these fields purposeless.
+                                    ->helperText(fn (Get $get) => $get('escalation_type') === 'fixed_percent'
+                                        ? __('admin.helpers.escalation_collar_on_fixed')
+                                        : __('admin.helpers.escalation_ceiling_rate'))
+                                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_ceiling_rate')),
+                            ]),
+                        // ── WHICH CHARGES STEP — each by its own rule (point 24, Yardi's grain) ──
                         //
-                        // The stale-value half of this is enforced in `Lease::saving`, not here: a
-                        // field Filament has hidden is not dehydrated, so on an EDIT the old value
-                        // simply survives in the column, invisible. The model clears the terms when
-                        // no clause is configured, which also covers the importer and the API.
-                        Select::make('escalation_type')
-                            ->label(__('admin.fields.escalation_type'))
-                            // Options from the REGISTRY, labels from the catalogue — so the picker
-                            // can only offer what the model will accept on save. Reading the
-                            // translation array for both let the two drift, which is how a
-                            // helper advertising a "Step" type nobody implemented survived.
-                            ->options(function (): array {
-                                $labels = __('admin.enums.escalation_type');
-
-                                return collect(ValueSets::allowed('leases', 'escalation_type'))
-                                    ->mapWithKeys(fn (string $type): array => [$type => is_array($labels) ? ($labels[$type] ?? $type) : $type])
-                                    ->all();
-                            })
-                            ->default('fixed_percent')
-                            ->required() // NOT-NULL column — never dehydrate null
-                            ->native(false)
-                            ->live()
-                            ->helperText(__('admin.helpers.escalation_type')),
-                        TextInput::make('escalation_rate')
-                            ->label(__('admin.fields.escalation_rate'))
-                            // WHAT THIS LEASE WILL ACTUALLY STEP. On a fixed clause the collar below
-                            // CLAMPS this figure — `RentEscalationService::collar()`, the same call
-                            // the sweep and the rent-change reason use — so a stated 10 under a
-                            // floor of 30 steps the rent thirty percent while this field reads 10.
-                            // Reported as the collar being purposeless (Trello kZ77DQa7); it is the
-                            // opposite, and what was missing is that nobody could see it.
-                            ->hintColor('warning')
-                            ->hint(function (Get $get, ?Lease $record): ?string {
-                                if ($get('escalation_type') !== 'fixed_percent' || blank($get('escalation_rate'))) {
-                                    return null;
-                                }
-
-                                $stated = (float) $get('escalation_rate');
-                                $applied = RentEscalationService::collar(
-                                    ($record ?? new Lease)->fill([
-                                        'escalation_floor_rate' => $get('escalation_floor_rate'),
-                                        'escalation_ceiling_rate' => $get('escalation_ceiling_rate'),
+                        // The rent follows the clause above by definition and the marketing levy
+                        // follows the rent, so neither is asked. Every other recurring charge on the
+                        // schedule is a row here: on CREATE that is the service charge this form
+                        // seeds; on EDIT it is every type the schedule holds (a bay, a signage
+                        // licence, a chiller charge) read from the rung in force today. The rows are
+                        // not a lease column — `EditLease::afterSave()` writes each through
+                        // `ChargeScheduleService::setEscalation()`, the one writer, and
+                        // `CreateLease::afterCreate()` seeds the service charge with its answer.
+                        //
+                        // A TABLE, not a stack of cards: an operator reads "service charge · follows
+                        // the clause · —" against "parking · fixed amount · 500" in one glance, which
+                        // is the reading the client's own sentence describes.
+                        Section::make(__('admin.sections.escalation_charges'))
+                            ->description(__('admin.sections.escalation_charges_description'))
+                            ->components([
+                                Repeater::make('charge_escalations')
+                                    ->hiddenLabel()
+                                    ->dehydrated(false)
+                                    ->addable(false)
+                                    ->deletable(false)
+                                    ->reorderable(false)
+                                    ->default(fn (): array => [[
+                                        'type' => 'service_charge',
+                                        'escalation_mode' => ChargeEscalation::defaultModeFor(TenantScope::currentAssetId()),
+                                        'escalation_rate' => null,
+                                        'escalation_amount' => null,
+                                    ]])
+                                    ->table([
+                                        TableColumn::make(__('admin.fields.charge')),
+                                        TableColumn::make(__('admin.fields.escalation_mode')),
+                                        TableColumn::make(__('admin.fields.escalation_figure')),
+                                    ])
+                                    ->schema([
+                                        Hidden::make('type'),
+                                        Placeholder::make('charge')
+                                            ->hiddenLabel()
+                                            ->content(fn (Get $get): string => ChargeCode::labelFor((string) $get('type'))),
+                                        Select::make('escalation_mode')
+                                            ->hiddenLabel()
+                                            // The options NAME what a follows-lease row would inherit,
+                                            // read live off the clause fields on the previous section —
+                                            // a bare "Follows the clause" over a clause that is a fixed
+                                            // amount offers a choice that does nothing.
+                                            ->options(fn (Get $get): array => ChargeEscalation::options(
+                                                (new Lease)->forceFill([
+                                                    'escalation_type' => $get('../../escalation_type'),
+                                                    'escalation_rate' => $get('../../escalation_rate'),
+                                                ]),
+                                            ))
+                                            ->default(ChargeEscalation::NONE)
+                                            ->native(false)
+                                            ->selectablePlaceholder(false)
+                                            ->required()
+                                            ->live(),
+                                        Group::make([
+                                            TextInput::make('escalation_rate')
+                                                ->hiddenLabel()
+                                                ->suffix('% / '.__('admin.fields.per_year_suffix'))
+                                                ->numeric()
+                                                ->minValue(0.01)
+                                                ->maxValue(100)
+                                                ->step('0.01')
+                                                ->helperText(__('admin.helpers.charge_escalation_rate'))
+                                                ->visible(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::PERCENT)
+                                                ->required(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::PERCENT),
+                                            TextInput::make('escalation_amount')
+                                                ->hiddenLabel()
+                                                ->prefix('EGP')
+                                                ->suffix('/ '.__('admin.fields.per_year_suffix'))
+                                                ->numeric()
+                                                ->minValue(0.01)
+                                                ->visible(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT)
+                                                ->required(fn (Get $get): bool => $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT),
+                                            // Nothing to type: the sentence says what the row inherits
+                                            // (or that it stands still), so the cell is never blank.
+                                            Placeholder::make('inherits')
+                                                ->hiddenLabel()
+                                                ->content(fn (Get $get): string => ChargeEscalation::describe(
+                                                    (new Charge)->forceFill([
+                                                        'escalation_mode' => $get('escalation_mode'),
+                                                        'escalation_rate' => $get('escalation_rate'),
+                                                        'escalation_amount' => $get('escalation_amount'),
+                                                    ]),
+                                                    (new Lease)->forceFill([
+                                                        'escalation_type' => $get('../../escalation_type'),
+                                                        'escalation_rate' => $get('../../escalation_rate'),
+                                                    ]),
+                                                ))
+                                                ->visible(fn (Get $get): bool => ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
+                                        ]),
                                     ]),
-                                    $stated,
-                                );
-
-                                return abs($applied - $stated) < 0.005 ? null : __('admin.helpers.escalation_rate_collared', [
-                                    'applied' => rtrim(rtrim(number_format($applied, 2), '0'), '.'),
-                                ]);
-                            })
-                            ->numeric()
-                            ->suffix('%')
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->default(7)
-                            ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            // Stated-percentage clauses only. `cpi` used to show this too, because a
-                            // typed rate was the only way an index clause could be expressed at all;
-                            // since 2026-08-19 a CPI lease derives its rate from the index register,
-                            // and leaving the box on that clause would offer a number the sweep
-                            // ignores — the most confusing kind of field there is.
-                            ->visible(fn (Get $get) => $get('escalation_type') === 'fixed_percent')
-                            ->required(fn (Get $get) => $get('escalation_type') === 'fixed_percent')
-                            ->helperText(__('admin.helpers.escalation_rate')),
-                        // The index clause: WHICH index, measured from WHAT, read HOW FAR back.
-                        // Voyager's index source / base index value / publication lag
-                        // (`docs/benchmarks/yardi/01-yardi-lease-administration.md` §4).
-                        Select::make('escalation_index_code')
-                            ->label(__('admin.fields.escalation_index_code'))
-                            ->options(fn (): array => RentIndex::query()
-                                ->select('code')->distinct()->orderBy('code')->pluck('code', 'code')->all())
-                            ->native(false)
-                            ->searchable()
-                            ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
-                            ->required(fn (Get $get) => $get('escalation_type') === 'cpi')
-                            ->helperText(__('admin.helpers.escalation_index_code')),
-                        TextInput::make('escalation_interval_months')
-                            ->label(__('admin.fields.escalation_interval_months'))
-                            ->numeric()
-                            ->minValue(1)
-                            ->maxValue(120)
-                            ->placeholder('12')
-                            // Nullable on purpose — blank means annual, and typing 12 records the
-                            // same thing deliberately. Defaulting the field to 12 would make every
-                            // lease claim it had been ruled on.
-                            ->dehydrateStateUsing(fn ($state) => blank($state) ? null : (int) $state)
-                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'fixed_amount', 'cpi'], true))
-                            ->helperText(__('admin.helpers.escalation_interval_months'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_interval_months')),
-                        TextInput::make('escalation_index_base_value')
-                            ->label(__('admin.fields.escalation_index_base_value'))
-                            ->numeric()
-                            ->minValue(0.0001)
-                            ->step('0.0001')
-                            ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
-                            ->required(fn (Get $get) => $get('escalation_type') === 'cpi')
-                            ->helperText(__('admin.helpers.escalation_index_base_value')),
-                        TextInput::make('escalation_index_lag_months')
-                            ->label(__('admin.fields.escalation_index_lag_months'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(24)
-                            ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (int) ($state ?? 0))
-                            ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
-                            ->helperText(__('admin.helpers.escalation_index_lag_months'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_index_lag_months')),
-                        TextInput::make('escalation_amount')
-                            ->label(__('admin.fields.escalation_amount'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->minValue(0)
-                            ->visible(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
-                            ->required(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
-                            ->helperText(__('admin.helpers.escalation_amount'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_amount')),
-                        // The collar. Left blank on most leases — a bound of zero would read as "never
-                        // increase", which is why these are nullable rather than defaulted. Shown only
-                        // for the rate-stated types: a bound written in percent has no meaning against
-                        // a step written in pounds, which is why `RentEscalationService::collar()`
-                        // never applies it to `fixed_amount`.
-                        TextInput::make('escalation_floor_rate')
-                            ->label(__('admin.fields.escalation_floor_rate'))
-                            ->numeric()
-                            ->suffix('%')
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
-                            // On a FIXED clause the bound OVERRIDES the stated rate — `collar()`
-                            // clamps it, which is the documented semantic `EscalationCollarTest`
-                            // pins. "The increase never falls below this" reads as vacuous when the
-                            // increase is constant, and reading it that way is exactly what
-                            // produced the card that called these fields purposeless.
-                            ->helperText(fn (Get $get) => $get('escalation_type') === 'fixed_percent'
-                                ? __('admin.helpers.escalation_collar_on_fixed')
-                                : __('admin.helpers.escalation_floor_rate'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_floor_rate')),
-                        TextInput::make('escalation_ceiling_rate')
-                            ->label(__('admin.fields.escalation_ceiling_rate'))
-                            ->numeric()
-                            ->suffix('%')
-                            ->minValue(0)
-                            ->maxValue(100)
-                            // Caught here for an inline error, and again in the model so an import or an
-                            // API write cannot get round it.
-                            ->gte('escalation_floor_rate')
-                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
-                            // On a FIXED clause the bound OVERRIDES the stated rate — `collar()`
-                            // clamps it, which is the documented semantic `EscalationCollarTest`
-                            // pins. "The increase never falls below this" reads as vacuous when the
-                            // increase is constant, and reading it that way is exactly what
-                            // produced the card that called these fields purposeless.
-                            ->helperText(fn (Get $get) => $get('escalation_type') === 'fixed_percent'
-                                ? __('admin.helpers.escalation_collar_on_fixed')
-                                : __('admin.helpers.escalation_ceiling_rate'))
-                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_ceiling_rate')),
-                        // Percent clauses only, like the collar and for the collar's own reason: a
-                        // step stated in pounds is a statement about the rent, so there is no
-                        // percentage to carry onto the service charge. Hidden ≠ cleared — the flag
-                        // survives a type switch the way the collar does, inert until the type can
-                        // read it again (`Lease::escalatesServiceCharge()` gates on the type).
-                        Toggle::make('escalation_applies_to_service_charge')
-                            ->label(__('admin.fields.escalation_applies_to_service_charge'))
-                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
-                            // The helper turns into a warning when the lease's current service
-                            // charge is a CAM re-estimate: the sweep and the projection both
-                            // refuse to step an estimate (the true-up re-prices it), so a ticked
-                            // toggle would otherwise read as configured while doing nothing.
-                            ->helperText(function (?Lease $record): string {
-                                if ($record?->exists) {
-                                    $row = app(ChargeScheduleService::class)
-                                        ->rowCovering($record, 'service_charge', CarbonImmutable::now()->startOfDay());
-
-                                    if ($row?->origin === Charge::ORIGIN_CAM_ESTIMATE) {
-                                        return __('admin.helpers.escalation_applies_to_service_charge_cam');
-                                    }
-                                }
-
-                                return __('admin.helpers.escalation_applies_to_service_charge');
-                            }),
-                        TextInput::make('payment_terms_days')
-                            ->label(__('admin.fields.payment_terms_days'))
-                            ->numeric()
-                            ->minValue(0)
-                            // The property's convention, falling back to the portfolio's — NOT a
-                            // hard-coded 7. `payment_terms_days` is NOT NULL with a database default,
-                            // so the `?? setting` that used to sit at eight billing call sites could
-                            // never fire and the configured default reached nothing. ORIGINATION is
-                            // where it belongs: a new lease starts from its mall's convention and then
-                            // carries its own number, so changing the setting later cannot move the due
-                            // date on receivables already raised. This is what Yardi does too.
-                            ->default(fn () => PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
-                            ->dehydrateStateUsing(fn ($state) => $state ?? PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
-                            ->suffix(__('admin.fields.days')),
-                        // Per-lease late-fee terms (MF-08). All three are OPTIONAL: blank means the
-                        // portfolio default from Settings → Billing, which is what almost every lease
-                        // uses. Only the negotiated ones get filled in, and the placeholder shows what
-                        // they would otherwise inherit so the operator is never guessing.
-                        TextInput::make('late_fee_percent')
-                            ->label(__('admin.fields.late_fee_percent'))
-                            ->helperText(__('admin.helpers.late_fee_override'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->suffix('%')
-                            ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_percent),
-                        TextInput::make('late_fee_grace_days')
-                            ->label(__('admin.fields.late_fee_grace_days'))
-                            ->helperText(__('admin.helpers.late_fee_override'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->suffix(__('admin.fields.days'))
-                            ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_grace_days),
-                        TextInput::make('late_fee_minimum')
-                            ->label(__('admin.fields.late_fee_minimum'))
-                            ->helperText(__('admin.helpers.late_fee_override'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->prefix('EGP')
-                            ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_minimum),
-                        // The ceiling the clause states. 0 anywhere in the chain means no cap, so
-                        // blank here inherits the property's answer exactly as the other three do.
-                        Select::make('proration_method')
-                            ->label(__('admin.fields.proration_method'))
-                            ->helperText(__('admin.fields.proration_method_helper'))
-                            ->options(fn (): array => collect(ProrationMethod::METHODS)
-                                ->mapWithKeys(fn (string $m): array => [$m => __("admin.proration_methods.{$m}")])
-                                ->all())
-                            ->native(false)
-                            // Null is the normal state: the property's answer, then the portfolio's.
-                            ->placeholder(__('admin.fields.proration_method_inherited')),
-                        TextInput::make('late_fee_maximum')
-                            ->label(__('admin.fields.late_fee_maximum'))
-                            // Inline, so the operator is told at the field rather than on submit —
-                            // and again in the model, so an import or an API write cannot get round
-                            // it. NOT `->gte('late_fee_minimum')`: zero here means NO CAP, the
-                            // meaning every install had before the column existed, so the plain
-                            // rule would refuse the commonest value on the form.
-                            ->rule(fn (Get $get) => function (string $attribute, $value, Closure $fail) use ($get) {
-                                $min = $get('late_fee_minimum');
-
-                                if (filled($value) && (float) $value > 0 && filled($min) && (float) $min > (float) $value) {
-                                    $fail(__('admin.errors.late_fee_minimum_above_cap', [
-                                        'minimum' => number_format((float) $min, 2),
-                                        'maximum' => number_format((float) $value, 2),
-                                    ]));
-                                }
-                            })
-                            ->helperText(__('admin.helpers.late_fee_maximum'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->prefix('EGP')
-                            ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_maximum),
-                        // How often the clause lets the fee be charged again while the balance
-                        // stands. Blank inherits the property; 0 anywhere means charge once.
-                        TextInput::make('late_fee_recurrence_days')
-                            ->label(__('admin.fields.late_fee_recurrence_days'))
-                            ->helperText(__('admin.helpers.late_fee_recurrence_days'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->suffix(__('admin.fields.days'))
-                            ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_recurrence_days),
-                    ])->columns(5),
+                            ]),
+                    ])->columns(1),
 
                     FormTab::make('admin.sections.percentage_rent', [
                         Toggle::make('has_percentage_rent')

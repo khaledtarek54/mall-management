@@ -83,10 +83,22 @@ class CreateLease extends CreateRecord
             $lease->repriceFromPremises();
         }
 
+        // The service charge's own annual-increase rule, as answered on the form's "Which
+        // charges step" table (meeting 2026-09-02, point 24). Not a lease column — read off the
+        // form state the way `additional_unit_ids` is — and the seeder's own default (the
+        // property's proposal) stands when the row is absent.
+        $serviceRow = collect($this->data['charge_escalations'] ?? [])
+            ->first(fn (array $row): bool => ($row['type'] ?? null) === 'service_charge');
+
         LeaseCreationService::seedStandardCharges(
             $lease,
             rent: (float) $lease->base_rent_monthly,
             service: (float) $lease->service_charge_monthly,
+            serviceEscalation: $serviceRow === null ? [] : [
+                'escalation_mode' => $serviceRow['escalation_mode'] ?? null,
+                'escalation_rate' => filled($serviceRow['escalation_rate'] ?? null) ? (float) $serviceRow['escalation_rate'] : null,
+                'escalation_amount' => filled($serviceRow['escalation_amount'] ?? null) ? (float) $serviceRow['escalation_amount'] : null,
+            ],
         );
 
         // Project the whole term's contracted rent ladder — LS-01, and the thing this page did not

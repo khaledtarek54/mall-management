@@ -264,6 +264,10 @@ class ValueSets
         // `advance`, so every charge that existed before this bills exactly as it did; the two
         // values are registered so the column cannot quietly acquire a third reading.
         'charges.billing_timing' => [Charge::class, 'BILLING_TIMINGS'],
+        // How the row steps on the lease anniversary (meeting 2026-09-02, point 24 — Yardi's
+        // per-charge grain). Null is the normal state and means `none`: a row nobody ruled on
+        // steps nothing, exactly as every charge but the rent did before the column existed.
+        'charges.escalation_mode' => [ChargeEscalation::class, 'MODES'],
         'credit_notes.status' => ['draft', 'issued', 'applied', 'void'],
         // Offered by the admin form as a Select over `admin.enums.credit_note_reason` and
         // registered nowhere, so the column accepted anything: a typo'd or imported reason saved

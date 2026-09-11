@@ -4,6 +4,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
 use App\Services\LeaseRentChangeService;
+use App\Support\ChargeEscalation;
 use Carbon\CarbonImmutable;
 
 /**
@@ -33,7 +34,6 @@ function clauseClearingLease(array $attributes = []): Lease
         'service_charge_monthly' => 20000,
         'escalation_type' => 'fixed_percent',
         'escalation_rate' => 7,
-        'escalation_applies_to_service_charge' => true,
         'next_escalation_date' => '2026-01-01',
     ], $attributes));
 
@@ -50,6 +50,8 @@ function clauseClearingLease(array $attributes = []): Lease
             'amount' => $amount,
             'currency' => 'EGP',
             'frequency' => 'monthly',
+            // The service charge FOLLOWS the clause — on its row, since point 24.
+            'escalation_mode' => $type === 'service_charge' ? ChargeEscalation::FOLLOWS_LEASE : null,
             'start_date' => $lease->commencement_date,
             'is_active' => true,
         ]);
@@ -60,13 +62,13 @@ function clauseClearingLease(array $attributes = []): Lease
     return $lease->fresh();
 }
 
-it('turning the service-charge toggle off deactivates its future rungs and re-opens the survivor', function () {
+it('ruling the service charge to stand still deactivates its future rungs and re-opens the survivor', function () {
     CarbonImmutable::setTestNow('2025-06-01'); // before the first anniversary — every rung is future
     $lease = clauseClearingLease();
 
     expect($lease->charges()->where('type', 'service_charge')->where('is_active', true)->count())->toBe(4);
 
-    $lease->update(['escalation_applies_to_service_charge' => false]);
+    app(ChargeScheduleService::class)->setEscalation($lease, 'service_charge', ChargeEscalation::NONE);
 
     $active = $lease->charges()->where('type', 'service_charge')->where('is_active', true)->get();
 

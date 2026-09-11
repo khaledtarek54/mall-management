@@ -6,6 +6,7 @@ use App\Services\ChargeScheduleService;
 use App\Services\LeaseRentChangeService;
 use App\Services\LeaseSpaceChangeService;
 use App\Services\RentEscalationService;
+use App\Support\ChargeEscalation;
 use Carbon\CarbonImmutable;
 
 /**
@@ -30,6 +31,10 @@ afterEach(fn () => CarbonImmutable::setTestNow());
 
 function retruedLadderLease(array $attributes = []): Lease
 {
+    // The service charge's rule lives on its ROW since point 24; the fixture's own switch.
+    $serviceFollows = $attributes['service_follows'] ?? false;
+    unset($attributes['service_follows']);
+
     $lease = makeLease(makeUnit(makeAsset()), null, array_merge([
         'status' => 'active',
         'commencement_date' => '2025-01-01',
@@ -57,6 +62,7 @@ function retruedLadderLease(array $attributes = []): Lease
             'amount' => $amount,
             'currency' => 'EGP',
             'frequency' => 'monthly',
+            'escalation_mode' => $type === 'service_charge' && $serviceFollows ? ChargeEscalation::FOLLOWS_LEASE : null,
             'start_date' => $lease->commencement_date,
             'is_active' => true,
         ]);
@@ -151,7 +157,7 @@ it('re-trues a fixed-AMOUNT ladder too', function () {
 
 it('re-trues the service-charge ladder when the change moves the service charge too', function () {
     CarbonImmutable::setTestNow('2025-06-01');
-    $lease = retruedLadderLease(['escalation_applies_to_service_charge' => true]);
+    $lease = retruedLadderLease(['service_follows' => true]);
 
     expect(activeRentAmounts($lease, 'service_charge'))->toBe([20000.0, 21400.0, 22898.0, 24500.86]);
 

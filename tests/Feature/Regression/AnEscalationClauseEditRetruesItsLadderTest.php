@@ -5,6 +5,7 @@ use App\Models\Lease;
 use App\Services\ChargeScheduleService;
 use App\Services\LeaseReliefService;
 use App\Services\RentEscalationService;
+use App\Support\ChargeEscalation;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
@@ -72,7 +73,9 @@ it('ends the tester s exact editing session on a yearly ladder', function () {
         // A monthly clause projects monthly — correctly, for as long as that is what it says…
         expect(LeaseLadder::rungs($lease, 'base_rent'))->toStartWith('1000@2026-09 1100@2026-10 1210@2026-11');
 
-        LeaseLadder::edit($lease, ['escalation_applies_to_service_charge' => true]);
+        // The second edit on staging flipped the service-charge toggle; that is the "Which
+        // charges step" table now (point 24), and the rent ladder must still not move for it.
+        app(ChargeScheduleService::class)->setEscalation($lease, 'service_charge', ChargeEscalation::FOLLOWS_LEASE);
         expect(LeaseLadder::rungs($lease, 'base_rent'))->toStartWith('1000@2026-09 1100@2026-10 1210@2026-11');
 
         LeaseLadder::edit($lease, ['escalation_interval_months' => null]);

@@ -367,17 +367,15 @@ class LeaseRenewalService
                     'frequency' => $charge->frequency,
                     'vat_applicable' => $charge->vat_applicable,
                     'vat_rate' => $charge->vat_rate,
-                    // Carried with the rest of the row's terms. A renewal that dropped it would
-                    // silently move an arrears service charge back to advance, billing the tenant
-                    // the crossover month twice — and a renewal is exactly where nobody re-reads
-                    // every charge.
-                    'billing_timing' => $charge->billing_timing,
-                    // Carried for the same reason and by the same rule (EG-29). A flat signage
-                    // licence or fixed parking fee the operator marked "bills whole months" must
-                    // still bill whole months after renewal — otherwise the renewal's own final
-                    // part-month claws back part of a fee the tenant owes in full, and the term
-                    // quietly disappears one renewal at a time.
-                    'prorate' => $charge->prorate,
+                    // The row's TERMS, carried with the rest of it — `Charge::CARRIED_TERMS`, the
+                    // one list. A renewal that dropped `billing_timing` silently moved an arrears
+                    // service charge back to advance, billing the tenant the crossover month
+                    // twice; one that dropped `prorate` (EG-29) let the renewal's own final
+                    // part-month claw back part of a flat fee the tenant owes in full; and one
+                    // that dropped the charge's own annual-increase rule (point 24) would renew a
+                    // bay that steps +500 a year as one that never steps again. A renewal is
+                    // exactly where nobody re-reads every charge.
+                    ...$charge->carriedTerms(),
                     'start_date' => $commencement,
                     'end_date' => null,
                     'is_active' => true,

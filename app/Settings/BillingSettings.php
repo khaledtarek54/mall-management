@@ -3,6 +3,7 @@
 namespace App\Settings;
 
 use App\Support\AgingBuckets;
+use App\Support\ChargeEscalation;
 use App\Support\DepositBasis;
 use App\Support\LeaseActivation;
 use App\Support\ProrationMethod;
@@ -194,6 +195,17 @@ class BillingSettings extends Settings
      * install does changes on deploy.
      */
     public int $reservation_valid_days = 0;
+
+    /**
+     * Whether a charge ADDED to a lease — the service charge the form seeds, a parking bay, a
+     * signage licence — is proposed as FOLLOWING the lease's annual-increase clause (meeting
+     * 2026-09-02, point 24 — *"the annual increase should be on all expenses"*). The escalation
+     * itself is a term of each charge row ({@see ChargeEscalation}); this only
+     * decides what a new row is offered as, and the operator still rules per charge. Off is
+     * Yardi's answer — a charge carries no escalation until one is stated — and the shipped
+     * default; a portfolio whose leases raise every charge together switches it on per property.
+     */
+    public bool $new_charges_follow_escalation = false;
 
     /**
      * Recognise rent on a STRAIGHT-LINE basis over the lease term (story RA-02, EAS 49 / IFRS 16).

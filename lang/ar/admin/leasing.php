@@ -7,6 +7,27 @@ return [
         'fixed' => 'مبلغ ثابت',
     ],
 
+    'charge_escalation' => [
+        'modes' => [
+            'follows_lease' => 'يتبع بند زيادة الإيجار',
+            'follows_lease_rate' => 'يتبع بند زيادة الإيجار (+:rate%)',
+            'follows_lease_index' => 'يتبع بند زيادة الإيجار (المؤشر)',
+            'follows_lease_inert' => 'يتبع بند زيادة الإيجار (لا توجد نسبة يتبعها)',
+            'percent' => 'نسبة خاصة به',
+            'fixed_amount' => 'مبلغ ثابت خاص به',
+            'none' => 'بلا زيادة',
+        ],
+        'follows_rate' => 'يتبع الإيجار — +:rate% سنويًا',
+        'follows_index' => 'يتبع الإيجار — المؤشر، مُقيَّدًا بالحد',
+        'follows_nothing' => 'يتبع الإيجار — وهو يزيد بمبلغ ثابت، فيبقى هذا الرسم كما هو',
+        'own_percent' => '+:rate% سنويًا',
+        'own_amount' => '+:amount ج.م سنويًا',
+        'none' => 'يبقى كما هو',
+        'rent_follows_clause' => 'يتبع بند زيادة الإيجار',
+        'levy_follows_rent' => 'يتبع الإيجار',
+        'parking_follows_register' => 'يُسعَّر من المواقف في سجل الوحدات المؤجَّرة',
+    ],
+
     'lease_activation' => [
         'none' => 'لا شيء — يُنفَّذ العقد بمجرد إدخاله',
         'deposit_received' => 'يجب استلام التأمين أولًا',
@@ -80,6 +101,8 @@ return [
             'rent_escalated_amount' => 'تصعيد تعاقدي للإيجار بمقدار :step_amount — من :amount_from إلى :amount_to.',
             'rent_escalated_with_service' => 'تصعيد تعاقدي بنسبة :step_pct% — الإيجار من :amount_from إلى :amount_to؛ ورسوم الخدمة من :service_amount_from إلى :service_amount_to.',
             'rent_escalated_collared_with_service' => 'تصعيد تعاقدي بنسبة :step_pct% (المؤشر :index_pct%، مُقيَّد بالحد) — الإيجار من :amount_from إلى :amount_to؛ ورسوم الخدمة من :service_amount_from إلى :service_amount_to.',
+            'charge_escalated' => 'زيادة تعاقدية على :charge_type بنسبة :step_pct% — من :amount_from إلى :amount_to.',
+            'charge_escalated_amount' => 'زيادة تعاقدية على :charge_type بمقدار :step_amount — من :amount_from إلى :amount_to.',
             'rent_changed' => 'تغيّر الإيجار من :amount_from إلى :amount_to.',
             'relief_granted' => 'مُنح إعفاء من الإيجار — خُفِّض من :amount_from إلى :amount_to.',
             'term_extended' => 'مُدّت المدة حتى :expiry_date.',

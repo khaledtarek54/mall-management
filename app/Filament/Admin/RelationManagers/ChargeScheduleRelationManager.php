@@ -8,6 +8,7 @@ use App\Models\Charge;
 use App\Models\ChargeCode;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
+use App\Support\ChargeEscalation;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -221,6 +222,21 @@ class ChargeScheduleRelationManager extends RelationManager
                         ? __('admin.charge_schedule.flat')
                         : '')
                     ->toggleable(isToggledHiddenByDefault: true),
+                // The row's own annual-increase rule (meeting 2026-09-02, point 24), in words —
+                // the reading of the "Which charges step" table on the lease form. The rent's
+                // rows say they follow the clause, the levy's that they follow the rent, so no
+                // cell is a blank the operator has to interpret.
+                TextColumn::make('escalation_mode')
+                    ->label(__('admin.fields.escalation_mode'))
+                    ->state(fn (Charge $record): string => match (true) {
+                        $record->type === 'base_rent' => __('admin.charge_escalation.rent_follows_clause'),
+                        $record->type === 'marketing' => __('admin.charge_escalation.levy_follows_rent'),
+                        $record->type === 'parking' => __('admin.charge_escalation.parking_follows_register'),
+                        $record->frequency === 'one_time' => '',
+                        default => ChargeEscalation::describe($record, $this->lease()),
+                    })
+                    ->placeholder('')
+                    ->toggleable(),
                 // Shows the rate that will be BILLED, not the stored column — which is usually
                 // null now. A row that departs from the catalogue is marked, because that is the
                 // one an accountant needs to see.
@@ -279,6 +295,22 @@ class ChargeScheduleRelationManager extends RelationManager
                             // would let an operator open a second rent row beside the one those
                             // services maintain, and the two would then disagree.
                             ->disableOptionWhen(fn (string $value) => in_array($value, self::DERIVED_TYPES, true))
+                            // RESTATING a charge proposes the rule it already carries; a NEW one the
+                            // property's proposal. Defaulting every type to the property's answer
+                            // silently switched a bay's "+500 a year" off on the successor rung —
+                            // and, with the property set to follow the clause, turned it into "7 %"
+                            // — while the stale projected rungs went on stepping (found by review).
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                $inForce = $state && $this->lease()
+                                    ? app(ChargeScheduleService::class)->rowInForce($this->lease(), $state, CarbonImmutable::now()->startOfDay())
+                                    : null;
+
+                                $set('escalation_mode', $inForce !== null
+                                    ? ChargeEscalation::modeOf($inForce)
+                                    : ChargeEscalation::defaultModeFor($this->lease()?->unit?->asset_id));
+                                $set('escalation_rate', $inForce?->escalation_rate === null ? null : (float) $inForce->escalation_rate);
+                                $set('escalation_amount', $inForce?->escalation_amount === null ? null : (float) $inForce->escalation_amount);
+                            })
                             ->helperText(__('admin.charge_schedule.add_type_hint')),
                         TextInput::make('amount')
                             ->label(__('admin.fields.amount'))
@@ -327,6 +359,36 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->helperText(__('admin.helpers.does_not_prorate'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.does_not_prorate'))
                             ->visible(fn (Get $get): bool => $get('frequency') === 'monthly'),
+                        // ── HOW IT STEPS (point 24) — asked where the charge is born ─────────
+                        // Proposed from the property (`billing.new_charges_follow_escalation`);
+                        // changed later on the lease form's "Which charges step" table. A one-off
+                        // has no anniversary, so the question is not asked of one.
+                        Select::make('escalation_mode')
+                            ->label(__('admin.fields.escalation_mode'))
+                            ->options(fn (): array => ChargeEscalation::options($this->lease()))
+                            ->default(fn (): string => ChargeEscalation::defaultModeFor($this->lease()?->unit?->asset_id))
+                            ->native(false)
+                            ->selectablePlaceholder(false)
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('frequency') !== 'one_time')
+                            ->helperText(__('admin.helpers.escalation_mode')),
+                        TextInput::make('escalation_rate')
+                            ->label(__('admin.fields.escalation_rate'))
+                            ->suffix('% / '.__('admin.fields.per_year_suffix'))
+                            ->numeric()
+                            ->minValue(0.01)
+                            ->maxValue(100)
+                            ->step('0.01')
+                            ->visible(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::PERCENT)
+                            ->required(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::PERCENT),
+                        TextInput::make('escalation_amount')
+                            ->label(__('admin.fields.escalation_amount'))
+                            ->prefix('EGP')
+                            ->suffix('/ '.__('admin.fields.per_year_suffix'))
+                            ->numeric()
+                            ->minValue(0.01)
+                            ->visible(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT)
+                            ->required(fn (Get $get): bool => $get('frequency') !== 'one_time' && $get('escalation_mode') === ChargeEscalation::FIXED_AMOUNT),
                         DatePicker::make('effective_from')
                             ->label(__('admin.charge_schedule.from'))
                             ->helperText(__('admin.charge_schedule.add_effective_hint'))
@@ -439,6 +501,15 @@ class ChargeScheduleRelationManager extends RelationManager
                                 // toggle is only offered for a monthly row, so an untouched or
                                 // hidden one must leave the column null rather than write `true`.
                                 'prorate' => ($data['does_not_prorate'] ?? false) ? false : null,
+                                // The row's own annual-increase rule (point 24). A one-off carries
+                                // none — the field is hidden for it, and a hidden field is not
+                                // dehydrated, so nothing arrives to write. The model clears the
+                                // figure the mode does not read.
+                                'escalation_mode' => ($data['frequency'] ?? null) === 'one_time'
+                                    ? null
+                                    : ($data['escalation_mode'] ?? null),
+                                'escalation_rate' => filled($data['escalation_rate'] ?? null) ? (float) $data['escalation_rate'] : null,
+                                'escalation_amount' => filled($data['escalation_amount'] ?? null) ? (float) $data['escalation_amount'] : null,
                                 // A charge added in September is not owed from the lease's
                                 // commencement — without this the first row would back-date to it
                                 // and the next run would bill every month since.
@@ -446,6 +517,15 @@ class ChargeScheduleRelationManager extends RelationManager
                             ],
                             Charge::ORIGIN_MANUAL,
                         );
+
+                        // The type's ladder is re-walked whether the row STATES a rule or not: a
+                        // new ruled charge projects at once (the same reason a lease projects at
+                        // signing), and a restated charge ruled to stand still must take its stale
+                        // projected rungs with it — ruling only when `isStated()` left them billing
+                        // (found by review). A one-off is not a schedule.
+                        if ($charge !== null && ($data['frequency'] ?? null) !== 'one_time') {
+                            $schedule->retrueProjectedLadder($lease->fresh(), clause: false, chargeTypes: [$data['type']]);
+                        }
 
                         // ── SAY IT WHEN A PERIOD HAS ALREADY BEEN BILLED (2026-08-28) ────────
                         //
@@ -625,6 +705,8 @@ class ChargeScheduleRelationManager extends RelationManager
         // Only when the step is still in the FUTURE. A next_escalation_date in the past means the
         // sweep is behind, which is a different problem — saying "not yet scheduled" about an
         // overdue escalation would be a second wrong answer.
+        // The RENT's clause, deliberately — this heading is about the rent; a charge stepping on
+        // its own rule shows on its own rows and in the "Annual increase" column beside them.
         if ($lease->escalatesContractually()
             && $lease->next_escalation_date
             && CarbonImmutable::instance($lease->next_escalation_date)->greaterThanOrEqualTo($today)) {

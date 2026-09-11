@@ -369,6 +369,13 @@ class Settings extends Page implements HasSchemas
                         ->integer()
                         ->minValue(0)
                         ->required(),
+                    // Meeting 2026-09-02, point 24. Off is Yardi's answer (a charge carries no
+                    // escalation until one is stated); a portfolio whose leases raise every charge
+                    // together switches it on and every new charge is PROPOSED as following the
+                    // clause — the operator still rules per charge.
+                    Toggle::make('billing.new_charges_follow_escalation')
+                        ->label(__('admin.settings.fields.new_charges_follow_escalation'))
+                        ->helperText(__('admin.settings.fields.new_charges_follow_escalation_helper')),
                     // 0 = off, and that is how it ships. The action that charges it stays hidden
                     // until a figure is set, so nothing appears on an invoice by surprise.
                     TextInput::make('billing.nsf_fee_amount')

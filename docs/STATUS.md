@@ -238,6 +238,7 @@ the cutover posture.
 | # | Confirm | Ships as |
 |---|---|---|
 | **M-1/2/3** *(meeting 2026-09-02)* | **Lease activation gated on money, the reservation window, and the deposit basis** — all four are per-property settings (Settings → Billing, or Property overrides). You asked for *deposit or cheques before activation* and *a reservation valid for X days*: **`deposit_or_cheques` is set on both staging properties; X is yours to state** (0 = never lapses, which is what ships). | Yardi's defaults: entry executes (`none`), no window (`0`), deposit as months of rent. Your rule is a setting, never the code default — [modules/04](modules/04-leases.md). |
+| **M-24** *(meeting 2026-09-02)* | **New charges follow the annual increase** — `billing.new_charges_follow_escalation`, per property (Settings → Billing, or Property overrides). You asked for *the increase on all expenses*: with it ON, the service charge and every charge added to a lease is proposed as following the rent's clause, and the operator still rules per charge on the lease's *Annual increase* tab. **Set ON on both staging properties as your rule** (a configuration act, the way `deposit_or_cheques` was) — switch it off per property where a mall's contracts step the rent alone. | Yardi's default: off (a charge carries no escalation until stated). Your rule is a setting, never the code default — [modules/04](modules/04-leases.md). |
 | A1.2–A1.6 | Percentage rent, late fees and the marketing levy are **VAT-exempt** (the levy is flagged for your accountant — a promotional-fund contribution is arguably a taxable service; your QA asked for 14% on 2026-09-11, Trello D0fZZ0fK, and you kept it exempt until the accountant rules); CAM recovery carries 14%; levy **5% of base rent only**, billed as its own invoice line; CAM allocated **pro-rata by leased m²** | Every one is a row on `/admin/charge-codes` — a different ruling is a row, not a release: point `marketing` at `VAT_14` and every lease bills it from the next run |
 | A1.7 | Late fee **2%** of outstanding, **minimum 50 EGP**, **7-day grace**, charged **once**, **no cap** | Five settings on three tiers (lease → property → portfolio); 0 = no cap, 0 = charge once |
 | A1.8 | **Security deposit 3 months**, **escalation 7% fixed** | Deposit is a per-property setting; escalation is per lease, with a CPI-indexed option |
@@ -409,6 +410,11 @@ operator's footer ([modules/02](modules/02-tenants.md#tenantstatementpdfservice)
 gated per property on the deposit or lodged cheques; a reservation window per property, lapsed by
 `leases:expire`; the deposit agreed as months, % of annual rent or a fixed sum. Every default is
 Yardi's; §4 row M-1/2/3 records what the client sets ([modules/04](modules/04-leases.md)).
+**Point 24 shipped 2026-09-12** — the annual increase is a term of every charge row (follows the
+rent's clause, its own % or fixed EGP, or none), Yardi's per-charge grain, swept and projected
+per charge; the lease form has an *Annual increase* tab with a "Which charges step" table, and
+the financial-terms tab is four sections instead of one grid. §4 row M-24 records the one
+setting it adds ([modules/04](modules/04-leases.md)).
 
 ### 9.1 · The accountant's sitting
 
