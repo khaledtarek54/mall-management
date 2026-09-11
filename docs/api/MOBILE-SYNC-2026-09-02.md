@@ -353,7 +353,9 @@ The two money endpoints also return a stable `error` code — branch on it rathe
 `no_balance` (+ `balance`, which is `payableAmount`) · `paymob_upstream_error`.
 
 **Rate limits:** login 5/min · forgot/reset 3/min · **all `/me/*` 60/min** · public reads 120/min ·
-public click 30/min. `GET /me/summary` exists so the home screen is one call — use it.
+public click 30/min — **each its own counter since 2026-09-11**, per IP address (per signed-in login
+for `/me/*`). Until then every unauthenticated route spent one counter per IP, so browsing the feed
+could leave the first sign-in a 429. `GET /me/summary` exists so the home screen is one call — use it.
 
 ---
 

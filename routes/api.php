@@ -68,7 +68,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | API Routes — Mobile (tenant-facing)
 |--------------------------------------------------------------------------
-| Sanctum token auth against the `tenants` provider. Web/admin endpoints
+| Sanctum token auth against the `tenant_users` provider — the same login
+| row the web portal authenticates, since 2026-09-05. Web/admin endpoints
 | are NOT exposed here; the Filament panels at /admin /portal are
 | separate session-based flows.
 |
@@ -77,6 +78,8 @@ use Illuminate\Support\Facades\Route;
 |   - Standard JSON envelope: { data: ..., message: ... }
 |   - 401 unauthenticated, 422 validation, 403 forbidden, 404 not found,
 |     429 throttled
+|   - Every `throttle:` names its own counter (the third parameter). An
+|     unnamed one keys a guest on the IP alone, so they would all share it.
 |   - Every /me/* route is scoped to the authenticated tenant server-side;
 |     a tenant_id in the URL or body is never trusted.
 |   - Writes go through single-action classes (App\Actions\Api\V1\...).
@@ -85,7 +88,18 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
 
     // ============ Public (unauthenticated) ============
-    Route::middleware('throttle:5,1')->group(function () {
+    //
+    // **EVERY THROTTLE NAMES ITS OWN COUNTER — the third parameter — and this is why.** Laravel keys
+    // a guest request on the IP alone (`sha1('|'.$ip)`: neither the route nor the limit is in it), so
+    // until 2026-09-11 the sign-in, the password reset, the shopper feed, the click counter and the
+    // web pay page all spent ONE counter per address, each route measuring the shared count against
+    // its own ceiling. Five screens of the feed and the next sign-in answered 429; three wrong
+    // passwords and the reset refused before it was asked. Behind one NAT — a mall's Wi-Fi, the QA
+    // office — that is one person's browsing locking another out of their first sign-in. The mobile
+    // team measured it on the live box: five GETs across four public routes took one counter from 119
+    // to 115 (their drift report, `BACKEND-SYNC-AUDIT.md` §L L1). The limits are unchanged; only the
+    // counters are separate, and `NoTwoThrottlesShareACounterConformanceTest` keeps them that way.
+    Route::middleware('throttle:5,1,api-login')->group(function () {
         Route::post('auth/login', LoginController::class)->name('api.v1.auth.login');
     });
 
@@ -94,7 +108,7 @@ Route::prefix('v1')->group(function () {
     | Shopper feed — the ONLY unauthenticated read surface in the system (module 36)
     |--------------------------------------------------------------------------
     | Serves the visitor app: what's on at the mall, and who trades there. Everything else
-    | under /api/v1 authenticates a Tenant; these routes deliberately do not, because the
+    | under /api/v1 authenticates a tenant's login; these routes deliberately do not, because the
     | audience is anyone standing in the building.
     |
     | Three things keep that safe, and none of them is "we remembered to filter":
@@ -110,7 +124,7 @@ Route::prefix('v1')->group(function () {
     | The click counter gets its own tighter bucket — see RecordPostClickController on why
     | these numbers are indicative rather than audited.
     */
-    Route::middleware([EnsureMarketingPostsEnabled::class, 'throttle:120,1'])
+    Route::middleware([EnsureMarketingPostsEnabled::class, 'throttle:120,1,api-public'])
         ->prefix('public')
         ->group(function () {
             Route::get('malls', ListPublicMallsController::class)->name('api.v1.public.malls');
@@ -126,21 +140,25 @@ Route::prefix('v1')->group(function () {
 
     // The one WRITE on the public surface. Its own, much tighter bucket: it is the only
     // unauthenticated endpoint that changes a row, so it should cost more than a read.
-    Route::middleware([EnsureMarketingPostsEnabled::class, 'throttle:30,1'])
+    Route::middleware([EnsureMarketingPostsEnabled::class, 'throttle:30,1,api-click'])
         ->prefix('public')
         ->group(function () {
             Route::post('malls/{code}/posts/{post}/click', RecordPostClickController::class)
                 ->whereNumber('post')->name('api.v1.public.posts.click');
         });
 
-    // Password reset request + apply — tighter throttle (anti-abuse), still public.
-    Route::middleware('throttle:3,1')->group(function () {
+    // Password reset request + apply — tighter throttle (anti-abuse), still public. One counter for
+    // the pair: they are one flow, and the sign-in's failures no longer spend it.
+    Route::middleware('throttle:3,1,api-password')->group(function () {
         Route::post('auth/forgot-password', ForgotPasswordController::class)->name('api.v1.auth.forgot-password');
         Route::post('auth/reset-password', ResetPasswordController::class)->name('api.v1.auth.reset-password');
     });
 
     // ============ Authenticated (Sanctum tenant-api guard) ============
-    Route::middleware(['auth:tenant-api', EnsureTenantActive::class, EnsurePortalAdminForWrites::class, 'throttle:60,1'])->group(function () {
+    // Keyed on the signed-in PERSON. It names its counter too: unnamed, the key is the user's id with
+    // no guard in it, so an admin-panel session holding the same numeric id and loading /health or a
+    // /pay page spent this budget.
+    Route::middleware(['auth:tenant-api', EnsureTenantActive::class, EnsurePortalAdminForWrites::class, 'throttle:60,1,api-me'])->group(function () {
 
         // --- Auth / session ---
         // Same controller as `GET /me` — deliberately, because they are the same answer. Two
@@ -172,7 +190,7 @@ Route::prefix('v1')->group(function () {
         Route::get('me/invoices/{id}/pdf', InvoicePdfController::class)->whereNumber('id')->name('api.v1.me.invoices.pdf');
         Route::get('me/statement', StatementController::class)->name('api.v1.me.statement');
 
-        // Paymob session — protected by the parent throttle:60,1. The initiator
+        // Paymob session — protected by the parent throttle:60,1,api-me. The initiator
         // is idempotent within REUSE_WINDOW_SECONDS, so retries inside that
         // window don't burn the budget on the upstream side either.
         Route::post('me/invoices/{invoice}/paymob-session', InitiatePaymobSessionController::class)

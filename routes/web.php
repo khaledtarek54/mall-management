@@ -27,7 +27,7 @@ Route::get('/', function () {
 | way to load the box.
 */
 Route::get('/health', HealthController::class)
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:60,1,health')
     ->name('health');
 
 /*
@@ -86,9 +86,12 @@ Route::get('/paymob/return', [CallbackController::class, 'returned'])
 | Public online payment link  (channel = payment_link)
 |--------------------------------------------------------------------------
 | No login. A client opens /pay/{token}, pays via Paymob, lands on a public
-| status page. Throttled — these are unauthenticated, internet-facing routes.
+| status page. Throttled — these are unauthenticated, internet-facing routes —
+| on a counter of their own: the status page reloads every four seconds, and
+| before the counter was named that polling spent the same per-IP budget as
+| the mobile app's sign-in (see routes/api.php).
 */
-Route::middleware('throttle:30,1')->group(function () {
+Route::middleware('throttle:30,1,pay')->group(function () {
     Route::get('/pay/{token}', [PaymentLinkController::class, 'show'])->name('pay.show');
     Route::post('/pay/{token}/start', [PaymentLinkController::class, 'start'])->name('pay.start');
     Route::get('/pay/{token}/status', [PaymentLinkController::class, 'status'])->name('pay.status');
@@ -101,11 +104,14 @@ Route::middleware('throttle:30,1')->group(function () {
  * in the URL is the whole of who is asking. A legitimate caller presses it once, so six a minute
  * is generous; the group's 30 would let a scripted caller hammer the capture path. It sits outside
  * the group because two `throttle` middlewares on one route share a request signature and the
- * counts interfere. `DemoPayments::enabled()` (checked in the controller) is what actually keeps
- * this off production — the limit only bounds the damage where it IS live.
+ * counts interfere — and it NAMES its counter, because outside the group was never enough on its
+ * own: until 2026-09-11 an unnamed throttle keyed a guest on the IP alone, so "its own limit" was
+ * measured against the one count every guest route in the app was spending. `DemoPayments::enabled()`
+ * (checked in the controller) is what actually keeps this off production — the limit only bounds the
+ * damage where it IS live.
  */
 Route::post('/pay/{token}/demo', [PaymentLinkController::class, 'demo'])
-    ->middleware('throttle:6,1')
+    ->middleware('throttle:6,1,pay-demo')
     ->name('pay.demo');
 
 /*

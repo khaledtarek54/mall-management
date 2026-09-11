@@ -1,0 +1,149 @@
+<?php
+
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
+use Illuminate\Support\Facades\Route;
+
+/**
+ * No two throttles share a counter by accident.
+ *
+ * An unnamed `throttle:X,Y` keys a guest request on the IP alone — `sha1('|'.$ip)`, with neither the
+ * route nor the limit in it — so until 2026-09-11 every guest throttle in the app spent ONE counter
+ * per address, each route measuring that shared count against its own ceiling: five screens of the
+ * shopper feed and the next sign-in answered 429 (mobile §L L1; the behaviour is pinned by
+ * `BrowsingTheMallDoesNotSpendTheSignInTest`). The third parameter names the counter. Three comments
+ * said "its own bucket" while none of them had one, which is why this is a gate and not a comment.
+ *
+ * It reads the LIVE route table through `gatherRouteMiddleware()` — groups and aliases expanded to the
+ * class and its parameters — not the route files, so a throttle on a new route file or declared as
+ * `ThrottleRequests::class.':…'` is covered by existing. Three teeth, each catching what the others
+ * cannot: every in-app throttle names a counter; a counter keeps ONE limit (two ceilings on one counter
+ * each spend the other's); and the counters are the set below, so a new budget is a decision made here
+ * rather than a line copied from the group above.
+ *
+ * What it cannot see, said rather than implied: a prefix REUSED on a new group with the same limit.
+ * Two groups sharing a budget on purpose look exactly like an accident, so that one is the reviewer's.
+ */
+
+/**
+ * Every throttle in the live route table.
+ *
+ * @return list<array{route: string, action: string, counter: ?string, limit: string}>
+ */
+function throttleCountersInTheRouteTable(): array
+{
+    $router = app('router');
+    $found = [];
+
+    foreach (Route::getRoutes() as $route) {
+        foreach ($router->gatherRouteMiddleware($route) as $middleware) {
+            // A closure middleware is not a throttle, and has no parameters to read.
+            if (! is_string($middleware)) {
+                continue;
+            }
+
+            [$class, $parameters] = array_pad(explode(':', $middleware, 2), 2, '');
+
+            if (! in_array($class, [ThrottleRequests::class, ThrottleRequestsWithRedis::class], true)) {
+                continue;
+            }
+
+            $parameters = $parameters === '' ? [] : explode(',', $parameters);
+
+            // One non-numeric parameter is a NAMED limiter (`throttle:api`), whose name is its counter.
+            $counter = count($parameters) === 1 && ! is_numeric($parameters[0])
+                ? 'limiter:'.$parameters[0]
+                : ($parameters[2] ?? null);
+
+            $found[] = [
+                'route' => implode('|', $route->methods()).' '.$route->uri(),
+                'action' => $route->getActionName(),
+                'counter' => $counter === '' ? null : $counter,
+                'limit' => implode(',', array_slice($parameters, 0, 2)),
+            ];
+        }
+    }
+
+    return $found;
+}
+
+/**
+ * Vendor routes that carry the vendor's own throttle, each with why it is not ours to name.
+ *
+ * @return list<string>
+ */
+function vendorThrottlesNotOursToName(): array
+{
+    return [
+        // Livewire's temporary-upload endpoint ships `throttle:60,1` from its own config
+        // (`livewire.temporary_file_upload.middleware`). There is no `config/livewire.php`, and
+        // publishing one to change this key would blank the rest of that block — package config
+        // merges shallowly. With every throttle of ours named it is the one unnamed counter left, so
+        // it no longer shares with anything this app sizes.
+        'Livewire\Features\SupportFileUploads\FileUploadController@handle',
+    ];
+}
+
+it('finds the throttles it judges — a sweep over nothing would pass everything', function () {
+    $counters = collect(throttleCountersInTheRouteTable())->pluck('counter')->filter()->unique();
+
+    expect($counters->count())->toBeGreaterThanOrEqual(8,
+        'Fewer named counters than this app declares — has the route table stopped loading, or did a group lose its throttle?');
+});
+
+it('names a counter on every throttle in the app', function () {
+    $unnamed = collect(throttleCountersInTheRouteTable())
+        ->reject(fn (array $throttle) => in_array($throttle['action'], vendorThrottlesNotOursToName(), true))
+        ->whereNull('counter')
+        ->pluck('route')
+        ->unique()
+        ->values()
+        ->all();
+
+    expect($unnamed)->toBe([],
+        "These throttles name no counter, so each shares one per IP with every other unnamed throttle:\n  - "
+        .implode("\n  - ", $unnamed)
+        ."\n\nGive the middleware its third parameter — `throttle:5,1,api-login` — and add the name below.");
+});
+
+it('keeps one limit per counter — two ceilings on one counter each spend the other\'s', function () {
+    $mixed = collect(throttleCountersInTheRouteTable())
+        ->whereNotNull('counter')
+        ->groupBy('counter')
+        ->filter(fn ($throttles) => $throttles->pluck('limit')->unique()->count() > 1)
+        ->map(fn ($throttles, $counter) => $counter.': '.$throttles->pluck('limit')->unique()->implode(' and '))
+        ->values()
+        ->all();
+
+    expect($mixed)->toBe([], "These counters carry more than one limit:\n  - ".implode("\n  - ", $mixed));
+});
+
+it('holds exactly the counters this app has decided on — a new budget is a decision made here', function () {
+    $counters = collect(throttleCountersInTheRouteTable())
+        ->reject(fn (array $throttle) => in_array($throttle['action'], vendorThrottlesNotOursToName(), true))
+        ->pluck('counter')
+        ->filter()
+        ->unique()
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($counters)->toBe([
+        'api-click',    // POST /api/v1/public/…/click — the one public WRITE
+        'api-login',    // POST /api/v1/auth/login
+        'api-me',       // every authenticated /api/v1 route, keyed on the person
+        'api-password', // forgot + reset — one flow, one counter
+        'api-public',   // the shopper feed's reads
+        'health',       // GET /health
+        'pay',          // GET /pay/{token}, /start, /status
+        'pay-demo',     // POST /pay/{token}/demo — the one /pay route that writes money
+    ]);
+});
+
+it('allowlists only vendor throttles that still exist — a stale entry is a guard that guards nothing', function () {
+    $actions = collect(throttleCountersInTheRouteTable())->pluck('action')->unique();
+
+    foreach (vendorThrottlesNotOursToName() as $action) {
+        expect($actions->contains($action))->toBeTrue("{$action} no longer carries a throttle — drop it from the allowlist.");
+    }
+});

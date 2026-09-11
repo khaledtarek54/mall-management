@@ -775,5 +775,12 @@
     "path": "app/Filament/Admin/Widgets/EnergyConsumptionTrend.php",
     "old": "            'locale' => 'en',\n",
     "new": ""
+  },
+  {
+    "name": "NoTwoThrottlesShareACounter — the sign-in's throttle loses its counter",
+    "gate": "tests/Feature/Scenarios/NoTwoThrottlesShareACounterConformanceTest.php",
+    "path": "routes/api.php",
+    "old": "Route::middleware('throttle:5,1,api-login')",
+    "new": "Route::middleware('throttle:5,1')"
   }
 ]

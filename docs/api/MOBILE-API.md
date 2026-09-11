@@ -212,11 +212,20 @@ additionally carry an `errors` map (camelCase field → messages):
 
 ### Rate limits
 
-| Scope | Limit |
-|---|---|
-| `POST /auth/login` | 5 / minute / (email+IP) |
-| `POST /auth/forgot-password`, `POST /auth/reset-password` | 3 / minute |
-| All authenticated routes | 60 / minute / tenant |
+**Each row is its own counter** (since 2026-09-11). Before that, every unauthenticated route spent
+ONE counter per IP address, each measuring it against its own limit — so five screens of the visitor
+feed left the next sign-in a `429`, and behind one shared network (a mall's Wi-Fi) one person's
+browsing could block another's first sign-in. An unauthenticated limit is counted per IP address,
+which is still shared by everyone behind one NAT: on the mall's Wi-Fi, five sign-ins a minute is
+five for the whole building.
+
+| Scope | Limit | Counted per |
+|---|---|---|
+| `POST /auth/login` | 5 / minute | IP address |
+| `POST /auth/forgot-password`, `POST /auth/reset-password` | 3 / minute, for the two together | IP address |
+| `GET /public/…` (the visitor feed) | 120 / minute | IP address |
+| `POST /public/…/click` | 30 / minute | IP address |
+| All authenticated routes | 60 / minute | signed-in login — each person, not the company |
 
 ---
 

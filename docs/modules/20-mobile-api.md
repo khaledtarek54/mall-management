@@ -19,7 +19,7 @@ The API powers:
 
 > The full endpoint reference (request/response shapes) lives in [`docs/api/MOBILE-API.md`](../api/MOBILE-API.md).
 
-All routes are versioned under `/api/v1` and are protected by the `auth:tenant-api` Sanctum guard (except public endpoints: login, forgot/reset password). Responses follow a standard JSON envelope: `{ data, message?, meta?, links? }`. Validation errors return 422. Rate limiting is enforced: login 5/min, password reset 3/min, authenticated endpoints 60/min.
+All routes are versioned under `/api/v1` and are protected by the `auth:tenant-api` Sanctum guard (except public endpoints: login, forgot/reset password). Responses follow a standard JSON envelope: `{ data, message?, meta?, links? }`. Validation errors return 422. Rate limiting is enforced, each on a counter of its own: login 5/min, password reset 3/min, authenticated endpoints 60/min.
 
 > **`/api/v1/public/*` is the one exception, and it is a different kind of surface.** Added by
 > [module 36](36-marketing-posts.md), it serves the **visitor** app — shoppers with no account, by
@@ -197,9 +197,14 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - Balance endpoint returns: `outstanding`, `overdue` (sum of past-due portions), `open_count` (invoices with balance > 0).
 
 **Rate Limiting:**
-- Login: 5 requests per 1 minute.
-- Password reset: 3 requests per 1 minute.
-- All authenticated endpoints: 60 requests per 1 minute (configurable via `throttle:60,1` middleware).
+- Login: 5 requests per 1 minute, per IP.
+- Password reset: 3 requests per 1 minute, per IP, for forgot + reset together.
+- The visitor feed: 120 reads and 30 clicks per 1 minute, per IP.
+- All authenticated endpoints: 60 requests per 1 minute, per signed-in login (`throttle:60,1,api-me`).
+- **Each is its own counter** — the third parameter names it. Until 2026-09-11 none was named, and an
+  unnamed throttle keys a guest on the IP alone, so every unauthenticated route spent ONE counter:
+  five screens of the feed left the next sign-in a 429 (mobile §L L1).
+  `NoTwoThrottlesShareACounterConformanceTest` fails on a throttle that names no counter.
 - Throttled requests return 429.
 
 ## 4. Lifecycle / state machine
@@ -345,7 +350,7 @@ However, **key validation & business logic** is shared via:
 
 **Adding a new authenticated endpoint:**
 
-1. Define the route in `routes/api.php` under the `auth:tenant-api, throttle:60,1` middleware group.
+1. Define the route in `routes/api.php` under the `auth:tenant-api, throttle:60,1,api-me` middleware group.
 2. Create a controller in `app/Http/Controllers/Api/V1/{Feature}/` extending `ApiController`.
 3. Scope queries to the authenticated tenant: `$request->user()->invoices()->...` (never `Invoice::where(...)`).
 4. Return data via a Resource class (in `app/Http/Resources/Api/V1/`) for consistent casing/structure.
@@ -383,14 +388,23 @@ However, **key validation & business logic** is shared via:
 
 **Modifying rate limiting:**
 
-1. Rate limits are defined in routes/api.php as middleware parameters: `throttle:5,1` (5/minute), `throttle:60,1` (60/minute).
+1. Rate limits are defined in routes/api.php as middleware parameters: `throttle:5,1,api-login` (5/minute on the
+   `api-login` counter), `throttle:60,1,api-me` (60/minute). **The third parameter is not optional here** — it
+   names the counter, and without it Laravel keys a guest on the IP alone, so the route silently shares one
+   budget with every other unnamed throttle in the app (`routes/web.php` included).
 2. To change limits:
    - Update the throttle value in the route definition.
    - Document the new limit in comments.
    - No config file or database table change needed (middleware reads the route definition).
-3. To add per-tenant rate limiting (e.g., premium tenants get 120/minute):
-   - Implement a custom middleware that reads tenant metadata and applies a dynamic limit.
-   - Use `Rate::hit()` / `Rate::reset()` from Illuminate\Support\Facades\RateLimiter.
+3. To add a new throttled group: give it a counter of its own and add the name to
+   `NoTwoThrottlesShareACounterConformanceTest`, which fails until you do. Reusing an existing counter is
+   allowed and means the two groups share one budget — say so beside the route.
+4. To add per-tenant rate limiting (e.g., premium tenants get 120/minute):
+   - Register a named limiter with `RateLimiter::for()` (`Illuminate\Support\Facades\RateLimiter`) and use it as
+     `throttle:<name>`; its name keys the counter.
+   - Do NOT give the `Limit` a `->response()`: it throws from middleware, and the API's catch-all renderer turns
+     that into a 500. And register it before the route is hit — an unregistered name makes the middleware throw
+     `MissingRateLimiterException`, which is a 500 on every request to that route.
    - Add tests to verify the limit is applied correctly.
 
 **Adding a new payment gateway (e.g., Stripe, PayPal):**

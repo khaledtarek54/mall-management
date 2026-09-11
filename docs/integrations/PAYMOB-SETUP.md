@@ -263,5 +263,5 @@ dev. Quick summary for operators:
   of truth for the `paid` status. The mobile client refreshes the invoice
   after the payment UI dismisses; it never trusts the SDK's local result.
 - Rate limit: the authenticated API surface's 60 requests per minute per
-  tenant token (the session endpoint has no tighter limit of its own — the
+  signed-in login (the session endpoint has no tighter limit of its own — the
   45-minute reuse window is what stops repeat taps burning Paymob orders).

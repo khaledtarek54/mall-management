@@ -644,7 +644,8 @@ Authorization: Bearer <sanctum token>
 Accept: application/json
 ```
 
-Middleware: `auth:tenant-api` → `EnsureTenantActive` → `throttle:60,1`.
+Middleware: `auth:tenant-api` → `EnsureTenantActive` → `EnsurePortalAdminForWrites` →
+`throttle:60,1,api-me`. Starting a payment is a write, so a read-only login gets **403** here.
 No request body. `{invoice}` is numeric-constrained.
 
 ### Guards, in order
