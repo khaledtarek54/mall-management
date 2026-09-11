@@ -105,8 +105,10 @@ money events, in EGP, with Egyptian tax treatment and bilingual books.
 
 Three clusters, and none of them is the money core:
 
-1. **Lease-document lifecycle** — no generation, no template merge, no e-signature, no clause
-   abstract. Leases only *hold* an uploaded PDF. Re-Leased owns this workflow.
+1. **Lease-document lifecycle** — **generation shipped 2026-09-05** (`LeaseAgreementPdfService`,
+   §3 row O1); still no template merge, no e-signature, no clause abstract. Re-Leased owns the rest
+   of this workflow. *(This line read "no generation" for six days after it had shipped — the row
+   below it was updated and the headline was not.)*
 2. **The field and vendor edge** — no technician mobile app, no vendor self-service surface, no
    in-house labour cost on a work order, no reliability analytics. The CMMS specialists are
    mobile-first here.
@@ -149,7 +151,7 @@ a pivot column, a migration and a backfill.
 
 | # | Gap | Module | Benchmark | Sev | Effort |
 |---|---|---|---|---|---|
-| O1 | **Lease document generation + e-signature** — a lease only holds an uploaded PDF; nothing generates or signs one. A daily workflow for an operator onboarding continuously | 04 | Re-Leased, Yardi Smart Lease | 🟡 | M–L |
+| O1 | **Lease document generation + e-signature** — generation shipped 2026-09-05 (`LeaseAgreementPdfService`); what remains is the template merge and e-signature. A daily workflow for an operator onboarding continuously | 04 | Re-Leased, Yardi Smart Lease | 🟡 | M–L |
 | ~~O2~~ | ✅ **CLOSED 2026-08-28.** `/vendor` ships the whole loop: a `VendorContact` signs in, sees only jobs dispatched to them, and **accepts · updates · evidences · quotes**; a dispatch bells them. Accept is the substance — it turns `acknowledged_at` from *when a coordinator updated a column* into *when the contractor agreed*, which is what the response SLA was always supposed to mean. **Deliberately NOT included:** marking a job done (a contractor saying "finished" is a claim; the operator's completion is a decision) and invoicing. [modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md) | 12 | ServiceChannel | ✅ | — |
 | O4 | **Fit-out permit: conditions on the grant** — the decision ships (approve/reject with a mandatory reason, recorded); what is missing is *what was granted* — permitted hours, a security deposit, contractor details, and an audit trail of the permit itself rather than of the request carrying it | 11 | ServiceChannel compliance | 🟡 | M |
 | O7 | **Capex bid / quote comparison** — one vendor per request, no tender, no "three quotes compared" on tier-3 spend. A governance gap owners ask about | 29 | Maximo · Odoo Enterprise | 🟡 | M |

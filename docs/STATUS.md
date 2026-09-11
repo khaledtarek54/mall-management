@@ -383,6 +383,15 @@ In order, and nothing here is blocked on us:
 
 Everything else in §2 and §3 can follow, and §4 needs nothing but a nod.
 
+**And one list that is not yet a status: the client's 2 September meeting** — twenty-five asks
+(lease activation gated on money received, a debit/credit/balance statement of account, a four-column
+trial balance, the fixed-asset register, per-charge escalation, utility cut-off on arrears…). Each is
+worked through against Yardi and the market, with what already exists and a recommendation, in
+[requirements/CLIENT-FRD-NOTES.md §6](requirements/CLIENT-FRD-NOTES.md#6-meeting-2026-09-02--decisions-yardi--market--what-exists--recommendation).
+**Nothing there is decided yet** — three of the twenty-five are already built, one is a correctness
+defect (the month trial balance has no opening balance), and five go back to the client as
+questions of meaning. Decided points move here as rows; built ones close into §8.
+
 ### 9.1 · The accountant's sitting
 
 **Twenty of the rows above are the accountant's, and they are not twenty conversations.** Taken in
