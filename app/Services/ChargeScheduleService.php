@@ -152,15 +152,35 @@ class ChargeScheduleService
      * an unchanged amount, so it writes the levy rungs and nothing else. No rent rung changes id,
      * and no relief window is walked over for a change that could not have moved it.
      *
+     * `redateFrom` is the COMMENCEMENT the lease had before this save (Trello 7IgLPLGl): every
+     * active row that started on it — the seeded rent and service charge, the levy's base row,
+     * anything `openFirstRow()` dated to the commencement — now starts on the new one. After the
+     * prune, so a base row the projection had closed at the first rung's eve is open again and
+     * cannot be asked to end before it starts; before the walk, so the walk closes it at the
+     * moved first anniversary. Only the rows CREATION anchors there move — `seed`, `levy`,
+     * `renewal` — because on a lease commencing on the 1st every writer snaps to the 1st too, so
+     * a bay assigned that month, a CAM estimate, a relief segment or a manual charge shares the
+     * date without being about it; moving those would re-date a holding whose register row does
+     * not move. A moved row that would now END before it starts (the levy base row a later
+     * re-rate had closed at last month's eve, on a lease moved past it) covers nothing under the
+     * new term and is deactivated rather than refused in a charge's vocabulary.
+     *
+     * `projectUntil` bounds the walk short of the lease's own expiry — a termination or a
+     * close-out moved the expiry and the tenancy ENDS there, it does not step (see the hook).
+     *
      * One transaction either way. The hook already runs inside the save's own, but this is also
      * the on-demand repair from a console, and a refusal from `Charge::saving` half-way through
      * the projection would otherwise leave a ladder pruned with nothing projected in its place.
      *
      * @return int rungs written by the re-projection
      */
-    public function retrueProjectedLadder(Lease $lease, bool $clause = true): int
-    {
-        return DB::transaction(function () use ($lease, $clause): int {
+    public function retrueProjectedLadder(
+        Lease $lease,
+        bool $clause = true,
+        ?CarbonImmutable $redateFrom = null,
+        ?CarbonImmutable $projectUntil = null,
+    ): int {
+        return DB::transaction(function () use ($lease, $clause, $redateFrom, $projectUntil): int {
             $today = CarbonImmutable::now()->startOfDay();
 
             if ($clause) {
@@ -174,13 +194,17 @@ class ChargeScheduleService
                 $this->pruneProjectedLadder($lease, 'marketing', $today, Charge::ORIGIN_LEVY);
             }
 
+            if ($redateFrom !== null && $lease->commencement_date !== null) {
+                $this->redateRowsAnchoredOn($lease, $redateFrom, CarbonImmutable::instance($lease->commencement_date));
+            }
+
             if (! $lease->escalatesContractually()) {
                 return 0;
             }
 
             // `fresh()`, as every other caller passes: the projection reads the schedule it is
             // writing into, and must see the rows the prune just closed.
-            return $this->projectTermEscalations($lease->fresh());
+            return $this->projectTermEscalations($lease->fresh(), $projectUntil);
         });
     }
 
@@ -219,7 +243,7 @@ class ChargeScheduleService
      *
      * @return int rows created (rent + levy)
      */
-    public function projectTermEscalations(Lease $lease): int
+    public function projectTermEscalations(Lease $lease, ?CarbonImmutable $until = null): int
     {
         // Read the type as a plain string: `escalation_type` was created as a DB-level
         // enum('none','fixed_percent','cpi') in 2024, and static analysis still derives the
@@ -239,7 +263,11 @@ class ChargeScheduleService
 
         $rate = (float) $lease->escalation_rate;
         $step = round((float) $lease->escalation_amount, 2);
+        // `$until` is the CONTRACTED end when the lease's own expiry has been moved by an act that
+        // ends the tenancy rather than extending it (see `Lease::updated`) — the walk stops at the
+        // earlier of the two, so a termination date past the old expiry mints nothing.
         $expiry = CarbonImmutable::instance($lease->expiry_date);
+        $expiry = $until !== null ? $expiry->min($until) : $expiry;
         $rent = (float) $lease->base_rent_monthly;
 
         // Anchor on the lease's OWN next anniversary, not on commencement + N.
@@ -832,6 +860,42 @@ class ChargeScheduleService
             Charge::query()->where(...self::keyFor($lease))->where('type', $type)->get(),
             $on,
         );
+    }
+
+    /**
+     * Move every active row that starts ON one date to another — the commencement half of a
+     * term edit. Through the model, one row at a time, so `Charge::saving`'s own guards (an
+     * inverted range, an overlap) still stand between a bad move and the schedule.
+     *
+     * @return int rows moved
+     */
+    private function redateRowsAnchoredOn(BillableAgreement $lease, CarbonImmutable $from, CarbonImmutable $to): int
+    {
+        if ($from->equalTo($to)) {
+            return 0;
+        }
+
+        $rows = Charge::query()
+            ->where(...self::keyFor($lease))
+            ->where('is_active', true)
+            ->whereIn('origin', [Charge::ORIGIN_SEED, Charge::ORIGIN_LEVY, Charge::ORIGIN_RENEWAL])
+            ->whereNotNull('start_date')
+            ->get()
+            // Compared in PHP on the cast date, so the driver's stored text (full datetime on
+            // SQLite, a bare date on MySQL — the prune's `whereIn` trap) never decides it.
+            ->filter(fn (Charge $c) => CarbonImmutable::instance($c->start_date)->equalTo($from));
+
+        foreach ($rows as $row) {
+            if ($row->end_date !== null && CarbonImmutable::instance($row->end_date)->lessThan($to)) {
+                $row->update(['is_active' => false]);
+
+                continue;
+            }
+
+            $row->update(['start_date' => $to->toDateString()]);
+        }
+
+        return $rows->count();
     }
 
     /**

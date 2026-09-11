@@ -215,6 +215,22 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 $lease->next_escalation_date = $next->format('Y-m-d');
             }
 
+            // ── THE POINTER FOLLOWS THE COMMENCEMENT TOO (2026-09-11, Trello 7IgLPLGl) ────
+            //
+            // The first anniversary is one interval after commencement, and it was armed once, at
+            // creation. Move the commencement on an un-invoiced lease and the pointer — and the
+            // ladder projected from it — stayed on the old date. Nothing has been billed (an
+            // invoiced lease refuses the move below), so the first anniversary is simply re-armed
+            // from the date the term now starts on.
+            if ($lease->exists
+                && $lease->escalatesContractually()
+                && $lease->isDirty('commencement_date')
+                && $lease->commencement_date !== null) {
+                $lease->next_escalation_date = $lease
+                    ->escalationDateAfter(CarbonImmutable::parse($lease->commencement_date))
+                    ->format('Y-m-d');
+            }
+
             if ($lease->escalatesContractually()
                 && $lease->next_escalation_date === null
                 && $lease->commencement_date !== null) {
@@ -262,20 +278,63 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // back-dated row at the stepped amount. And the levy's own edit re-trues ONLY the levy
         // rungs: `setAmount()` no-ops on an unchanged amount, so re-projecting over an intact
         // rent ladder writes nothing for rent — no churn, and no walk over a relief.
+        //
+        // AND THE TERM IS THE LADDER'S BOUNDS (2026-09-11, Trello 7IgLPLGl, one door over from
+        // the two cards above): the seeded rows start ON the commencement, the anniversaries are
+        // counted FROM it, and the walk stops AT the expiry — so a commencement or expiry edit is
+        // a ladder edit. The tester moved the commencement from the 10th to the 12th on an
+        // un-invoiced lease and the schedule went on starting on the 10th. A commencement move
+        // re-dates the rows anchored on the old date (`redateFrom`) before the walk; an expiry
+        // move prunes past the new end or projects up to it. Only an UN-INVOICED lease gets here
+        // for the commencement (the `saving` guard above refuses the rest); an invoiced lease's
+        // expiry still moves — through the acts that own it, which re-true through this hook.
         static::updated(function (self $lease) {
             $levyMoved = $lease->wasChanged(self::LEVY_TERMS);
             $clauseMoved = $lease->wasChanged(array_values(array_diff(self::LADDER_TERMS, self::LEVY_TERMS)));
+            $boundsMoved = $lease->wasChanged(self::LADDER_BOUNDS);
 
-            if (! $levyMoved && ! $clauseMoved) {
+            if (! $levyMoved && ! $clauseMoved && ! $boundsMoved) {
                 return;
             }
 
-            DB::transaction(function () use ($lease, $levyMoved, $clauseMoved) {
+            // An expiry move is a FURTHER TERM only when a LIVE term is lengthened. A shortened
+            // one is an early termination and an ended term "lengthened" is a close-out or an
+            // overstay terminated on a date — and in both the tenancy ends, it does not step:
+            // `LeaseTerminationService` writes the termination date onto `expiry_date`, and
+            // measured, closing out an expired term on 15 October let the walk mint the
+            // anniversary the term never reached (the 1st of the expiry month, 1,331 over 1,210)
+            // and the final bill read it. `ConvertLeaseToHoldoverService` states the rule the
+            // other way round: "a projected escalation the lease never reached must not become
+            // the basis". So the walk is bounded at the CONTRACTED expiry there — the earlier of
+            // the two — and only an extension (its service projects the further years itself,
+            // as it always has) runs unbounded.
+            $projectUntil = null;
+
+            if ($lease->wasChanged('expiry_date')
+                && $lease->getOriginal('expiry_date') !== null
+                && $lease->expiry_date !== null) {
+                $old = CarbonImmutable::parse($lease->getOriginal('expiry_date'))->startOfDay();
+                $new = CarbonImmutable::instance($lease->expiry_date)->startOfDay();
+                $furtherTerm = $new->greaterThan($old)
+                    && $old->greaterThanOrEqualTo(CarbonImmutable::today())
+                    && ! in_array($lease->status, self::TERMINAL_STATUSES, true);
+
+                $projectUntil = $furtherTerm ? null : $old->min($new);
+            }
+
+            DB::transaction(function () use ($lease, $levyMoved, $clauseMoved, $boundsMoved, $projectUntil) {
                 if ($levyMoved) {
                     app(MarketingLevyService::class)->createLevyCharge($lease);
                 }
 
-                app(ChargeScheduleService::class)->retrueProjectedLadder($lease, clause: $clauseMoved);
+                app(ChargeScheduleService::class)->retrueProjectedLadder(
+                    $lease,
+                    clause: $clauseMoved || $boundsMoved,
+                    redateFrom: $lease->wasChanged('commencement_date') && $lease->getOriginal('commencement_date') !== null
+                        ? CarbonImmutable::parse($lease->getOriginal('commencement_date'))
+                        : null,
+                    projectUntil: $projectUntil,
+                );
             });
         });
 
@@ -366,6 +425,46 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // at handover — is legitimate and must stay recordable. The form keeps the stricter
         // `->after()` for NEW leases, where a zero-day term is nonsense: this layer carries the
         // invariant every writer must obey, the form adds the product rule for the create path.
+        // ── AN INVOICED LEASE DOES NOT MOVE ITS COMMENCEMENT (2026-09-11) ──────────────────
+        // The form has locked the field once the lease is invoiced since 2026-08-12, under a
+        // comment saying why: the commencement anchors the first billable month, the billing cycle
+        // and every charge row's start date, so moving it re-dates a schedule that issued documents
+        // were raised from. A disabled field is a rendering decision; the importer and every
+        // service reach the column without one. This is the gate. Expiry is deliberately NOT
+        // here — a termination, an extension and a close-out all move it, as acts of their own.
+        //
+        // AND A LEASE WHOSE RENT HAS ALREADY STEPPED (the review of this fix): the anniversaries
+        // are counted from the commencement, so once one has been reached — a rung has started,
+        // or the sweep has applied one — moving the commencement re-derives a step that already
+        // happened: measured, a draft lease a year old moved one month later kept its started
+        // 1,100 rung AND projected 1,210 from the new anniversary, one extra step for the rest of
+        // the term. `commencementLockedBecause()` is the ONE predicate the form's lock and this
+        // refusal read, so the two cannot drift.
+        static::saving(function (self $lease) {
+            if (! $lease->exists || ! $lease->isDirty('commencement_date')) {
+                return;
+            }
+
+            $because = $lease->commencementLockedBecause();
+
+            if ($because === null) {
+                return;
+            }
+
+            // A literal key per reason, never a composed one — a composed key is invisible to the
+            // translation gate and falls to the raw string for a reason nobody registered.
+            $key = match ($because) {
+                'invoiced' => 'admin.refusals.lease_commencement_locked_after_invoicing',
+                'stepped' => 'admin.refusals.lease_commencement_locked_after_stepping',
+            };
+
+            throw new \DomainException(__($key, [
+                'reference' => $lease->reference,
+                'from' => Carbon::parse($lease->getOriginal('commencement_date'))->toDateString(),
+                'stepped' => $lease->firstSteppedOn()?->toDateString() ?? '—',
+            ]));
+        });
+
         static::saving(function (self $lease) {
             if ($lease->commencement_date === null || $lease->expiry_date === null) {
                 return;
@@ -1031,6 +1130,57 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'has_marketing_levy',
         'marketing_levy_rate',
     ];
+
+    /**
+     * The TERM columns the projected ladder is bounded by — its anchor and its end. Not in
+     * {@see LADDER_TERMS} because they are not the clause, and they ask one thing more of the
+     * re-true: a moved commencement re-dates the rows that start on the old one.
+     *
+     * @var list<string>
+     */
+    public const LADDER_BOUNDS = [
+        'commencement_date',
+        'expiry_date',
+    ];
+
+    /**
+     * Why the commencement may not move — `invoiced`, `stepped`, or null when it may.
+     *
+     * The ONE predicate behind the form's disabled field, its helper text and the model's refusal
+     * (`admin.refusals.lease_commencement_locked_after_{reason}`), so a door that renders no field
+     * is refused for exactly the reason the form shows. Invoiced first: it is the older lock
+     * (2026-08-12) and the stronger fact.
+     */
+    public function commencementLockedBecause(): ?string
+    {
+        if (! $this->exists) {
+            return null;
+        }
+
+        if ($this->invoices()->exists()) {
+            return 'invoiced';
+        }
+
+        return $this->firstSteppedOn() !== null ? 'stepped' : null;
+    }
+
+    /**
+     * The date the first contracted step was REACHED — a projected rung that has started, or the
+     * one the sweep wrote when it applied a step (both carry `ORIGIN_ESCALATION`). Null while
+     * every step is still ahead.
+     */
+    public function firstSteppedOn(): ?CarbonImmutable
+    {
+        $rung = $this->charges()
+            ->where('origin', Charge::ORIGIN_ESCALATION)
+            ->where('is_active', true)
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '<=', today()->toDateString())
+            ->orderBy('start_date')
+            ->first();
+
+        return $rung ? CarbonImmutable::instance($rung->start_date) : null;
+    }
 
 
     public function escalatesContractually(): bool

@@ -326,6 +326,13 @@ Measured or decided, not forgotten. Re-opening one should require new evidence.
 - **Deposit batches, bank feeds, multiple books, multi-currency, POS feeds, IoT/predictive
   maintenance** — declined breadth, per the Yardi and Odoo benchmarks.
 - **The straight-line rent engine ships OFF**, awaiting the accountant's ruling.
+- **A model refusal under an IMPORTER reaches nobody as a sentence** (found 2026-09-11 reviewing
+  the term-edit fix). Filament's `ImportCsv` catches a `DomainException` from a model hook with the
+  generic branch — the row is logged as failed with NO message and Sentry gets an error-level
+  report per row. Every `saving`/`updating` guard in the app has this shape under every importer;
+  the form and every service show the sentence. The fix is per importer (`afterValidate()` asking
+  the model's predicate) or one wrapper around Filament's job; neither is small, and the failed-row
+  file still names the row. Worth doing before a migrating operator's first real file.
 - **No technician mobile app** — technicians use the admin panel, so that role's UX in the panel is
   the requirement. *(The phone-column half of this was closed by UX5-05 on 2026-09-05, and the
   question as written here was wrong in both directions: the cost columns were already toggled off

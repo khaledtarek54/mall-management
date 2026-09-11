@@ -392,10 +392,18 @@ class LeaseForm
                             // month, the billing cycle and every charge row's start date, so moving
                             // it after billing has begun re-dates a schedule that issued documents
                             // were already raised from.
-                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
-                            ->helperText(fn (?Lease $record): ?string => self::isInvoiced($record)
-                                ? __('admin.helpers.locked_after_invoicing')
-                                : null)
+                            // `Lease::commencementLockedBecause()` is the predicate — the model's
+                            // refusal reads the same one, so a door that renders no field is refused
+                            // for exactly the reason shown here. Three states, three sentences: locked
+                            // (invoiced, or the rent has already stepped), a move that will re-date
+                            // the schedule (saved, still free — the consequence stated before it is
+                            // typed, Trello 7IgLPLGl), and nothing on create.
+                            ->disabled(fn (?Lease $record): bool => $record?->commencementLockedBecause() !== null)
+                            ->helperText(fn (?Lease $record): ?string => match ($record?->commencementLockedBecause()) {
+                                'invoiced' => __('admin.helpers.locked_after_invoicing'),
+                                'stepped' => __('admin.helpers.locked_after_stepping'),
+                                default => $record !== null ? __('admin.helpers.commencement_redates_schedule') : null,
+                            })
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveExpiry($get, $set)),
                         TextInput::make('term_months')

@@ -161,6 +161,9 @@ return [
         'unit_area_exceeds_property' => 'A unit of :area m² will not fit in :property, which states :leasable m² of leasable area in total. Correct the unit\'s area, or correct the property\'s leasable area if the building is bigger than recorded — a unit larger than the mall takes more than a 100% share of every recovery apportioned by area, and under-charges every other tenant.',
         'remeasure_no_change' => 'This unit already measures :area m² on that date, so there is nothing to record. Type the new measurement, or change the effective date if you are correcting an earlier one.',
         'password_unchanged' => 'That is already the current password. Type a different one, or leave the field blank to keep the existing password unchanged.',
+        // ── Added 2026-09-11 (tester's board) ──────────────────────────────────────────
+        'lease_commencement_locked_after_invoicing' => 'Lease :reference has been invoiced from a commencement of :from, so that date cannot move — its charge schedule is what those invoices were billed from. Correct the billed months with a credit note, or record the new term as an amendment.',
+        'lease_commencement_locked_after_stepping' => 'Lease :reference has already stepped its rent — the first contracted step was reached on :stepped, counted from a commencement of :from — so that date cannot move without re-deriving a step that has happened. Adjust the steps on the Charge schedule tab, or record the new term as an amendment.',
         'export_needs_an_identifier' => 'This export would not say which rows it is about — every column that names a record is switched off, so the file would be a column of values with nothing to attach them to. Tick at least one of: :columns.',
     ],
 ];

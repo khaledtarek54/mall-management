@@ -93,6 +93,14 @@ class LeaseExtensionService
             // construction: `setAmount()` writes only where the amount is not already in force, so
             // the steps already projected for the original term are recomputed to the same figures
             // and no-op, and only the new years produce rows.
+            //
+            // Since 2026-09-11 `Lease::updated` re-trues the ladder on the expiry move above as
+            // well (a lengthened LIVE term is an extension, so it projects unbounded), which
+            // re-mints the future rungs before this line runs — so this is now a no-op second
+            // pass, kept because it is the service's own statement of intent and the hook's
+            // "further term" reading (old expiry on or after today) is narrower than this
+            // service's: an extension recorded on a lease whose term has already run out is
+            // bounded by the hook and projected by this line.
             $this->schedule->projectTermEscalations($lease->fresh());
 
             return $lease->fresh();

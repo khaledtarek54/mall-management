@@ -64,7 +64,10 @@ it('carries escalation forward on renewal (renewed lease armed, not null)', func
     ]);
 
     expect($renewal->next_escalation_date?->toDateString())->toBe('2028-01-01') // renewal commencement + 1yr
-        ->and($lease->fresh()->status)->toBe('renewed');
+        // The original KEEPS RUNNING until its term ends (53e0819f, 2026-09-10) — this renewal is
+        // signed in September on a December expiry, and `renewed` would stop the last months
+        // billing. `leases:expire` writes `renewed` on the day; this read the pre-fix behaviour.
+        ->and($lease->fresh()->status)->toBe('active');
 });
 
 // ── Terminal leases are immutable ───────────────────────────────────────────────────────────

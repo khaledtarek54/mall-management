@@ -1390,6 +1390,51 @@
 > mutations each kill their own tooth, and the re-link's relief clause is recorded as
 > belt-and-braces — unreachable while the resumption is kept.)
 >
+> **AND THE TERM IS THE LADDER'S BOUNDS — one door over, the next day (2026-09-11, Trello
+> 7IgLPLGl, Critical).** The seeded rows start ON the commencement, the anniversaries are counted
+> FROM it and the walk stops AT the expiry, so a commencement or expiry edit is a ladder edit —
+> and the form had said so since 2026-08-12, in the comment that LOCKS both dates once the lease
+> is invoiced (*"the commencement anchors … every charge row's start date"*), while nothing
+> re-derived any of it on an edit: the tester moved the commencement from the 10th to the 12th on
+> an un-invoiced lease and the schedule went on starting on the 10th. `Lease::LADDER_BOUNDS` joins
+> the re-true trigger; a commencement move re-dates the rows CREATION anchored on the old date —
+> `seed` · `levy` · `renewal` (`retrueProjectedLadder(…, redateFrom:)` → `redateRowsAnchoredOn()`,
+> after the prune so a projection-closed base row is open again, before the walk so the walk
+> closes it at the moved first anniversary — through the model, row by row, so `Charge::saving`'s
+> guards stand; a moved row that would now end before it starts covers nothing under the new term
+> and is retired rather than refused in a charge's vocabulary) and re-arms the first anniversary
+> from the new commencement. **Only creation's rows, by ORIGIN, because on a lease commencing on
+> the 1st every writer snaps to the 1st** — a bay assigned that month, a CAM estimate, a relief
+> segment or a manual charge shares the date without being about it, and a bay's register row
+> would not move with it (the review's finding; the first cut moved anything on the date). An
+> expiry move prunes past the new end and projects up to a lengthened LIVE term; **an ended term
+> "lengthened" is a close-out and a shortened one an early termination, and in both the walk is
+> bounded at the CONTRACTED expiry** — `LeaseTerminationService` writes the termination date onto
+> `expiry_date`, and unbounded, closing out an expired term on 15 October minted the anniversary
+> on the 1st of the expiry month (1,331 over 1,210) for the final bill to read, the exact rule
+> `ConvertLeaseToHoldoverService` states the other way round (the review's second finding).
+> `LeaseExtensionService`'s own projection stays: it is the service's statement of intent, and it
+> covers the extension of a term that has already run out, which the hook reads as a close-out.
+> **And the form's lock is a GATE now, with TWO reasons behind ONE predicate**:
+> `Lease::commencementLockedBecause()` answers `invoiced` (the older lock) or `stepped` — a
+> contracted step already reached, since the anniversaries are counted from the commencement and
+> moving it re-derives a step that happened (measured: a year-old draft moved a month later kept
+> its started 1,100 rung AND projected 1,210 from the new anniversary) — and the form's disabled
+> field, its helper and the model's refusal (`admin.refusals.lease_commencement_locked_after_{reason}`,
+> both languages, naming the way out) all read it, so a service that renders no field is refused
+> for exactly the reason the form shows. Under the importer the row FAILS without the sentence —
+> Filament's `ImportCsv` logs a failed row and not the message, a pre-existing shape for every
+> model refusal under every importer, and an open item. The expiry is deliberately not guarded,
+> because three acts move it. Voyager treats a start-date change once charges have posted as an
+> amendment rather than an edit — the same line in the same place. The field says what a move
+> does before it is made (`admin.helpers.commencement_redates_schedule`).
+> (`ALeaseTermEditRedatesItsScheduleTest` — eleven cases: the tester's exact steps through the real
+> page, a move to another month, a row with its own date and one that merely shares the date, a
+> shortened and a lengthened expiry, the invoiced refusal with its expiry control, the stepped
+> refusal with its fresh-lease control, a close-out past the expiry, an early termination keeping
+> its coming step, a levy-closed base row moved past its end, and the wording in both languages;
+> nine mutations each kill their own tooth.)
+>
 > **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
 > `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to
 > write); it anchors on each lease's own `next_escalation_date`, so a mid-term lease gets its steps
@@ -2250,7 +2295,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `show_occupied_units` (Toggle, live, dehydrated=false) — toggles unit dropdown visibility.
 
 2. **Term** (3 cols)
-   - `commencement_date` (DatePicker, required).
+   - `commencement_date` (DatePicker, required). Disabled once the lease is invoiced (the model refuses the move too, 2026-09-11); on a saved un-invoiced lease its helper says a move re-dates the charge rows anchored on the old date and re-projects the steps — which `Lease::updated` then does.
    - `term_months` (TextInput, numeric, 1–120, default 36).
    - `expiry_date` (DatePicker, required).
 
