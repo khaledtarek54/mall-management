@@ -153,7 +153,9 @@ Every key is **camelCase**. Every money value is a JSON number that is an **`int
 ```jsonc
 // GET /me                                          ← profile screen
 { id, code, name, legalName, type, email, phone, whatsapp,
-  contactPerson, contactPersonPhone, address, status, taxId, logoUrl, locale }
+  contactPerson, contactPersonPhone, address, status, taxId, logoUrl, locale,
+  user:{name, email, isAdmin} }                     // the PERSON signed in (2026-09-11); isAdmin false =
+                                                    // read-only: hide the writes. Not a `role`.
 
 // GET /me/summary                                  ← the WHOLE home screen, one call
 { outstanding, overdue, openInvoices, creditAvailable, creditOnAccount, isDelinquent,

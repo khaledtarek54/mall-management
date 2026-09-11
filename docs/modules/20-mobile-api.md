@@ -315,7 +315,7 @@ However, **key validation & business logic** is shared via:
   - `CreateSalesDeclarationRequest`: lease_id, period_start, period_end, attachments (required 1–5 image/PDF files). No `declared_sales` — staff enter it later.
 
 - **Resources** (in `app/Http/Resources/Api/V1/*`): Format response data.
-  - `TenantResource`: id, name, legal_name, type, email, phone, whatsapp, contact_person, status, tax_id (re-exposed for ETA).
+  - `TenantResource`: id, name, legal_name, type, email, phone, whatsapp, contact_person, status, tax_id (re-exposed for ETA); and since 2026-09-11 `user` — the PERSON signed in (`name`, `email`, `is_admin`), nested and read-only.
   - `InvoiceResource`: id, number, status, issue_date, due_date, period_start, period_end, subtotal, vat_amount, total, paid_amount, balance, currency, is_overdue, days_overdue, eta_status, eta_submission_id, items (when eager-loaded), lease (when eager-loaded).
   - `PaymentResource`: id, reference, amount, method, status, payment_date, allocations (pivot data with invoice numbers + amounts).
   - `TenantRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs — the tenant's own intake files) and, since 2026-09-10 (SW-249), `resolution_evidence` (the operator's proof of the fix, SW-246's collection) in the same shape; both stream through `GET /me/requests/{id}/attachments/{media}`, which serves the two tenant-visible collections. The `can_*` flags describe the REQUEST, never the person: `can_cancel` (before work starts), `can_rate` (`RATEABLE`), `can_confirm` (`CONFIRMABLE` — gates confirm AND dispute), and since 2026-09-11 `can_comment` (`! isTerminal()`, the predicate `comment()` refuses on — a resolved request still takes a reply).
@@ -513,15 +513,15 @@ builds. Consequences:
 
 - The app models an owner-vs-staff Home split and reads `TenantResource.role` to pick it. The server
   sends no `role`, so the app decodes null and `homeVariantFor(null)` falls back to the full owner
-  Home — and it does not send whether this person may write either, so a read-only login is offered
-  every button and learns on the tap (`403`, `read_only`).
+  Home. Whether this person may write IS sent, since 2026-09-11: `user: { name, email, isAdmin }` on
+  `TenantResource`, nested so it cannot read as a fact about the company and cast explicitly for
+  Scramble — so the app can hide a write rather than let a read-only login learn on the tap.
 - The staff Home layout is therefore unreachable against a real backend — it is exercised only by
   the in-app mock. A dev-only banner ("Role unknown — the full home is shown") makes that visible
   in non-production builds rather than letting it read as a bug.
-- **Publishing either is a product decision now, no longer an impossibility.** The person is known;
-  what `/me` should say about them — whether they may write, and separately which Home they get — is
-  the operator's call. `role` should not be faked from `is_admin`: "may act for the company" and
-  "which layout" are different questions.
+- **`role` is still a product decision, no longer an impossibility.** The person is known, and whether
+  they may write is now published; which Home they get is the operator's call. `role` should not be
+  faked from `is_admin`: "may act for the company" and "which layout" are different questions.
 
 **`/me/balance` and `/me/notifications/unread-count` exist but the app calls neither, on purpose.**
 `outstanding` and `unreadNotifications` both arrive on `/me/summary`, which Home loads anyway, and

@@ -57,6 +57,16 @@ class TenantResource extends JsonResource
             // `documents`, which shares the model and stays private. Null → the
             // client falls back to initials.
             'logo_url' => $this->logoUrl(),
+            // **The PERSON signed in** — every other key describes the company, which is why this is nested
+            // rather than a bare `isAdmin` that would read as "the company is an admin". Read-only, so it
+            // sits outside this resource's PATCH-gives-back-what-it-takes rule. `is_admin` false is a
+            // read-only login: the API refuses its writes, so hide them rather than let them fail. It
+            // describes that gate and never replaces it (mobile §L L9).
+            'user' => [
+                'name' => (string) $request->user()?->name,
+                'email' => (string) $request->user()?->email,
+                'is_admin' => (bool) $request->user()?->is_admin,
+            ],
         ];
     }
 }

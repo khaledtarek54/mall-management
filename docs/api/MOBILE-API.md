@@ -3,7 +3,7 @@
 > Tenant-facing REST API for the Atriom mall-management mobile app.
 > Base URL: `https://<host>/api/v1`
 > Auth: Bearer tokens (Laravel Sanctum), `tenant_users` provider — a person's login, since 2026-09-05.
-> Last updated: 2026-09-11 — **additive only; nothing here requires an app release.** Each rate limit is its own counter (browsing the visitor feed no longer spends the sign-in's), and the rate limiter's `429` now carries `Retry-After` and speaks the `Accept-Language` language (the password reset's own per-address `429` still carries neither). The two `403`s carry a stable `error` — `tenant_inactive` (company blocked; token destroyed) vs `read_only` (read-only login; session fine). New: `isEstimate` on a sales declaration, `canComment` on a request. A request is filed against the shop it names, including one the party owns while leasing another. Corrected: tokens expire after 30 days; `written_off` and `voided` were missing from the status lists; `overdue` can exceed `outstanding`. *Previously, 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships.* *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
+> Last updated: 2026-09-11 — **additive only; nothing here requires an app release.** Each rate limit is its own counter (browsing the visitor feed no longer spends the sign-in's), and the rate limiter's `429` now carries `Retry-After` and speaks the `Accept-Language` language (the password reset's own per-address `429` still carries neither). The two `403`s carry a stable `error` — `tenant_inactive` (company blocked; token destroyed) vs `read_only` (read-only login; session fine). New: `isEstimate` on a sales declaration, `canComment` on a request, and `user { name, email, isAdmin }` on `/me` — the person signed in, so a read-only login's writes can be hidden rather than refused. A request is filed against the shop it names, including one the party owns while leasing another. Corrected: tokens expire after 30 days; `written_off` and `voided` were missing from the status lists; `overdue` can exceed `outstanding`. *Previously, 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships.* *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
 
 > ### 👉 The mobile developer starts at [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md)
 >
@@ -111,7 +111,8 @@ company email and password by migration, so nobody was signed out.
 may act for the company — pay, submit a request or a sales declaration, publish a marketing post,
 edit the profile. A read-only login reads everything and gets **403** with `"error": "read_only"` on
 a write (the `message` is the localised `auth.read_only` sentence — never branch on it), so the app
-should present those actions as unavailable rather than let them fail. **The session survives that
+should present those actions as unavailable rather than let them fail — read `user.isAdmin` on
+`GET /me` to know which login this is (§4.2). **The session survives that
 403** — unlike the blocked company's, which is coded `tenant_inactive` and has just destroyed the
 token (see §3). Acts that
 are the person's OWN — logout, changing their own password, registering or removing their own
@@ -314,9 +315,16 @@ password is weak.
   "email": "...", "phone": "...", "whatsapp": "...", "contactPerson": "...",
   "contactPersonPhone": "+20 100 555 0000", "address": "12 Corniche El Nil, Cairo",
   "status": "active", "taxId": "100-200-300",
-  "logoUrl": "https://…/storage/…/logo.png" } }
+  "logoUrl": "https://…/storage/…/logo.png",
+  "user": { "name": "Mona Adel", "email": "mona@acme.test", "isAdmin": false } } }
 ```
-**Whatever `PATCH /me` accepts, `GET /me` gives back.** `contactPersonPhone` and `address` were
+**`user` is the PERSON signed in** (since 2026-09-11); every other key is the company. `isAdmin`
+false means a read-only login — hide or disable the writes (pay, submit, declare, edit the profile)
+rather than let them fail with `403 read_only`. It describes the server's gate and never replaces
+it: the write is refused whatever the app shows. It is not a `role` — the owner-vs-staff Home layout
+reads a `role` this API still does not send.
+
+**Whatever `PATCH /me` accepts, `GET /me` gives back** — except `user`, which is read-only. `contactPersonPhone` and `address` were
 accepted and stored but never returned until 2026-08-15, which made them write-only — the tenant's
 own edit form could not show what it had just saved.
 

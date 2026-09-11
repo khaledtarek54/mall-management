@@ -6756,6 +6756,26 @@
                             "null"
                         ],
                         "description": "The store's brand mark, for the app's avatar. Safe to send as a\nplain URL: `logo` is the one PUBLIC-disk collection on this model\n(the shopper directory renders it unauthenticated), unlike\n`documents`, which shares the model and stays private. Null \u2192 the\nclient falls back to initials."
+                    },
+                    "user": {
+                        "type": "object",
+                        "description": "**The PERSON signed in** \u2014 every other key describes the company, which is why this is nested\nrather than a bare `isAdmin` that would read as \"the company is an admin\". Read-only, so it\nsits outside this resource's PATCH-gives-back-what-it-takes rule. `is_admin` false is a\nread-only login: the API refuses its writes, so hide them rather than let them fail. It\ndescribes that gate and never replaces it (mobile \u00a7L L9).",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "email": {
+                                "type": "string"
+                            },
+                            "isAdmin": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "email",
+                            "isAdmin"
+                        ]
                     }
                 },
                 "required": [
@@ -6773,7 +6793,8 @@
                     "status",
                     "locale",
                     "taxId",
-                    "logoUrl"
+                    "logoUrl",
+                    "user"
                 ],
                 "title": "TenantResource"
             },
