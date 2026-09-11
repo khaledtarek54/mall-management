@@ -80,8 +80,9 @@ final class RowActionPolicy
         'Admin/Resources/Leases/Tables/LeasesTable' => 'activate gates on leases.activate, which accounting holds beside leases.view and NOT '
             .'leases.edit (meeting 2026-09-02: leasing enters, accounting executes — Yardi\'s '
             .'entering-vs-posting split). The record page is reached through canEdit(), so on it '
-            .'the act would be unreachable by exactly the role whose job it is; the "Awaiting '
-            .'activation" tab plus this button is that role\'s worklist.',
+            .'ALONE the act would be unreachable by exactly the role whose job it is; the "Awaiting '
+            .'activation" tab plus this button is that role\'s worklist. The lease page composes the '
+            .'same definition (LeaseActions::activate()) for everyone who opens the record.',
         'Admin/Resources/Violations/Tables/ViolationTable' => 'billFine gates on invoices.create, which accounting holds while NOT holding '
             .'violations.edit: the role that raises AR can bill a fine today and would be refused '
             .'the violation record page. Cross-module gating, so it is invisible to any check that '
@@ -129,6 +130,26 @@ final class RowActionPolicy
         $reads = [];
 
         foreach (self::segments($source) as $segment) {
+            // A registry METHOD composed on the row — `LeaseActions::activate()` — is the third
+            // shape a row can carry an act in (2026-09-12), after an inline chain and a factory's
+            // `::make()`: one definition shared with the record page, so the closure lives in the
+            // registry's file. Read there, exactly as a factory is; a spread (`...X::all()`) is
+            // refused by the gate one rule over and is not resolved here.
+            if (! str_starts_with(ltrim($segment), '...')
+                && preg_match('/\b([A-Za-z]+Actions)::([a-zA-Z]+)\(\s*\)/', $segment, $r)) {
+                $declared = self::registryMethodDeclares($r[1], $r[2]);
+
+                if ($declared !== null) {
+                    if ($declared['acts']) {
+                        $verbs[] = $declared['name'];
+                    } else {
+                        $reads[] = $declared['name'];
+                    }
+                }
+
+                continue;
+            }
+
             if (! preg_match('/([A-Za-z]*)Action::make\(\s*(?:\'([a-zA-Z0-9_]+)\')?/', $segment, $m)) {
                 continue;
             }
@@ -215,6 +236,60 @@ final class RowActionPolicy
         // does it is flagged as a verb and gets an entry in IN_ROW_EXCEPTIONS, which is noisy and
         // safe rather than quiet and wrong.
         return $memo[$prefix] = str_contains(self::code($file), '->action(');
+    }
+
+    /**
+     * The one act a registry method declares, read from the registry's own file with comments
+     * stripped: its name (`Action::make('activate')`) and whether it acts (`->action(` in the
+     * method's body). Null when the method is not found or does not declare exactly ONE act —
+     * `all()`, `grouped()` — which a row must not compose anyway.
+     *
+     * @return array{name: string, acts: bool}|null
+     */
+    private static function registryMethodDeclares(string $registry, string $method): ?array
+    {
+        static $memo = [];
+
+        $key = "{$registry}::{$method}";
+
+        if (array_key_exists($key, $memo)) {
+            return $memo[$key];
+        }
+
+        $file = collect([app_path("Filament/Admin/Actions/{$registry}.php"), app_path("Filament/Actions/{$registry}.php")])
+            ->first(fn (string $path): bool => is_file($path));
+
+        if ($file === null) {
+            return $memo[$key] = null;
+        }
+
+        $code = self::code($file);
+
+        if (! preg_match('/function\s+'.preg_quote($method, '/').'\s*\([^)]*\)[^{]*\{/', $code, $m, PREG_OFFSET_CAPTURE)) {
+            return $memo[$key] = null;
+        }
+
+        // The balanced body after the method's opening brace.
+        $start = $m[0][1] + strlen($m[0][0]);
+        $depth = 1;
+        $end = $start;
+
+        for ($i = $start, $n = strlen($code); $i < $n && $depth > 0; $i++) {
+            $depth += match ($code[$i]) {
+                '{' => 1,
+                '}' => -1,
+                default => 0,
+            };
+            $end = $i;
+        }
+
+        $body = substr($code, $start, $end - $start);
+
+        if (preg_match_all('/\bAction::make\(\s*\'([a-zA-Z0-9_]+)\'/', $body, $acts) !== 1) {
+            return $memo[$key] = null;
+        }
+
+        return $memo[$key] = ['name' => $acts[1][0], 'acts' => str_contains($body, '->action(')];
     }
 
     /** A file's PHP with comments and docblocks removed — never grep prose for code. */

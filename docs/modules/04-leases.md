@@ -39,10 +39,19 @@
 > creation; lease→units order, SW-009c), writes `executedStatusFor()` (active, or `future` if the
 > commencement is ahead), clears `reserved_until`, records `TYPE_ACTIVATION`. **The act lives on the
 > ROW of the leases list** (registered in `RowActionPolicy::IN_ROW_EXCEPTIONS`): the record page is
-> reached through `canEdit()`, which accounting does not hold, so a header act would be unreachable
-> by exactly the role whose job it is — the *Awaiting activation* tab + the row button IS the
-> accountant's worklist (point 2), with the shortfall on the button before the click and the button
-> disabled until it is met. **The reservation**: `Lease::creating` stamps `reserved_until` = today +
+> reached through `canEdit()`, which accounting does not hold, so a header act ALONE would be
+> unreachable by exactly the role whose job it is — the *Awaiting activation* tab + the row button
+> IS the accountant's worklist (point 2), with the shortfall on the button before the click and the
+> button disabled until it is met. **And on the lease page's header too, from the ONE definition
+> (`LeaseActions::activate()`, 2026-09-12)** — a super admin opened an awaiting lease on a property
+> that gates activation, found no *Active* in the status dropdown and no button on the page, and
+> read it as "I cannot make the lease active"; the dropdown now SAYS why the value is withheld
+> (`admin.helpers.lease_activation_is_an_act`, from the same predicate that withholds it) and the
+> page carries the act standalone beside the grouped ones — deliberately not a member of
+> `LeaseActions::all()`, which `grouped()` renders whole, or one strip would render it twice.
+> `RowActionPolicy` reads a registry METHOD composed on a row now (the third shape after an inline
+> chain and a factory's `::make()`), or the leases row read as verb-less the moment its act was
+> shared and the exception that keeps it there was reported stale. **The reservation**: `Lease::creating` stamps `reserved_until` = today +
 > the property's days on every awaiting lease, whichever door entered it; `leases:expire` cancels
 > one past its day — `TYPE_CANCELLATION`, narrative `reservation_lapsed`, unit freed by the observer,
 > `ReservationLapsedNotification` to manager + leasing after commit — **unless** the property gates

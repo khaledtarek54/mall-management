@@ -2,13 +2,13 @@
 
 namespace App\Filament\Admin\Resources\Leases\Tables;
 
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\Leases\Schemas\LeaseForm;
 use App\Filament\Exports\LeaseExporter;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
-use App\Services\ActivateLeaseService;
 use App\Services\LeaseCreationService;
 use App\Support\BadgeColors;
 use App\Support\Exports;
@@ -576,49 +576,13 @@ class LeasesTable
                 // ── Activate (meeting 2026-09-02, points 1 and 2) ────────────────────────────
                 // ON THE ROW, deliberately, and registered as such in `RowActionPolicy`: the act is
                 // held by `accounting`, which holds `leases.view` and NOT `leases.edit`, so on the
-                // record page it would be unreachable by exactly the people whose job it is — the
-                // same reason `tenant_sales.lock` stays on its row. The "Awaiting activation" tab
-                // above plus this button IS the accountant's worklist. Visible and authorised on
-                // the same predicate; the SERVICE re-asks the money gate under a lock and adds the
-                // one check a button cannot show — that no other lease took the shop meanwhile —
-                // which it refuses in words if it fires.
-                Action::make('activate')
-                    ->label(__('admin.lease_activation.action'))
-                    ->icon('heroicon-o-check-badge')
-                    ->color('success')
-                    ->visible(fn (Lease $record): bool => LeaseActivation::isAwaiting($record)
-                        && (auth()->user()?->can('leases.activate') ?? false))
-                    ->authorize(fn (): bool => auth()->user()?->can('leases.activate') ?? false)
-                    ->requiresConfirmation()
-                    ->modalHeading(fn (Lease $record) => __('admin.lease_activation.modal_heading', ['ref' => $record->reference]))
-                    // What is still missing is said BEFORE the button, in figures — a refusal on
-                    // submit is the worse half of the same sentence.
-                    ->modalDescription(function (Lease $record): string {
-                        $shortfall = LeaseActivation::shortfall($record);
-
-                        return $shortfall === null
-                            ? __('admin.lease_activation.modal_description')
-                            : LeaseActivation::explain($shortfall);
-                    })
-                    ->modalSubmitActionLabel(__('admin.lease_activation.action'))
-                    ->disabled(fn (Lease $record): bool => LeaseActivation::shortfall($record) !== null)
-                    ->tooltip(fn (Lease $record): ?string => ($shortfall = LeaseActivation::shortfall($record)) === null
-                        ? null
-                        : LeaseActivation::explain($shortfall))
-                    ->action(function (Lease $record): void {
-                        abort_unless(auth()->user()?->can('leases.activate') ?? false, 403);
-
-                        $activated = app(ActivateLeaseService::class)->activate($record, auth()->id());
-
-                        Notification::make()
-                            ->title(__('admin.lease_activation.activated'))
-                            ->body(__('admin.lease_activation.activated_body', [
-                                'ref' => $activated->reference,
-                                'status' => __('admin.statuses.lease.'.$activated->status),
-                            ]))
-                            ->success()
-                            ->send();
-                    }),
+                // record page alone it would be unreachable by exactly the people whose job it is —
+                // the same reason `tenant_sales.lock` stays on its row. The "Awaiting activation"
+                // tab above plus this button IS the accountant's worklist. ONE definition
+                // (`LeaseActions::activate()`), also composed on the lease page's header for the
+                // roles that open the record (2026-09-12 — a super admin on the lease page had no
+                // way to activate it and read the withheld status as "cannot make it active").
+                LeaseActions::activate(),
                 // ── The list FINDS; the record ACTS ───────────────────────────────────────
                 // Nine commercial actions used to hang off every row here while the lease's own
                 // page carried one, so an operator who opened a lease had to go back to the list to

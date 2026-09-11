@@ -361,9 +361,7 @@ class LeaseForm
                                 // whether the deposit or the cheques are in — is the only door. With
                                 // the setting at `none` (Yardi's default) entry still executes, as it
                                 // always has. A record already active keeps its value listed.
-                                ->reject(fn ($label, $value) => $value === 'active'
-                                    && $record?->status !== 'active'
-                                    && ! LeaseActivation::entryExecutes(TenantScope::currentAssetId()))
+                                ->reject(fn ($label, $value) => $value === 'active' && self::activationIsAnAct($record))
                                 ->all())
                             ->default('draft')
                             ->required()
@@ -375,9 +373,14 @@ class LeaseForm
                             // from the panel 2026-09-12; the Livewire harness re-renders on
                             // `fillForm()` whatever the field says, so its test was green).
                             ->live()
-                            ->helperText(fn (?Lease $record, Get $get): ?string => self::termHasRunOut($get, $record)
-                                ? __('admin.helpers.lease_term_has_run_out')
-                                : null),
+                            // A choice the dropdown withholds is SAID, or the operator reads the
+                            // missing *Active* as a defect (2026-09-12: a super admin did, on a
+                            // property that gates activation on the deposit — the client's own rule).
+                            ->helperText(fn (?Lease $record, Get $get): ?string => match (true) {
+                                self::termHasRunOut($get, $record) => __('admin.helpers.lease_term_has_run_out'),
+                                self::activationIsAnAct($record) => __('admin.helpers.lease_activation_is_an_act'),
+                                default => null,
+                            }),
                         Toggle::make('show_occupied_units')
                             ->label(__('admin.fields.show_occupied_units'))
                             ->helperText(__('admin.helpers.show_occupied_units'))
@@ -1632,6 +1635,18 @@ class LeaseForm
      * The clause as the operator has it on THIS form — typed, not yet saved — for what a
      * follows-lease option would inherit. A repeater row reads the form root two levels up.
      */
+    /**
+     * Whether *Active* is an ACT here rather than a choice: the property gates activation on money
+     * (`billing.lease_activation_requires`, meeting 2026-09-02 point 1) and this record is not
+     * already active. ONE predicate for the dropdown that withholds the value and the helper that
+     * says why, so the two cannot disagree.
+     */
+    private static function activationIsAnAct(?Lease $record): bool
+    {
+        return $record?->status !== 'active'
+            && ! LeaseActivation::entryExecutes(TenantScope::currentAssetId());
+    }
+
     private static function clauseAsTyped(Get $get): Lease
     {
         return (new Lease)->forceFill([

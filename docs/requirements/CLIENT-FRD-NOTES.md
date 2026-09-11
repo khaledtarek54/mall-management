@@ -195,7 +195,7 @@ These four decisions steer the FRs below:
 | # | Ask (short) | Atriom today | Verdict | Effort | Decision |
 |---|---|---|---|---|---|
 | 1 | Activate the lease only when accounting confirms money received; reservation valid X days | Status dropdown, no money check, no reservation expiry | ✅ **Shipped 2026-09-11** — Activate act (`leases.activate`), per-property gate (`none` ships), reservation window lapsed by `leases:expire` ([modules/04](../modules/04-leases.md)) | M | ✅ built |
-| 2 | A page for the accountant to activate | — | ✅ **Shipped 2026-09-11** — the *Awaiting activation* tab + the Activate button on the row (accounting holds view + activate, not edit) | S | ✅ built |
+| 2 | A page for the accountant to activate | — | ✅ **Shipped 2026-09-11** — the *Awaiting activation* tab + the Activate button (on the lease page too since 2026-09-12, and the status field says why *Active* is withheld) on the row (accounting holds view + activate, not edit) | S | ✅ built |
 | 3 | Deposit as % or fixed | Months-of-rent (= % of a month) or fixed | ✅ **Shipped 2026-09-11** — `security_deposit_basis`: months (market) · % of annual rent (the Egyptian clause) · fixed; one derivation | S | ✅ built |
 | 4 | Lease PDF from the lease fields; template from Jawad | ✅ **Built** (`LeaseAgreementPdfService`) | **No code until the template arrives**; transpose it into the wording block | S | |
 | 5 | Statement: totals due to you / due from you | One-sided (AR only) | ✅ **Shipped 2026-09-11** — *Due from you* / *Held for you*, itemised | (with 6) | ✅ built |

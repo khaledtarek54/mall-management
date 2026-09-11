@@ -375,6 +375,10 @@ class EditLease extends EditRecord
                 ->service(LeaseAgreementPdfService::class)
                 ->recipient(fn (Lease $record) => $record->tenant),
             $this->generateInvoiceAction(),
+            // The ONE act an awaiting lease needs, standalone rather than inside a dropdown:
+            // ONE definition with the list's row (`LeaseActions::activate()`), and not a member
+            // of `grouped()` — the row is accounting's door, this is everyone else's.
+            LeaseActions::activate(),
             ...LeaseActions::grouped(),
             DeleteAction::make(),
             ForceDeleteAction::make(),

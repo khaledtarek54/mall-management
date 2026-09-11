@@ -92,6 +92,27 @@ it('holds no stale in-row exception', function () {
     expect($stale)->toBe([], "App\Support\RowActionPolicy::IN_ROW_EXCEPTIONS is out of date:\n  ".implode("\n  ", $stale));
 });
 
+it('sees an act a row composes as a registry METHOD, and tells a verb from a read there', function () {
+    // The third shape a row carries an act in (2026-09-12): `LeaseActions::activate()` — one
+    // definition shared with the record page, its `->action()` closure in the registry's file.
+    // Invisible to the two reads above (an inline chain, a factory's `::make()`), so the leases
+    // row read as "no write verbs" the moment its act was shared, and the exception that keeps it
+    // there was reported stale — a gate going quiet about the most consequential act on the list.
+    $leases = file_get_contents(app_path('Filament/Admin/Resources/Leases/Tables/LeasesTable.php'));
+    $read = RowActionPolicy::rowActionsIn($leases);
+
+    expect($read['verbs'])->toContain('activate')
+        ->and($read['reads'])->not->toContain('activate');
+
+    // Synthetic: a registry method that declares a read (no `->action(`) lands on the other side,
+    // and a spread is not resolved here — the rule below refuses it.
+    $inline = "<?php \$t->recordActions([\n    LeaseActions::activate(),\n    OpenRecordAction::make(LeaseResource::class),\n]);";
+    expect(RowActionPolicy::rowActionsIn($inline)['verbs'])->toBe(['activate']);
+
+    $spread = "<?php \$t->recordActions([\n    ...LeaseActions::all(),\n]);";
+    expect(RowActionPolicy::rowActionsIn($spread)['verbs'])->toBe([]);
+});
+
 it('never composes a shared Actions class back into a list row', function () {
     // The intermediate state this rule exists to end: the acts were extracted into one class —
     // good — and then spread into BOTH the record page and the list, which puts the eight verbs

@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Pages\PropertyOverrides;
 use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
+use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
 use App\Filament\Admin\Resources\PostDatedCheques\Pages\CreatePostDatedCheque;
 use App\Models\DepositTransaction;
@@ -289,6 +290,57 @@ it('shows the shortfall on the button before the click, and disables it', functi
     Livewire::test(ListLeases::class)
         ->assertTableActionVisible('activate', $lease)
         ->assertTableActionDisabled('activate', $lease);
+});
+
+it('offers Activate on the lease page too — the record hub — from the one definition the row takes', function () {
+    // Reported 2026-09-12: a super admin opened an awaiting lease, found no *Active* in the status
+    // dropdown and no button on the page, and read it as "I cannot make the lease active". The
+    // row is accounting's door (it lacks leases.edit); the page is everyone else's.
+    requireMoney($this);
+    $lease = enteredLease($this);
+
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::setTenant($this->asset);
+
+    // Nothing received: the button is there, disabled, and says what is missing in figures.
+    $page = Livewire::test(EditLease::class, ['record' => $lease->getKey()]);
+    $page->assertActionVisible('activate')->assertActionDisabled('activate');
+    $shortfall = LeaseActivation::shortfall($lease);
+    expect($shortfall)->not->toBeNull();
+    $page->assertSee(e(LeaseActivation::explain($shortfall)), escape: false);
+
+    depositReceipt($lease, 30000);
+    Livewire::test(EditLease::class, ['record' => $lease->getKey()])
+        ->assertActionEnabled('activate')
+        ->callAction('activate')
+        ->assertHasNoActionErrors();
+
+    expect($lease->fresh()->status)->toBe('active');
+
+    // Gone once active — an act, not a status you set twice.
+    Livewire::test(EditLease::class, ['record' => $lease->getKey()])->assertActionHidden('activate');
+});
+
+it('says on the status field why Active is withheld, only where the property gates it', function () {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setTenant($this->asset);
+
+    // Yardi's default — nothing gates, nothing to say.
+    Livewire::test(CreateLease::class)
+        ->assertDontSee(__('admin.helpers.lease_activation_is_an_act'));
+
+    requireMoney($this);
+    Livewire::test(CreateLease::class)
+        ->assertSee(__('admin.helpers.lease_activation_is_an_act'));
+
+    // On the record of a lease already ACTIVE the value stays offered and the sentence is not shown.
+    $active = enteredLease($this);
+    depositReceipt($active, 30000);
+    app(ActivateLeaseService::class)->activate($active, null);
+    Livewire::test(EditLease::class, ['record' => $active->getKey()])
+        ->assertDontSee(__('admin.helpers.lease_activation_is_an_act'));
 });
 
 // ── The reservation lapses ─────────────────────────────────────────────────────────────────────

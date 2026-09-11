@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\DepositTransaction;
 use App\Models\Lease;
 use App\Models\Unit;
+use App\Services\ActivateLeaseService;
 use App\Services\BillSecurityDepositService;
 use App\Services\ConvertLeaseToHoldoverService;
 use App\Services\ExerciseLeaseOptionService;
@@ -21,6 +22,7 @@ use App\Services\SettleMoveOutService;
 use App\Settings\BillingSettings;
 use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
+use App\Support\LeaseActivation;
 use App\Support\LeaseTerm;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -61,6 +63,60 @@ class LeaseActions
      *
      * @return array<int, Action>
      */
+    /**
+     * ACTIVATE — the act that executes an entered lease once the money the property requires is in
+     * (meeting 2026-09-02, points 1 and 2). One definition, two surfaces: the leases list's ROW
+     * (registered in `RowActionPolicy::IN_ROW_EXCEPTIONS` — `accounting` holds `leases.activate`
+     * and NOT `leases.edit`, so the row plus the "Awaiting activation" tab is that role's door)
+     * and the lease page's HEADER, standalone beside the grouped acts, for everyone who opens the
+     * record (2026-09-12: a super admin on the lease page had no way to activate it, and read a
+     * status dropdown with no *Active* in it as "I cannot make the lease active"). Deliberately
+     * NOT a member of {@see all()}: the header composes `grouped()`, which renders every member,
+     * and this one is composed on its own — a member would render twice on one strip.
+     *
+     * What is still missing is said BEFORE the button, in figures — a refusal on submit is the
+     * worse half of the same sentence; the SERVICE re-asks the money gate under a lock and adds
+     * the one check a button cannot show — that no other lease took the shop meanwhile.
+     */
+    public static function activate(): Action
+    {
+        return Action::make('activate')
+            ->label(__('admin.lease_activation.action'))
+            ->icon('heroicon-o-check-badge')
+            ->color('success')
+            ->visible(fn (Lease $record): bool => LeaseActivation::isAwaiting($record)
+                && (auth()->user()?->can('leases.activate') ?? false))
+            ->authorize(fn (): bool => auth()->user()?->can('leases.activate') ?? false)
+            ->requiresConfirmation()
+            ->modalHeading(fn (Lease $record) => __('admin.lease_activation.modal_heading', ['ref' => $record->reference]))
+            ->modalDescription(function (Lease $record): string {
+                $shortfall = LeaseActivation::shortfall($record);
+
+                return $shortfall === null
+                    ? __('admin.lease_activation.modal_description')
+                    : LeaseActivation::explain($shortfall);
+            })
+            ->modalSubmitActionLabel(__('admin.lease_activation.action'))
+            ->disabled(fn (Lease $record): bool => LeaseActivation::shortfall($record) !== null)
+            ->tooltip(fn (Lease $record): ?string => ($shortfall = LeaseActivation::shortfall($record)) === null
+                ? null
+                : LeaseActivation::explain($shortfall))
+            ->action(function (Lease $record): void {
+                abort_unless(auth()->user()?->can('leases.activate') ?? false, 403);
+
+                $activated = app(ActivateLeaseService::class)->activate($record, auth()->id());
+
+                Notification::make()
+                    ->title(__('admin.lease_activation.activated'))
+                    ->body(__('admin.lease_activation.activated_body', [
+                        'ref' => $activated->reference,
+                        'status' => __('admin.statuses.lease.'.$activated->status),
+                    ]))
+                    ->success()
+                    ->send();
+            });
+    }
+
     public static function all(): array
     {
         return [

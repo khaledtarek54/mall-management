@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'lease_activation_is_an_act' => 'Active is set by the Activate button once the deposit or cheques are in; save as Awaiting activation.',
         'lease_term_has_run_out' => 'This term has already ended, so the lease cannot be made active. Renew it, or record a holdover.',
         'requires_sales_reporting' => 'Leave unset unless the lease says otherwise — a tenant may owe turnover without owing percentage rent.',
         'reversal_reason' => 'This is recorded permanently in the audit trail.',
