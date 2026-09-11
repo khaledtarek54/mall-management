@@ -182,6 +182,41 @@ A 200 is not proof the card moved. Read it back.
 
 ---
 
+## 4b. A change with NO card gets one — created, not edited (Khaled, 2026-09-11)
+
+A meeting decision, a found defect, a point off a client list: it ships through `/safe-change`
+exactly like a card, and **when it is finished a card is CREATED for it in `Done ✅`** so the board
+is the one record of what shipped. Rules, all three of them:
+
+- **One card per finished item. Simple.** Name = the source and the item, description = the same
+  four things a closing comment carries (what was wrong · what changed · the commit · what to
+  re-test on staging). No essay — the commit message and the module doc hold the reasoning.
+- **Never overwrite.** Create a NEW card; never rename, re-describe or reuse an existing one to
+  hold a second item, and never edit a card's description after it is filed. History is the record.
+- **Created straight into `Done ✅`, then READ BACK** — a 200 is not proof.
+
+```bash
+source ~/.trello.env
+DONE=6a9ae694cc2563e59bfdb5d0
+NAME='[Meeting 2 Sep] #7 — Trial balance: opening · movement · closing'
+read -r -d '' DESC <<'EOF'
+Was: <one sentence>
+Now: <one sentence, and the standard it follows>
+Commit: <sha, verified with git rev-parse>
+Re-test on staging: <what to open, what should show>
+EOF
+curl -s -X POST "https://api.trello.com/1/cards?key=$TRELLO_KEY&token=$TRELLO_TOKEN" \
+  --data-urlencode "idList=$DONE" --data-urlencode "name=$NAME" --data-urlencode "desc=$DESC" \
+ | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['shortLink'], d['shortUrl'])"
+# then read it back with the snippet in §4 and confirm idList is Done.
+```
+
+Name prefix by source: `[Meeting <date>]` for a client-meeting point, `[Found]` for a defect the
+work itself uncovered, `[Soak]` for the staging soak. A card that already exists for the item is
+closed the §4 way instead — never a second card for one item.
+
+---
+
 ## 5. A card that is not yours to close
 
 - **It needs Khaled's decision** → comment saying exactly what is needed, and **leave it where it

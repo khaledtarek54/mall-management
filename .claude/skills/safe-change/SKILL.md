@@ -173,6 +173,12 @@ SHA with `git rev-parse` before quoting it** (an invented one has had to be corr
 Then move the card to `Done ✅`. A card needing HIS decision stays put, with a comment saying what
 is needed.
 
+**No card? Make one.** A change that came from a meeting, a client list or a defect you found
+yourself gets a NEW, simple card created straight into `Done ✅` when it is finished — one card per
+item, never an edit of an existing card, never a second item folded into one. The recipe is
+[`/trello` §4b](../trello/SKILL.md). The board is the record of what shipped, whichever way the
+work arrived.
+
 ## 12. Say what you found and did NOT do
 
 Report the wider defects you found, what you deliberately left, and the next decision that is his.
