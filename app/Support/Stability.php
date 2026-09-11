@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Dotenv\Dotenv;
 use Illuminate\Support\Facades\Process;
 
 /**
@@ -218,12 +219,13 @@ final class Stability
             ];
         }
 
-        // **A false red costs as much as a false green.** Measured: `SettingsPageConformanceTest`
-        // passes alone and fails under `--parallel` — shared settings state between workers — so a
-        // parallel run alone would report a broken invariant that is not broken, and a tool that
-        // cries wolf is one people learn to override. Every failing FILE is re-run on its own, and
-        // only what fails both ways is called a failure; the rest is named as FLAKY, which is a
-        // real problem of its own and must not be silently swallowed either.
+        // **A false red costs as much as a false green.** Every failing FILE is re-run on its own,
+        // and only what fails both ways is called a failure; the rest is named as FLAKY, which is
+        // a real problem of its own and must not be silently swallowed either. (This paragraph
+        // used to cite `SettingsPageConformanceTest` as "flaky under --parallel — shared settings
+        // state between workers". It was not flaky: the child pest was running on the laptop's
+        // MySQL under the real mail driver, see `withoutDotenv()`, and THIS re-run-alone step is
+        // what ran `migrate:fresh` on the dev database.)
         $confirmed = [];
         $flaky = [];
 
@@ -268,7 +270,12 @@ final class Stability
         }
 
         $out = tempnam(sys_get_temp_dir(), 'gate-audit');
-        $process = Process::timeout(3600)->run("python3 {$script} {$mutations} {$out}");
+        // The script runs `vendor/bin/pest` once per mutation and inherits THIS environment, so
+        // without the stripping every one of those runs was on the laptop's MySQL — see
+        // `withoutDotenv()`; this tier is ~104 `migrate:fresh` runs on the dev database otherwise.
+        $process = Process::timeout(3600)
+            ->env(self::withoutDotenv())
+            ->run("python3 {$script} {$mutations} {$out}");
 
         $results = json_decode((string) file_get_contents($out), true) ?: [];
         @unlink($out);
@@ -331,10 +338,12 @@ final class Stability
      */
     private static function runMysql(): array
     {
-        $process = Process::timeout(1800)->env([
+        // The QA database and NOTHING else from `.env` — see `withoutDotenv()`: this tier used to
+        // override the two DB keys and inherit the rest, mail driver and credentials included.
+        $process = Process::timeout(1800)->env(self::withoutDotenv([
             'DB_CONNECTION' => 'mysql',
             'DB_DATABASE' => 'mall_management_qa',
-        ])->run(base_path('vendor/bin/pest').' --testsuite=Mysql');
+        ]))->run(base_path('vendor/bin/pest').' --testsuite=Mysql');
 
         $parsed = self::parsePest($process->output().$process->errorOutput());
 
@@ -423,10 +432,73 @@ final class Stability
     /** @param array<int, string> $args */
     private static function pest(array $args): array
     {
-        $process = Process::timeout(3600)->run(base_path('vendor/bin/pest').' '.implode(' ', $args));
+        $process = Process::timeout(3600)
+            ->env(self::withoutDotenv())
+            ->run(base_path('vendor/bin/pest').' '.implode(' ', $args));
 
         return self::parsePest($process->output().$process->errorOutput())
             + ['exit' => $process->exitCode()];
+    }
+
+    /**
+     * The environment a child `pest` must NOT inherit from artisan: every key of this install's
+     * `.env`, removed.
+     *
+     * **This command wiped the dev database — twice — before this existed (2026-09-11).** Laravel
+     * loads `.env` through `putenv` (`Env::$putenv` is true by default), so the artisan process
+     * running this command carries `DB_CONNECTION=mysql`, `CACHE_STORE`, `QUEUE_CONNECTION`,
+     * `MAIL_MAILER=mailersend` and every credential in `.env` in its REAL environment — and a
+     * Symfony `Process` hands that environment to its child. PHPUnit's `<env name="DB_CONNECTION"
+     * value="sqlite"/>` in `phpunit.xml` does not win over an existing variable unless it says
+     * `force="true"`, so the pest this command spawned ran the whole suite against the laptop's
+     * MySQL: `--parallel` on ten `mall_management_test_N` scratch databases (created for the
+     * purpose, dropped since), and the solo re-run of a failing file — the "is it flaky?" step —
+     * ran `RefreshDatabase`'s `migrate:fresh` on `mall_management` ITSELF. Measured after the
+     * fact: 290 invoices before the tier ran, 0 after; `migrations` at batch 1. The
+     * `SettingsPageConformanceTest` "flaky under --parallel" note in `runGates()` was this — the
+     * file was never flaky, it was running on MySQL with `.env`'s queue, cache and session drivers.
+     *
+     * A `false` value removes the variable from the child's environment (Symfony Process), so the
+     * child sees only what `phpunit.xml` sets — the same as `vendor/bin/pest` from a bare shell.
+     * The keys are DERIVED from the `.env` file, never listed: the leak is every key that file
+     * has, including the ones nobody would think to name (a Sentry DSN reports test exceptions;
+     * a Paymob secret lets a test reach the sandbox). `phpunit.xml` is deliberately NOT given
+     * `force="true"` instead: `composer test:mysql` relies on an environment variable beating it
+     * to point the MySQL tier at the QA database, and that would silently stop working.
+     *
+     * Only an UNCACHED install has the leak — `LoadEnvironmentVariables` returns early when the
+     * config is cached, so a deployed box (`config:cache`, `--no-dev`) never carried it; a laptop
+     * always does. Artisan children (`atriom:install`, `atriom:doors`) are deliberately NOT
+     * stripped: they are meant to see this install's `.env`. The rule is about pest children,
+     * where `phpunit.xml` must decide.
+     *
+     * @param  array<string, string>  $keep  the few keys a tier sets deliberately, applied OVER
+     *                                       the removals — never composed by the caller with `+`,
+     *                                       whose left operand wins and would keep the `false`
+     *                                       (the `$manager + ['panel' => …]` trap, once more)
+     * @return array<string, string|false>
+     */
+    public static function withoutDotenv(array $keep = []): array
+    {
+        // The file the parent actually loaded — `.env.{APP_ENV}` when a shell exported APP_ENV
+        // and that file exists — never a hardcoded `.env`.
+        $file = app()->environmentFilePath();
+
+        if (! is_file($file)) {
+            return $keep;
+        }
+
+        $keys = array_keys(Dotenv::parse((string) file_get_contents($file)));
+
+        // A parse that yields nothing while the parent plainly loaded SOMETHING (APP_KEY is in
+        // every install's file and phpunit.xml never sets it) is the file mid-write by another
+        // session, and spawning on it would run the child unstripped — the catastrophic direction.
+        // Refuse instead: a command that dies is a verdict nobody mistakes for a pass.
+        if ($keys === [] && getenv('APP_KEY') !== false) {
+            throw new \RuntimeException("{$file} parsed to no keys while the process carries APP_KEY — refusing to spawn a test run that would inherit this environment");
+        }
+
+        return array_merge(array_fill_keys($keys, false), $keep);
     }
 
     /**
