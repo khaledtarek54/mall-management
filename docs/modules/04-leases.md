@@ -1267,11 +1267,10 @@
 > figure as a side effect of `apply()`. **Flipping the toggle on mid-term projects the ladder**
 > (`Lease::updated` — the backfill command skips any lease already carrying `ORIGIN_ESCALATION`
 > rows, so without the hook a flagged existing lease had no remedy path). A service-only
-> lease (rent 0) projects its service ladder without minting zero rent or levy rows. Standing
-> caveat, now stated instead of implied: the projection writes the **raw** rate while the sweep
-> **collars** it, so under a collar that actually binds each rung is corrected in place the night
-> its anniversary is swept and the projected tail beyond it stays at the stated rate — pre-existing
-> on the rent ladder, identical here. (`ServiceChargeEscalatesWithRentTest` — every guard
+> lease (rent 0) projects its service ladder without minting zero rent or levy rows. *(The
+> projection wrote the **raw** rate and left the sweep to collar each rung the night it landed —
+> a "standing caveat, stated" — until 2026-09-11; it writes the collared rate now, see the ladder
+> passage below.)* (`ServiceChargeEscalatesWithRentTest` — every guard
 > mutation-proved, including the resurrection, the residue rollback and the inverted range.)
 >
 > **A CAM RE-ESTIMATE IS NEVER STEPPED, and it can now be told apart (2026-09-05).**
@@ -1312,9 +1311,10 @@
 > re-true adopts its figure instead of overwriting it, and the step after it compounds from the
 > stated amount — the contract's own reading. **The SWEEP deliberately does not re-true**
 > (`origin === ORIGIN_ESCALATION` skips it): its contract is one step per run — on an unprojected
-> lease it appends one rung a year, pinned behaviour — and re-projecting on the night a COLLARED
-> step applied would write the whole remaining ladder at the raw rate for exactly the lease whose
-> collar just proved it binds. (`AChangedRentReachesTheEndOfTheLeaseTest`, eight cases, three
+> lease it appends one rung a year, pinned behaviour — and it is the projection's job, not the
+> night's. *(Its original second reason — that a re-projection would write the tail at the raw
+> rate for exactly the lease whose collar just bit — lapsed on 2026-09-11, when the projection
+> started writing the collared rate.)* (`AChangedRentReachesTheEndOfTheLeaseTest`, eight cases, three
 > mutations proved — the re-true, the stated-rung adoption, and the space-change wiring.)
 >
 > **EVERY EDIT TO THE CLAUSE RE-TRUES THE LADDER — the ladder is a function of the clause, and it
@@ -1332,9 +1332,16 @@
 > not-yet-started projected rent and service rung and the levy rungs riding on exactly those rent
 > rungs, then project again from the clause as it NOW reads — a cleared clause projects nothing,
 > so the three branches are gone and a change to the eighth term is covered by being registered.
-> The **collar is deliberately not a ladder term**: the projection writes the raw rate and the
-> sweep collars each rung the night it arrives, so a collar edit re-projecting nothing is the
-> existing arrangement, stated. A **started rung is history and a stated (`manual`) rung is a
+> **The collar is IN the schedule (2026-09-11, the same day's follow-up)**: the projection wrote
+> the raw rate and left the sweep to clamp each rung the night it landed, so a ceiling of 5 % over
+> a 10 % clause showed a 10 % ladder for the whole term and a tester read it as not applied.
+> Yardi's rent-step schedule IS the amounts that will bill and a fixed-percent collar is
+> deterministic, so `projectTermEscalations()` writes `RentEscalationService::collar()`'s answer —
+> the same clamp the sweep applies, so the anniversary is a no-op and the two cannot disagree (a
+> fixed AMOUNT is not collared, as in the sweep). The collar columns are not in `LADDER_TERMS`
+> but DERIVED into the trigger: `Lease::collaredRateMoved()` re-trues exactly when the clamp's
+> answer changes (tightening a ceiling from 12 to 5 over 10 % does; lifting a floor from 2 to 3
+> under it does not), so a bound that never bites churns nothing. A **started rung is history and a stated (`manual`) rung is a
 > term** — the prune touches neither, exactly as the cleared-clause prune above. **The interval is
 > the one term the sweep's own pointer reads**, so `saving` re-arms `next_escalation_date` from the
 > SWEEP'S OWN STATE — the pointer it carries is one old interval past the last step it applied, so
@@ -1434,6 +1441,49 @@
 > refusal with its fresh-lease control, a close-out past the expiry, an early termination keeping
 > its coming step, a levy-closed base row moved past its end, and the wording in both languages;
 > nine mutations each kill their own tooth.)
+>
+> **TWO MORE DOORS OF THE SAME SHAPE, closed the same day.** *A DRAFT's rent follows its units*:
+> `EditLease::afterSave()` refuses a unit change on a live lease and routes it to the space-change
+> act; a draft is outside that list, and on a rate-priced draft the rent is rate × area — so a
+> draft whose space changed kept the rent of the old space in the column and in the seeded row.
+> **The review then found the door did not exist in a browser**: the units picker carried TWO
+> `disabled()` calls and the later, page-wide `$operation === 'edit'` (from the day removing a
+> unit still detached its occupancy row) overwrote the status one, so every Edit page was locked,
+> drafts included, and only the Livewire harness — which fills a disabled field regardless — had
+> ever reached the new code. **`Lease::premisesLockedBecause()` is the ONE predicate now** —
+> `live` (the act owns the space) · `stepped` (a re-priced seed row would disagree with a started
+> rung) · `schedule` (a row an act or an import wrote would be re-priced and relabelled) — read by
+> the field's single `disabled()`, its helper (two sentences, one for a live lease and one for a
+> draft) and `afterSave()`'s refusal, and the test asserts the field is ENABLED on a draft through
+> the real page, the assertion nothing had made. When it is free, the wizard's own post-attach
+> sequence runs again: `repriceFromPremises()` and then **`ChargeScheduleService::repriceSeededRent()`**,
+> which amends the seeded rows in place at the commencement, REBUILDS the levy (every levy row is
+> derived from the rent, and an earlier re-rate leaves two rows of which `createLevyCharge()`
+> amends only the first — the review's finding), re-projects the steps — and NO-OPS when the
+> seeded rows already carry the lease's figures (the form derives a rate-priced rent live from the
+> units picked, so the column usually arrives already right and the ROW is what is a save behind;
+> the row is the signal, or a flat-priced draft would re-mint its rungs for nothing). **A figure of
+> zero RETIRES the row rather than amending it to 0.00** — `seedStandardCharges()` seeds none, the
+> billing run has no zero skip, and the review found the rent branch had no zero twin at all: a
+> rent corrected to 0 left the seed rent row billing 10,000.
+> *The lease IMPORTER re-importing a lease already on the books*: `resolveRecord()` re-imports by
+> reference and `afterCreate()` seeds charges for a NEW lease only, so a corrected rent in a
+> re-run file moved the lease's column and left the seeded row billing the old figure —
+> `LeaseImportExecutesTest` had pinned exactly that as "idempotent". Yardi imports lease charges
+> as their own records. While NOTHING has happened to the lease — `commencementLockedBecause()`
+> null and **`scheduleIsStillAsCreated()`** (no active row outside seed · levy · escalation) —
+> the importer is the door that made the schedule and may re-derive it through the same
+> `repriceSeededRent()` (the correction a migrating operator makes before the first billing night)
+> — run whenever the gates pass and not only when a column moved, so a lease the OLD behaviour
+> had already drifted is repaired by re-running the file with the figures it carries; otherwise
+> `beforeUpdate()` throws a `RowImportFailedException` in the reader's words naming the doors that
+> own the rows (`admin.refusals.lease_import_amounts_behind_schedule`) — the one refusal Filament's
+> `ImportCsv` writes into the failed-rows file WITH its sentence. **And the console has the repair
+> too**: `atriom:project-lease-schedules --retrue` takes already-laddered leases through the hook's
+> own `retrueProjectedLadder()` (dry-run; `--commit` writes), for the ladders projected before the
+> collar was written into the schedule and the ones that drifted before the hook existed — the
+> deploy step for this change, since nothing re-trues an existing ladder on its own.
+> (`ADraftLeasesRentFollowsItsUnitsTest` · `LeaseImportExecutesTest`; fourteen mutations.)
 >
 > **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
 > `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to
@@ -2289,7 +2339,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
 1. **Lease Details** (3 cols)
    - `reference` (TextInput, disabled, dehydrated) — auto-generated, read-only.
    - `unit_id` (Select, live, required) — master unit; filters to non-occupied/non-reserved unless `show_occupied_units` toggle. Validation rule prevents active-lease conflicts.
-   - `additional_unit_ids` (Select, multiple, dehydrated=false) — non-master units for multi-unit leases; dehydrated=false (processed in `afterCreate()` / `afterSave()`).
+   - `additional_unit_ids` (Select, multiple, dehydrated=false) — non-master units for multi-unit leases; dehydrated=false (processed in `afterCreate()` / `afterSave()`). Disabled by `Lease::premisesLockedBecause()` — live (use *Change premises*), or a draft that has stepped / carries an act's row — and free on a plain draft, where a change re-prices a rate-priced rent and its seeded rows (2026-09-11).
    - `tenant_id` (Select, required, searchable, creatable inline) — with quick-create form (name, phone, email).
    - `status` (Select) — draft, pending_approval, active, etc.
    - `show_occupied_units` (Toggle, live, dehydrated=false) — toggles unit dropdown visibility.

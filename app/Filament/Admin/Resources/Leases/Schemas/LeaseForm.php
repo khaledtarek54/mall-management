@@ -210,12 +210,23 @@ class LeaseForm
                             // `LeaseSpaceChangeService` (the Change premises action) takes that date,
                             // re-derives at it, closes the old charge row and opens the new one. The
                             // same shape as `service_charge_monthly` above, and for the same reason.
-                            ->disabled(fn (?Lease $record): bool => $record !== null
-                                && in_array($record->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true))
-                            ->helperText(fn (?Lease $record): string => $record !== null
-                                && in_array($record->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true)
-                                    ? __('admin.fields.additional_units_locked')
-                                    : __('admin.fields.additional_units_helper'))
+                            //
+                            // `Lease::premisesLockedBecause()` is the predicate, and the ONLY
+                            // `disabled()` on this field (2026-09-11): a second, older call below
+                            // — `$operation === 'edit'`, from the day removing a unit here still
+                            // DETACHED its occupancy row — overwrote this one (`disabled()` sets
+                            // one flag; the last call wins), so every Edit page was locked, drafts
+                            // included, and a rate-priced draft's premises could not be changed by
+                            // any door while the text here said the form allowed it. A draft has
+                            // no occupancy history to lose; a live lease still goes through the
+                            // act, and a draft that has stepped or carries an act's row is locked
+                            // for the reason the predicate names.
+                            ->disabled(fn (?Lease $record): bool => $record?->premisesLockedBecause() !== null)
+                            ->helperText(fn (?Lease $record): string => match ($record?->premisesLockedBecause()) {
+                                'live' => __('admin.fields.additional_units_locked'),
+                                'stepped', 'schedule' => __('admin.fields.additional_units_locked_draft'),
+                                default => __('admin.fields.additional_units_helper'),
+                            })
                             ->entity(Unit::class)
                             // Same reason as the master picker: expansion space is chosen by looking
                             // at what is adjacent and free, not by typing a code you already know.
@@ -260,22 +271,11 @@ class LeaseForm
                             // intent nothing implements is worse than no comment — it is what let
                             // the same omission survive on the server side of this form too.
                             ->live()
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
-                            // ── Read-only once the lease exists, and this one is not tidiness ────
-                            // `EditLease::afterSave()` calls `syncUnits()` with whatever this field
-                            // holds, and `syncUnits()` is a `sync()` — so REMOVING a unit here
-                            // DETACHED its `lease_unit` row outright. That row carries
-                            // `effective_from`/`effective_to`, and CAM allocates on
-                            // `totalAreaSqmForPeriod()`, which reads exactly those dates: deleting
-                            // it does not end the tenant's occupancy, it erases the months they
-                            // genuinely held the space, silently restating a reconciliation that
-                            // may already be closed. `LeaseSpaceChangeService` CLOSES the row
-                            // instead, which is why Change premises exists and why this field can
-                            // no longer be a second, lossy path to the same act.
-                            ->disabled(fn (string $operation): bool => $operation === 'edit')
-                            ->helperText(fn (string $operation): string => $operation === 'edit'
-                                ? __('admin.helpers.additional_units_locked')
-                                : __('admin.fields.additional_units_helper')),
+                            // (The page-wide `disabled($operation === 'edit')` that stood here —
+                            // from the day removing a unit still DETACHED its occupancy row, which
+                            // CAM reads — is gone: a LIVE lease is still locked above through the
+                            // predicate, and a DRAFT has no occupancy history to lose.)
+                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set)),
                         // The picker reach — this property's tenants plus the not-yet-affiliated —
                         // is OptionDisplay's, and stricter than the version written here: the old
                         // `orWhereDoesntHave('leases')` offered a tenant who owns a unit in ANOTHER

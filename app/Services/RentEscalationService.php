@@ -122,9 +122,15 @@ class RentEscalationService
      */
     public static function collar(Lease $lease, float $rate): float
     {
-        $floor = $lease->escalation_floor_rate;
-        $ceiling = $lease->escalation_ceiling_rate;
+        return self::collarWith($lease->escalation_floor_rate, $lease->escalation_ceiling_rate, $rate);
+    }
 
+    /**
+     * The same clamp over explicit bounds — for a caller holding the bounds a lease USED to carry
+     * (`Lease::updated` asks whether a collar edit moved the collared rate before it re-trues).
+     */
+    public static function collarWith(float|string|null $floor, float|string|null $ceiling, float $rate): float
+    {
         if ($floor !== null) {
             $rate = max($rate, (float) $floor);
         }

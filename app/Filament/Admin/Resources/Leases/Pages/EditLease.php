@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Models\Lease;
+use App\Services\ChargeScheduleService;
 use App\Services\LeaseAgreementPdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\BillingRefusal;
@@ -108,19 +109,42 @@ class EditLease extends EditRecord
         // none, so it could only restate the rent from the start of the lease — rewriting months
         // already billed. `LeaseSpaceChangeService` takes that date, re-derives at it, and closes
         // and reopens the charge row; this refuses and names it.
-        $live = in_array($this->record->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true);
+        // `Lease::premisesLockedBecause()` — the field's own predicate, so the form's disabled
+        // state and this refusal cannot drift: `live` (the act owns it), `stepped` (a re-priced
+        // seed row would disagree with a started rung), `schedule` (an act's or an import's row
+        // would be re-priced and relabelled).
+        $locked = $this->record->premisesLockedBecause();
         $current = $this->record->units()->pluck('units.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
         $wanted = collect([$this->record->unit_id, ...$additional])
             ->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
 
-        if ($live && $current !== $wanted) {
-            throw new \DomainException(__('admin.fields.additional_units_locked'));
+        if ($locked !== null && $current !== $wanted) {
+            throw new \DomainException($locked === 'live'
+                ? __('admin.fields.additional_units_locked')
+                : __('admin.fields.additional_units_locked_draft'));
         }
 
         $this->record->syncUnits(
             [$this->record->unit_id, ...$additional],
             $this->record->unit_id,
         );
+
+        // ── A DRAFT'S RENT FOLLOWS ITS UNITS (2026-09-11, the term-edit review) ─────────────
+        // On a rate-priced draft the rent is rate × area, and `syncUnits()` attaches units and
+        // nothing else — so a draft whose space changed here kept the rent of the old space, and
+        // its seeded row with it. Nothing has happened to a draft, so this is the wizard's own
+        // post-attach sequence run again: re-derive the column (`repriceFromPremises()` refuses on
+        // its own once invoiced), then re-price the seeded rows and re-true the steps from them.
+        // Silent on a flat-priced lease, where a negotiated sum is not a function of area.
+        if ($locked === null && $current !== $wanted) {
+            $this->record->load('units');
+            // Both, unconditionally: the form derives a rate-priced rent live from the units
+            // picked, so the column usually arrives already re-priced and `repriceFromPremises()`
+            // finds nothing to move — the seeded ROW is what is a save behind, and
+            // `repriceSeededRent()` reads the row and no-ops when it already agrees.
+            $this->record->repriceFromPremises();
+            app(ChargeScheduleService::class)->repriceSeededRent($this->record->fresh());
+        }
 
         // The marketing levy is NOT re-synced here any more (2026-09-11). `Lease::updated` does
         // it — base row first, then the projected levy rungs — for every door that writes the

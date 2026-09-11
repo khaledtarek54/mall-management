@@ -164,6 +164,7 @@ return [
         // ── Added 2026-09-11 (tester's board) ──────────────────────────────────────────
         'lease_commencement_locked_after_invoicing' => 'Lease :reference has been invoiced from a commencement of :from, so that date cannot move — its charge schedule is what those invoices were billed from. Correct the billed months with a credit note, or record the new term as an amendment.',
         'lease_commencement_locked_after_stepping' => 'Lease :reference has already stepped its rent — the first contracted step was reached on :stepped, counted from a commencement of :from — so that date cannot move without re-deriving a step that has happened. Adjust the steps on the Charge schedule tab, or record the new term as an amendment.',
+        'lease_import_amounts_behind_schedule' => 'Lease :reference is already on the books and its charge schedule bills from its own rows, so this file cannot change its :fields — the lease has been invoiced, has already stepped, or carries rows an act wrote. Change the rent through Change Rent on the lease, or import the charge rows with the Charge import; re-import this row with the amounts the lease carries.',
         'export_needs_an_identifier' => 'This export would not say which rows it is about — every column that names a record is switched off, so the file would be a column of values with nothing to attach them to. Tick at least one of: :columns.',
     ],
 ];

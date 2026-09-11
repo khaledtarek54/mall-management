@@ -5,6 +5,8 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\LeaseRentChangeService;
+use Filament\Actions\Imports\Exceptions\RowImportFailedException;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Validation\ValidationException;
 
@@ -105,12 +107,91 @@ it('preserves the operator existing contract reference', function () {
 
 it('is idempotent — re-running the same file updates rather than duplicates', function () {
     importLeaseRow(leaseRow());
-    importLeaseRow(leaseRow(['base_rent_monthly' => '11000']));
+    importLeaseRow(leaseRow());
 
     // Fault 4. Re-running a partial import is the normal response to a partial import; the old
     // code minted a fresh reference each run and double-booked the unit.
     expect(Lease::where('reference', 'CONTRACT-2019-0042')->count())->toBe(1)
-        ->and((float) Lease::where('reference', 'CONTRACT-2019-0042')->value('base_rent_monthly'))->toBe(11000.0);
+        ->and((float) Lease::where('reference', 'CONTRACT-2019-0042')->value('base_rent_monthly'))->toBe(10000.0);
+});
+
+it('re-prices the seeded row when a corrected rent is re-imported before anything has happened', function () {
+    // Until 2026-09-11 this case asserted the lease column moving to 11,000 — and its sibling
+    // below asserted the row count staying at one — i.e. a lease at 11,000 over a row at 10,000,
+    // pinned as "idempotent". While nothing has happened to the lease (un-invoiced, un-stepped,
+    // schedule still exactly what creation wrote) the importer is the door that made the
+    // schedule and may re-derive it: the correction a migrating operator makes before the first
+    // billing night.
+    importLeaseRow(leaseRow());
+    importLeaseRow(leaseRow(['base_rent_monthly' => '11000', 'service_charge_monthly' => '1600']));
+
+    $lease = Lease::where('reference', 'CONTRACT-2019-0042')->sole();
+    $rent = Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->where('is_active', true)->get();
+
+    expect((float) $lease->base_rent_monthly)->toBe(11000.0)
+        ->and($rent)->toHaveCount(1)
+        ->and((float) $rent->first()->amount)->toBe(11000.0)
+        ->and($rent->first()->start_date->toDateString())->toBe('2026-01-01')
+        ->and((float) Charge::where('lease_id', $lease->id)->where('type', 'service_charge')->where('is_active', true)->sole()->amount)->toBe(1600.0);
+});
+
+it('retires the seeded row when a rent is corrected to zero, and rebuilds the levy whole', function () {
+    // REVIEW FINDINGS. The rent branch had no zero twin: a rent corrected to 0 (legal — a
+    // fit-out or percentage-only kiosk) moved the column and re-priced the levy to 0 while the
+    // seed rent row went on billing 10,000. And a levy re-rated earlier (base row closed at last
+    // month's eve, the new rate from the 1st) was only HALF re-priced — the closed base row was
+    // amended, the live row kept a percentage of the old rent for the rest of the term.
+    importLeaseRow(leaseRow());
+    $lease = Lease::where('reference', 'CONTRACT-2019-0042')->sole();
+    $this->travelTo(\Carbon\CarbonImmutable::parse('2026-03-05'));
+    $lease->update(['marketing_levy_rate' => 6]);   // a re-rate: 50 ..02-28 | 60 from 03-01
+    expect(Charge::where('lease_id', $lease->id)->where('type', 'marketing')->where('is_active', true)->count())->toBe(2);
+
+    importLeaseRow(leaseRow(['base_rent_monthly' => '20000']));
+    $levy = Charge::where('lease_id', $lease->id)->where('type', 'marketing')->where('is_active', true)->get();
+    expect($levy)->toHaveCount(1)
+        ->and((float) $levy->first()->amount)->toBe(1200.0)   // 6 % of 20,000, one row, from commencement
+        ->and($levy->first()->start_date->toDateString())->toBe('2026-01-01');
+
+    importLeaseRow(leaseRow(['base_rent_monthly' => '0']));
+    expect((float) $lease->fresh()->base_rent_monthly)->toBe(0.0)
+        ->and(Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->where('is_active', true)->count())->toBe(0)
+        ->and(Charge::where('lease_id', $lease->id)->where('type', 'marketing')->where('is_active', true)->count())->toBe(0);
+});
+
+it('repairs a lease the old behaviour had already drifted, on a re-run with the figures it carries', function () {
+    importLeaseRow(leaseRow());
+    $lease = Lease::where('reference', 'CONTRACT-2019-0042')->sole();
+    // The shape the old "idempotent" test pinned as shipped: the column moved, the row did not.
+    $lease->forceFill(['base_rent_monthly' => 11000])->saveQuietly();
+    expect((float) Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->where('is_active', true)->sole()->amount)->toBe(10000.0);
+
+    importLeaseRow(leaseRow(['base_rent_monthly' => '11000']));   // not dirty — the gate is the ROW
+
+    expect((float) Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->where('is_active', true)->sole()->amount)->toBe(11000.0);
+});
+
+it('refuses to move a rent behind a schedule something has happened to, in the reader s words', function () {
+    importLeaseRow(leaseRow());
+    $lease = Lease::where('reference', 'CONTRACT-2019-0042')->sole();
+
+    // An act wrote a row of its own: from here the rows are the act's, not the file's.
+    app(LeaseRentChangeService::class)->apply($lease, [
+        'base_rent_monthly' => 10500, 'effective_from' => '2026-06-01', 'reason' => 'Agreed uplift.',
+    ]);
+    $before = Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->orderBy('id')->get(['id', 'amount', 'is_active'])->toArray();
+
+    expect(fn () => importLeaseRow(leaseRow(['base_rent_monthly' => '12000'])))
+        ->toThrow(RowImportFailedException::class, __('admin.refusals.lease_import_amounts_behind_schedule', [
+            'reference' => 'CONTRACT-2019-0042', 'fields' => __('admin.fields.base_rent_monthly'),
+        ]))
+        ->and((float) $lease->fresh()->base_rent_monthly)->toBe(10500.0)
+        ->and(Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->orderBy('id')->get(['id', 'amount', 'is_active'])->toArray())->toBe($before);
+
+    // CONTROL: the same row with the amounts the lease carries is accepted (the re-run of a
+    // partial import), and touches no row.
+    importLeaseRow(leaseRow(['base_rent_monthly' => '10500']));
+    expect(Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->orderBy('id')->get(['id', 'amount', 'is_active'])->toArray())->toBe($before);
 });
 
 it('does not stack a second charge schedule on re-import', function () {

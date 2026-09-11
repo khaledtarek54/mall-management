@@ -29,7 +29,8 @@ use Tests\Support\LeaseLadder;
  * Yardi regenerates the rent steps from the escalation setup whenever the setup changes, and MRI
  * does the same. `ChargeScheduleService::retrueProjectedLadder()` is that in one place: prune the
  * not-yet-started projected rungs, then project from the clause as it now reads. A stated, manual
- * rung survives, the collar is deliberately not a trigger, and the sweep's pointer follows an
+ * rung survives, the collar is DERIVED into the trigger (it re-trues only when it moves the
+ * collared rate, which the projection now writes), and the sweep's pointer follows an
  * interval change from the sweep's OWN state (the pointer it carries is one old interval past the
  * last step it applied) — walked forward to the first anniversary on or after today.
  *
@@ -131,10 +132,10 @@ it('leaves a rung the operator STATED exactly where it is', function () {
     });
 });
 
-it('does not churn the ladder when only the collar moves', function () {
-    // The control on the trigger list. The projection states the raw rate and the sweep collars
-    // it, so a collar change moves no rung — re-truing on it would deactivate and recreate every
-    // rung identically, which is audit noise and nothing else.
+it('does not churn the ladder when a collar that does not bite moves', function () {
+    // The control on the trigger: the collar is DERIVED into it, not listed — a floor of 2 and a
+    // ceiling of 50 around a 10 % rate change the collared rate not at all, so re-truing would
+    // deactivate and recreate every rung identically, which is audit noise and nothing else.
     asTenant($this->asset, function () {
         $lease = LeaseLadder::testersLease($this->asset);
         $ids = $lease->charges()->where('type', 'base_rent')->pluck('id')->sort()->values()->all();
@@ -143,6 +144,34 @@ it('does not churn the ladder when only the collar moves', function () {
 
         expect($lease->charges()->where('type', 'base_rent')->where('is_active', true)->pluck('id')->sort()->values()->all())
             ->toBe($ids);
+    });
+});
+
+it('shows the collared step in the schedule, and the sweep agrees with it', function () {
+    // The projection wrote the RAW rate until 2026-09-11 and left the sweep to clamp each rung
+    // the night it landed — so a ceiling of 5 % over a 10 % clause showed a 10 % ladder for the
+    // whole term and read as "not applied". Yardi's rent-step schedule is the amounts that
+    // will bill, and a fixed-percent collar is deterministic, so it belongs in the rows: the
+    // same clamp the sweep uses, so the two cannot disagree and the anniversary is a no-op.
+    asTenant($this->asset, function () {
+        $lease = LeaseLadder::testersLease($this->asset);
+
+        LeaseLadder::edit($lease, ['escalation_floor_rate' => 2, 'escalation_ceiling_rate' => 5]);
+
+        // 1,000 × 1.05 each year, and the levy derived from the collared figure.
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1103@2028-09 1158@2029-09')
+            ->and(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 53@2027-09 55@2028-09 58@2029-09');
+
+        $this->travelTo(CarbonImmutable::parse('2027-09-10'));
+        app(RentEscalationService::class)->runForToday();
+
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1103@2028-09 1158@2029-09')
+            ->and((float) $lease->fresh()->base_rent_monthly)->toBe(1050.0);
+
+        // Lifting the ceiling re-trues what lies ahead at the contracted rate.
+        $this->travelTo(CarbonImmutable::parse('2027-09-15'));
+        LeaseLadder::edit($lease, ['escalation_ceiling_rate' => null]);
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1155@2028-09 1271@2029-09');
     });
 });
 

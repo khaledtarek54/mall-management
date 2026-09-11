@@ -544,6 +544,7 @@ return [
         'master_unit' => 'Unit (master)',
         'additional_units' => 'Additional units',
         'additional_units_locked' => 'Locked once the lease is live — use the “Change premises” action, which records the date the space changes and re-rates the rent from it.',
+        'additional_units_locked_draft' => 'Locked — this draft\'s schedule already carries a rent step, or a row an act or an import wrote. Adjust those rows on the Charge schedule tab first.',
         'additional_units_helper' => 'Optional — extra units this lease also covers (e.g. an adjacent kiosk). All count as occupied.',
         'password' => 'Password',
         'portal_admin' => 'Can submit and pay',

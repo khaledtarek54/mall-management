@@ -31,6 +31,7 @@ class ProjectLeaseSchedulesCommand extends Command
 {
     protected $signature = 'atriom:project-lease-schedules
         {--commit : Actually write the rows (default is a dry run)}
+        {--retrue : Also RE-TRUE leases already laddered — prune their not-yet-started projected rungs and project again from the clause as it now reads (the repair the Lease hook runs on an edit; here for ladders that drifted before the hook existed, or that were projected before the collar was written into the schedule)}
         {--lease= : Restrict to one lease id}';
 
     protected $description = 'Backfill the contracted rent ladder onto leases created before schedule projection existed.';
@@ -63,20 +64,33 @@ class ProjectLeaseSchedulesCommand extends Command
         $rows = [];
         $totalCreated = 0;
         $skipped = 0;
+        $retrued = 0;
 
         foreach ($leases as $lease) {
             // Already laddered — re-running must not duplicate. setAmount() would no-op anyway
-            // (same amount already in force), but skipping keeps the report honest.
-            if ($lease->charges()->where('origin', Charge::ORIGIN_ESCALATION)->exists()) {
+            // (same amount already in force), but skipping keeps the report honest. `--retrue`
+            // takes those through the hook's own method instead — started rungs stay, a stated
+            // rung stays, a relief window is walked through — so the console repairs exactly
+            // what an edit would (2026-09-11: the ladders projected before the collar was written
+            // into the schedule, and the ones that drifted before the hook existed).
+            $laddered = $lease->charges()->where('origin', Charge::ORIGIN_ESCALATION)->exists();
+
+            if ($laddered && ! $this->option('retrue')) {
                 $skipped++;
 
                 continue;
             }
 
+            if ($laddered) {
+                $retrued++;
+            }
+
             // Dry run: project inside a transaction and roll it back, so what is REPORTED is what
             // would actually be written — not a second estimate of it.
             DB::beginTransaction();
-            $created = $schedule->projectTermEscalations($lease);
+            $created = $laddered
+                ? $schedule->retrueProjectedLadder($lease)
+                : $schedule->projectTermEscalations($lease);
 
             $steps = $lease->charges()
                 ->where('origin', Charge::ORIGIN_ESCALATION)
@@ -103,7 +117,9 @@ class ProjectLeaseSchedulesCommand extends Command
         $this->table(['Lease', 'Rent now', 'Step', 'Steps', 'First step'], $rows);
 
         $verb = $commit ? 'Created' : 'Would create';
-        $this->info("{$verb} {$totalCreated} schedule row(s) across ".count($rows).' lease(s); '."{$skipped} already laddered.");
+        $this->info("{$verb} {$totalCreated} schedule row(s) across ".count($rows).' lease(s); '.($this->option('retrue')
+            ? "{$retrued} already laddered and re-trued."
+            : "{$skipped} already laddered (pass --retrue to re-true them)."));
 
         if (! $commit) {
             $this->warn('Dry run — nothing was written. Re-run with --commit to apply.');

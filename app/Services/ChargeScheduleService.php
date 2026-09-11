@@ -261,7 +261,17 @@ class ChargeScheduleService
             return 0;
         }
 
-        $rate = (float) $lease->escalation_rate;
+        // The COLLARED rate, so the schedule shows the step that will actually bill (2026-09-11).
+        // The projection wrote the raw rate until then and left the sweep to clamp each rung the
+        // night it landed — "a standing caveat, stated" — which meant a collar edit showed
+        // nothing in the schedule and a tester read the ceiling as not applied. Yardi's rent
+        // step schedule IS the amounts that will bill; a fixed-percent collar is deterministic,
+        // so it belongs in the rows. Same clamp the sweep applies, so the two cannot disagree
+        // and the sweep's amend-in-place on the anniversary is a no-op. A fixed AMOUNT is not
+        // collared (the bounds are percentages), exactly as in the sweep.
+        $rate = $byPercent
+            ? RentEscalationService::collar($lease, (float) $lease->escalation_rate)
+            : (float) $lease->escalation_rate;
         $step = round((float) $lease->escalation_amount, 2);
         // `$until` is the CONTRACTED end when the lease's own expiry has been moved by an act that
         // ends the tenancy rather than extending it (see `Lease::updated`) — the walk stops at the
@@ -405,12 +415,10 @@ class ChargeScheduleService
                 $created++;
             }
 
-            // Same per-rung rounding as the sweep, so a projected lease and a swept one
-            // converge — with the rent ladder's own standing caveat: the projection states the
-            // RAW rate while the sweep collars it, so under a collar that actually binds, each
-            // rung is corrected in place the night its anniversary is swept (`setAmount`'s
-            // not-yet-billed branch) and the projected TAIL beyond it stays at the stated rate
-            // until reached. No attributes beyond the name: the successor row inherits VAT,
+            // Same per-rung rounding and the same COLLARED rate as the sweep, so a projected
+            // lease and a swept one converge rung for rung (the projection stated the raw rate
+            // until 2026-09-11 and the sweep corrected each rung as it landed — see the rate
+            // above). No attributes beyond the name: the successor row inherits VAT,
             // billing timing and proration from the row in force, which is the seeded
             // service-charge row this lease actually bills under.
             //
@@ -860,6 +868,71 @@ class ChargeScheduleService
             Charge::query()->where(...self::keyFor($lease))->where('type', $type)->get(),
             $on,
         );
+    }
+
+    /**
+     * Re-price the SEEDED rows to the lease's own columns and re-true the ladder from them — the
+     * schedule half of a re-price on a lease nothing has happened to yet.
+     *
+     * Two doors call it (2026-09-11): a DRAFT whose units changed on the form (a rate-priced rent
+     * is rate × area, and `repriceFromPremises()` moves the column), and the lease importer
+     * re-importing a lease with a corrected rent before it has billed or stepped. Both had left
+     * the seeded row at the old figure while the lease column moved — the same shape as the
+     * clause and the term, one column over. Amends the seed rows IN PLACE (`setAmount()`'s rule
+     * for a row starting on or after the effective date, and the seed rows start on the
+     * commencement), re-syncs the levy from the same date, then re-projects the steps from the
+     * new base. Callers decide WHETHER nothing has happened — `Lease::commencementLockedBecause()`
+     * and `scheduleIsStillAsCreated()` — because an act that changed the schedule (Change Rent, a
+     * relief) owns the rows it wrote.
+     */
+    public function repriceSeededRent(Lease $lease): int
+    {
+        return DB::transaction(function () use ($lease): int {
+            $from = CarbonImmutable::instance($lease->commencement_date);
+
+            // Nothing to do when the seeded rows already carry the lease's figures — the signal
+            // is the ROW, not whether a column just moved: the form derives a rate-priced rent
+            // live from the units picked, so the column can arrive already correct while the
+            // row is a save behind. A re-true for nothing would re-mint every rung (audit churn).
+            $rentRow = $this->rowInForce($lease, 'base_rent', self::billingBoundary($from));
+            $serviceRow = $this->rowInForce($lease, 'service_charge', self::billingBoundary($from));
+            $rentSame = $rentRow !== null && $this->sameMoney((float) $rentRow->amount, (float) $lease->base_rent_monthly);
+            $serviceSame = $serviceRow === null
+                ? (float) $lease->service_charge_monthly <= 0
+                : $this->sameMoney((float) $serviceRow->amount, (float) $lease->service_charge_monthly);
+
+            if ($rentSame && $serviceSame) {
+                return 0;
+            }
+
+            // A figure of ZERO retires the row rather than amending it to 0.00 — `seedStandardCharges()`
+            // seeds no row for a zero, `createLevyCharge()` deactivates a switched-off levy, and
+            // the billing run has no zero skip (a 0.00 line on every invoice). The review found
+            // the rent branch had no such twin at all: a rent corrected to 0 moved the column,
+            // re-priced the levy to 0, and left the seed rent row billing 10,000.
+            foreach (['base_rent' => (float) $lease->base_rent_monthly, 'service_charge' => (float) $lease->service_charge_monthly] as $type => $amount) {
+                if ($amount > 0) {
+                    $this->setAmount($lease, $type, $amount, $from, ['name' => $type === 'base_rent' ? 'Base Rent' : 'Service Charge'], Charge::ORIGIN_SEED);
+                } else {
+                    Charge::query()->where(...self::keyFor($lease))->where('type', $type)->where('is_active', true)->update(['is_active' => false]);
+                }
+            }
+
+            // The levy is REBUILT, not amended: every levy row is derived from the rent, and a
+            // re-rate made earlier (base row closed at last month's eve, the new rate from the
+            // 1st) left TWO rows, of which `createLevyCharge()` amends only the first — the second
+            // then carried a percentage of the OLD rent for the rest of the term. Nothing has
+            // been billed on a lease that gets here, so one row at today's rate from the
+            // commencement is the honest schedule; the walk below writes the rungs on top.
+            Charge::query()->where(...self::keyFor($lease))->where('type', 'marketing')->where('origin', Charge::ORIGIN_LEVY)->where('is_active', true)->update(['is_active' => false]);
+
+            // A percentage of nothing is no row, not a 0.00 row (`createLevyCharge()` would open one).
+            if ((float) $lease->base_rent_monthly > 0) {
+                app(MarketingLevyService::class)->createLevyCharge($lease, $from);
+            }
+
+            return $this->retrueProjectedLadder($lease->fresh());
+        });
     }
 
     /**

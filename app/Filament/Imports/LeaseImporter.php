@@ -6,12 +6,14 @@ use App\Filament\Imports\Concerns\ResolvesVisibleAssetByCode;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\ChargeScheduleService;
 use App\Services\LeaseCreationService;
 use App\Support\DataTransferNotice;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\LeaseTerm;
 use App\Support\ValueSets;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Imports\Exceptions\RowImportFailedException;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -329,6 +331,59 @@ class LeaseImporter extends Importer
                     'expiry' => CarbonImmutable::parse($expiry)->toDateString(),
                 ]),
             ]);
+        }
+    }
+
+    /**
+     * A re-import of a lease already on the books does not move its rent or service charge
+     * BEHIND its schedule (2026-09-11, the term-edit review).
+     *
+     * `resolveRecord()` re-imports by reference, and `afterCreate()` seeds the charge schedule for
+     * a NEW lease only — so a corrected rent in a re-run file changed the lease's column and left
+     * the seeded row billing the old figure, and `LeaseImportExecutesTest` pinned that as
+     * "idempotent". Yardi imports lease charges as their own records; the lease header never
+     * re-prices them. Here, while NOTHING has happened to the lease — un-invoiced, un-stepped,
+     * schedule still exactly what creation wrote — the importer is the door that made the
+     * schedule and may re-derive it (`repriceSeededRent()`, the correction a migrating operator
+     * makes before the first billing night); otherwise the row is refused in the reader's words,
+     * naming the doors that own the rows. A `RowImportFailedException` is the one refusal
+     * Filament's `ImportCsv` writes into the failed-rows file with its sentence.
+     */
+    protected function beforeUpdate(): void
+    {
+        /** @var Lease $lease */
+        $lease = $this->record;
+
+        if (! $lease->isDirty(['base_rent_monthly', 'service_charge_monthly']) || ! $lease->charges()->exists()) {
+            return;
+        }
+
+        if ($lease->commencementLockedBecause() === null && $lease->scheduleIsStillAsCreated()) {
+            return;
+        }
+
+        throw new RowImportFailedException(__('admin.refusals.lease_import_amounts_behind_schedule', [
+            'reference' => $lease->reference,
+            'fields' => collect(['base_rent_monthly', 'service_charge_monthly'])
+                ->filter(fn (string $c) => $lease->isDirty($c))
+                ->map(fn (string $c) => __('admin.fields.'.$c))
+                ->implode(', '),
+        ]));
+    }
+
+    protected function afterUpdate(): void
+    {
+        /** @var Lease $lease */
+        $lease = $this->record;
+
+        // Whenever the gates pass, not only when a column moved: a lease already drifted by the
+        // old behaviour (column at 11,000 over a row at 10,000, which the old test pinned as
+        // shipped) is repaired by re-running the file with the figures it already carries, and
+        // `repriceSeededRent()` reads the rows and no-ops when they agree.
+        if ($lease->charges()->exists()
+            && $lease->commencementLockedBecause() === null
+            && $lease->scheduleIsStillAsCreated()) {
+            app(ChargeScheduleService::class)->repriceSeededRent($lease->fresh());
         }
     }
 

@@ -265,9 +265,10 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // every not-yet-started PROJECTED rung (a stated, manual rung survives, a relief window
         // is walked through rather than over, and the levy follows exactly the rent rungs
         // pruned), then project again from the clause as it now reads. A cleared clause projects
-        // nothing, which is the old first branch. The collar columns are deliberately NOT in the
-        // list: the projection states the raw rate and the sweep collars it, so a collar change
-        // moves no rung and re-truing on it would only churn the audit trail.
+        // nothing, which is the old first branch. The collar columns are not in the list but are
+        // DERIVED into the trigger: the projection writes the collared rate (2026-09-11), so a
+        // collar edit re-trues exactly when it moves the collared rate (`collaredRateMoved()`)
+        // and a bound that never bites churns nothing.
         //
         // THE LEVY PAIR IS THE OTHER HALF, and it was `EditLease::afterSave()`'s until today —
         // one door of the several that write these two columns. Re-syncing the BASE levy row
@@ -290,7 +291,8 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // expiry still moves — through the acts that own it, which re-true through this hook.
         static::updated(function (self $lease) {
             $levyMoved = $lease->wasChanged(self::LEVY_TERMS);
-            $clauseMoved = $lease->wasChanged(array_values(array_diff(self::LADDER_TERMS, self::LEVY_TERMS)));
+            $clauseMoved = $lease->wasChanged(array_values(array_diff(self::LADDER_TERMS, self::LEVY_TERMS)))
+                || $lease->collaredRateMoved();
             $boundsMoved = $lease->wasChanged(self::LADDER_BOUNDS);
 
             if (! $levyMoved && ! $clauseMoved && ! $boundsMoved) {
@@ -1103,9 +1105,10 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
     /**
      * The columns the projected charge ladder is a FUNCTION of — an edit to any of them re-trues
-     * the ladder (`Lease::updated`). The escalation collar is deliberately absent: the projection
-     * states the raw rate and the sweep applies the collar each anniversary, so a collar edit
-     * moves no rung and re-truing on it would only churn the audit trail.
+     * the ladder (`Lease::updated`). The escalation collar is not listed because it is DERIVED
+     * rather than matched: since the projection writes the collared rate (2026-09-11), a collar
+     * edit re-trues exactly when it moves the collared rate — {@see collaredRateMoved()} — and a
+     * bound that never bites moves no rung and churns nothing.
      *
      * @var list<string>
      */
@@ -1142,6 +1145,73 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'commencement_date',
         'expiry_date',
     ];
+
+    /**
+     * Did this save move the COLLARED escalation rate — the figure the projection writes?
+     *
+     * A collar edit on a fixed-percent clause re-trues the ladder only when the clamp's answer
+     * changes: tightening a ceiling from 12 to 5 over a 10 % rate does, lifting a floor from 2 to
+     * 3 under it does not. Read off the ORIGINAL bounds against the current ones, so the question
+     * is asked of the rate the lease carries now.
+     */
+    public function collaredRateMoved(): bool
+    {
+        if (! $this->wasChanged(['escalation_floor_rate', 'escalation_ceiling_rate'])
+            || $this->escalation_type !== 'fixed_percent') {
+            return false;
+        }
+
+        $rate = (float) $this->escalation_rate;
+
+        return RentEscalationService::collarWith($this->getOriginal('escalation_floor_rate'), $this->getOriginal('escalation_ceiling_rate'), $rate)
+            !== RentEscalationService::collar($this, $rate);
+    }
+
+    /**
+     * Is the charge schedule still exactly what creation wrote — the seeded rows, the levy's,
+     * and the projected steps — with no act's row on it? A Change Rent, a relief, a CAM estimate,
+     * a bay or a row added on the schedule tab makes it false, and from then on those acts own
+     * the rows: a re-price of the seeded figures would rewrite something somebody stated.
+     */
+    public function scheduleIsStillAsCreated(): bool
+    {
+        return ! $this->charges()
+            ->where('is_active', true)
+            ->whereNotIn('origin', [Charge::ORIGIN_SEED, Charge::ORIGIN_LEVY, Charge::ORIGIN_ESCALATION])
+            ->exists();
+    }
+
+    /**
+     * Why the premises may not change on the FORM — `live`, `stepped`, `schedule`, or null when
+     * they may. The ONE predicate behind the units picker's disabled state, its helper and
+     * `EditLease::afterSave()`'s refusal, so the field and the gate cannot drift (the field had
+     * carried TWO `disabled()` calls, the later of which locked every Edit page — a draft's units
+     * could not be changed by any door, while the code and the docs said the form allowed it).
+     *
+     *  - `live`: an active/pending/future lease's space moves through *Change premises*, which
+     *    records the date and re-rates from it, and never through a form save with no date.
+     *  - `stepped`: a draft whose rent has already stepped would leave its re-priced seed row
+     *    disagreeing with the started rung — the reason a stepped lease cannot move its
+     *    commencement either.
+     *  - `schedule`: a draft carrying a row an act or an import wrote (`scheduleIsStillAsCreated()`
+     *    false) — re-pricing the seeded rows would rewrite something somebody stated.
+     */
+    public function premisesLockedBecause(): ?string
+    {
+        if (! $this->exists) {
+            return null;
+        }
+
+        if (in_array($this->status, self::OPEN_TO_COMMERCIAL_ACTS, true)) {
+            return 'live';
+        }
+
+        if ($this->firstSteppedOn() !== null) {
+            return 'stepped';
+        }
+
+        return $this->scheduleIsStillAsCreated() ? null : 'schedule';
+    }
 
     /**
      * Why the commencement may not move — `invoiced`, `stepped`, or null when it may.

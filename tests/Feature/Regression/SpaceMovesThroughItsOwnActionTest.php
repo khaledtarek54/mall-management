@@ -22,6 +22,7 @@
 */
 
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
+use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Unit;
 use App\Services\ChargeScheduleService;
@@ -49,8 +50,12 @@ beforeEach(function () {
     ]);
     $this->lease->units()->syncWithoutDetaching([$this->unit->id]);
 
+    // As CREATION writes it — origin `seed`. `setAmount()`'s default is `manual`, the system's own
+    // word for "an act wrote this row", and since 2026-09-11 a draft carrying an act's row is
+    // locked on the form (`Lease::premisesLockedBecause()` → `schedule`); the draft control
+    // below is about a plain draft, which is a seeded one.
     app(ChargeScheduleService::class)->setAmount(
-        $this->lease, 'base_rent', 44000, CarbonImmutable::parse('2026-08-01'),
+        $this->lease, 'base_rent', 44000, CarbonImmutable::parse('2026-08-01'), [], Charge::ORIGIN_SEED,
     );
 
     $this->actingAs(makeUser('super_admin', [$this->asset->id]));

@@ -176,11 +176,11 @@ class LeaseRentChangeService
             // everything already right is a `sameMoney` no-op.
             //
             // NOT when the SWEEP is the caller. The sweep's contract is one step per run — on an
-            // unprojected lease it appends one rung a year (pinned behaviour), and re-projecting
-            // here would write the whole remaining ladder at the RAW rate the night a COLLARED
-            // step applied, putting uncollared figures on every future rung of exactly the lease
-            // whose collar just proved it binds. An operator's change re-trues; the sweep
-            // converges rung by rung, as it always has.
+            // unprojected lease it appends one rung a year (pinned behaviour) — and the ladder is
+            // the projection's to write, not the night's. (Its second reason, that a re-projection
+            // would put the RAW rate on every future rung of exactly the lease whose collar just
+            // bit, lapsed on 2026-09-11 when the projection began writing the collared rate.) An
+            // operator's change re-trues; the sweep converges rung by rung, as it always has.
             if ($origin !== Charge::ORIGIN_ESCALATION) {
                 $this->schedule->projectTermEscalations($lease->fresh());
             }
