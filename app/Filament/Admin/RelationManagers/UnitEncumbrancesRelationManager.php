@@ -2,12 +2,14 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Models\Lease;
 use App\Models\LeaseOption;
-use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -38,6 +40,9 @@ class UnitEncumbrancesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // The property chain `OpenRecordAction` walks per row (`PropertyLink::assetOf()`),
+            // loaded once for the page: without it the *Open* button costs a query per row.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('lease.unit'))
             ->searchable(false)
             ->columns([
                 TextColumn::make('type')
@@ -71,14 +76,7 @@ class UnitEncumbrancesRelationManager extends RelationManager
                     ->color(fn (?string $state) => $state === null ? 'gray' : 'warning'),
             ])
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (LeaseOption $record): ?string => $record->lease
-                        ? LeaseResource::getUrl('edit', ['record' => $record->lease])
-                        : null)
-                    ->visible(fn (LeaseOption $record): bool => $record->lease !== null
-                        && LeaseResource::canEdit($record->lease)),
+                OpenRecordAction::make(LeaseResource::class, fn (LeaseOption $option): ?Lease => $option->lease),
             ])
             ->defaultSort('latest_notice_date')
             ->emptyStateIcon('heroicon-o-lock-open')

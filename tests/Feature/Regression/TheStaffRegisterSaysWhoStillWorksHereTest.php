@@ -84,12 +84,15 @@ it('links the email to the person record', function () {
     $staff = makeUser('manager');
     $this->asset->staff()->attach($staff->id, ['assigned_at' => now()->toDateString()]);
 
-    $url = staffRegister($this->asset)
+    // Under a selected property, as every admin route is: the link resolves through
+    // `OpenRecordAction::urlFor()` (2026-09-11), the one resolver every tab's *Open* uses, which
+    // builds a shared master's URL in the mall the reader is standing in.
+    $url = asTenant($this->asset, fn () => staffRegister($this->asset)
         ->instance()
         ->getTable()
         ->getColumn('email')
         ->record($this->asset->fresh()->staff()->first())
-        ->getUrl();
+        ->getUrl());
 
     expect($url)->toBeString()->toContain((string) $staff->getKey());
 });

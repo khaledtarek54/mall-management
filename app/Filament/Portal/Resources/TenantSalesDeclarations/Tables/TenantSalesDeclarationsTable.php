@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Tables;
 
+use App\Support\BadgeColors;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -45,12 +46,7 @@ class TenantSalesDeclarationsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_sales.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'submitted' => 'warning',
-                        'locked' => 'success',
-                        'disputed' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_sales_declarations.status')),
                 TextColumn::make('declared_at')
                     ->label(__('admin.tables.tenant_sales.declared_at'))
                     ->date('d/m/Y')

@@ -181,12 +181,27 @@ it('gives the portal one answer instead of two that disagree', function () {
     // `ViewInvoice::canPayNow()` (a LIVE gateway) and `canPayDemo()` sat three lines apart and
     // tested different things: the demo one carried the status denylist, the real one carried none.
     // Both now ask `isPayable()`, so the button that spends money can never be the permissive one.
-    $source = sourceWithoutComments(base_path(
-        'app/Filament/Portal/Resources/Invoices/Pages/ViewInvoice.php'
-    ));
+    //
+    // Since 2026-09-11 both predicates live in `App\Filament\Portal\Actions\InvoiceActions`, the
+    // ONE definition the invoice page's header AND the invoice list's row compose — the list had
+    // kept its own copy of the demo denylist after this fix reached the page, which is the
+    // two-copies defect wearing a different file. The pin moved with the predicates.
+    $source = sourceWithoutComments(base_path('app/Filament/Portal/Actions/InvoiceActions.php'));
 
     expect(substr_count($source, 'isPayable()'))->toBe(2)
-        ->and($source)->not->toContain('in_array($this->record->status');
+        ->and($source)->not->toContain('in_array($record->status');
+
+    // And no surface keeps a private copy beside the registry.
+    foreach ([
+        'app/Filament/Portal/Resources/Invoices/Pages/ViewInvoice.php',
+        'app/Filament/Portal/Resources/Invoices/Tables/InvoicesTable.php',
+    ] as $surface) {
+        $surface = sourceWithoutComments(base_path($surface));
+
+        expect($surface)->toContain('InvoiceActions::all()')
+            ->not->toContain("Action::make('payDemo')")
+            ->not->toContain("Action::make('payNow')");
+    }
 });
 
 /*

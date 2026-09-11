@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
+use App\Support\BadgeColors;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\DateRangeFilter;
@@ -81,11 +82,7 @@ class ExpensesTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.expense.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'recorded' => 'success',
-                        'cancelled' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('expenses.status')),
                 BankAccountColumn::make(),
             ])
             ->filters([

@@ -51,18 +51,13 @@ final class FacilityVocabulary
     /**
      * The badge colour for a work-order status.
      *
-     * Verbatim the `match()` `FacilityWorkOrdersTable` has carried since the board was written —
-     * finished is green, running is amber, cancelled is grey, and anything else (today only `open`)
-     * is neutral information rather than an alarm.
+     * Read off {@see BadgeColors} since 2026-09-11 — the same map the operator's board and the
+     * contractor portal always shared through this method, now in the registry every other
+     * classification badge in the panel reads, so a third screen cannot colour it differently.
      */
     public static function statusColor(?string $status): string
     {
-        return match ($status) {
-            'done' => 'success',
-            'in_progress' => 'warning',
-            'cancelled' => 'gray',
-            default => 'info',
-        };
+        return BadgeColors::for('facility_work_orders.status', $status);
     }
 
     /** The operator's word for a work-order priority, in the reader's language. */
@@ -76,11 +71,6 @@ final class FacilityVocabulary
     /** The badge colour for a work-order priority — the same one the operator's board uses. */
     public static function priorityColor(?string $priority): string
     {
-        return match ($priority) {
-            'urgent' => 'danger',
-            'high' => 'warning',
-            'low' => 'gray',
-            default => 'info',
-        };
+        return BadgeColors::for('facility_work_orders.priority', $priority);
     }
 }

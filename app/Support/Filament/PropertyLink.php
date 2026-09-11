@@ -22,11 +22,12 @@ use Throwable;
  *    mall A. There the property is the tab's owner record, and the relation manager passes it
  *    directly — no resolution needed, and nothing per row.
  *  - a tab whose ROWS span properties. A tenant's compliance history is listed wherever they trade
- *    — `TenantViolationsRelationManager` and `TenantSalesDeclarationsRelationManager` are scoped by
- *    NOTHING — so the property is a fact about each ROW. That is what this class is for. (Its
- *    invoices and requests tabs narrow with `TenantScope::visibleAssetIds()`, which answers the
- *    SELECTED property for any real tenant, so no away row reaches those two; they call this
- *    anyway, so the answer does not depend on a scoping decision made in another file.)
+ *    — `TenantViolationsRelationManager` and `TenantSalesDeclarationsRelationManager` were scoped
+ *    by NOTHING when this was written (both narrow through `PropertyScope::apply()` since
+ *    `2d0aad46`) — so the property is a fact about each ROW. That is what this class is for. Every
+ *    tab's *Open* now resolves through `OpenRecordAction::urlFor()`, which calls this for any
+ *    property-owned record whether or not the tab happens to be narrowed this week, so the answer
+ *    does not depend on a scoping decision made in another file.
  *
  * The target resources are `ScopesToProperty`, and Filament resolves a route-bound record through
  * the resource's own scoped query, so a link naming the wrong mall resolves NO record: a **404**

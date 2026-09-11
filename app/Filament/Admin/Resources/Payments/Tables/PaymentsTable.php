@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Tenant;
 use App\Services\ReceiptPdfService;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
@@ -77,12 +78,7 @@ class PaymentsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.payment.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'captured', 'reconciled', 'settled' => 'success',
-                        'initiated', 'authorized' => 'warning',
-                        'failed', 'bounced', 'refunded', 'voided' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('payments.status')),
                 BankAccountColumn::make(),
             ])
             ->filters([

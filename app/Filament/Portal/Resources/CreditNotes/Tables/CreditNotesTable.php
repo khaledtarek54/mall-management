@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\CreditNotes\Tables;
 
+use App\Support\BadgeColors;
 use App\Support\StatusOptions;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -71,12 +72,7 @@ class CreditNotesTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.credit_note.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'applied' => 'success',
-                        'issued' => 'warning',
-                        'void' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('credit_notes.status')),
             ])
             ->filters([
                 SelectFilter::make('status')

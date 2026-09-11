@@ -6,6 +6,7 @@ use App\Models\CamAllocation;
 use App\Models\Tenant;
 use App\Services\CamReconciliationService;
 use App\Services\CamStatementPdfService;
+use App\Support\BadgeColors;
 use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
@@ -260,13 +261,7 @@ class CamAllocationsRelationManager extends RelationManager
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.cam_allocation.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'billed' => 'success',
-                        'disputed' => 'danger',
-                        'closed' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('cam_allocations.status')),
             ])
             ->filters([
                 SelectFilter::make('status')

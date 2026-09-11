@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Invoice;
+use App\Support\BadgeColors;
 use App\Support\ResourceLink;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -31,6 +33,9 @@ class LeaseInvoicesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // `isPayable()` nets prior write-offs per row; loaded once for the page, as the
+            // portal's invoice table does, rather than one aggregate per row.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('writeOffs'))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.invoice.number'))
@@ -61,13 +66,7 @@ class LeaseInvoicesRelationManager extends RelationManager
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.invoice.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'paid' => 'success',
-                        'partially_paid' => 'warning',
-                        'overdue' => 'danger',
-                        'issued' => 'info',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('invoices.status')),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -88,7 +87,10 @@ class LeaseInvoicesRelationManager extends RelationManager
                         ->when($data['period_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '>=', $date))
                         ->when($data['period_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '<=', $date))),
                 Filter::make('unpaid_only')
-                    ->label(__('admin.filters.overdue_only'))
+                    // *Outstanding*, the word the tenant's own invoices tab uses for the same
+                    // query — it was labelled *Overdue only* here, which is a different question
+                    // (`stillOwed()` includes an invoice not yet due).
+                    ->label(__('admin.tenant_invoices.outstanding_only'))
                     // Still OWED, not merely carrying a balance — see the tenant twin.
                     ->query(fn (Builder $query) => $query->stillOwed()),
             ])
@@ -107,21 +109,19 @@ class LeaseInvoicesRelationManager extends RelationManager
             // posting-date guard, the property scope, the over-allocation backstop and the
             // orphaned-receipt refusal, and a second form would own none of them.
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (Invoice $record): string => InvoiceResource::getUrl('edit', ['record' => $record])),
+                OpenRecordAction::make(InvoiceResource::class),
 
                 Action::make('recordPayment')
                     ->label(__('admin.collections.record_payment'))
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-                    // Offered only where there is something to settle. A DRAFT has not been
-                    // raised, and a settled or cancelled document has nothing to receive against —
-                    // an action that refuses the moment it is pressed is a worse answer than one
-                    // that is not offered, which is the rule `billDeposit` follows too.
-                    ->visible(fn (Invoice $record): bool => (float) $record->balance > 0
-                        && ! in_array($record->status, ['draft', 'cancelled', 'written_off'], true)
+                    // Offered only where money may still land — `Invoice::isPayable()`, the ONE
+                    // predicate (`InvoiceSettlement::accepts()` and the balance net of write-offs).
+                    // This button restated it as `balance > 0` and a three-status denylist, which
+                    // offered *Record payment* on a `credited` invoice and on one partly written
+                    // off — a button that refuses the moment it is pressed is a worse answer than
+                    // one that is not offered, which is the rule `billDeposit` follows too.
+                    ->visible(fn (Invoice $record): bool => $record->isPayable()
                         && (auth()->user()?->can('payments.create') ?? false))
                     ->url(fn (Invoice $record): string => ResourceLink::create(PaymentResource::class, [
                         'invoice' => $record->getKey(),

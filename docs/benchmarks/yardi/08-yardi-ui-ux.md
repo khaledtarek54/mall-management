@@ -474,6 +474,28 @@ behind it.** Cheap per widget, and it is what makes an operator trust the number
 6. **Feedback carries state.** After an action, say what changed and link to it — "3 invoices
    created, 1 skipped (fit-out) → view run".
 
+<a id="one-colour-one-open"></a>
+7. **The same fact renders the same way on every screen, and the same act is defined once
+   (2026-09-11).** Voyager colours a lease status identically on the customer screen, the unit's
+   history and the lease register, because an operator reads the colour before the word; and its
+   related-record links are one function governed by function access. Atriom measured the
+   opposite before this rule had a gate: **87** inline `match ($state)` colour maps over 41
+   vocabularies, 15 coloured in more than one file and **7 of those disagreeing** — a `vacant`
+   unit red on the register and amber on the property's own Units tab, a free bay amber on the
+   register and GREEN on the property's Parking tab, a `future` lease five different answers on
+   five screens; and *Open* hand-written on twelve tabs in four shapes, one of them a viewer's link
+   straight into a 403. A tab is a NARROWED copy of the register (it legitimately drops the
+   parent's column and filter); what may not differ is the rendering of a fact and the definition
+   of an act. So: a classification value's badge colour is `App\Support\BadgeColors` (keyed by the
+   `ValueSets` key, the register's own colour winning where the copies disagreed;
+   `BadgeColorsConformanceTest`); a tab's *Open* is `App\Filament\Actions\OpenRecordAction`, which
+   resolves edit-then-view per record in the row's own mall and is what the row click follows
+   (`RowClickTarget`; `ATabOpensARecordThroughOneFactoryConformanceTest`); and an act offered on
+   two surfaces of one panel is a `*Actions` registry composed as one spread — the portal's
+   `InvoiceActions` closed the last live instance, where the list's *Pay (demo)* kept a predicate
+   the page had already been fixed of. The strip gate (`AnActIsDeclaredOnceConformanceTest`) reads
+   factories and root registries now, so a duplicated factory act on a tab is visible to it.
+
 ---
 
 ## 6. Where this sits in the plan

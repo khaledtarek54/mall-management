@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Units\Tables;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Exports\UnitExporter;
 use App\Models\Asset;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\EntitySelectFilter;
@@ -100,13 +101,7 @@ class UnitsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.unit.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'occupied' => 'success',
-                        'vacant' => 'danger',
-                        'reserved' => 'warning',
-                        'maintenance' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('units.status')),
 
                 // The operator's own fields (D-7). Hidden until asked for, so a list
                 // nobody customised is unchanged.

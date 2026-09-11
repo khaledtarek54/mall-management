@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Support\BadgeColors;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -55,13 +56,7 @@ class TenantLeasesRelationManager extends RelationManager
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.lease.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'active' => 'success',
-                        'pending_approval' => 'warning',
-                        'renewed' => 'info',
-                        'terminated', 'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('leases.status')),
             ])
             ->filters([
                 SelectFilter::make('status')

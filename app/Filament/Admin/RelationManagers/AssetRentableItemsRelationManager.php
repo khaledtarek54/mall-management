@@ -2,10 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Models\RentableItem;
-use Filament\Actions\Action;
+use App\Support\BadgeColors;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -58,11 +59,7 @@ class AssetRentableItemsRelationManager extends RelationManager
                     ->label(__('admin.filters.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __('admin.enums.rentable_item_status')[$state] ?? $state)
-                    ->color(fn (string $state) => match ($state) {
-                        RentableItem::STATUS_AVAILABLE => 'success',
-                        RentableItem::STATUS_ASSIGNED => 'gray',
-                        default => 'danger',
-                    }),
+                    ->color(BadgeColors::of('rentable_items.status')),
 
                 // Who has it right now. Derived from the dated pivot rather than the status column,
                 // so it answers "held by whom today" and not merely "held at some point".
@@ -85,17 +82,7 @@ class AssetRentableItemsRelationManager extends RelationManager
                     ->options(fn () => __('admin.enums.rentable_item_status')),
             ])
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    // The TENANT is passed explicitly — see AssetUnitsRelationManager for why this
-                    // page in particular cannot let `getUrl()` read it off the switcher.
-                    ->url(fn (RentableItem $record): string => RentableItemResource::getUrl(
-                        'edit',
-                        ['record' => $record],
-                        tenant: $this->getOwnerRecord(),
-                    ))
-                    ->visible(fn (RentableItem $record): bool => RentableItemResource::canEdit($record)),
+                OpenRecordAction::make(RentableItemResource::class),
             ])
             ->defaultSort('code')
             ->emptyStateIcon('heroicon-o-ticket')

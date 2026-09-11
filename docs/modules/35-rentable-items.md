@@ -92,6 +92,23 @@ takes a `Lease`, so an ownership tab cannot compose it and cannot drift a lease 
 narrowing carries a vacuity guard, because a filter that matched nothing would make the gate pass by
 examining no files.
 
+### One definition of the ACTS too — `App\Filament\Actions\RentableItemHoldingActions` (2026-09-11)
+
+The picker was shared and the acts were not: `LeaseActions` carried assign/release for a lease, the
+ownership tab carried a copy of each with `$this->ownership()` in place of `$record`, and both tabs
+carried a per-row release of their own — five definitions of two acts, and they had drifted. The
+ownership copy lacked the *"nothing free"* empty-list wording the lease copy carried, and each
+tab's `visible()` restated the service's own liveness rule (`OPEN_TO_COMMERCIAL_ACTS` in one file,
+`isTerminal()` in the other). The factory takes the HOLDER as `$record` — a `BillableAgreement`,
+which is what `AssignRentableItemService` and `RentableItemOptions` always took — so
+`LeaseActions::all()` composes `assign()`/`release()`, the ownership tab binds them with
+`->record($this->ownership())`, and both tabs' rows carry `releaseRow()`. The button's `visible()`
+reads `AssignRentableItemService::holderCanTakeOn()` (made public for it), so a tab cannot offer what
+the service will refuse. Permission is `rentable_items.edit` on every surface.
+
+(The lease tab's own comment had claimed the registry used an `EntitySelect` — it never did; both
+were a plain `Select` over `RentableItemOptions::lettable()`. Corrected in the same change.)
+
 ## 1. Purpose & business context
 
 A mall earns real money from things that are not shops. Atriom could not record any of it: `parking`
@@ -231,7 +248,10 @@ property, before the agreement exists).
 `RentableItemResource` under **Leasing** (you reach it while doing a deal, not while doing
 maintenance) — property-scoped, `rentable_items.*` permissions, floor and zone selects reading the
 property's own registers, and the **current holder** shown in the table because "who has bay 42" is
-the question an operator arrives with. Assign / release are actions on the lease. **The lease's
+the question an operator arrives with. Assign / release are actions on the HOLDER — the lease's
+header and tab, and the unit ownership's tab — from one definition (`RentableItemHoldingActions`,
+above; the assign modal's rule trio is `ruleFields()` there, built against the lease where the
+holder is one). **The lease's
 Parking & rentable items tab** (`LeaseRentableItemsRelationManager`) shows each holding's rule in
 words (`ChargeEscalation::describe()` — the same sentence the lease form's "Which charges step"
 table shows against its read-only parking row) and rules on a live holding through its *Annual

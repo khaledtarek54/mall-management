@@ -1476,6 +1476,40 @@ billing:scan-overdue-invoices {--dry-run : Print without notifying}
 - **ListInvoices** — table view (same columns as Admin, minus eta_status if tenant-facing, minus edit actions)
 - **ViewInvoice** — detail view via infolist
 
+**The two acts a tenant may take — *Pay now* (live Paymob) and *Pay (demo)* — are ONE definition,
+`App\Filament\Portal\Actions\InvoiceActions`, composed as a single spread onto both the list row
+and the View page's header (2026-09-11).** They were written out twice, and the split had already
+bitten: the View page's `canPayDemo()` was routed to `Invoice::isPayable()` on 2026-09-01 and the
+table's copy was not — measured, an invoice partly written off and then paid up (`partially_paid`,
+raw balance 6,000, collectable 0) offered *Pay (demo)* on the LIST and not on its own page, and
+pressing it reached the demo capture's refusal. Both predicates (`canPayNow()`, `canPayDemo()`)
+live on the registry and read `isPayable()`; the demo modal quotes `payableAmount()`, never the raw
+`balance` a write-off leaves standing. `APortalInvoiceOffersOneAnswerToPayTest` drives the divergent
+state through both surfaces. The lease document download on the portal (`ViewLease` + `LeasesTable`)
+is `App\Filament\Portal\Actions\LeaseActions` for the same reason.
+
+---
+
+### The invoice TABS on the lease and tenant pages (2026-09-11)
+
+`LeaseInvoicesRelationManager` and `TenantInvoicesRelationManager` are narrowed copies of the
+register — a tab legitimately omits the parent's column and the parent's filter — and what must NOT
+differ between them and the register is how the same fact renders and how the same act is defined:
+
+- **`status` is coloured through `App\Support\BadgeColors::of('invoices.status')`** on the
+  register, both tabs, the portal table and the portal infolist. Before the registry the tenant tab
+  coloured `issued`, `draft`, `credited` and `written_off` AMBER (its `default`) where the register
+  coloured `issued` blue and the rest grey. See the panel-wide rule in
+  [`docs/benchmarks/yardi/08`](../benchmarks/yardi/08-yardi-ui-ux.md#one-colour-one-open).
+- ***Open* is `OpenRecordAction::make(InvoiceResource::class)`** on both tabs — edit where the
+  reader may, view where a View page exists, nothing otherwise, in the row's own mall. The lease
+  tab's copy had NO visibility gate (a viewer got a link into a 403); the row click follows it.
+- **The lease tab's *Record payment* is offered on `Invoice::isPayable()`**, the one predicate the
+  portal, the pay link and the payment form read. It restated the rule as `balance > 0` plus a
+  three-status denylist, which offered the button on a `credited` invoice and on one whose forgiven
+  remainder was all that stood. Its *Still owed* filter was labelled *Overdue only*; it reads
+  *Outstanding only* now, the tenant tab's word for the same query.
+
 ---
 
 ### Filament TenantScope

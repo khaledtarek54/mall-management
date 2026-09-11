@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\User;
@@ -86,14 +87,12 @@ class AssetStaffRelationManager extends RelationManager
                 TextColumn::make('email')
                     ->label(__('admin.tables.user.email'))
                     ->copyable()
-                    // The TENANT is passed explicitly. This panel is tenant-scoped, so `getUrl()`
-                    // otherwise builds the route from whatever tenant happens to be set on the
-                    // request — and a relation manager already knows the property it belongs to.
-                    ->url(fn (User $record): ?string => UserResource::canEdit($record)
-                        ? UserResource::getUrl('edit', ['record' => $record], tenant: $this->getOwnerRecord())
-                        : null)
-                    ->color(fn (User $record): ?string => UserResource::canEdit($record) ? 'primary' : null)
-                    ->tooltip(fn (User $record): ?string => UserResource::canEdit($record)
+                    // The person's own page, through the ONE resolver every tab's *Open* uses —
+                    // edit where this reader may, else nothing. A user is a shared master with no
+                    // property of its own, so the link stays in the mall the reader selected.
+                    ->url(fn (User $record): ?string => OpenRecordAction::urlFor(UserResource::class, $record))
+                    ->color(fn (User $record): ?string => OpenRecordAction::urlFor(UserResource::class, $record) !== null ? 'primary' : null)
+                    ->tooltip(fn (User $record): ?string => OpenRecordAction::urlFor(UserResource::class, $record) !== null
                         ? __('admin.tables.user.edit_person_tooltip')
                         : null),
                 TextColumn::make('roles.name')

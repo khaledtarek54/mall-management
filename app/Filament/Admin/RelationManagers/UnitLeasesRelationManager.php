@@ -2,12 +2,14 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
-use Filament\Actions\Action;
+use App\Support\BadgeColors;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -38,6 +40,9 @@ class UnitLeasesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // The property chain `OpenRecordAction` walks per row (`PropertyLink::assetOf()`),
+            // loaded once for the page: without it the *Open* button costs a query per row.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('unit'))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.lease.reference'))
@@ -55,12 +60,7 @@ class UnitLeasesRelationManager extends RelationManager
                     ->label(__('admin.filters.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.lease.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'active' => 'success',
-                        'pending_approval', 'draft' => 'warning',
-                        'terminated', 'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('leases.status')),
 
                 TextColumn::make('commencement_date')
                     ->label(__('admin.fields.commencement_date'))
@@ -78,11 +78,7 @@ class UnitLeasesRelationManager extends RelationManager
                     ->toggleable(),
             ])
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (Lease $record): string => LeaseResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (Lease $record): bool => LeaseResource::canEdit($record)),
+                OpenRecordAction::make(LeaseResource::class),
             ])
             ->defaultSort('commencement_date', 'desc')
             ->emptyStateIcon('heroicon-o-document-text')

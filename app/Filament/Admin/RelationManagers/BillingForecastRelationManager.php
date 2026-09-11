@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\ChargeCode;
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\LeaseBillingForecastService;
 use App\Services\MonthlyBillingService;
@@ -119,6 +121,15 @@ class BillingForecastRelationManager extends RelationManager
         $forecast = $this->forecast();
         $rows = [];
 
+        // The invoiced periods' documents, loaded ONCE so the drill-down below resolves through the
+        // same `OpenRecordAction::urlFor()` every tab's *Open* uses — edit where this reader may,
+        // nothing otherwise. It linked `getUrl('edit')` by id before, permission unasked: a viewer
+        // clicking a figure landed on the Edit page's 403.
+        $invoices = Invoice::query()
+            ->whereIn('id', array_filter(array_column($forecast['rows'], 'invoice_id')))
+            ->get()
+            ->keyBy('id');
+
         foreach ($forecast['rows'] as $index => $row) {
             $billed = $row['invoice_number'] !== null;
 
@@ -153,7 +164,7 @@ class BillingForecastRelationManager extends RelationManager
                 // Drill-down on every number, the panel's own standard: the figure beside an
                 // invoiced period is a document, so it opens the document.
                 'invoice_url' => $billed && $row['invoice_id'] !== null
-                    ? InvoiceResource::getUrl('edit', ['record' => $row['invoice_id']])
+                    ? OpenRecordAction::urlFor(InvoiceResource::class, $invoices->get($row['invoice_id']))
                     : null,
                 // Billable ONLY on a period an operator may raise by hand today. A button on every
                 // future row would let someone bill two years ahead from a screen whose whole job is

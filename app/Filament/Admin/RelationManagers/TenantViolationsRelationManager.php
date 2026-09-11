@@ -2,13 +2,13 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Models\Violation;
 use App\Models\ViolationCategory;
-use App\Support\Filament\PropertyLink;
+use App\Support\BadgeColors;
 use App\Support\PropertyScope;
-use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -112,28 +112,12 @@ class TenantViolationsRelationManager extends RelationManager
                     ->label(__('admin.violations.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.violation.$state"))
-                    ->color(fn (string $state) => match ($state) {
-                        Violation::STATUS_RESOLVED => 'success',
-                        default => 'warning',
-                    }),
+                    ->color(BadgeColors::of('violations.status')),
             ])
             // NO HEADER ACTION — see TenantPaymentsRelationManager. *Record violation* is
             // `TenantActions::recordViolation()` now, in the record's header on both pages.
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    // The property comes from the ROW, and now that this tab narrows to the mall
-                    // in scope that is belt and braces — as it already is on the sibling tabs.
-                    // It is written this way so the answer to "which mall is this row in" does not
-                    // depend on a scoping decision made in another file, and so the link gate needs
-                    // no exemption list.
-                    ->url(fn (Violation $record): ?string => PropertyLink::to(ViolationResource::class, $record))
-                    // A ROW WITH NO PROPERTY GETS NO BUTTON, and one in a mall this operator cannot
-                    // enter gets none either — `PropertyLink::to()` answers null for both, and an
-                    // *Open* that goes nowhere is worse than no *Open*.
-                    ->visible(fn (Violation $record): bool => ViolationResource::canEdit($record)
-                        && PropertyLink::to(ViolationResource::class, $record) !== null),
+                OpenRecordAction::make(ViolationResource::class),
             ])
             // Newest first: this is a LEDGER of dated events, and the recent ones are the ones a
             // leasing decision turns on (App\Support\TableSortPolicy).

@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\TenantRequests\Schemas;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequestSubcategory;
+use App\Support\BadgeColors;
 use App\Support\Filament\PrivateAttachments;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -29,16 +30,7 @@ class TenantRequestInfolist
                         ->label(__('admin.tables.common.status'))
                         ->badge()
                         ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
-                        ->color(fn (string $state): string => match ($state) {
-                            'submitted' => 'info',
-                            'acknowledged' => 'warning',
-                            'in_progress' => 'primary',
-                            'awaiting_tenant' => 'warning',
-                            'resolved' => 'success',
-                            'closed' => 'gray',
-                            'cancelled' => 'danger',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('tenant_requests.status')),
                     TextEntry::make('category')
                         ->label(__('admin.fields.category'))
                         ->badge()
@@ -51,12 +43,7 @@ class TenantRequestInfolist
                         ->label(__('admin.fields.priority'))
                         ->badge()
                         ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
-                        ->color(fn (string $state): string => match ($state) {
-                            'urgent' => 'danger',
-                            'high' => 'warning',
-                            'medium' => 'info',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('tenant_requests.priority')),
                     TextEntry::make('submitted_at')
                         ->label(__('admin.tables.requests.submitted'))
                         ->dateTime('d/m/Y H:i'),

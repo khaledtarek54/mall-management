@@ -613,6 +613,11 @@ Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pa
 > correctly refused. The permissive branch is always the one that spends money, because the careful
 > author guards the path they are thinking about.
 >
+> **And the fix reached the page and not the list (found 2026-09-11).** The invoice TABLE carried its
+> own copy of both buttons; its `payDemo` kept the denylist and the raw balance for ten more days.
+> Both acts are now `App\Filament\Portal\Actions\InvoiceActions`, one definition composed onto the
+> row and the header — see [module 05 → Portal InvoiceResource](05-billing-invoices.md#portal-invoiceresource-tenant-view).
+>
 > **HOW MUCH.** Every path charged the raw `balance`. A write-off deliberately leaves `balance`
 > standing — that is what keeps it visible on the document — so a 10,000 invoice with 6,000 forgiven
 > asked the tenant for **10,000**, on the public page, in the Paymob session, in the pivot's

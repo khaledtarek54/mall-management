@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Widgets;
 
 use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
+use App\Support\BadgeColors;
 use App\Support\Portal;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -48,22 +49,12 @@ class OpenTenantRequests extends TableWidget
                     ->label(__('admin.tables.requests.priority'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'urgent' => 'danger',
-                        'high' => 'warning',
-                        'medium' => 'info',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_requests.priority')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'submitted' => 'info',
-                        'acknowledged', 'awaiting_tenant' => 'warning',
-                        'in_progress' => 'primary',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_requests.status')),
                 TextColumn::make('submitted_at')
                     ->label(__('admin.tables.requests.submitted'))
                     ->date('d/m/Y'),

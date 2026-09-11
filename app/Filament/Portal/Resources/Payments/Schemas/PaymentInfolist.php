@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\Payments\Schemas;
 
 use App\Models\PaymentMethod;
+use App\Support\BadgeColors;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -27,12 +28,7 @@ class PaymentInfolist
                         ->label(__('admin.tables.common.status'))
                         ->badge()
                         ->formatStateUsing(fn (string $state) => __("admin.statuses.payment.{$state}"))
-                        ->color(fn (string $state): string => match ($state) {
-                            'captured', 'reconciled', 'settled' => 'success',
-                            'initiated', 'authorized' => 'warning',
-                            'failed', 'bounced', 'refunded', 'voided' => 'danger',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('payments.status')),
                     TextEntry::make('amount')
                         ->label(__('admin.fields.amount'))
                         ->money('EGP')->weight('bold'),

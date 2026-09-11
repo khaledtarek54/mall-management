@@ -22,6 +22,7 @@ use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Filament\Admin\Resources\Leases\Tables\LeasesTable;
 use App\Models\Lease;
+use App\Support\RowActionPolicy;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 
@@ -46,19 +47,41 @@ it('groups the record page into a handful of dropdowns, not a wall of verbs', fu
     expect($inGroups)->each->toBeIn(LeaseActions::names());
 });
 
-it('leaves the leases table with only the actions that OPEN a record', function () {
+it('leaves the leases table with only the actions that OPEN a record, or that the policy keeps on the row', function () {
     // Read the source rather than booting a table: what matters is that no future edit reintroduces
     // a bespoke `Action::make()` on a row, and that is a statement about the file.
-    $source = file_get_contents((new ReflectionClass(LeasesTable::class))->getFileName());
+    //
+    // RED FROM dfe49970 UNTIL 2026-09-11 and nobody noticed — `activate` went onto the row on
+    // purpose (accounting holds `leases.activate` and not `leases.edit`, so the record page is
+    // unreachable for the role whose job it is), was registered in `RowActionPolicy` with that
+    // reason, and this file went on asserting "no bespoke action at all". A test that states the
+    // rule as it was on the day it was written is stale the day the policy takes an exception.
+    // So the rule it now states is the policy's own: a bespoke verb on this row must be one the
+    // policy registers for THIS table, with a reason; the registry gate proves the reason is real.
+    $path = (new ReflectionClass(LeasesTable::class))->getFileName();
+    $source = file_get_contents($path);
 
     // The row-action block: everything between recordActions([ and the next `])`.
     $start = strpos($source, '->recordActions([');
     $end = strpos($source, '])', $start);
     $rowActions = substr($source, $start, $end - $start);
 
-    expect($rowActions)->not->toContain("Action::make('")
-        ->and($rowActions)->toContain('ViewAction::make()')
+    preg_match_all("/Action::make\('([^']+)'\)/", $rowActions, $bespoke);
+
+    expect($rowActions)->toContain('ViewAction::make()')
         ->and($rowActions)->toContain('EditAction::make()');
+
+    if ($bespoke[1] !== []) {
+        expect(RowActionPolicy::keepsVerbsInRow($path))->toBeTrue(
+            'The leases row carries '.implode(', ', $bespoke[1]).' and RowActionPolicy::IN_ROW_EXCEPTIONS does not register the table.'
+        );
+
+        foreach ($bespoke[1] as $name) {
+            // As a WORD, not a substring — "deactivate" must not vouch for `activate`.
+            expect(preg_match('/\b'.preg_quote($name, '/').'\b/', RowActionPolicy::IN_ROW_EXCEPTIONS[RowActionPolicy::relative($path)]))
+                ->toBe(1, "The registered reason for the leases row does not name `{$name}`.");
+        }
+    }
 });
 
 it('puts the acts on the lease page, where the record is', function () {

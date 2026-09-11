@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas;
 
 use App\Models\TenantSalesDeclaration;
+use App\Support\BadgeColors;
 use App\Support\Filament\PrivateAttachments;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -44,12 +45,7 @@ class TenantSalesDeclarationInfolist
                         ->label(__('admin.tables.common.status'))
                         ->badge()
                         ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_sales.{$state}"))
-                        ->color(fn (string $state): string => match ($state) {
-                            'submitted' => 'warning',
-                            'locked' => 'success',
-                            'disputed' => 'danger',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('tenant_sales_declarations.status')),
                     TextEntry::make('declared_at')
                         ->label(__('admin.tables.tenant_sales.declared_at'))
                         ->dateTime('d/m/Y H:i'),

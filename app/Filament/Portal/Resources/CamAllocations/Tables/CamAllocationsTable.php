@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\CamAllocations\Tables;
 
 use App\Models\CamAllocation;
 use App\Services\CamStatementPdfService;
+use App\Support\BadgeColors;
 use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\ViewAction;
 use Filament\Support\Icons\Heroicon;
@@ -58,13 +59,7 @@ class CamAllocationsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.cam_allocation.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'billed' => 'success',
-                        'pending' => 'warning',
-                        'disputed' => 'danger',
-                        'closed' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('cam_allocations.status')),
             ])
             ->filters([
                 SelectFilter::make('status')

@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\ActivateLeaseService;
 use App\Services\LeaseCreationService;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\EntitySelect;
@@ -184,16 +185,7 @@ class LeasesTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.lease.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'active' => 'success',
-                        'pending_approval' => 'warning',
-                        // Signed and not started. Its own colour rather than sharing `info` with
-                        // `renewed`: a badge whose whole job is to be told apart at a glance.
-                        'future' => 'primary',
-                        'renewed' => 'info',
-                        'terminated', 'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('leases.status')),
 
                 // The operator's own fields (D-7). Hidden until asked for, so a list
                 // nobody customised is unchanged.

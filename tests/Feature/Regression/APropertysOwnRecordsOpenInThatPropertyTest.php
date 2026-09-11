@@ -68,7 +68,9 @@ it('links a unit at the property whose page it was clicked from', function () {
         AssetUnitsRelationManager::class,
         $this->looking,
         $this->selected,
-        fn ($tab) => $tab->assertTableActionHasUrl('edit', url("/admin/PA/units/{$unit->id}/edit"), $unit),
+        // `open`, the one factory every tab's link resolves through since 2026-09-11 — the same
+        // act the rentable-items tab below already called by that name.
+        fn ($tab) => $tab->assertTableActionHasUrl('open', url("/admin/PA/units/{$unit->id}/edit"), $unit),
     );
 });
 

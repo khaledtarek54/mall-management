@@ -105,8 +105,12 @@ class TenantRequestCommentsRelationManager extends RelationManager
                     ->color('gray')
                     ->visible(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     // Flipping is_internal PUBLISHES a staff note to the tenant's portal view — a
-                    // disclosure, not a cosmetic flag. Gated as well as hidden.
+                    // disclosure, not a cosmetic flag. Gated as well as hidden, and CONFIRMED: the
+                    // work-order thread's twin of this act asks first "for the reason the tenant
+                    // thread states", while this one flipped on a single click — the disclosure
+                    // with the outside party on the other end was the one without a pause.
                     ->authorize(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
+                    ->requiresConfirmation()
                     ->action(fn ($record) => $record->update(['is_internal' => ! $record->is_internal])),
             ])
             ->toolbarActions([])

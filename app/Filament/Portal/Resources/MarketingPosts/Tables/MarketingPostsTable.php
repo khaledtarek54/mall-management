@@ -6,6 +6,7 @@ use App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource;
 use App\Models\MarketingPost;
 use App\Services\MarketingPost\RejectMarketingPostService;
 use App\Services\MarketingPost\SubmitMarketingPostService;
+use App\Support\BadgeColors;
 use App\Support\Portal;
 use DomainException;
 use Filament\Actions\Action;
@@ -48,13 +49,7 @@ class MarketingPostsTable
                     ->label(__('admin.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => $state ? __("admin.marketing_posts.statuses.{$state}") : '—')
-                    ->color(fn (?string $state) => match ($state) {
-                        MarketingPost::STATUS_PUBLISHED => 'success',
-                        MarketingPost::STATUS_PENDING => 'warning',
-                        MarketingPost::STATUS_REJECTED => 'danger',
-                        MarketingPost::STATUS_ARCHIVED => 'gray',
-                        default => 'info',
-                    }),
+                    ->color(BadgeColors::of('marketing_posts.status')),
 
                 // Why it came back. On the row, not one click away — see the class docblock.
                 TextColumn::make('review_notes')

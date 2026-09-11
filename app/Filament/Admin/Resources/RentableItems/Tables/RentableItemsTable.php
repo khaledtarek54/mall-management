@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\RentableItems\Tables;
 
 use App\Models\Floor;
 use App\Models\RentableItem;
+use App\Support\BadgeColors;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -47,11 +48,7 @@ class RentableItemsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn ($state): string => __('admin.enums.rentable_item_status')[$state] ?? $state)
-                    ->color(fn (string $state): string => match ($state) {
-                        RentableItem::STATUS_ASSIGNED => 'success',
-                        RentableItem::STATUS_OUT_OF_SERVICE => 'danger',
-                        default => 'warning',   // available — free, and therefore not yet earning
-                    }),
+                    ->color(BadgeColors::of('rentable_items.status')),
                 // Who holds it TODAY. A register that cannot answer "who has bay 42" is a list, not
                 // a register — and it is the question an operator arrives with.
                 // `currentHolderLabel()`, never the raw relation (SW-044). `leases` is the whole

@@ -5,6 +5,7 @@ use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
+use App\Support\RentableItemOptions;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -125,10 +126,14 @@ it('offers only bays that are actually lettable', function () {
     $other = makeLease(makeUnit($asset, ['code' => 'S-02']), null, ['status' => 'active', 'commencement_date' => '2026-01-01', 'expiry_date' => '2029-12-31'])->fresh();
     app(AssignRentableItemService::class)->assign($other, $taken, ['effective_from' => '2026-03-01']);
 
-    $rm = new LeaseRentableItemsRelationManager;
-    $rm->ownerRecord = $lease->fresh();
+    // The list the *Assign* picker reads — `RentableItemHoldingActions::assign()`, the ONE
+    // definition the lease header, the lease tab and the ownership tab compose (2026-09-11). The
+    // tab used to wrap this in a private helper of its own, which is what this test reached into;
+    // the source pin below is what keeps the factory reading the shared list.
+    $options = RentableItemOptions::lettable($lease->fresh());
 
-    $options = (fn () => $this->lettableOptions())->call($rm);
+    expect((string) file_get_contents(app_path('Filament/Actions/RentableItemHoldingActions.php')))
+        ->toContain('RentableItemOptions::lettable($record)');
 
     expect($options)->toHaveKey($free->id)
         ->and($options)->not->toHaveKey($taken->id)

@@ -7,6 +7,7 @@ use App\Filament\Admin\Pages\Concerns\MapsOneProperty;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Models\RentableItem;
+use App\Support\BadgeColors;
 use App\Support\Filament\FloorGrouping;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -165,11 +166,7 @@ class RentableItemMap extends Page implements HasSchemas, HasTable
                         ->formatStateUsing(fn (string $state): string => __('admin.enums.rentable_item_status')[$state] ?? $state)
                         // The same three colours the register uses, and they mean the same thing:
                         // green is earning, amber is free to let, red is off the market.
-                        ->color(fn (string $state): string => match ($state) {
-                            RentableItem::STATUS_ASSIGNED => 'success',
-                            RentableItem::STATUS_OUT_OF_SERVICE => 'danger',
-                            default => 'warning',
-                        }),
+                        ->color(BadgeColors::of('rentable_items.status')),
                 ])->space(1),
             ])
             ->contentGrid(['sm' => 2, 'md' => 4, 'lg' => 5, 'xl' => 6, '2xl' => 8])

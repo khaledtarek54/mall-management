@@ -2,11 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Resources\Units\UnitResource;
-use App\Models\Unit;
+use App\Support\BadgeColors;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -106,12 +106,7 @@ class AssetUnitsRelationManager extends RelationManager
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.unit.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'occupied' => 'success',
-                        'vacant' => 'warning',
-                        'maintenance' => 'danger',
-                        default => 'gray',
-                    })
+                    ->color(BadgeColors::of('units.status'))
                     ->sortable(),
             ])
             ->filters([
@@ -124,20 +119,7 @@ class AssetUnitsRelationManager extends RelationManager
             ])
             ->defaultSort('code')
             ->recordActions([
-                EditAction::make()
-                    // THE TENANT IS PASSED EXPLICITLY, and on this page that is not a nicety.
-                    // `AssetResource` is portfolio-wide on purpose (`$isScopedToTenant = false`), so
-                    // the property being LOOKED AT is very often not the one SELECTED in the
-                    // switcher — while `getUrl()` fills the `{tenant}` segment from the switcher.
-                    // Without this the link named mall A and pointed at mall B's unit, and
-                    // `UnitResource` is `ScopesToProperty`, so it resolved no record: a 404 off a
-                    // row the operator is looking at. The relation manager already knows the
-                    // property it belongs to.
-                    ->url(fn (Unit $record) => UnitResource::getUrl(
-                        'edit',
-                        ['record' => $record],
-                        tenant: $this->getOwnerRecord(),
-                    )),
+                OpenRecordAction::make(UnitResource::class),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

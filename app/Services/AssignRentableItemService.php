@@ -233,8 +233,12 @@ class AssignRentableItemService
      * or `reserved` owner CAN take a bay before handover, which is deliberate — the bay is part of
      * what he is buying, and `isBillable()` (handover) governs when it starts being charged, not
      * when it can be recorded.
+     *
+     * PUBLIC since 2026-09-11 because the *Assign* button's `visible()` reads it — the lease tab
+     * and the ownership tab each restated it inline (`OPEN_TO_COMMERCIAL_ACTS` in one file,
+     * `isTerminal()` in the other), which is a button and a guard free to disagree.
      */
-    private function holderCanTakeOn(BillableAgreement $holder): bool
+    public function holderCanTakeOn(BillableAgreement $holder): bool
     {
         if ($holder instanceof Lease) {
             // `expired` is deliberately NOT here, and it is the one case worth writing down —

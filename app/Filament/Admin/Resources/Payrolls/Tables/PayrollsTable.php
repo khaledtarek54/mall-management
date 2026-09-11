@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Payrolls\Tables;
 
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Models\Payroll;
+use App\Support\BadgeColors;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use App\Support\ReportCsv;
@@ -75,11 +76,7 @@ class PayrollsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.payroll.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'approved' => 'success',
-                        'cancelled' => 'gray',
-                        default => 'warning',
-                    }),
+                    ->color(BadgeColors::of('payrolls.status')),
                 BankAccountColumn::make(),
             ])
             ->filters([

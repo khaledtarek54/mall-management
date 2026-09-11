@@ -7,6 +7,7 @@ use App\Filament\Admin\Pages\Concerns\MapsOneProperty;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Unit;
+use App\Support\BadgeColors;
 use App\Support\Filament\FloorGrouping;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -162,12 +163,7 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
                         // Same semantics the hand-picked hex colours carried, but
                         // through the design system so dark mode and the
                         // per-property brand colour apply.
-                        ->color(fn (string $state): string => match ($state) {
-                            'occupied' => 'success',
-                            'vacant' => 'danger',
-                            'reserved' => 'warning',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('units.status')),
                 ])->space(1),
             ])
             // The floor plan: dense enough to take a floor in at a glance. The

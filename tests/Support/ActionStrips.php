@@ -62,21 +62,206 @@ class ActionStrips
     }
 
     /**
-     * The act names each `App\Filament\Admin\Actions\*Actions` registry defines.
+     * The act names each `*Actions` registry defines, keyed by FQCN.
      *
-     * @return array<string, array<int, string>>
+     * By FQCN, not basename: the portal has its own `InvoiceActions` beside the admin panel's
+     * (2026-09-11), and a basename key let one overwrite the other — so a portal strip spreading
+     * `...InvoiceActions::all()` expanded to the ADMIN invoice acts and the gate compared the wrong
+     * list. A file's spread is resolved through its own `use` imports ({@see importsOf()}).
+     *
+     * Two homes: `app/Filament/{Panel}/Actions/` for a panel's per-record registries and
+     * `app/Filament/Actions/` for the holder-agnostic ones (`RentableItemHoldingActions` serves a
+     * lease and a unit ownership). A registry that COMPOSES another — `LeaseActions::all()` lists
+     * `RentableItemHoldingActions::assign()` — carries that registry's names too, resolved through
+     * {@see methodNames()}, or the source half of the gate could not see a duplicate of any act a
+     * registry defines by delegating. The review of the factory change found exactly that blind
+     * spot: measured, `LeaseActions` had gone from 12 names to 10.
+     *
+     * @return array<class-string, array<int, string>>
      */
     public static function registries(): array
     {
-        $registries = [];
+        static $memo = null;
 
-        foreach (glob(app_path('Filament/Admin/Actions/*Actions.php')) as $file) {
-            preg_match_all("/Action::make\('([^']+)'\)/", (string) file_get_contents($file), $matches);
-
-            $registries[basename($file, '.php')] = array_values(array_unique($matches[1]));
+        if ($memo !== null) {
+            return $memo;
         }
 
-        return $registries;
+        $files = [];
+
+        foreach (array_merge(
+            glob(app_path('Filament/Actions/*Actions.php')) ?: [],
+            glob(app_path('Filament/*/Actions/*Actions.php')) ?: [],
+        ) as $file) {
+            $files[self::classOf($file)] = $file;
+        }
+
+        $registries = [];
+
+        foreach ($files as $class => $file) {
+            preg_match_all("/Action::make\('([^']+)'\)/", self::withoutComments((string) file_get_contents($file)), $matches);
+
+            $registries[$class] = array_values(array_unique($matches[1]));
+        }
+
+        // Names a registry acquires by composing another registry's method (one pass is enough:
+        // no registry composes a registry that itself composes a third).
+        foreach ($files as $class => $file) {
+            $imports = self::importsOf($file);
+
+            foreach ($registries as $other => $names) {
+                if ($other === $class) {
+                    continue;
+                }
+
+                $short = substr((string) strrchr('\\'.$other, '\\'), 1);
+
+                if (($imports[$short] ?? null) !== $other) {
+                    continue;
+                }
+
+                preg_match_all('/\b'.preg_quote($short, '/').'::(\w+)\(/', self::withoutComments((string) file_get_contents($file)), $calls);
+
+                foreach (array_unique($calls[1]) as $method) {
+                    $registries[$class] = array_values(array_unique(array_merge(
+                        $registries[$class],
+                        self::namesOfCall($other, $method, $registries),
+                    )));
+                }
+            }
+        }
+
+        return $memo = $registries;
+    }
+
+    /**
+     * What ONE registry method renders: a method whose body declares a single act (`assign()` →
+     * `assignRentableItem`) resolves to that act; anything else (`all()`, `grouped()`,
+     * `forOwner()`, `only()`) to every name the registry defines — the over-expansion the gate has
+     * always made for a spread, and the reason a page composes a registry as ONE spread.
+     *
+     * @param  array<class-string, array<int, string>>  $registries
+     * @return array<int, string>
+     */
+    public static function namesOfCall(string $class, string $method, array $registries): array
+    {
+        $single = self::methodNames()[$class][$method] ?? null;
+
+        return $single !== null ? [$single] : ($registries[$class] ?? []);
+    }
+
+    /**
+     * Registry method → the one act it declares, for every registry method that declares exactly one.
+     *
+     * @return array<class-string, array<string, string>>
+     */
+    public static function methodNames(): array
+    {
+        static $memo = null;
+
+        if ($memo !== null) {
+            return $memo;
+        }
+
+        $memo = [];
+
+        foreach (array_merge(
+            glob(app_path('Filament/Actions/*Actions.php')) ?: [],
+            glob(app_path('Filament/*/Actions/*Actions.php')) ?: [],
+        ) as $file) {
+            $class = self::classOf($file);
+            $source = self::withoutComments((string) file_get_contents($file));
+
+            // Each `public static function name(...): Action { ... }` body, up to the next method.
+            preg_match_all('/public static function (\w+)\([^)]*\): Action\s*\{(.*?)(?=\n    (?:public|private|protected) |\n\}\s*$)/s', $source, $methods, PREG_SET_ORDER);
+
+            foreach ($methods as [, $method, $body]) {
+                if (preg_match_all("/Action::make\('([^']+)'\)/", $body, $names) === 1) {
+                    $memo[$class][$method] = $names[1][0];
+                }
+            }
+        }
+
+        return $memo;
+    }
+
+    /**
+     * The act each `app/Filament/Actions/*Action.php` FACTORY builds, keyed by FQCN.
+     *
+     * `PostMonthAction::make('invoices.edit')` takes a PERMISSION as its argument and
+     * `OpenRecordAction::make(InvoiceResource::class)` a resource; reading the first string
+     * argument as the act's name — what `nameOf()` does for a bare `Action::make('x')` — named the
+     * former after a permission and the latter after nothing. The name is the literal the factory
+     * itself declares.
+     *
+     * @return array<class-string, string>
+     */
+    public static function factories(): array
+    {
+        $out = [];
+
+        foreach (glob(app_path('Filament/Actions/*Action.php')) ?: [] as $file) {
+            $source = self::withoutComments((string) file_get_contents($file));
+
+            if (preg_match("/Action::make\('([^']+)'\)/", $source, $m)) {
+                $out[self::classOf($file)] = $m[1];
+            } elseif (preg_match('/Action::make\(self::(\w+)\)/', $source, $m)
+                && preg_match("/const {$m[1]} = '([^']+)';/", $source, $c)) {
+                // `OpenRecordAction::make()` names its act through a constant, so the row-click
+                // seam can read the same name.
+                $out[self::classOf($file)] = $c[1];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Comments blanked to spaces. `PostMonthAction`'s docblock shows `Action::make('vendor_bills.edit')`
+     * as a usage example, and read raw that example was the factory's "name".
+     */
+    private static function withoutComments(string $source): string
+    {
+        $out = $source;
+
+        foreach (token_get_all($source) as $token) {
+            if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+
+            $at = strpos($out, $token[1]);
+
+            if ($at !== false) {
+                $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
+            }
+        }
+
+        return $out;
+    }
+
+    /** `app/Filament/Foo/Bar/Baz.php` → `App\Filament\Foo\Bar\Baz`. */
+    private static function classOf(string $file): string
+    {
+        return 'App\\'.str_replace('/', '\\', substr($file, strlen(app_path()) + 1, -4));
+    }
+
+    /**
+     * Short name → FQCN for every `use` statement in a file, so a registry spread resolves to the
+     * registry the file actually imported.
+     *
+     * @return array<string, class-string>
+     */
+    public static function importsOf(string $file): array
+    {
+        preg_match_all('/^use\s+([A-Za-z0-9_\\\\]+)(?:\s+as\s+(\w+))?;/m', (string) file_get_contents($file), $uses, PREG_SET_ORDER);
+
+        $imports = [];
+
+        foreach ($uses as $use) {
+            $imports[$use[2] ?? substr((string) strrchr('\\'.$use[1], '\\'), 1)] = $use[1];
+        }
+
+        return $imports;
     }
 
     /**
@@ -87,6 +272,34 @@ class ActionStrips
      */
     public static function inFile(string $file, array $registries): array
     {
+        // The registries THIS file can spread, keyed by the short name it uses for each. A file in
+        // the registry's own namespace needs no import, so the namespace is tried too.
+        $imports = self::importsOf($file);
+        $namespace = preg_match('/^namespace\s+([^;]+);/m', (string) file_get_contents($file), $ns) ? $ns[1] : '';
+        $local = [];
+
+        foreach (array_keys($registries) as $class) {
+            $short = substr((string) strrchr('\\'.$class, '\\'), 1);
+
+            if (($imports[$short] ?? null) === $class || $namespace.'\\'.$short === $class) {
+                $local[$short] = $class;
+            }
+        }
+
+        // From here on `$registries` is short name → FQCN for THIS file; names resolve through
+        // `namesOfCall()` against the full registry map.
+        $registries = $local;
+
+        $factories = [];
+
+        foreach (self::factories() as $class => $name) {
+            $short = substr((string) strrchr('\\'.$class, '\\'), 1);
+
+            if (($imports[$short] ?? null) === $class || $namespace.'\\'.$short === $class) {
+                $factories[$short] = $name;
+            }
+        }
+
         $tokens = token_get_all((string) file_get_contents($file));
         $strips = [];
         $count = count($tokens);
@@ -104,7 +317,7 @@ class ActionStrips
                 continue;
             }
 
-            $members = self::members($tokens, $open, $registries);
+            $members = self::members($tokens, $open, $registries, $factories);
 
             if ($members !== []) {
                 $strips[] = ['method' => $token[1], 'line' => $token[2], 'members' => $members];
@@ -138,10 +351,11 @@ class ActionStrips
      * A dropdown is part of the strip it sits in — putting one act in two groups of one header is
      * the same defect wearing a hat — so `ActionGroup` and `BulkActionGroup` are FLATTENED.
      *
-     * @param  array<string, array<int, string>>  $registries
+     * @param  array<string, class-string>  $registries  short name → FQCN, for this file
+     * @param  array<string, string>  $factories  short name → the act a factory declares
      * @return array<int, array{0: string, 1: string}>
      */
-    private static function members(array $tokens, int $i, array $registries): array
+    private static function members(array $tokens, int $i, array $registries, array $factories = []): array
     {
         $depth = 0;
         $names = [];
@@ -180,9 +394,10 @@ class ActionStrips
                 continue;
             }
 
-            // `...SomeActions::all()` — a registry spread. Expanded to what it renders.
+            // `...SomeActions::all()` — a registry spread — or `SomeActions::assign()`, one act of
+            // it. Expanded to what it renders.
             if ($tokens[$i + 2][1] !== 'make' && isset($registries[$class])) {
-                foreach ($registries[$class] as $name) {
+                foreach (self::namesOfCall($registries[$class], $tokens[$i + 2][1], self::registries()) as $name) {
                     $names[] = [$name, $class.'::'.$tokens[$i + 2][1].'()'];
                 }
 
@@ -193,8 +408,15 @@ class ActionStrips
                 continue;
             }
 
+            // `OpenRecordAction::make(Resource::class)` — a factory; its act is the one it declares.
+            if (isset($factories[$class])) {
+                $names[] = [$factories[$class], $class];
+
+                continue;
+            }
+
             if ($class === 'ActionGroup' || $class === 'BulkActionGroup') {
-                foreach (self::groupMembers($tokens, $i, $count, $registries) as $member) {
+                foreach (self::groupMembers($tokens, $i, $count, $registries, $factories) as $member) {
                     $names[] = $member;
                 }
 
@@ -218,13 +440,13 @@ class ActionStrips
      * @param  array<string, array<int, string>>  $registries
      * @return array<int, array{0: string, 1: string}>
      */
-    private static function groupMembers(array $tokens, int $i, int $count, array $registries): array
+    private static function groupMembers(array $tokens, int $i, int $count, array $registries, array $factories = []): array
     {
         for ($j = $i + 3; $j < $count; $j++) {
             $text = is_array($tokens[$j]) ? $tokens[$j][1] : $tokens[$j];
 
             if ($text === '[') {
-                return self::members($tokens, $j, $registries);
+                return self::members($tokens, $j, $registries, $factories);
             }
 
             if ($text === ')') {

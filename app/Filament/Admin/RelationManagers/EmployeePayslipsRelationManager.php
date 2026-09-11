@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\PayrollLine;
 use App\Services\PayslipPdfService;
+use App\Support\BadgeColors;
 use App\Support\Filament\PdfDownloadAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
@@ -57,11 +58,7 @@ class EmployeePayslipsRelationManager extends RelationManager
                     // A DRAFT payslip is a proposal, not pay. Saying which is which here matters more
                     // than on the run itself, because this is the screen someone reads to answer
                     // "was I paid?".
-                    ->color(fn (?string $state) => match ($state) {
-                        'approved' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'warning',
-                    }),
+                    ->color(BadgeColors::of('payrolls.status')),
 
                 TextColumn::make('gross')->label(__('admin.payroll_lines.fields.gross'))->money('EGP')->alignRight(),
                 TextColumn::make('salary_tax')->label(__('admin.payroll_lines.fields.salary_tax'))->money('EGP')->alignRight()->toggleable(),

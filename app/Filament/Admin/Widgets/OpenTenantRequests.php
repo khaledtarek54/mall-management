@@ -6,6 +6,7 @@ use App\Enums\TenantRequestType;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
+use App\Support\BadgeColors;
 use App\Support\TenantScope;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -72,24 +73,12 @@ class OpenTenantRequests extends TableWidget
                     ->label(__('admin.widgets.open_requests.priority'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'urgent' => 'danger',
-                        'high' => 'warning',
-                        'medium' => 'info',
-                        'low' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_requests.priority')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'submitted' => 'info',
-                        'acknowledged' => 'warning',
-                        'in_progress' => 'primary',
-                        'awaiting_tenant' => 'warning',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_requests.status')),
                 TextColumn::make('target_resolution_at')
                     ->label(__('admin.widgets.open_requests.target'))
                     ->dateTime('d/m/Y H:i')

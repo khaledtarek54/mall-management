@@ -2,11 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Invoice;
-use App\Support\Filament\PropertyLink;
+use App\Support\BadgeColors;
 use App\Support\TenantScope;
-use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -85,12 +85,7 @@ class TenantInvoicesRelationManager extends RelationManager
                     ->label(__('admin.filters.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.invoice.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'paid' => 'success',
-                        'overdue' => 'danger',
-                        'cancelled' => 'gray',
-                        default => 'warning',
-                    }),
+                    ->color(BadgeColors::of('invoices.status')),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -104,23 +99,7 @@ class TenantInvoicesRelationManager extends RelationManager
                     ->toggle(),
             ])
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    // The property comes from the ROW, and on THIS tab that is belt and braces: it
-                    // narrows with `TenantScope::visibleAssetIds()`, which answers the SELECTED
-                    // property for any real tenant — super_admin included — so a row from another
-                    // mall cannot reach the screen today. It is written the same way as the
-                    // violations and sales tabs, which genuinely do span malls, because the answer
-                    // to "which mall is this row in" should not depend on a scoping decision made
-                    // in a different file, and because the gate requires it rather than keeping an
-                    // exemption list of the tabs that happen to be narrow this week.
-                    ->url(fn (Invoice $record): ?string => PropertyLink::to(InvoiceResource::class, $record))
-                    // A ROW WITH NO PROPERTY GETS NO BUTTON, and one in a mall this operator cannot
-                    // enter gets none either — `PropertyLink::to()` answers null for both, and an
-                    // *Open* that goes nowhere is worse than no *Open*.
-                    ->visible(fn (Invoice $record): bool => InvoiceResource::canEdit($record)
-                        && PropertyLink::to(InvoiceResource::class, $record) !== null),
+                OpenRecordAction::make(InvoiceResource::class),
             ])
             ->defaultSort('issue_date', 'desc')
             ->emptyStateIcon('heroicon-o-document-currency-dollar')

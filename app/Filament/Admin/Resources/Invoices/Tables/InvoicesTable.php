@@ -13,6 +13,7 @@ use App\Models\Unit;
 use App\Services\BillUnitOwnershipsService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
@@ -109,14 +110,7 @@ class InvoicesTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.invoice.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'paid' => 'success',
-                        'partially_paid' => 'warning',
-                        'overdue' => 'danger',
-                        'issued' => 'info',
-                        'disputed' => 'warning',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('invoices.status')),
                 // Module-gated like the ETA filters and actions below. It was the one ETA surface
                 // that was NOT, so with the module off every invoice list still carried an "ETA
                 // Status" column reading "—" on every row — a compliance posture the operator has

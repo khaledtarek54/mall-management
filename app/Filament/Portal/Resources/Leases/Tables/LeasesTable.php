@@ -2,8 +2,8 @@
 
 namespace App\Filament\Portal\Resources\Leases\Tables;
 
-use App\Models\Lease;
-use Filament\Actions\Action;
+use App\Filament\Portal\Actions\LeaseActions;
+use App\Support\BadgeColors;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -37,31 +37,13 @@ class LeasesTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.lease.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'active' => 'success',
-                        // Matches the admin badge — one lease must not read differently to the
-                        // operator and to the tenant. Without an arm it fell to `warning`, i.e.
-                        // orange, which reads to a retailer as something being wrong.
-                        'future' => 'primary',
-                        'terminated', 'expired', 'cancelled' => 'danger',
-                        default => 'warning',
-                    }),
+                    ->color(BadgeColors::of('leases.status')),
             ])
             ->recordActions([
                 ViewAction::make(),
                 // The tenant's own signed lease document, if the operator has uploaded one. Private
                 // disk — streamed via the media's own response, never a public URL.
-                Action::make('downloadDocument')
-                    ->label(__('admin.portal.lease.download_document'))
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->visible(fn (Lease $record) => $record->getMedia(Lease::DOCUMENTS_COLLECTION)->isNotEmpty())
-                    ->action(function (Lease $record) {
-                        $media = $record->getMedia(Lease::DOCUMENTS_COLLECTION)->last();
-                        abort_if($media === null, 404);
-
-                        return $media->toResponse(request());
-                    }),
+                ...LeaseActions::all(),
             ])
             // Most recently commenced first — the same order the operator's own lease list uses.
             // This sorted by insertion, so a tenant and the operator could be looking at the same

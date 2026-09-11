@@ -2,12 +2,11 @@
 
 namespace App\Filament\Admin\Actions;
 
+use App\Filament\Actions\RentableItemHoldingActions;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\DepositTransaction;
 use App\Models\Lease;
-use App\Models\RentableItem;
 use App\Models\Unit;
-use App\Services\AssignRentableItemService;
 use App\Services\BillSecurityDepositService;
 use App\Services\ConvertLeaseToHoldoverService;
 use App\Services\ExerciseLeaseOptionService;
@@ -20,12 +19,9 @@ use App\Services\LeaseTerminationService;
 use App\Services\MoveOutStatementService;
 use App\Services\SettleMoveOutService;
 use App\Settings\BillingSettings;
-use App\Support\ChargeEscalation;
 use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
-use App\Support\Filament\EscalationRuleFields;
 use App\Support\LeaseTerm;
-use App\Support\RentableItemOptions;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -37,7 +33,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
@@ -499,99 +494,12 @@ class LeaseActions
             // The register and the service existed with no way in: an operator could not let a
             // bay without tinker. Assign writes the dated pivot AND re-derives the lease's one
             // `parking` charge, so the money follows in the same click.
-            Action::make('assignRentableItem')
-                ->label(__('admin.actions.assign_rentable_item'))
-                ->icon('heroicon-o-ticket')
-                ->color('gray')
-                ->modalHeading(fn (Lease $record) => __('admin.actions.assign_rentable_item').' · '.$record->reference)
-                ->modalDescription(__('admin.actions.assign_rentable_item_hint'))
-                ->visible(fn (Lease $record): bool => (auth()->user()?->can('rentable_items.edit') ?? false)
-                    && in_array($record->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true))
-                ->authorize(fn (): bool => auth()->user()?->can('rentable_items.edit') ?? false)
-                ->schema(fn (Lease $record): array => [
-                    Select::make('rentable_item_id')
-                        ->label(__('admin.resources.rentable_item.singular'))
-                        ->options(fn (): array => self::lettableItemOptions($record))
-                        ->native(false)
-                        ->searchable()
-                        // An empty list here means every bay, sign and store in the property is
-                        // either out of service or already let — including to THIS lease. Filament's
-                        // own "No options" leaves the operator unable to tell that from a broken
-                        // screen, which is the distinction the pickers elsewhere learned to draw.
-                        ->noSearchResultsMessage(__('admin.rentable_items.none_free'))
-                        ->placeholder(__('admin.rentable_items.none_free_placeholder'))
-                        ->required()
-                        ->helperText(__('admin.helpers.assign_rentable_item')),
-                    DatePicker::make('effective_from')
-                        ->label(__('admin.actions.change_rent_effective_from'))
-                        ->default(now()->startOfMonth())
-                        ->required(),
-                    TextInput::make('monthly_rate')
-                        ->label(__('admin.fields.item_monthly_rate'))
-                        ->prefix('EGP')
-                        ->numeric()
-                        ->minValue(0)
-                        ->helperText(__('admin.helpers.assign_rentable_item_rate')),
-                    // How the item steps on the lease anniversary (2026-09-12) — its own rule,
-                    // stored on the holding, proposed as the property proposes a new charge.
-                    // The SAME trio the create form's items table and the tab's row action
-                    // build, so an item let from any door carries the same shape of rule.
-                    ...self::itemRuleFields($record),
-                ])
-                ->action(function (Lease $record, array $data) {
-                    abort_unless(auth()->user()?->can('rentable_items.edit') ?? false, 403);
-
-                    $item = RentableItem::findOrFail($data['rentable_item_id']);
-
-                    try {
-                        app(AssignRentableItemService::class)->assign($record, $item, $data);
-                    } catch (\DomainException|\InvalidArgumentException $e) {
-                        Notification::make()->danger()->title($e->getMessage())->send();
-
-                        return;
-                    }
-
-                    Notification::make()->success()
-                        ->title(__('admin.actions.assign_rentable_item_done', ['code' => $item->code]))
-                        ->send();
-                }),
-            Action::make('releaseRentableItem')
-                ->label(__('admin.actions.release_rentable_item'))
-                ->icon('heroicon-o-arrow-uturn-left')
-                ->color('gray')
-                ->modalDescription(__('admin.actions.release_rentable_item_hint'))
-                ->visible(fn (Lease $record): bool => (auth()->user()?->can('rentable_items.edit') ?? false)
-                    && $record->rentableItems()->wherePivotNull('effective_to')->exists())
-                ->authorize(fn (): bool => auth()->user()?->can('rentable_items.edit') ?? false)
-                ->schema(fn (Lease $record): array => [
-                    Select::make('rentable_item_id')
-                        ->label(__('admin.resources.rentable_item.singular'))
-                        ->options(fn (): array => self::heldItemOptions($record))
-                        ->native(false)
-                        ->required(),
-                    DatePicker::make('effective_to')
-                        ->label(__('admin.actions.release_rentable_item_to'))
-                        ->default(now()->endOfMonth())
-                        ->required()
-                        ->helperText(__('admin.actions.release_rentable_item_to_hint')),
-                ])
-                ->action(function (Lease $record, array $data) {
-                    abort_unless(auth()->user()?->can('rentable_items.edit') ?? false, 403);
-
-                    $item = RentableItem::findOrFail($data['rentable_item_id']);
-
-                    try {
-                        app(AssignRentableItemService::class)->release($record, $item, $data['effective_to']);
-                    } catch (\DomainException|\InvalidArgumentException $e) {
-                        Notification::make()->danger()->title($e->getMessage())->send();
-
-                        return;
-                    }
-
-                    Notification::make()->success()
-                        ->title(__('admin.actions.release_rentable_item_done', ['code' => $item->code]))
-                        ->send();
-                }),
+            //
+            // ONE definition with the unit-ownership arm — `RentableItemHoldingActions` — because
+            // the holder is a `BillableAgreement` and the service never cared which; the two
+            // copies that lived here and on the ownership tab had drifted (2026-09-11).
+            RentableItemHoldingActions::assign(),
+            RentableItemHoldingActions::release(),
             // Temporary relief (LE-03) is deliberately its own action rather than a checkbox on
             // "Change Rent": a concession and a renegotiation are different deals with
             // different consequences, and the whole point of the story is that the system can
@@ -1157,43 +1065,6 @@ class LeaseActions
     public static function names(): array
     {
         return array_map(fn (Action $a): string => $a->getName(), self::all());
-    }
-
-    /**
-     * Items this lease could take, and what it already holds.
-     *
-     * Both delegate to `App\Support\RentableItemOptions`, which is holder-agnostic — the same two
-     * lists serve a unit ownership's bays. They lived here as private statics AND again inside
-     * `LeaseRentableItemsRelationManager`, and the copies drifted (2026-08-18): one picker searched
-     * a raw column, the other the folded blob, so the same act found different things depending on
-     * which button you pressed.
-     *
-     * @return array<int, string>
-     */
-    private static function lettableItemOptions(Lease $record): array
-    {
-        return RentableItemOptions::lettable($record);
-    }
-
-    /**
-     * The annual-increase trio for a held item, naming what a follows-lease item would inherit
-     * from THIS lease and proposed as the property proposes a new charge. Public: the lease's own
-     * Parking & rentable items tab builds its "Annual increase" row action from it.
-     *
-     * @return array<int, Component>
-     */
-    public static function itemRuleFields(Lease $record): array
-    {
-        [$mode, $rate, $amount] = EscalationRuleFields::make($record);
-        $mode->default(fn (): string => ChargeEscalation::defaultModeFor($record->assetId()));
-
-        return [$mode, $rate, $amount];
-    }
-
-    /** @return array<int, string> */
-    private static function heldItemOptions(Lease $record): array
-    {
-        return RentableItemOptions::held($record);
     }
 
     /**

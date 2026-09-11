@@ -2,13 +2,11 @@
 
 namespace App\Filament\Portal\Resources\Invoices\Tables;
 
-use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
+use App\Filament\Portal\Actions\InvoiceActions;
 use App\Models\Invoice;
-use App\Models\Payment;
 use App\Models\Unit;
 use App\Services\InvoicePdfService;
-use App\Services\Paymob\PaymobPaymentInitiator;
-use App\Support\DemoPayments;
+use App\Support\BadgeColors;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Portal;
@@ -17,14 +15,12 @@ use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Log;
 
 class InvoicesTable
 {
@@ -89,13 +85,7 @@ class InvoicesTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.invoice.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'paid' => 'success',
-                        'partially_paid' => 'warning',
-                        'overdue' => 'danger',
-                        'issued' => 'info',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('invoices.status')),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -188,83 +178,13 @@ class InvoicesTable
                     ->modalHeading(fn ($record) => __('admin.actions.payment_link').' · '.$record->number)
                     ->modalSubmitAction(false)
                     ->modalContent(fn (Invoice $record) => view('filament.payment-link-modal', ['invoice' => $record])),
-                Action::make('payNow')
-                    ->label(__('admin.actions.pay_now'))
-                    ->icon('heroicon-o-credit-card')
-                    ->color('primary')
-                    // isPayable() (not just balance>0) — never open a live checkout for a
-                    // cancelled/fully-credited invoice (matches the paymentLink action + every
-                    // other capture entry point).
-                    ->visible(fn ($record) => Portal::isAdmin() && config('integrations.paymob.enabled') && $record->isPayable())
-                    ->requiresConfirmation()
-                    ->modalHeading(fn ($record) => __('admin.actions.pay_now').' · '.$record->number)
-                    ->action(function (Invoice $record) {
-                        abort_unless(Portal::isAdmin() && $record->isPayable(), 403);
-                        try {
-                            $session = app(PaymobPaymentInitiator::class)->start($record, Payment::CHANNEL_PORTAL);
-
-                            return redirect()->away($session['iframe_url']);
-                        } catch (\Throwable $e) {
-                            Log::warning('Paymob Pay Now failed', [
-                                'invoice_id' => $record->id,
-                                'error' => $e->getMessage(),
-                            ]);
-                            Notification::make()
-                                ->danger()
-                                ->title(__('admin.notifications.pay_now_failed'))
-                                ->body(__('admin.notifications.pay_now_failed_body'))
-                                ->send();
-                        }
-                    }),
-                // Demo payment — shown only while Paymob is disabled. Records a
-                // successful payment through the real capture path (same as the
-                // mobile pay-demo endpoint): invoice → paid, payment created,
-                // tenant notified. Lets the portal demonstrate the full
-                // post-payment flow without a live gateway.
-                Action::make('payDemo')
-                    ->label(__('admin.actions.pay_now'))
-                    ->icon('heroicon-o-credit-card')
-                    ->color('primary')
-                    ->visible(fn (Invoice $record) => self::canPayDemo($record))
-                    ->requiresConfirmation()
-                    ->modalHeading(fn (Invoice $record) => __('admin.actions.pay_now').' · '.$record->number)
-                    ->modalDescription(fn (Invoice $record) => __('admin.actions.pay_demo_modal_body', [
-                        'amount' => number_format((float) $record->balance, 2),
-                    ]))
-                    ->modalSubmitActionLabel(__('admin.actions.pay_now'))
-                    ->action(function (Invoice $record) {
-                        // The FULL predicate, not just the read-only check: `visible()` is the UI,
-                        // this is the gate. Before this it re-checked only Portal::isAdmin(), so a
-                        // crafted dispatch reached the capture path whatever the environment said.
-                        abort_unless(self::canPayDemo($record), 403);
-                        app(RecordDemoPaymentAction::class)->handle($record);
-
-                        Notification::make()
-                            ->success()
-                            ->title(__('admin.notifications.payment_received_title'))
-                            ->body(__('admin.actions.pay_demo_success', ['number' => $record->number]))
-                            ->send();
-                    }),
+                // *Pay now* / *Pay (demo)* — ONE definition with the invoice page's header, so
+                // the list can never offer a payment the page refuses (it did: see the registry).
+                ...InvoiceActions::all(),
             ])
             ->defaultSort('issue_date', 'desc')
             ->emptyStateIcon('heroicon-o-document-text')
             ->emptyStateHeading(__('admin.empty.portal_invoices.heading'))
             ->emptyStateDescription(__('admin.empty.portal_invoices.description'));
-    }
-
-    /**
-     * May this invoice be settled by the demo shortcut, here, by this user?
-     *
-     * Named once so `visible()` and `action()` cannot drift — the pattern CLAUDE.md requires of
-     * every write action. Whether the ENVIRONMENT permits the shortcut at all is not this class's
-     * question: that belongs to App\Support\DemoPayments, which the API controller and the portal
-     * View page ask too.
-     */
-    private static function canPayDemo(Invoice $record): bool
-    {
-        return Portal::isAdmin()
-            && DemoPayments::enabled()
-            && (float) $record->balance > 0
-            && ! in_array($record->status, ['cancelled', 'credited', 'written_off'], true);
     }
 }

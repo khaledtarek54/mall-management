@@ -8,6 +8,7 @@ use App\Models\Violation;
 use App\Models\ViolationCategory;
 use App\Services\BillViolationFineService;
 use App\Services\SendViolationNoticeAction;
+use App\Support\BadgeColors;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -72,10 +73,7 @@ class ViolationTable
                     ->label(__('admin.violations.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.violation.$state"))
-                    ->color(fn (string $state) => match ($state) {
-                        Violation::STATUS_RESOLVED => 'success',
-                        default => 'warning',
-                    }),
+                    ->color(BadgeColors::of('violations.status')),
                 TextColumn::make('notified_at')
                     ->label(__('admin.violations.fields.notified_at'))
                     ->dateTime('d/m/Y H:i')

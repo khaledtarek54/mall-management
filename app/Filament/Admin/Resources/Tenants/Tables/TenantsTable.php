@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Exports\TenantExporter;
 use App\Models\Tenant;
 use App\Services\TenantStatementPdfService;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\PdfDownloadAction;
@@ -120,12 +121,7 @@ class TenantsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'active' => 'success',
-                        'inactive' => 'gray',
-                        'blacklisted' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenants.status')),
                 // Delinquency = at least one invoice with balance > 0 past
                 // its due_date (Tenant::isDelinquent). Surfaces the tested
                 // model method in the table so operators can spot defaulters

@@ -2,18 +2,16 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\RentableItemHoldingActions;
 use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
 use App\Support\ChargeEscalation;
-use App\Support\RentableItemOptions;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -89,10 +87,12 @@ class LeaseRentableItemsRelationManager extends RelationManager
             // The SAME assign action the lease header and the leases list carry — composed from
             // App\Filament\Admin\Actions\LeaseActions rather than declared again here.
             //
-            // It was a second copy with its own form, and the two had already drifted: this one
-            // picked the item with a plain `Select`, where the registry uses an `EntitySelect` — so
-            // the same act searched one raw column here and the folded blob there, and only one of
-            // them could find an item by anything but its name (2026-08-18).
+            // It was a second copy with its own form, and the two had already drifted (2026-08-18):
+            // this one's picker had none of the empty-list wording the registry's carries. (An
+            // earlier version of this comment said the registry used an `EntitySelect` — it never
+            // did; both are a plain `Select` over `RentableItemOptions::lettable()`.) Since
+            // 2026-09-11 the definition itself lives in `RentableItemHoldingActions`, shared with
+            // the unit-ownership tab, whose copy had drifted the same way.
             ->headerActions(LeaseActions::forOwner($this->lease(), ['assignRentableItem']))
             ->recordActions([
                 // ── THE RULE, ON THE TAB (2026-09-12) ──────────────────────────────────────
@@ -113,7 +113,7 @@ class LeaseRentableItemsRelationManager extends RelationManager
                         'escalation_rate' => $record->getRelationValue('pivot')->escalation_rate === null ? null : (float) $record->getRelationValue('pivot')->escalation_rate,
                         'escalation_amount' => $record->getRelationValue('pivot')->escalation_amount === null ? null : (float) $record->getRelationValue('pivot')->escalation_amount,
                     ])
-                    ->schema(fn (): array => LeaseActions::itemRuleFields($this->lease()))
+                    ->schema(fn (): array => RentableItemHoldingActions::ruleFields($this->lease()))
                     ->action(function (RentableItem $record, array $data): void {
                         abort_unless($this->canRuleOn($record), 403);
 
@@ -140,39 +140,8 @@ class LeaseRentableItemsRelationManager extends RelationManager
                             ]))
                             ->send();
                     }),
-                Action::make('release')
-                    ->label(__('admin.actions.release_rentable_item'))
-                    ->icon('heroicon-o-arrow-uturn-left')
-                    ->color('gray')
-                    ->modalDescription(__('admin.actions.release_rentable_item_hint'))
-                    // Only what is still held — releasing a bay already given back is meaningless,
-                    // and the service refuses it anyway.
-                    ->visible(fn (RentableItem $record): bool => $this->canWrite()
-                        && $record->getRelationValue('pivot')?->effective_to === null)
-                    ->authorize(fn (): bool => $this->canWrite())
-                    ->schema([
-                        DatePicker::make('effective_to')
-                            ->label(__('admin.actions.release_rentable_item_to'))
-                            ->default(now()->endOfMonth())
-                            ->required()
-                            ->helperText(__('admin.actions.release_rentable_item_to_hint')),
-                    ])
-                    ->action(function (RentableItem $record, array $data): void {
-                        abort_unless($this->canWrite(), 403);
-
-                        try {
-                            app(AssignRentableItemService::class)
-                                ->release($this->lease(), $record, $data['effective_to']);
-                        } catch (DomainException|\InvalidArgumentException $e) {
-                            Notification::make()->danger()->title($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        Notification::make()->success()
-                            ->title(__('admin.actions.release_rentable_item_done', ['code' => $record->code]))
-                            ->send();
-                    }),
+                // The row form of the same act the header offers — one definition.
+                RentableItemHoldingActions::releaseRow(),
             ])
             ->defaultSort('rentable_item_holdings.effective_from', 'desc')
             ->emptyStateIcon('heroicon-o-ticket')
@@ -213,18 +182,5 @@ class LeaseRentableItemsRelationManager extends RelationManager
         return $this->canWrite()
             && in_array($this->lease()->status, Lease::OPEN_TO_COMMERCIAL_ACTS, true)
             && ($to === null || CarbonImmutable::parse($to)->gte(CarbonImmutable::today()));
-    }
-
-    /**
-     * Items this lease could take — through the shared, holder-agnostic list.
-     *
-     * This method used to build the list itself, and that copy is what drifted from the one in
-     * `LeaseActions`. One answer now, whichever surface asks.
-     *
-     * @return array<int, string>
-     */
-    protected function lettableOptions(): array
-    {
-        return RentableItemOptions::lettable($this->lease());
     }
 }

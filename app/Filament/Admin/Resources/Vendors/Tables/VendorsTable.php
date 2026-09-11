@@ -7,6 +7,7 @@ use App\Filament\Exports\VendorExporter;
 use App\Models\Vendor;
 use App\Models\VendorDocument;
 use App\Models\VendorDocumentType;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\TenantScope;
@@ -72,11 +73,7 @@ class VendorsTable
                     ->badge()
                     ->sortable()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.vendor.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'active' => 'success',
-                        'blacklisted' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('vendors.status')),
                 // A compliance SUMMARY, not one date: a vendor file is several documents expiring on
                 // their own clocks, and only a lapsed blocking one (insurance) actually stops work.
                 // Worst state wins, and the badge says the consequence rather than making the

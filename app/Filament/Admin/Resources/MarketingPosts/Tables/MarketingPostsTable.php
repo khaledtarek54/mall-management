@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\MarketingPosts\Tables;
 
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Models\MarketingPost;
+use App\Support\BadgeColors;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -65,13 +66,7 @@ class MarketingPostsTable
                     ->label(__('admin.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => $state ? __("admin.marketing_posts.statuses.{$state}") : '—')
-                    ->color(fn (?string $state) => match ($state) {
-                        MarketingPost::STATUS_PUBLISHED => 'success',
-                        MarketingPost::STATUS_PENDING => 'warning',
-                        MarketingPost::STATUS_REJECTED => 'danger',
-                        MarketingPost::STATUS_ARCHIVED => 'gray',
-                        default => 'info',
-                    }),
+                    ->color(BadgeColors::of('marketing_posts.status')),
 
                 // "Published" is not the same as "on screen": a published post can be waiting for
                 // its display window, sitting past it until the hourly sweep files it, or attached

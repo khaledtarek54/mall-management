@@ -2,9 +2,11 @@
 
 namespace App\Support\Filament;
 
+use App\Filament\Actions\OpenRecordAction;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\Page as ResourcePage;
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -54,8 +56,25 @@ class RowClickTarget
 {
     /**
      * Edit before view — the whole content of this class. Filament's is the reverse.
+     *
+     * `open` is third (2026-09-11): a relation manager's row declares neither `edit` nor `view`
+     * but carries {@see OpenRecordAction}, which resolves the same two
+     * pages in this same order for the row's own record and property. Reading it here means the
+     * row click on a tab goes exactly where the tab's *Open* button goes — one resolution, not a
+     * second one written into `recordUrl()` per tab. On a register it is never reached: a
+     * register declares `edit`/`view`, and those come first.
+     *
+     * **And ONLY on a relation manager** ({@see TAB_ONLY}). The name is not the factory's alone:
+     * the notification centre — a PAGE — declares its own `open` carrying the alert's deep link,
+     * under a `recordAction('details')` whose whole point is that the row click opens the full
+     * alert (and marks it read) while the deep link is the button beside it. Read by name
+     * everywhere, this seam turned that row into a navigation and skipped the read mark; the
+     * review found it, no test had. So a page keeps whatever it declared.
      */
-    public const ORDER = ['edit', 'view'];
+    public const ORDER = ['edit', 'view', 'open'];
+
+    /** The names in {@see ORDER} that count on a relation manager's table only. */
+    public const TAB_ONLY = ['open'];
 
     /**
      * Answers Filament's two questions in one pass, in our order: the table's own
@@ -101,7 +120,13 @@ class RowClickTarget
      */
     protected static function fromTableActions(Model $record, Table $table): ?string
     {
+        $onTab = $table->getLivewire() instanceof RelationManager;
+
         foreach (static::ORDER as $name) {
+            if (! $onTab && in_array($name, static::TAB_ONLY, true)) {
+                continue;
+            }
+
             $action = $table->getAction($name);
 
             if (! $action instanceof Action) {

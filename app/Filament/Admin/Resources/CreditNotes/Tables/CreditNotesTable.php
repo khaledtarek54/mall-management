@@ -8,6 +8,7 @@ use App\Filament\Exports\CreditNoteExporter;
 use App\Models\CreditNote;
 use App\Models\Tenant;
 use App\Services\CreditNotePdfService;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
@@ -81,12 +82,7 @@ class CreditNotesTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.credit_note.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'issued' => 'info',
-                        'applied' => 'success',
-                        'void' => 'gray',
-                        default => 'warning',
-                    }),
+                    ->color(BadgeColors::of('credit_notes.status')),
             ])
             ->filters([
                 SelectFilter::make('status')

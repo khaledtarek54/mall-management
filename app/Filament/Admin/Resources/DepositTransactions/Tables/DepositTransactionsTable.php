@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\DepositTransactions\Tables;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\PaymentMethod;
 use App\Models\Tenant;
+use App\Support\BadgeColors;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\DateRangeFilter;
@@ -79,11 +80,7 @@ class DepositTransactionsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.deposit_transaction.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'recorded' => 'success',
-                        'cancelled' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('deposit_transactions.status')),
                 BankAccountColumn::make(),
             ])
             ->filters([

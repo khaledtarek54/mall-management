@@ -2,12 +2,12 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\DepositTransaction;
 use App\Models\Lease;
-use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -93,11 +93,7 @@ class LeaseDepositsRelationManager extends RelationManager
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.deposit_transaction.{$state}")),
             ])
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (DepositTransaction $record): string => DepositTransactionResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (DepositTransaction $record): bool => DepositTransactionResource::canEdit($record)),
+                OpenRecordAction::make(DepositTransactionResource::class),
             ])
             ->defaultSort('transaction_date', 'desc')
             ->emptyStateIcon('heroicon-o-banknotes')

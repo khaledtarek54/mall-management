@@ -6,6 +6,7 @@ use App\Filament\Admin\Actions\SalesDeclarationActions;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
+use App\Support\BadgeColors;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -75,12 +76,7 @@ class TenantSalesDeclarationsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_sales.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'submitted' => 'warning',
-                        'locked' => 'success',
-                        'disputed' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_sales_declarations.status')),
                 TextColumn::make('declared_at')
                     ->label(__('admin.tables.tenant_sales.declared_at'))
                     ->date('d/m/Y')

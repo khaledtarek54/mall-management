@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\Payments\Tables;
 
 use App\Models\PaymentMethod;
+use App\Support\BadgeColors;
 use App\Support\StatusOptions;
 use Carbon\Carbon;
 use Filament\Actions\ViewAction;
@@ -52,12 +53,7 @@ class PaymentsTable
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.payment.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'captured', 'reconciled', 'settled' => 'success',
-                        'initiated', 'authorized' => 'warning',
-                        'failed', 'bounced', 'refunded', 'voided' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('payments.status')),
             ])
             ->filters([
                 SelectFilter::make('method')

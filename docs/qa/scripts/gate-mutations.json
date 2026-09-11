@@ -782,5 +782,19 @@
     "path": "routes/api.php",
     "old": "Route::middleware('throttle:5,1,api-login')",
     "new": "Route::middleware('throttle:5,1')"
+  },
+  {
+    "name": "BadgeColors — a tab colours a registered vocabulary with its own inline map again",
+    "gate": "tests/Feature/Scenarios/BadgeColorsConformanceTest.php",
+    "path": "app/Filament/Admin/RelationManagers/UnitLeasesRelationManager.php",
+    "old": "                    ->color(BadgeColors::of('leases.status')),",
+    "new": "                    ->color(fn (string $state): string => match ($state) {\n                        'active' => 'success',\n                        default => 'gray',\n                    }),"
+  },
+  {
+    "name": "ATabOpensARecordThroughOneFactory — a tab hand-writes its Open link again",
+    "gate": "tests/Feature/Scenarios/ATabOpensARecordThroughOneFactoryConformanceTest.php",
+    "path": "app/Filament/Admin/RelationManagers/UnitMetersRelationManager.php",
+    "old": "                OpenRecordAction::make(UtilityMeterResource::class),",
+    "new": "                Action::make('open')->url(fn ($record) => UtilityMeterResource::getUrl('edit', ['record' => $record])),"
   }
 ]

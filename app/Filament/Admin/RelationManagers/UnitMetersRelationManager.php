@@ -2,9 +2,8 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
-use App\Models\UtilityMeter;
-use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -62,11 +61,7 @@ class UnitMetersRelationManager extends RelationManager
                     ->color(fn (string $state) => $state === 'active' ? 'success' : 'gray'),
             ])
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (UtilityMeter $record): string => UtilityMeterResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (UtilityMeter $record): bool => UtilityMeterResource::canEdit($record)),
+                OpenRecordAction::make(UtilityMeterResource::class),
             ])
             ->defaultSort('meter_number')
             ->emptyStateIcon('heroicon-o-bolt')

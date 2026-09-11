@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\CreditNotes\Schemas;
 
 use App\Models\CreditNoteItem;
+use App\Support\BadgeColors;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -35,12 +36,7 @@ class CreditNoteInfolist
                         ->label(__('admin.tables.common.status'))
                         ->badge()
                         ->formatStateUsing(fn (string $state) => __("admin.statuses.credit_note.{$state}"))
-                        ->color(fn (string $state): string => match ($state) {
-                            'applied' => 'success',
-                            'issued' => 'warning',
-                            'void' => 'danger',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('credit_notes.status')),
                     TextEntry::make('invoice.number')
                         ->label(__('admin.fields.invoice'))
                         // Null is a real state: a standalone tenant-level credit belongs to the

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Lease;
@@ -11,6 +12,7 @@ use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -59,6 +61,9 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // The property chain `OpenRecordAction` walks per row (`PropertyLink::assetOf()`),
+            // loaded once for the page: without it the *Open* button costs a query per row.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('lease.unit'))
             // No search box: a declaration is identified by its PERIOD, which is a date column, and
             // `TenantSalesDeclaration` carries no search blob. TableDefaults would otherwise render
             // a box that matches nothing — indistinguishable from "no such declaration", which is
@@ -111,11 +116,7 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
                     ])),
             ])
             ->recordActions([
-                Action::make('open')
-                    ->label(__('admin.actions.open'))
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (TenantSalesDeclaration $record): string => TenantSalesDeclarationResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (TenantSalesDeclaration $record): bool => TenantSalesDeclarationResource::canEdit($record)),
+                OpenRecordAction::make(TenantSalesDeclarationResource::class),
             ])
             ->defaultSort('period_start', 'desc')
             ->emptyStateIcon('heroicon-o-chart-bar')

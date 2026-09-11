@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\PaymentMethod;
+use App\Support\BadgeColors;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -63,12 +64,7 @@ class TenantPaymentsRelationManager extends RelationManager
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.payment.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'captured', 'reconciled', 'settled' => 'success',
-                        'initiated', 'authorized' => 'warning',
-                        'failed', 'bounced', 'refunded', 'voided' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('payments.status')),
             ])
             ->filters([
                 SelectFilter::make('method')

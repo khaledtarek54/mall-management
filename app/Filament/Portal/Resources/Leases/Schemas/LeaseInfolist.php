@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\Leases\Schemas;
 
 use App\Models\Lease;
+use App\Support\BadgeColors;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -29,11 +30,7 @@ class LeaseInfolist
                         ->formatStateUsing(fn (string $state) => __("admin.statuses.lease.{$state}"))
                         // Matches the admin badge and the portal table — one lease must not read
                         // differently on three screens.
-                        ->color(fn (string $state) => match ($state) {
-                            'active' => 'success',
-                            'future' => 'primary',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('leases.status')),
                     TextEntry::make('commencement_date')->label(__('admin.fields.commencement_date'))->date('d/m/Y')->placeholder('—'),
                     TextEntry::make('expiry_date')->label(__('admin.fields.expiry_date'))->date('d/m/Y')->placeholder('—'),
                     // Only where rent actually starts later than the term — otherwise it is noise

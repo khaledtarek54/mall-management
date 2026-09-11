@@ -13,6 +13,7 @@ use App\Models\TenantRequestSubcategory;
 use App\Models\User;
 use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\TenantRequestService;
+use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
@@ -106,27 +107,12 @@ class TenantRequestsTable
                     ->label(__('admin.tables.requests.priority'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'urgent' => 'danger',
-                        'high' => 'warning',
-                        'medium' => 'info',
-                        'low' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_requests.priority')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
-                    ->color(fn (string $state): string => match ($state) {
-                        'submitted' => 'info',
-                        'acknowledged' => 'warning',
-                        'in_progress' => 'primary',
-                        'awaiting_tenant' => 'warning',
-                        'resolved' => 'success',
-                        'closed' => 'gray',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(BadgeColors::of('tenant_requests.status')),
                 TextColumn::make('department.name')
                     ->visibleFrom('md')
                     ->label(__('admin.resources.department.singular'))

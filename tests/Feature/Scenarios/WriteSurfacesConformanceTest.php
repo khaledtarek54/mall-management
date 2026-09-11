@@ -2,6 +2,7 @@
 
 use App\Models\Area;
 use App\Models\Charge;
+use App\Models\RentableItem;
 use App\Models\User;
 use App\Support\WriteSurfaces;
 
@@ -184,6 +185,16 @@ it('reads a manager that writes through its OWN action as a door, not a read-onl
         ->toBeNull()
         ->and($doors['app/Filament/Admin/RelationManagers/UnitOwnershipRentableItemsRelationManager.php']['writes'])
         ->toBeNull();
+
+    // The assignment-action control above went VACUOUS on 2026-09-11: that tab's modal moved into
+    // `RentableItemHoldingActions`, so its own source collects no field at all and the clause
+    // being controlled for is never reached. The factory's source is what now carries the picker
+    // — `rentable_item_id`, the related model's OWN foreign key — so the clause is asked of that
+    // text directly, which is the only way it is still asked of anything.
+    $factory = (string) file_get_contents(app_path('Filament/Actions/RentableItemHoldingActions.php'));
+
+    expect(WriteSurfaces::fieldsAskedInSource($factory))->toContain('rentable_item_id')
+        ->and(WriteSurfaces::writesTheRelatedRecord($factory, RentableItem::class))->toBeFalse();
 });
 
 it('does not count a resource that has no form as a form door', function () {

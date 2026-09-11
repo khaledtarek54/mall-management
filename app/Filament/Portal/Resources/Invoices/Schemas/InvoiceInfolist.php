@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\Invoices\Schemas;
 
 use App\Models\InvoiceItem;
+use App\Support\BadgeColors;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -33,13 +34,7 @@ class InvoiceInfolist
                         ->label(__('admin.tables.common.status'))
                         ->badge()
                         ->formatStateUsing(fn (string $state) => __("admin.statuses.invoice.{$state}"))
-                        ->color(fn (string $state): string => match ($state) {
-                            'paid' => 'success',
-                            'partially_paid' => 'warning',
-                            'overdue' => 'danger',
-                            'issued' => 'info',
-                            default => 'gray',
-                        }),
+                        ->color(BadgeColors::of('invoices.status')),
                     TextEntry::make('issue_date')
                         ->label(__('admin.fields.issue_date'))
                         ->date('d/m/Y'),

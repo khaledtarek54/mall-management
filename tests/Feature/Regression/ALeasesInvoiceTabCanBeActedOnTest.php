@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\WriteOffInvoiceService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -120,6 +121,42 @@ it('stops offering it once the invoice is settled', function (): void {
     $invoice = $invoice->fresh();
 
     expect(round((float) $invoice->balance, 2))->toBe(0.0)
+        ->and(paymentActionOn($lease, $invoice)->isVisible())->toBeFalse();
+});
+
+it('stops offering it once the forgiven remainder is all that is left — `isPayable()`, not a status list', function (): void {
+    // THE TAB RESTATED THE RULE (until 2026-09-11): `balance > 0` and a three-status denylist. A
+    // write-off deliberately leaves `balance` standing, so with 6,000 of 10,000 forgiven and the
+    // other 4,000 then paid, the raw balance is 6,000, the status is `partially_paid`, and nothing
+    // may be received — `Invoice::isPayable()` says so; the tab's own copy of the rule did not.
+    // `credited` was missing from that list too. One predicate now, the one the portal, the pay
+    // link and the payment form all read.
+    [$lease, $invoice] = leaseWithAnOpenInvoice();
+
+    $total = round((float) $invoice->total, 2);
+
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => round($total * 0.6, 2),
+        'reason' => 'settled_short',
+        'write_off_date' => now()->toDateString(),
+    ]);
+
+    $invoice = $invoice->fresh();
+    $owed = $invoice->payableAmount();
+
+    // Control: the collectable remainder is still offered.
+    expect($owed)->toBeGreaterThan(0)
+        ->and(paymentActionOn($lease, $invoice)->isVisible())->toBeTrue();
+
+    $payment = Payment::factory()->create(['tenant_id' => $invoice->tenant_id, 'amount' => $owed, 'status' => 'captured']);
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => $owed]);
+    $invoice->recomputeTotals();
+
+    $invoice = $invoice->fresh();
+
+    expect((float) $invoice->balance)->toBeGreaterThan(0)
+        ->and($invoice->status)->toBe('partially_paid')
+        ->and($invoice->isPayable())->toBeFalse()
         ->and(paymentActionOn($lease, $invoice)->isVisible())->toBeFalse();
 });
 
