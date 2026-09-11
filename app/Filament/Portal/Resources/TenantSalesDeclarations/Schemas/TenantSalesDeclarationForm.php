@@ -28,13 +28,16 @@ class TenantSalesDeclarationForm
                     EntitySelect::make('lease_id')
                         ->label(__('admin.resources.lease.singular'))
                         ->entity(Lease::class)
-                        // This retailer's own percentage-rent leases. The portal has no property
-                        // scope of its own (`visibleAssetIds()` is null for a TenantUser), so the
-                        // tenant clamp here is the isolation, not an addition to it.
+                        // This retailer's own leases that DECLARE sales — the duty or the charge
+                        // (`Lease::scopeDeclaringSales()`; keyed on the charge alone until SW-254,
+                        // which refused the disclosure-only tenant the 10th had just chased). The
+                        // portal has no property scope of its own (`visibleAssetIds()` is null for
+                        // a TenantUser), so the tenant clamp here is the isolation, not an
+                        // addition to it.
                         ->modifyOptionsQuery(fn ($query) => $query
                             ->where('tenant_id', Portal::tenantId())
                             ->where('status', 'active')
-                            ->where('has_percentage_rent', true))
+                            ->declaringSales())
                         ->required(),
                     TextEntry::make('period_info')
                         ->label(__('admin.fields.period'))

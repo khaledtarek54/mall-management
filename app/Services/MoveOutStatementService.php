@@ -234,7 +234,11 @@ class MoveOutStatementService
             // Counted directly rather than through `Lease::missingSalesDeclarationsFor()`, which
             // filters to ACTIVE leases — by the time a final account is drawn the lease is usually
             // already terminated, so that helper would report a clean sheet for exactly the tenant
-            // whose declarations matter most.
+            // whose declarations matter most. And keyed on the CHARGE, not on the duty to declare
+            // (`requiresSalesReporting()`, SW-254): this line says a FIGURE is not knowable yet.
+            // A disclosure-only lease has no percentage rent to finalise, and a percentage-rent
+            // tenant excused from monthly filing still owes a charge nobody can compute without
+            // the months' turnover.
             $commenced = CarbonImmutable::instance($lease->commencement_date);
             $from = $commenced->greaterThan($asOf->startOfYear())
                 ? $commenced->startOfMonth()

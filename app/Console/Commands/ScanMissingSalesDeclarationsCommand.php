@@ -13,13 +13,15 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Remind percentage-rent tenants who have NOT submitted a sales declaration for a closed period.
+ * Remind tenants who OWE a sales declaration and have NOT submitted one for a closed period.
  *
  * A tenant who never uploads a report otherwise escapes their percentage rent silently — no
  * declaration row exists, so nothing bills and nothing alerts (the reporting-layer twin of the
- * billing-gap leak). This scans active `has_percentage_rent` leases that were billable in the
- * target month (commenced, past their fit-out grace) and have no declaration for it, and reminds
- * the tenant. Idempotent: the reminder carries the (lease, period) so re-running never re-notifies.
+ * billing-gap leak). This scans active leases that owe a declaration for the target month
+ * (`Lease::requiresSalesReporting()` — the percentage-rent clause unless the lease says otherwise;
+ * SW-254 made this command read it), were billable in it (commenced, past their fit-out grace) and
+ * have no declaration for it, and reminds the tenant. Idempotent: the reminder carries the
+ * (lease, period) so re-running never re-notifies.
  * Companion to the admin "missing sales declarations" ActionRequired card (which surfaces the same
  * set live, so the leak is never silent again).
  */
@@ -29,7 +31,7 @@ class ScanMissingSalesDeclarationsCommand extends Command
         {--period= : First-of-month YYYY-MM-01 to scan; defaults to the previous month}
         {--dry-run : Print who would be reminded without sending}';
 
-    protected $description = 'Remind percentage-rent tenants with a missing sales declaration for a closed period (idempotent).';
+    protected $description = 'Remind tenants who owe a sales declaration and have not filed one for a closed period (idempotent).';
 
     public function handle(): int
     {
@@ -57,19 +59,17 @@ class ScanMissingSalesDeclarationsCommand extends Command
             // The ONE definition of "the last month a declaration can exist for", shared with
             // `sales:estimate-missing` and with the two reports that divide sales into cost by it.
             : TenantSalesDeclaration::lastDeclarableMonth();
-        $periodEnd = $periodStart->copy()->endOfMonth();
         $periodKey = $periodStart->format('Y-m');
-        $periodLabel = $periodStart->format('F Y');
+        // Localised: the label is what the tenant reads in the reminder's own sentence, and
+        // `format('F Y')` is English whatever the locale (the `BillingRefusal` trap).
+        $periodLabel = $periodStart->locale(app()->getLocale())->isoFormat('MMMM YYYY');
 
-        // One definition of "owes a declaration", shared with the month-end close checklist —
-        // see Lease::missingSalesDeclarationsFor().
-        $leases = Lease::missingSalesDeclarationsFor(
-            CarbonImmutable::instance($periodStart),
-            CarbonImmutable::instance($periodEnd),
-        );
+        // One definition of "owes a declaration", shared with the estimate, the month-end close
+        // checklist and the dashboard card — see Lease::missingSalesDeclarationsFor().
+        $leases = Lease::missingSalesDeclarationsFor(CarbonImmutable::instance($periodStart));
 
         if ($leases->isEmpty()) {
-            $this->info("No missing percentage-rent declarations for {$periodLabel}.");
+            $this->info("No missing sales declarations for {$periodLabel}.");
 
             return self::SUCCESS;
         }

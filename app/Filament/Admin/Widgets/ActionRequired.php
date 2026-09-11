@@ -227,8 +227,9 @@ class ActionRequired extends Widget
             ->count();
 
         // Percentage-rent leases with NO sales declaration for the closed (previous) month — the
-        // tenant hasn't reported, so their overage can't be billed (a silent revenue leak). Only
-        // leases actually billable that month (commenced, past fit-out grace).
+        // tenant hasn't reported, so their overage can't be billed (a silent revenue leak) — and
+        // since SW-254 the wider set the lease's own reporting clause names. Only leases actually
+        // billable that month (commenced, past fit-out grace).
         $prevMonthStart = (clone $now)->subMonthNoOverflow()->startOfMonth();
         // **WHAT IS WAITING ON SOMEBODY (UX5-10).** There was no consolidated approvals inbox: a
         // purchase request sitting at `requested` and a supplier bill sitting at `draft` are both
@@ -250,18 +251,12 @@ class ActionRequired extends Widget
             ->where('status', 'draft')
             ->count();
 
-        $missingSalesCount = $leaseBase()->where('status', 'active')
-            ->where('has_percentage_rent', true)
-            ->whereNotNull('commencement_date')
-            ->whereDate('commencement_date', '<=', (clone $prevMonthStart)->endOfMonth())
-            ->whereDoesntHave('salesDeclarations', fn ($q) => $q->whereDate('period_start', $prevMonthStart))
-            ->get()
-            ->filter(function ($lease) use ($prevMonthStart) {
-                $firstBillable = $lease->firstBillableMonth();
-
-                return $firstBillable === null || $firstBillable->lessThanOrEqualTo(CarbonImmutable::instance($prevMonthStart));
-            })
-            ->count();
+        // The ONE definition of "owes a declaration" — the chase, the estimate and the month-end
+        // checklist read the same helper. This card carried its own copy on `has_percentage_rent`
+        // and its own fit-out test, so when the duty became a lease term of its own
+        // (`requires_sales_reporting`) the count kept naming excused tenants and missing the
+        // disclosure-only ones, beside a list filter that had the operator's ruling (SW-254).
+        $missingSalesCount = Lease::missingSalesDeclarationsFor(CarbonImmutable::instance($prevMonthStart), $assetIds)->count();
 
         $items = [];
         $requestsEnabled = Modules::enabled('requests');
@@ -483,8 +478,8 @@ class ActionRequired extends Widget
         }
 
         if ($missingSalesCount > 0) {
-            // Percentage-rent tenants who haven't reported last month's sales — land the operator on
-            // the declarations list so they can chase the report (and lock it once it arrives).
+            // Tenants who owe last month's sales declaration and haven't filed it — land the
+            // operator on the leases list so they can chase the report (and lock it once it arrives).
             $items[] = [
                 'key' => 'missing_sales',
                 'icon' => 'heroicon-o-presentation-chart-line',

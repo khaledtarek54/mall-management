@@ -1448,19 +1448,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
     // isBillableForPeriod, charges) this model already had, which is why the seam sits here.
 
     /**
-     * The SQL half of "owes a sales declaration for this period and hasn't filed one".
-     *
-     * `missingSalesDeclarationsFor()` below is the authoritative answer, but it returns a
-     * Collection because the fit-out exemption is model logic rather than a column. A table
-     * filter needs a Builder, so this scope is the query part alone — and the two are used
-     * in exactly one direction: the ActionRequired card counts `scope + reject(fit-out)`, the
-     * Leases table filter applies the scope. The filter is therefore a SUPERSET of the card:
-     * clicking a count of 3 can land on 4 rows if one is still in fit-out, but it can never
-     * land on a list MISSING a lease the card counted. That is the safe direction for a
-     * "go and chase these" link; the reverse would send someone to a page that appears to
-     * contradict the number they clicked.
-     */
-    /**
      * Must this tenant DECLARE their turnover?
      *
      * A separate lease term from whether they PAY percentage rent on it. `has_percentage_rent` was
@@ -1487,6 +1474,45 @@ class Lease extends Model implements BillableAgreement, HasMedia
         return (bool) $this->has_percentage_rent;
     }
 
+    /**
+     * May this lease carry a sales declaration at all — the DUTY or the CHARGE?
+     *
+     * `requiresSalesReporting()` says who MUST file each month; this says whose filing MEANS
+     * something, which is wider by exactly one case: a percentage-rent tenant the operator has
+     * excused from monthly filing is not chased, but a declaration they (or staff) enter is still
+     * the only thing their percentage rent can be computed from. Read by every door a declaration
+     * arrives through or is shown on — the portal and API create (SW-254's review found both
+     * still gated on the charge, so a disclosure-only tenant was chased on the 10th and REFUSED
+     * when they came to file), the app's `canDeclareSales`, the two declarations tabs and the two
+     * sales reports. None of those asks "must"; they ask "can".
+     *
+     * Kept beside {@see scopeDeclaringSales()}, its SQL twin, for the reason the pair above is —
+     * and named apart from it because a scope sharing an instance method's name cannot be called
+     * off the class (`Lease::declaresSales()` is the instance method, called statically).
+     */
+    public function declaresSales(): bool
+    {
+        return $this->requiresSalesReporting() || (bool) $this->has_percentage_rent;
+    }
+
+    public function scopeDeclaringSales($query)
+    {
+        return $query->where(fn ($q) => $q
+            ->where('requires_sales_reporting', true)
+            ->orWhere('has_percentage_rent', true));
+    }
+
+    /**
+     * The SQL half of "owes a sales declaration for this period and hasn't filed one".
+     *
+     * `missingSalesDeclarationsFor()` below is the authoritative answer and is BUILT ON this scope;
+     * it returns a Collection because the fit-out exemption is model logic rather than a column. A
+     * table filter needs a Builder, so the Leases table's "owing" filter applies the scope alone
+     * and is therefore a SUPERSET of everything the helper answers: clicking the dashboard's count
+     * of 3 can land on 4 rows if one is still in fit-out, but it can never land on a list MISSING a
+     * lease the card counted. That is the safe direction for a "go and chase these" link; the
+     * reverse would send someone to a page that appears to contradict the number they clicked.
+     */
     public function scopeOwingSalesDeclaration($query, CarbonImmutable $periodStart)
     {
         return $query->where('status', 'active')
@@ -1504,30 +1530,43 @@ class Lease extends Model implements BillableAgreement, HasMedia
     }
 
     /**
-     * Active percentage-rent leases that owe a sales declaration for the period and have not filed
-     * one — past their fit-out grace, so a lease that isn't billable yet isn't chased either.
+     * Active leases that OWE a sales declaration for the period and have not filed one — past
+     * their fit-out grace, so a lease that isn't billable yet isn't chased either.
      *
-     * ONE definition, two callers: `sales:scan-missing-declarations` (which chases the tenant) and
-     * the month-end close checklist (which counts them as an outstanding task). The same rule
+     * ONE definition, four callers: `sales:scan-missing-declarations` (which chases the tenant),
+     * `sales:estimate-missing` (which estimates a percentage-rent tenant's turnover once chased),
+     * the month-end close checklist and the dashboard's "missing declarations" card. The same rule
      * lived only inside the command until 2026-08-08; a second copy in the checklist would have
      * been the third place "which leases owe a declaration" was written down, and the first place
      * it silently disagreed. Same reasoning as `isBillableForPeriod()`/`scopeBillableForPeriod()`
      * above.
      *
+     * **Composed from `owingSalesDeclaration()`, never restated (SW-254, 2026-09-11).** This method
+     * carried its own `where('has_percentage_rent', true)` from before the duty had a column of its
+     * own, and the dashboard card carried a third copy — so when `requires_sales_reporting` landed
+     * (2026-08-30) it reached the scope and the lease list's filter and NOT the two commands or the
+     * card: a percentage-rent tenant the operator had EXCUSED was still chased on the 10th and still
+     * estimated on the 17th, and a disclosure-only tenant was never chased at all, while the filter
+     * beside them showed the set the operator had actually ruled on. The scope is the one place the
+     * duty is written in SQL; everything that answers "who owes one" reads it.
+     *
+     * `$assetIds` takes the shape the caller holds — the checklist's one property, the dashboard's
+     * `visibleAssetIds()` — and an EMPTY list matches nothing rather than everything, because the
+     * wrong direction for a scope that has been handed no properties is the whole portfolio. The
+     * period is ONE month named by its first day: the end used to be a second parameter, which the
+     * scope now derives for itself, and a caller could hand the fit-out test a window the scope
+     * never saw.
+     *
+     * @param  int|list<int>|null  $assetIds
      * @return Collection<int, static>
      */
-    public static function missingSalesDeclarationsFor(
-        CarbonImmutable $periodStart,
-        CarbonImmutable $periodEnd,
-        ?int $assetId = null,
-    ): Collection {
+    public static function missingSalesDeclarationsFor(CarbonImmutable $periodStart, int|array|null $assetIds = null): Collection
+    {
+        $periodEnd = $periodStart->endOfMonth();
+
         return static::query()
-            ->where('status', 'active')
-            ->where('has_percentage_rent', true)
-            ->whereNotNull('commencement_date')
-            ->whereDate('commencement_date', '<=', $periodEnd)
-            ->whereDoesntHave('salesDeclarations', fn ($q) => $q->whereDate('period_start', $periodStart))
-            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->owingSalesDeclaration($periodStart)
+            ->when($assetIds !== null, fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', (array) $assetIds)))
             ->with('tenant')
             ->get()
             // Fit-out is a model-level rule, not SQL — a lease still inside its grace is not yet

@@ -18,7 +18,7 @@
 | | |
 |---|---|
 | **Backend** | ✅ Complete. 67 live endpoints. **Nothing is pending on our side.** |
-| **App** | ⏳ The 19 tasks in §1. Until those land, the two are out of step. |
+| **App** | ⏳ The 20 tasks in §1. Until those land, the two are out of step. |
 | **Last backend change** | 2026-09-10 — `resolutionEvidence` on requests (task 19) |
 
 **What the backend gained on 2026-09-02** — this is the sync record; each line is an app task above.
@@ -50,7 +50,7 @@ renderable in Arabic).
 
 ---
 
-## 1. The work — 19 tasks
+## 1. The work — 20 tasks
 
 Each row links to the detail. **Do 1–7 first: without them the app is showing wrong numbers today.**
 
@@ -75,6 +75,7 @@ Each row links to the detail. **Do 1–7 first: without them the app is showing 
 | 17 | Wire the language toggle to **`PATCH /me {locale}`** as well as `Accept-Language` | Settings | [rule 9](#4-the-rules-that-are-not-obvious) |
 | 18 | Add the missing screens: signed lease, receipt PDF, mall news, devices, confirm/dispute | Various | [§2](#2-every-endpoint-67) |
 | 19 | Show **`resolutionEvidence[]`** on a request — "what was done", apart from `attachments` ("what you reported"); same stream URL shape *(backend 2026-09-10)* | Request detail | [MOBILE-API §4.7](MOBILE-API.md#47-requests-tenant-requests--any-type) |
+| 20 | Gate the sales screen on **`canDeclareSales`**, never on the lease's `hasPercentageRent` — a lease can require the report without charging on it, and that tenant is reminded to file *(backend 2026-09-11)* | Sales | [MOBILE-API §4.8](MOBILE-API.md#48-sales-declarations-leases-that-declare-sales) |
 
 **Do NOT build:** an ETA / tax-filing badge (module 16 is frozen), an in-app "dispute this charge"
 form (operator-only — use `POST /me/requests` with `requestType: "billing"`), or a demo-pay button

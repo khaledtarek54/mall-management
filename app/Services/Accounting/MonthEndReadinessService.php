@@ -76,7 +76,7 @@ class MonthEndReadinessService
 
         $steps = [
             $this->billingStep($periodStart, $assetId),
-            $this->salesDeclarationStep($periodStart, $periodEnd, $assetId),
+            $this->salesDeclarationStep($periodStart, $assetId),
             $this->paymentsStep($periodStart, $periodEnd, $assetId),
             $this->vendorBillsStep($periodStart, $periodEnd, $assetId),
             $this->ledgerSyncStep($accountingPeriod),
@@ -105,12 +105,12 @@ class MonthEndReadinessService
         return $this->step('billing_posted', $pending);
     }
 
-    /** 2. Percentage-rent tenants have declared. Undeclared sales = unbillable overage. */
-    private function salesDeclarationStep(CarbonImmutable $periodStart, CarbonImmutable $periodEnd, ?int $assetId): array
+    /** 2. Every tenant who owes a declaration has filed. Undeclared sales = unbillable overage. */
+    private function salesDeclarationStep(CarbonImmutable $periodStart, ?int $assetId): array
     {
         return $this->step(
             'sales_declared',
-            Lease::missingSalesDeclarationsFor($periodStart, $periodEnd, $assetId)->count(),
+            Lease::missingSalesDeclarationsFor($periodStart, $assetId)->count(),
         );
     }
 

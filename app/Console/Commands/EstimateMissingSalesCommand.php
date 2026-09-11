@@ -13,6 +13,13 @@ use Throwable;
 /**
  * Raise an ESTIMATED sales declaration for a percentage-rent tenant who never declared.
  *
+ * **Who OWES a declaration is `Lease::missingSalesDeclarationsFor()`** — the chase, the month-end
+ * checklist and the dashboard card read the same helper, which honours the lease's own
+ * `requires_sales_reporting` (SW-254). Of those, this command estimates only the leases that
+ * CHARGE on the figure: a disclosure-only tenant is chased and never estimated, because an
+ * estimate is a billing instrument and a turnover the landlord made up would otherwise feed the
+ * analytics as the tenant's own.
+ *
  * **The leak this closes.** `sales:scan-missing-declarations` chases the tenant and stops there.
  * Nothing bills, so a tenant who simply never files pays no percentage rent at all — silence is a
  * complete and costless way to avoid the charge. Yardi bills an estimate and retro-bills the true
@@ -85,6 +92,7 @@ class EstimateMissingSalesCommand extends Command
 
         $raised = 0;
         $skipped = 0;
+        $reportingOnly = [];
         $unchased = [];
         $tooSoon = [];
 
@@ -92,10 +100,22 @@ class EstimateMissingSalesCommand extends Command
             $periodEnd = $periodStart->endOfMonth();
             $periodKey = $periodStart->format('Y-m');
 
-            // The same definition of "owes a declaration" the reminder scan and the month-end
-            // checklist use — one rule, three callers.
-            foreach (Lease::missingSalesDeclarationsFor($periodStart, $periodEnd) as $lease) {
+            // The same definition of "owes a declaration" the reminder scan, the month-end
+            // checklist and the dashboard card use — one rule, four callers.
+            foreach (Lease::missingSalesDeclarationsFor($periodStart) as $lease) {
                 try {
+                    // An estimate exists to BILL. A lease that must disclose turnover and owes no
+                    // percentage rent on it (`requires_sales_reporting` without
+                    // `has_percentage_rent`, SW-254) has nothing to bill, and a figure the landlord
+                    // invented would sit in sales-per-m² and the occupancy-cost ratio as if the
+                    // tenant had stood behind it. It stays on the chase and is counted here so the
+                    // run's record says why it was passed over.
+                    if (! $lease->has_percentage_rent) {
+                        $reportingOnly[] = "{$lease->reference} · {$periodKey}";
+
+                        continue;
+                    }
+
                     // The gate (SW-253): no recorded reminder, no estimate. Reported rather than
                     // chased from here — see the class docblock.
                     $remindedAt = $lease->salesDeclarationRemindedAt($periodKey);
@@ -187,12 +207,14 @@ class EstimateMissingSalesCommand extends Command
                 'periods' => array_map(fn (CarbonImmutable $p) => $p->format('Y-m'), $periods),
                 'raised' => $raised,
                 'skipped' => $skipped,
+                'reporting_only' => $reportingOnly,
                 'too_soon' => $tooSoon,
                 'unchased' => count($unchased),
             ]);
         }
 
-        $this->info(($dryRun ? 'Would raise ' : 'Raised ')."{$raised} estimated declaration(s) for {$label}; {$skipped} skipped.");
+        $this->info(($dryRun ? 'Would raise ' : 'Raised ')."{$raised} estimated declaration(s) for {$label}; {$skipped} skipped"
+            .($reportingOnly !== [] ? '; '.count($reportingOnly).' disclosure-only lease-month(s) left to the chase.' : '.'));
 
         if ($dryRun) {
             $this->warn('Dry run — nothing was written.');

@@ -695,9 +695,13 @@ class ReportService
         // year while the screen said twelve. Day 1 cannot overflow.
         $from = ($from ?? $to->startOfMonth()->subMonths(11))->startOfMonth();
 
+        // Every lease whose turnover is on record — the reporting duty OR the percentage-rent
+        // charge (`Lease::scopeDeclaringSales()`). The occupancy-cost ratio is the reason a
+        // disclosure-only clause exists at all, and until SW-254 this read the charge alone, so
+        // the tenants it was collected FROM were the ones it never showed.
         $leases = TenantScope::applyTo(Lease::query(), 'unit')
             ->whereIn('status', ['active', 'terminated', 'expired', 'renewed'])
-            ->where('has_percentage_rent', true)
+            ->declaringSales()
             ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
             ->with(['tenant', 'unit'])
             ->get();
@@ -820,8 +824,10 @@ class ReportService
         $priorFrom = $matFrom->subYear();
         $priorTo = $matFrom->subDay();
 
+        // The duty or the charge, as the occupancy-cost report above — sales per m² is the other
+        // figure a disclosure-only clause is collected for.
         $leases = TenantScope::applyTo(Lease::query(), 'unit')
-            ->where('has_percentage_rent', true)
+            ->declaringSales()
             ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
             ->with(['tenant', 'unit'])
             ->get();

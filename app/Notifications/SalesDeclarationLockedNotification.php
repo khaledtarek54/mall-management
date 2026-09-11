@@ -28,10 +28,7 @@ class SalesDeclarationLockedNotification extends Notification
             ->subject(__('admin.notifications.sales_locked_subject', [
                 'period' => $this->declaration->periodLabel(),
             ]))
-            ->line(__('admin.notifications.sales_locked_body', [
-                'period' => $this->declaration->periodLabel(),
-                'amount' => 'EGP '.number_format((float) $this->declaration->calculated_percentage_rent, 2),
-            ]));
+            ->line($this->wording('sales_locked_body'));
 
         // Annual (cumulative) lease: spell out the running total the charge is based on, so the tenant
         // can see WHY this month's percentage rent is what it is — or why it's zero (still under the
@@ -62,14 +59,28 @@ class SalesDeclarationLockedNotification extends Notification
             'period' => $this->declaration->periodLabel(),
             'amount' => (float) $this->declaration->calculated_percentage_rent,
             'title' => __('admin.notifications.sales_locked_title'),
-            'body' => __('admin.notifications.sales_locked_short', [
-                'period' => $this->declaration->periodLabel(),
-                'amount' => 'EGP '.number_format((float) $this->declaration->calculated_percentage_rent, 2),
-            ]),
+            'body' => $this->wording('sales_locked_short'),
             'icon' => 'heroicon-o-lock-closed',
             'color' => 'warning',
             'format' => 'filament', // Filament's bell only renders notifications tagged with this
             'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];
+    }
+
+    /**
+     * The sentence follows the LEASE (SW-254): "percentage rent owed: EGP 0.00" to a tenant whose
+     * lease charges none names a clause they do not have, so a disclosure-only lease gets the
+     * `_disclosure` twin of each key and no amount at all.
+     */
+    private function wording(string $key): string
+    {
+        if (! $this->declaration->lease?->has_percentage_rent) {
+            return __('admin.notifications.'.$key.'_disclosure', ['period' => $this->declaration->periodLabel()]);
+        }
+
+        return __('admin.notifications.'.$key, [
+            'period' => $this->declaration->periodLabel(),
+            'amount' => 'EGP '.number_format((float) $this->declaration->calculated_percentage_rent, 2),
+        ]);
     }
 }

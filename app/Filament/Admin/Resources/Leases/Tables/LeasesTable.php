@@ -320,8 +320,9 @@ class LeasesTable
                 Filter::make('holdover')
                     ->label(__('admin.filters.holdover'))
                     ->query(fn (Builder $query) => $query->holdover()),
-                // Percentage-rent tenants who have not reported LAST month's sales, so their
-                // overage cannot be billed. The dashboard card counted them and then dropped the
+                // Tenants who owe LAST month's sales declaration and have not filed it (the
+                // lease's own reporting clause; the percentage-rent tenants' overage cannot be
+                // billed without it). The dashboard card counted them and then dropped the
                 // operator on the unfiltered declarations list, which is the one place the missing
                 // ones by definition are not. Shares Lease::scopeOwingSalesDeclaration() with that
                 // card so the count and the list cannot describe different leases.

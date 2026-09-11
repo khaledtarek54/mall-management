@@ -7,7 +7,7 @@
 
 > ### 👉 The mobile developer starts at [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md)
 >
-> That brief is short and derived from the code: the sync status, the work as 19 tasks, all 67
+> That brief is short and derived from the code: the sync status, the work as 20 tasks, all 67
 > endpoints, all 16 payload shapes, and the 15 rules that are not obvious. **Where the two documents
 > disagree, the brief is right.**
 >
@@ -334,7 +334,11 @@ doesn't fan out to balance + maintenance + declarations + notifications.
   "disputedDeclarations": 0, "canDeclareSales": true,
   "unreadNotifications": 3, "unreadAnnouncements": 2, "currency": "EGP" } }
 ```
-`canDeclareSales` is true when the tenant has an active percentage-rent lease.
+`canDeclareSales` is true when the tenant has an active lease that DECLARES sales — one that
+requires sales reporting **or** carries percentage-rent terms (SW-254, 2026-09-11; it was the
+charge alone before, so a tenant whose lease obliges the disclosure without charging on it was
+reminded to file and shown no screen to file from). It is the same predicate the create endpoint
+refuses on, so the app never shows a screen the server refuses.
 `unreadAnnouncements` badges the **Mall news** entry (§4.12) — it counts notices the
 tenant has not opened, which is a different question from the bell's unread count.
 
@@ -732,10 +736,12 @@ or if `reason` is missing/blank.
 
 ---
 
-### 4.8 Sales declarations (percentage-rent leases only)
+### 4.8 Sales declarations (leases that declare sales)
 
-Only relevant for leases where `has_percentage_rent = true`. For other tenants,
-hide this section of the app.
+Only relevant when `canDeclareSales` (from `/me/summary`) is true — the tenant has an active
+lease that requires sales reporting **or** carries percentage-rent terms. For other tenants, hide
+this section of the app. Do **not** key it on `hasPercentageRent` alone: a lease can oblige the
+disclosure without charging on it, and such a tenant is reminded to file (SW-254, 2026-09-11).
 
 The tenant **uploads their sales report file** (image/PDF) for the period rather
 than typing a figure; the property team reads the number off the report, enters
@@ -771,7 +777,8 @@ periodStart=2026-05-01
 periodEnd=2026-05-31
 attachments[]=<file>            # required, 1–5 files, image/* or application/pdf, ≤10 MB each
 ```
-Server enforces: the lease is yours **and** has percentage-rent terms (`422` →
+Server enforces: the lease is yours **and** declares sales — requires reporting or has
+percentage-rent terms, the same predicate behind `canDeclareSales` (`422` →
 `leaseId`), one declaration per `(lease, periodStart)` (`422` → `periodStart`),
 and at least one valid report file (`422` → `attachments`). On success it returns
 `201`; the figure is entered and finalised only once staff **lock** it (which

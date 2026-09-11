@@ -186,7 +186,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 **Sales Declarations:**
 - **File-first:** the tenant uploads their sales report (1–5 image/PDF files, ≤10 MB each) via `multipart/form-data`; they do **not** send a figure. At least one file is required (422 → `attachments`). Files land in the private `sales_report` media collection and are streamed via `GET /me/sales-declarations/{id}/attachments/{media}` (foreign id → 404, no cross-tenant disclosure).
 - `declared_sales` and `calculated_percentage_rent` are **null/0 at submission** — staff read the figure off the report, enter it in the admin panel, and lock. The app should show "Pending review", not 0.
-- Only valid for leases with `has_percentage_rent = true`. Posting to a lease without percentage rent returns 422.
+- Only valid for leases that DECLARE sales (`Lease::scopeDeclaringSales()` — `requires_sales_reporting = true` **or** `has_percentage_rent = true`; the charge alone until SW-254, 2026-09-11). Posting to a lease with neither returns 422. `canDeclareSales` on `/me/summary` reads the same predicate.
 - Duplicate check: one declaration per lease per period (period_start + period_end). Re-declaring the same period is rejected (422).
 - Percentage rent (computed on lock) is: `if (declared_sales > percentage_rent_threshold) then (declared_sales - threshold) * rate else 0`.
 - A tenant can only declare on their own leases; cross-tenant attempts return 422.

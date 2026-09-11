@@ -110,9 +110,10 @@ class TenantSalesDeclarationForm
                         ->label(__('admin.resources.lease.singular'))
                         ->entity(Lease::class)
                         ->modifyOptionsQuery(fn ($query) => $query->where('status', 'active'))
-                        // OPENS ON the leases that carry a percentage-rent clause, because those are
-                        // the ones a declaration usually belongs to — and still REACHES the rest by
-                        // typing, which is the difference between a suggestion and a filter.
+                        // OPENS ON the leases that DECLARE sales — the reporting duty or the
+                        // percentage-rent charge (`Lease::scopeDeclaringSales()`, SW-254) — because
+                        // those are the ones a declaration usually belongs to, and still REACHES the
+                        // rest by typing, which is the difference between a suggestion and a filter.
                         //
                         // Not a hard filter, deliberately: a mall collects turnover from tenants who
                         // owe no percentage rent (the Sales analytics screen is what it is for, and
@@ -120,7 +121,7 @@ class TenantSalesDeclarationForm
                         // would refuse a legitimate record — and worse, Filament resolves a Select's
                         // value by LABELLING it through the same query, so an existing declaration
                         // on a non-percentage lease would fail to open for editing at all.
-                        ->suggest(fn ($query) => $query->where('has_percentage_rent', true))
+                        ->suggest(fn ($query) => $query->declaringSales())
                         // What the person keying the numbers needs to see WITHOUT leaving the form:
                         // the clause they are about to be measured against. A rate and a breakpoint
                         // are the two figures that decide the charge, and a natural breakpoint is

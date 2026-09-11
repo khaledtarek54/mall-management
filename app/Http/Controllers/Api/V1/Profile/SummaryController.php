@@ -69,8 +69,12 @@ class SummaryController extends ApiController
             'disputed_declarations' => (int) TenantSalesDeclaration::query()
                 ->whereHas('lease', fn ($q) => $q->where('tenant_id', $tenant->getKey()))
                 ->where('status', 'disputed')->count(),
+            // True when an active lease requires sales reporting OR carries percentage-rent terms
+            // (`Lease::scopeDeclaringSales()`) — the same rule the create endpoint enforces. Gate
+            // the sales screen on this, never on a lease's percentage-rent flag alone: a lease can
+            // oblige the report without charging on it, and that tenant is reminded to file.
             'can_declare_sales' => (bool) $tenant->leases()
-                ->where('has_percentage_rent', true)->where('status', 'active')->exists(),
+                ->declaringSales()->where('status', 'active')->exists(),
             'unread_notifications' => (int) $tenant->unreadNotifications()->count(),
             // Mall news the tenant has not opened. Counted off the recipient rows rather than the
             // notification inbox, because the two answer different questions: marking the bell

@@ -4259,7 +4259,8 @@
                                                     "description": "Needs the tenant's attention"
                                                 },
                                                 "canDeclareSales": {
-                                                    "type": "boolean"
+                                                    "type": "boolean",
+                                                    "description": "True when an active lease requires sales reporting OR carries percentage-rent terms\n(`Lease::scopeDeclaringSales()`) \u2014 the same rule the create endpoint enforces. Gate\nthe sales screen on this, never on a lease's percentage-rent flag alone: a lease can\noblige the report without charging on it, and that tenant is reminded to file."
                                                 },
                                                 "unreadNotifications": {
                                                     "type": "integer"

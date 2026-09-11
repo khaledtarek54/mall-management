@@ -46,11 +46,14 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
 
     /**
      * Hidden on a fixed-rent lease — see the class docblock. Filament asks this per record, so a
-     * lease that later gains percentage rent gets the tab without any further wiring.
+     * lease that later gains percentage rent gets the tab without any further wiring. The
+     * predicate is `declaresSales()` — the duty OR the charge — not the duty alone (SW-254): a
+     * percentage-rent tenant EXCUSED from monthly filing still has the months they did file and
+     * the percentage rent those produced, and the tab is where both live.
      */
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
-        return $ownerRecord instanceof Lease && $ownerRecord->requiresSalesReporting();
+        return $ownerRecord instanceof Lease && $ownerRecord->declaresSales();
     }
 
     public function table(Table $table): Table

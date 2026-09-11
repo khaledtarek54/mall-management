@@ -17,7 +17,8 @@ use Illuminate\Validation\ValidationException;
  * persists the declaration (figure null) plus the uploaded file(s).
  *
  * Guards (all server-enforced — never trust the client):
- *  - the lease must belong to this tenant AND carry percentage-rent terms;
+ *  - the lease must belong to this tenant AND declare sales (`Lease::scopeDeclaringSales()` — the
+ *    reporting duty or the percentage-rent charge; the charge alone until SW-254);
  *  - one declaration per (lease, period_start) — matches the DB unique key.
  */
 class CreateSalesDeclarationAction
@@ -30,7 +31,7 @@ class CreateSalesDeclarationAction
     {
         $lease = $tenant->leases()
             ->where('id', $data['lease_id'])
-            ->where('has_percentage_rent', true)
+            ->declaringSales()
             ->first();
 
         if (! $lease) {

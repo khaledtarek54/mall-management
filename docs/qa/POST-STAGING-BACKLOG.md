@@ -247,12 +247,35 @@ round changed the reading.
   finding first (SW-244's rule) and the soak check puts a delivery-failure count in its VERDICT.
   `ANotificationsRecordDoesNotDependOnItsTransportTest` (14 cases, 9 mutations). Recovered on the
   box by re-running the scan for `2026-08` after the deploy. Account: [modules/19 § SW-252](../modules/19-notifications-scans.md#sw-252).
-- **SW-254** — **OPEN (found by the review of SW-253, pre-existing).** `Lease::missingSalesDeclarationsFor()`
+- ~~**SW-254**~~ — **FIXED 2026-09-11 — the flag is honoured, at ONE definition, and the doors were the bigger half.**
+  `Lease::missingSalesDeclarationsFor()` is composed from `scopeOwingSalesDeclaration()` (plus the
+  property filter and the fit-out rejection) and the dashboard card's third inline copy reads the
+  helper, so the chase, the estimate, the month-end checklist, the card and the list filter name one
+  set. Two consequences stated: an EXCUSED percentage-rent tenant is neither chased nor estimated
+  (the option label says so); a DISCLOSURE-ONLY tenant is chased and never estimated — an estimate
+  is a billing instrument, and an invented turnover would poison the analytics the disclosure is
+  for (`reporting_only` on `sales.estimate_run`). **The review found that chasing a disclosure-only
+  tenant sent them to three doors that refused them** — the portal picker, the API create (422
+  "does not have percentage-rent terms") and the app's `canDeclareSales` — plus the two reports the
+  disclosure is collected for never showed them, the lock notification told them "percentage rent
+  owed: EGP 0.00", and an excused lease lost its declarations tab. `Lease::declaresSales()` (the
+  duty OR the charge) is the one predicate all of those read now; both notifications word
+  themselves by the lease's clause in both languages; the scan's period label is localised.
+  `AnExcusedTenantIsNotChasedTest` (20 cases, eleven mutations). Account: [modules/09](../modules/09-tenant-sales-percentage-rent.md#declaring-turnover-and-paying-on-it-are-two-clauses-2026-08-30).
+  Was: **OPEN (found by the review of SW-253, pre-existing).** `Lease::missingSalesDeclarationsFor()`
   ignores `requires_sales_reporting` while `scopeOwingSalesDeclaration()` honours it, so a
   percentage-rent lease the operator EXCUSED from filing is still chased on the 10th and still
   estimated on the 17th, and the lease list's "owing" filter shows a different set from the two
-  commands. One definition of "owes a declaration" is the fix (S); which of the two is right is the
-  question — the flag exists to be honoured, so the commands should read it.
+  commands.
+- **SW-255** — **OPEN (found by `atriom:doors --check-diff` on SW-254, pre-existing since 2026-08-30).**
+  `leases.requires_sales_reporting` has no door but the lease form: `LeaseImporter` and
+  `LeaseExporter` carry neither it nor `has_percentage_rent`, so a migrating operator's "must
+  report" column cannot be imported and a re-import of an export loses the ruling; the mobile
+  `Api/V1/LeaseResource` publishes `hasPercentageRent` and not the duty, which is why the app is told
+  to gate its sales screen on `canDeclareSales` (sync brief task 20). S: a column on the importer and
+  exporter (nullable, `1`/`0`/blank), and the API key only if the app wants to SHOW the clause
+  (MOBILE-API.md + spec in the same commit). Left out of SW-254 deliberately — that change was about
+  the READERS of the flag.
 - ~~**SW-253**~~ — **FIXED 2026-09-11 — the first option, plus a lookback.** The estimate requires `Lease::salesDeclarationRemindedAt()` (the same bell row the chase writes and reads for its idempotency — one definition now) to be ≥7 WHOLE days old; a lease with no reminder is skipped and reported to the ops log, never chased from the estimate; and the default run looks back three declarable months so a chase re-run late (August's, on 11 Sep) still ends in an estimate (17 Oct) rather than in a period nothing ever bills. Stricter than Voyager, stated in the benchmark. Every existing estimate fixture had never been chased — they run the real scan first now. `AnEstimateFollowsARecordedReminderTest`, five mutations. Was: **OPEN (found by the review of SW-252).** `sales:estimate-missing` (the 17th) estimates
   any lease `missingSalesDeclarationsFor()` returns; it never checks that the tenant was CHASED. The
   "week after the chase" is a schedule day, not a stamp — so a chase lost to any cause (a scan that

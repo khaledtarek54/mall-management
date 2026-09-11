@@ -348,8 +348,16 @@ operational answer — but never bills, so a tenant who simply never declares pa
 > scheduled monthly in [`routes/console.php`](../../../routes/console.php) alongside
 > `sales:scan-missing-declarations`, and raises a declaration for every percentage-rent lease that
 > owes one, selected through `Lease::missingSalesDeclarationsFor()` — the same definition of *"owes a
-> declaration"* the chase and `MonthEndReadinessService` use, so the three cannot disagree about who
-> is late.
+> declaration"* the chase, `MonthEndReadinessService` and the dashboard card use, so the four cannot
+> disagree about who is late. **That definition is the lease's own *Sales Reporting Required* flag
+> (`requires_sales_reporting`, following the percentage-rent clause when unset), as Voyager's is
+> (SW-254, 2026-09-11)** — and two readings follow from it, both stated: a percentage-rent tenant the
+> operator has EXCUSED is neither chased nor estimated (their charge is then computed only from a
+> figure somebody keys), and a tenant who must DISCLOSE but owes no percentage rent is chased and
+> never estimated, because an estimate is a billing instrument and a turnover the landlord invented
+> would sit in the sales analytics as if the tenant had stood behind it. The second is stricter than
+> a reading of Voyager that estimates every required reporter; this document records Voyager
+> estimating in order to BILL, and nothing to bill is nothing to estimate.
 >
 > **The figure is the tenant's own trailing average**, the mean of their last three locked
 > declarations: defensible to the tenant, self-correcting as they trade, and not a landlord guess.

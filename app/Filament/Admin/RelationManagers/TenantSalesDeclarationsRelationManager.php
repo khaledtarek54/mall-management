@@ -73,7 +73,7 @@ class TenantSalesDeclarationsRelationManager extends RelationManager
         return TenantSalesDeclarationResource::canViewAny()
             && PropertyScope::apply($ownerRecord->leases()->getQuery(), Lease::class, static::class)
                 ->get()
-                ->contains(fn ($lease) => $lease->requiresSalesReporting());
+                ->contains(fn ($lease) => $lease->declaresSales());
     }
 
     /**

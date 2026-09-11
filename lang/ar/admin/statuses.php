@@ -172,7 +172,7 @@ return [
         ],
         'requires_sales_reporting' => [
             '1' => 'مطلوب — يقرّ المستأجر شهريًا',
-            '0' => 'غير مطلوب',
+            '0' => 'غير مطلوب — لا مطالبة ولا تقدير',
         ],
         'requires_sales_reporting_default' => 'حسب بند الإيجار النسبي',
         'billing_timing' => [

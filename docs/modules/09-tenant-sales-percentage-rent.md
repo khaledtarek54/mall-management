@@ -101,8 +101,7 @@
 ## Declaring turnover and paying on it are two clauses (2026-08-30)
 
 `has_percentage_rent` did both jobs: it decided the CHARGE and it decided who gets chased for a
-declaration (`Lease::scopeOwingSalesDeclaration`, read by `sales:scan-missing-declarations` and by
-the estimator). They are different clauses. A mall collects turnover from tenants who owe no
+declaration. They are different clauses. A mall collects turnover from tenants who owe no
 percentage rent — for sales per m², for the occupancy-cost ratio that says which tenant is in
 trouble, and to price a renewal at all — and many leases oblige the disclosure without charging on
 it. Yardi keeps *Sales Reporting Required* as its own field for exactly this.
@@ -110,6 +109,43 @@ it. Yardi keeps *Sales Reporting Required* as its own field for exactly this.
 `leases.requires_sales_reporting` is that field, and `Lease::requiresSalesReporting()` is the ONE
 reader; `scopeOwingSalesDeclaration()` expresses the same rule in SQL and is pinned against it,
 because those two drifted apart once already on the billing paths.
+
+**Who OWES a declaration is `Lease::missingSalesDeclarationsFor()`, composed from that scope, and
+nothing restates it (SW-254, 2026-09-11).** From 2026-08-30 until then the duty reached the lease
+list's *owing* filter and NOTHING ELSE: the helper the chase (`sales:scan-missing-declarations`),
+the estimate (`sales:estimate-missing`) and the month-end checklist read still carried its own
+`where('has_percentage_rent', true)`, and the dashboard card carried a third copy with its own
+fit-out test. So a percentage-rent tenant the operator had EXCUSED was still chased on the 10th and
+still estimated on the 17th, a disclosure-only tenant was never chased at all, and the filter beside
+them showed the set the operator had actually ruled on. The helper is `owingSalesDeclaration()` +
+the property filter + the fit-out rejection, the card reads the helper, and the period is ONE month
+named by its first day (the end used to be a second parameter the scope never saw).
+
+**Two consequences, both designed and stated:**
+- **Excused (`false` on a percentage-rent lease) means neither chased nor estimated** — the option
+  label says so. Their percentage rent is still computed only from a declaration, so whatever the
+  operator arranged instead (a quarterly figure keyed by staff, an annual return) has to arrive as
+  one; the final account still flags the months no figure exists for, because that line is about
+  a CHARGE nobody can compute, not about the duty.
+- **Disclosure-only (`true` without percentage rent) is chased and NEVER estimated.** An estimate is
+  a billing instrument — Voyager bills on estimated sales — and a turnover the landlord invented
+  would sit in sales per m² and the occupancy-cost ratio as if the tenant had stood behind it. The
+  estimator reports them (`reporting_only` on `sales.estimate_run`) and the chase keeps chasing.
+
+**And a chased tenant must be able to FILE — `Lease::declaresSales()` is the door predicate.** The
+review of the first cut found three tenant doors still keyed on the charge, so the disclosure-only
+tenant the 10th had just chased was refused at all of them: the portal picker (Filament refuses a
+value it cannot label, so the lease was *invalid* at validation), the API create (422 *"does not
+have percentage-rent terms"*), and the app's `canDeclareSales` flag, which hid the screen. `declaresSales()`
+(`scopeDeclaringSales()` in SQL) is the duty OR the charge — wider than *owes* by exactly one case,
+the excused percentage-rent tenant, who is not chased but whose filing is still the only thing
+their charge can be computed from. It is read by those three doors, by both declarations tabs
+(an excused lease still has the months it did file and the percentage rent they produced), and by
+the two reports the disclosure is collected FOR — occupancy cost and sales analytics, which had
+never shown a disclosure-only tenant. **The wording follows the lease too**: the reminder and the
+lock notification say *"so your percentage rent can be finalised"* / *"percentage rent owed:
+EGP 0.00"* only to a tenant whose lease charges; a disclosure-only tenant reads the reporting clause
+instead, in both languages. (`AnExcusedTenantIsNotChasedTest`, eleven mutations.)
 
 **NULLABLE, and null is the normal state — "follow the percentage-rent clause".** Nothing an
 install does today changes. A plain boolean backfilled from the current flag would FREEZE the
@@ -450,7 +486,7 @@ File: `app/Filament/Portal/Resources/TenantSalesDeclarations/TenantSalesDeclarat
 **Key form fields (Create):**
 | Field | Type | Validation | Notes |
 |-------|------|-----------|-------|
-| `lease_id` | Select (searchable) | Required; filtered to tenant's own active leases with `has_percentage_rent=true` | "reference — unit code" |
+| `lease_id` | Select (searchable) | Required; filtered to tenant's own active leases that DECLARE sales — `Lease::scopeDeclaringSales()`, the reporting duty or the percentage-rent charge (the charge alone until SW-254) | "reference — unit code" |
 | Period info | Placeholder | (informational) | Shows "MMMM YYYY" of previous month |
 | `period_start` | Date | Required; unique per lease | Defaults to first of previous month |
 | `period_end` | Date | Required | Defaults to last of previous month |
@@ -705,7 +741,7 @@ Test: `PercentageRentScenarioTest::has_percentage_rent=false: lock is harmless, 
 
 ### Lease without percentage rent can still be declared
 
-**Guard:** The API `CreateSalesDeclarationAction` checks `has_percentage_rent=true`. The Portal form filters leases to only those with `has_percentage_rent=true`.
+**Guard:** The API `CreateSalesDeclarationAction` and the Portal form both require `Lease::scopeDeclaringSales()` — the reporting duty or the percentage-rent charge (until SW-254 both read `has_percentage_rent` alone, which refused the disclosure-only tenant the chase had just reminded).
 
 **But** the Model and Filament do NOT prevent creating a declaration for a non-pct-rent lease if you:
 - Use the Admin "Create" button on a lease without `has_percentage_rent`
@@ -784,7 +820,7 @@ The property+facility close-out ([gap-analysis](../gap-analysis/README.md)); pla
 `lock` / `dispute` / `voidLocked` (`TenantSalesDeclarationsTable`) gated permission + status only in `visible()`. `mountAction()` never checks `isVisible()`, and seeded `viewer` + `owner` hold `tenant_sales.view` (the list renders), so a read-only auditor or owner could Lock (bill an overage invoice + post GL), Dispute, or Void a locked declaration via a crafted call. Now each action re-asserts a **named predicate** — `canLock` / `canDispute` / `canVoid` (permission **and** status) — in **both** `visible()` and `action()` (`abort_unless`). Tested via `mountAction`+`callMountedAction` in `SalesDeclarationActionAuthzTest` (the prior `assertTableActionHidden` test checked only `visible()` and false-passed).
 
 ### Non-reporting scan + dashboard card
-A percentage-rent tenant who never uploads a report has no declaration → the overage never bills and nothing alerts (the reporting-layer twin of the closed billing gap). `sales:scan-missing-declarations` (`ScanMissingSalesDeclarationsCommand`, scheduled monthly on the 10th) reminds every active `has_percentage_rent` lease that was billable in the closed month (commenced, past `firstBillableMonth()` fit-out grace) and has no declaration for it (`whereDoesntHave('salesDeclarations', period_start=prevMonth)`). Idempotent: `SalesDeclarationReminderNotification` carries `period_key` (YYYY-MM) + `lease_id`, and the scan skips a lease already reminded for that period — so re-runs never re-nag. The `ActionRequired` **"missing sales declarations"** card surfaces the same set live (property-scoped via `visibleAssetIds()`), so the leak is never silent again.
+A percentage-rent tenant who never uploads a report has no declaration → the overage never bills and nothing alerts (the reporting-layer twin of the closed billing gap). `sales:scan-missing-declarations` (`ScanMissingSalesDeclarationsCommand`, scheduled monthly on the 10th) reminds every active lease that OWES a declaration (`Lease::missingSalesDeclarationsFor()` — the lease's own reporting clause, `requires_sales_reporting`, following the percentage-rent clause when unset; see *Declaring turnover and paying on it are two clauses* above) and was billable in the closed month (commenced, past `firstBillableMonth()` fit-out grace) and has no declaration for it (`whereDoesntHave('salesDeclarations', period_start=prevMonth)`). Idempotent: `SalesDeclarationReminderNotification` carries `period_key` (YYYY-MM) + `lease_id`, and the scan skips a lease already reminded for that period — so re-runs never re-nag. The `ActionRequired` **"missing sales declarations"** card surfaces the same set live (property-scoped via `visibleAssetIds()`), so the leak is never silent again.
 
 ### GL real-sweep tie-out
 `PercentageRentGlTieOutTest` drives the real service + `accounting:sync-ledger` and asserts the overage posts Dr AR / Cr `percentage_rent_revenue` (41105001) balanced + tied, and that `voidLocked` reverses it — satisfying the GL invariant ("at least one test per money source must drive the real service + the sweep").
@@ -870,9 +906,12 @@ same period"*.
 
 ### Estimated sales (PR-04)
 
-`sales:estimate-missing` (monthly, the 8th — a week after the chase) raises an **estimated**
-declaration for a percentage-rent tenant who never filed. Until this existed, silence was a
-complete and costless way to avoid percentage rent: the scan chased and nothing billed.
+`sales:estimate-missing` (monthly, the 17th — a week after the chase, and since SW-253 gated on
+the chase having been RECORDED) raises an **estimated** declaration for a percentage-rent tenant
+who never filed. Until this existed, silence was a complete and costless way to avoid percentage
+rent: the scan chased and nothing billed. It selects through the same `missingSalesDeclarationsFor()`
+the chase uses and estimates only the leases that CHARGE on the figure — a disclosure-only lease is
+chased and never estimated (SW-254; reported as `reporting_only` on `sales.estimate_run`).
 
 - The estimate is the tenant's **own trailing average** (last three locked declarations) — 
   defensible to them, and self-correcting as they trade.

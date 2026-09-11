@@ -175,7 +175,7 @@ return [
         ],
         'requires_sales_reporting' => [
             '1' => 'Required — the tenant declares every month',
-            '0' => 'Not required',
+            '0' => 'Not required — neither chased nor estimated',
         ],
         'requires_sales_reporting_default' => 'Follow the percentage-rent clause',
         'billing_timing' => [

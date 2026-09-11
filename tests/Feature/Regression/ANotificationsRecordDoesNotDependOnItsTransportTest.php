@@ -357,10 +357,8 @@ it('the sales-declaration chase now survives the transport: both records, the fi
     ]);
     $period = now()->subMonthNoOverflow()->format('Y-m');
 
-    expect(Lease::missingSalesDeclarationsFor(
-        now()->toImmutable()->subMonthNoOverflow()->startOfMonth(),
-        now()->toImmutable()->subMonthNoOverflow()->endOfMonth(),
-    )->pluck('id'))->toContain($lease->id);
+    expect(Lease::missingSalesDeclarationsFor(now()->toImmutable()->subMonthNoOverflow()->startOfMonth())->pluck('id'))
+        ->toContain($lease->id);
 
     $ops = captureOpsLog(function () use ($period) {
         $this->artisan('sales:scan-missing-declarations', ['--period' => $period])->assertSuccessful();
