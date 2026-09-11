@@ -60,11 +60,17 @@ it('creates renewal with new amounts, marks original renewed, clones charges wit
         'new_service_charge' => 1800,
     ]);
 
-    // Original is now marked renewed.
-    expect($this->lease->fresh()->status)->toBe('renewed');
+    // The original KEEPS RUNNING until its term ends (53e0819f, 2026-09-10): this renewal is
+    // signed in September on a December expiry, and `renewed` is a terminal status outside
+    // `BILLABLE_STATUSES`, so stamping it now would stop the last three months billing on a shop
+    // still trading. `leases:expire` writes `renewed` on the day the term ends, off the successor
+    // relation; a term that has ALREADY run is stamped in the service (LE-04). Pinned there, and
+    // this assertion read the pre-fix behaviour until 2026-09-11.
+    expect($this->lease->fresh()->status)->toBe('active');
 
-    // Renewal links back via previous_lease_id and inherits unit/tenant.
-    expect($renewal->status)->toBe('active');
+    // Renewal links back via previous_lease_id and inherits unit/tenant. It commences next
+    // January, so it is `future` — signed, not started — until the calendar says otherwise.
+    expect($renewal->status)->toBe('future');
     expect($renewal->previous_lease_id)->toBe($this->lease->id);
     expect($renewal->unit_id)->toBe($this->lease->unit_id);
     expect($renewal->tenant_id)->toBe($this->lease->tenant_id);

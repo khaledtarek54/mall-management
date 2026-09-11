@@ -450,7 +450,12 @@ class ReportService
             // Live tenancies as at the date: commenced, not yet ended. A rent roll is a snapshot of
             // what the mall is contracted to earn on that day, so a lease that had not started or
             // had already ended is not on it.
-            ->whereIn('status', ['active', 'renewed', 'expired', 'terminated'])
+            // `future` belongs here for the reason it is in `BILLABLE_STATUSES`: the status narrows
+            // WHICH leases, the two date clauses narrow WHICH DATE, and a roll as of next January
+            // is a legitimate question whose answer includes a lease signed today to open then.
+            // Left out, a forward-dated roll dropped every signed-not-started lease — caught by
+            // `RentRollTest` the day after `future` shipped, on a case it had pinned for weeks.
+            ->whereIn('status', ['active', 'future', 'renewed', 'expired', 'terminated'])
             ->whereDate('commencement_date', '<=', $asOf->toDateString())
             ->where(fn ($q) => $q->whereNull('expiry_date')->orWhereDate('expiry_date', '>=', $asOf->toDateString()))
             ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
@@ -575,8 +580,11 @@ class ReportService
     {
         $asOf = ($asOf ?? CarbonImmutable::now())->startOfDay();
 
+        // `future` for the rent roll's reason, one method up: the status narrows WHICH leases
+        // and the date clause narrows WHICH DATE, so a schedule as of next January must include
+        // a lease signed today to open then — its expiry is as real a risk as any other.
         $leases = TenantScope::applyTo(Lease::query(), 'unit')
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'future'])
             ->whereDate('commencement_date', '<=', $asOf->toDateString())
             ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
             ->with(['tenant', 'unit', 'units', 'charges'])
