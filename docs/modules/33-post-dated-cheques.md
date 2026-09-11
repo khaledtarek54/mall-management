@@ -206,6 +206,10 @@ once in `App\Filament\Admin\Actions\PostDatedChequeActions` (still dual-gated). 
 ## 5. Gotchas & extension points
 
 - **AR never changes until the cheque clears** (v1). A bounced held cheque leaves the invoice exactly as it was.
+- **The invoice picker is `Invoice::stillOwed()`** (2026-09-12) — it carried its own three-status
+  list, which omitted `disputed`: a tenant may pay a disputed invoice, so a cheque may be lodged
+  against one (only an operator spending CREDIT against it is refused — `creditable()`, module 07).
+  A hand-written status list on an invoice door fails `AnInvoiceDoorReadsTheModelsPredicateConformanceTest`.
 - **Future refinement:** the Notes-Receivable accrual on receipt (needs the accountant + a `notes_receivable`
   account mapping to `11205001`) — would move the receivable to a note on lodging and convert note→cash on clear.
 - **Do not set the invoice balance directly** — clearing routes through `Payment` + `recomputeTotals()`.

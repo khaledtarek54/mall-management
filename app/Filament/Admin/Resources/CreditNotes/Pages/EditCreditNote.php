@@ -132,10 +132,12 @@ class EditCreditNote extends EditRecord
                     EntitySelect::make('invoice_id')
                         ->label(__('admin.fields.invoice'))
                         ->entity(Invoice::class)
+                        // `creditable()` — what the service will accept (still owed, net of
+                        // write-offs, and not disputed or paid), so the picker cannot offer an
+                        // invoice the apply then refuses.
                         ->modifyOptionsQuery(fn ($query) => $query
                             ->where('tenant_id', $this->record->tenant_id)
-                            ->where('balance', '>', 0)
-                            ->whereIn('status', ['issued', 'partially_paid', 'overdue']))
+                            ->creditable())
                         // BROWSE, don't guess. `Invoice` is deliberately absent from
                         // `OptionDisplay::PRELOAD` — a portfolio holds thousands and loading them
                         // all into a dropdown is the wrong default. It is the wrong default HERE,
@@ -160,8 +162,7 @@ class EditCreditNote extends EditRecord
                         ->default(fn () => Invoice::query()
                             ->whereKey($this->record->invoice_id)
                             ->where('tenant_id', $this->record->tenant_id)
-                            ->where('balance', '>', 0)
-                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                            ->creditable()
                             ->value('id'))
                         ->live()
                         // Pre-fill the amount with the cap for the chosen invoice (min of note + invoice

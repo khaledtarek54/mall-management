@@ -1027,6 +1027,16 @@ invariant).
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+### The true-up's auto-apply reads `Invoice::creditable()` (2026-09-12)
+
+`CamReconciliationService` picked the invoices a negative true-up's credit note is applied against
+FIFO with its own status list + `balance > 0`. It reads `Invoice::scopeCreditable()` now — the same
+scope the credit-note page's pickers use and the same `CREDIT_REFUSES` constant
+`CreditNoteService::applyToInvoice()` tests — so the sweep can no longer iterate an invoice the
+service then returns 0 on (a `disputed` one, or one whose only standing balance is forgiven).
+Behaviour-equivalent on the shipped data except for write-off netting; see
+[module 05 → An invoice door reads the model's predicate](05-billing-invoices.md).
+
 ### `cam_allocations.status = disputed` has NO writer (found 2026-09-12)
 
 The set holds `disputed`, but no Select offers it and no service assigns it — a tenant cannot

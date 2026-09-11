@@ -71,14 +71,20 @@ class VoidInvoiceService
         // A tax invoice already FILED with the Egyptian Tax Authority (eta_status = valid) can't be
         // reversed by an internal void — that would diverge the books from what ETA holds. It must
         // be cancelled at ETA / offset by a credit note through the compliant flow.
-        if ($invoice->eta_status === 'valid') {
+        // The reasons are ONE predicate on the model — `Invoice::voidBlockedBecause()` — which the
+        // record page's *Void* button reads as `=== null`, so what it offers is exactly what this
+        // accepts (2026-09-12: the button had carried a status ALLOWLIST beside this denylist). Each
+        // reason keeps its own sentence below, because a refusal names its cause.
+        $blocked = $invoice->voidBlockedBecause();
+
+        if ($blocked === 'eta_filed') {
             throw new \DomainException(__('admin.refusals.invoice_void_eta_filed'));
         }
 
         // paid_amount = captured cash + reversible non-cash credit (notes + applied tenant credit);
         // the credit halves reverse on cancel, but captured CASH must be refunded first (else it
         // strands on a void invoice). capturedCashPaid() nets out both credit kinds.
-        if ($invoice->capturedCashPaid() > 0) {
+        if ($blocked === 'has_cash') {
             throw new \DomainException(__('admin.refusals.invoice_void_has_cash', [
                 'number' => $invoice->number,
             ]));
@@ -107,7 +113,7 @@ class VoidInvoiceService
         //
         // A FULLY written-off invoice never reaches here: `written_off` is in the terminal list
         // above, so this bites only on the partial case, which is the one that moves money.
-        if ($invoice->writeOffs()->exists()) {
+        if ($blocked === 'has_write_off') {
             throw new \DomainException(__('admin.refusals.invoice_void_has_write_off', [
                 'number' => $invoice->number,
             ]));

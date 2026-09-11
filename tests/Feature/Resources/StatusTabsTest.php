@@ -39,7 +39,19 @@ function stInvoice(Asset $asset, Lease $lease, string $status): Invoice
 {
     // An invoice has no asset_id — its property comes through lease.unit, so the
     // $asset argument is what the lease was built on, not a column to set.
-    return makeInvoice($lease, ['status' => $status]);
+    //
+    // The tabs read `stillOwed()` / `overdue()` since 2026-09-12 — questions about the MONEY and
+    // the DATE, not the label — so the fixture has to be a state the app writes. A PAID invoice
+    // carries no balance (`recomputeTotals()` derives `paid` from balance <= 0), and an ISSUED one
+    // that is not overdue is not past its due date; `makeInvoice()`'s default due date is in the
+    // past, which made the plain `issued` row overdue by the one definition and correctly listed.
+    $shape = match ($status) {
+        'paid' => ['paid_amount' => 11400, 'balance' => 0],
+        'overdue' => ['due_date' => now()->subDays(10)->toDateString()],
+        default => ['due_date' => now()->addDays(10)->toDateString()],
+    };
+
+    return makeInvoice($lease, ['status' => $status, ...$shape]);
 }
 
 it('narrows the invoice list to the tab it is on', function () {

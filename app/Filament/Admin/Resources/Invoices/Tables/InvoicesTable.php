@@ -49,7 +49,9 @@ class InvoicesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'lease.unit', 'unitOwnership.unit']))
+            // `writeOffs` for the due-date colour: `isOverdue()` nets prior write-offs per row, and
+            // without the load that is one aggregate per row — the portal's twin already loads it.
+            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'lease.unit', 'unitOwnership.unit', 'writeOffs']))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.invoice.number'))
@@ -98,13 +100,10 @@ class InvoicesTable
                     ->label(__('admin.tables.invoice.due_date'))
                     ->date('d/m/Y')
                     ->sortable()
-                    ->color(function ($record) {
-                        if (in_array($record->status, ['paid', 'cancelled'])) {
-                            return null;
-                        }
-
-                        return $record->due_date?->isPast() ? 'danger' : null;
-                    }),
+                    // `isOverdue()` — the ONE definition (past due AND still owed). This restated
+                    // it as "past due unless paid/cancelled", which coloured a written-off or fully
+                    // credited invoice's due date red.
+                    ->color(fn (Invoice $record): ?string => $record->isOverdue() ? 'danger' : null),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

@@ -42,7 +42,11 @@ class PostDatedChequeForm
                         ->modifyOptionsQuery(fn ($query, Get $get) => $get('tenant_id')
                             ? $query
                                 ->where('tenant_id', $get('tenant_id'))
-                                ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                                // `stillOwed()` — accepts a settlement and has something left to
+                                // collect: the ONE selection of what a receipt may land on. The
+                                // hand list here omitted `disputed`, which a tenant may PAY
+                                // (`InvoiceSettlement::LIVE`), and read no balance at all.
+                                ->stillOwed()
                                 // Pinned to the property this cheque belongs to — a cheque for Mall A
                                 // must NOT clear against Mall B's invoice (cross-property AR/GL leak).
                                 ->when($get('asset_id'), fn ($q, $assetId) => $q->where('asset_id', $assetId))

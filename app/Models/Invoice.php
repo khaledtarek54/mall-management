@@ -717,6 +717,82 @@ class Invoice extends Model
             && $this->isPastDue();
     }
 
+    /**
+     * **Which invoices a credit note may be applied AGAINST — the service's own narrowing.**
+     *
+     * `CreditNoteService::applyToInvoice()` refuses two LIVE statuses on top of
+     * `InvoiceSettlement::accepts()`: `disputed` (a tenant may PAY a disputed invoice, but an
+     * operator applying credit spends a note against an amount still being argued about) and
+     * `paid` (a credit note reduces what is OWED and nothing is). The apply modal's picker had
+     * restated that as `balance > 0` plus a three-status allowlist — the raw balance, which a
+     * write-off deliberately leaves standing, so a partly written-off invoice with nothing left to
+     * collect was OFFERED and then refused. `creditable()` is the picker's scope and the service
+     * reads the same constant, so the two cannot drift.
+     */
+    public const CREDIT_REFUSES = ['disputed', 'paid'];
+
+    public function scopeCreditable(Builder $query): Builder
+    {
+        return $query->stillOwed()->whereNotIn('status', self::CREDIT_REFUSES);
+    }
+
+    /**
+     * **A line may be disputed while the document is still on the books.** `DisputeInvoiceItemService`
+     * and the *Dispute a line* button on the record page each carried this list; one constant now.
+     */
+    public const CLOSED_TO_DISPUTE = ['cancelled', 'written_off'];
+
+    public function canDisputeLines(): bool
+    {
+        return ! in_array($this->status, self::CLOSED_TO_DISPUTE, true);
+    }
+
+    /**
+     * **Why this invoice cannot be voided — or null when it can.**
+     *
+     * The ONE predicate `VoidInvoiceService` throws on and the record page's *Void* button reads
+     * as `=== null` (the `commencementLockedBecause()` idiom). Until 2026-09-12 the button carried
+     * an ALLOWLIST (`draft | issued | overdue`) beside the service's DENYLIST (`cancelled |
+     * credited | written_off`), under a comment claiming the two could not drift: an invoice
+     * settled entirely by credit — a note, tenant credit, a netted deposit; no captured cash — is
+     * voidable by the service (its credit halves reverse on cancel) and had no button, and a
+     * `disputed` one likewise. Voyager voids any invoice without cash receipts; the button now
+     * offers exactly what the service accepts.
+     *
+     * A DRAFT answers null: the service cancels it rather than voiding (nothing was posted). A
+     * terminal status answers `terminal` — the service returns silently on it (its callers void in
+     * loops and rely on that), the button hides.
+     */
+    public function voidBlockedBecause(): ?string
+    {
+        if (in_array($this->status, ['cancelled', 'credited', 'written_off'], true)) {
+            return 'terminal';
+        }
+
+        if ($this->status === 'draft') {
+            return null;
+        }
+
+        // A tax invoice already FILED with the Egyptian Tax Authority cannot be reversed by an
+        // internal void — the books would diverge from what ETA holds.
+        if ($this->eta_status === 'valid') {
+            return 'eta_filed';
+        }
+
+        // Captured CASH must be refunded first, or it strands on a void invoice; reversible
+        // credit (notes, tenant credit, a netted deposit) does not block — it reverses on cancel.
+        if ($this->capturedCashPaid() > 0) {
+            return 'has_cash';
+        }
+
+        // A standing write-off is an accounting act with its own reversal (SW-023).
+        if ($this->writeOffs()->exists()) {
+            return 'has_write_off';
+        }
+
+        return null;
+    }
+
     public function daysOverdue(): int
     {
         if (! $this->isOverdue()) {

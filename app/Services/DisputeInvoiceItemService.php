@@ -41,7 +41,9 @@ class DisputeInvoiceItemService
 
         // A document that left the books claims nothing, so there is nothing to argue about — and a
         // dispute recorded against it would sit in the reports forever with no way to resolve it.
-        if (in_array($invoice->status, ['cancelled', 'written_off'], true)) {
+        // `Invoice::canDisputeLines()` — the same predicate the record page's *Dispute a line*
+        // button reads, so the button cannot offer what this refuses.
+        if (! $invoice->canDisputeLines()) {
             throw new DomainException(__('admin.errors.dispute_invoice_not_open'));
         }
 

@@ -11,6 +11,7 @@ use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ImportAction;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListInvoices extends ListRecords
 {
@@ -51,8 +52,16 @@ class ListInvoices extends ListRecords
         return StatusTabs::build(InvoiceResource::class, [
             'all' => ['label' => __('admin.tabs.all')],
             'draft' => ['label' => __('admin.tabs.draft'), 'statuses' => ['draft'], 'badge' => true, 'color' => 'gray'],
-            'outstanding' => ['label' => __('admin.tabs.outstanding'), 'statuses' => ['issued', 'partially_paid', 'overdue', 'disputed'], 'badge' => true, 'color' => 'warning'],
-            'overdue' => ['label' => __('admin.tabs.overdue'), 'statuses' => ['overdue'], 'badge' => true, 'color' => 'danger'],
+            // `stillOwed()` and `overdue()` — the ONE definition of each, not the stored stamp.
+            // `status = 'overdue'` is a projection swept nightly and never carried by a
+            // `partially_paid` invoice at all, so a tab keyed on it under-reported the register's
+            // own worklist (measured on the QA baseline: 4 rows carried the stamp where 11 were
+            // genuinely past due and owed); *Outstanding* by status list counted a `partially_paid`
+            // invoice whose forgiven remainder is all that stands as money still on it — a PARTIAL
+            // write-off moves no status, and `balance` deliberately keeps the forgiven figure. Same
+            // scopes the tenant tab, the collections worklist and the mobile app read (2026-09-12).
+            'outstanding' => ['label' => __('admin.tabs.outstanding'), 'query' => fn (Builder $query) => $query->stillOwed(), 'badge' => true, 'color' => 'warning'],
+            'overdue' => ['label' => __('admin.tabs.overdue'), 'query' => fn (Builder $query) => $query->overdue(), 'badge' => true, 'color' => 'danger'],
             'disputed' => ['label' => __('admin.tabs.disputed'), 'statuses' => ['disputed'], 'badge' => true, 'color' => 'danger'],
             'paid' => ['label' => __('admin.tabs.paid'), 'statuses' => ['paid']],
         ]);

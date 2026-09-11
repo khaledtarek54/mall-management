@@ -130,7 +130,9 @@ class CreditNoteService
             // `settleableAmount()` — but that cap only protects a row whose `balance` agrees with its
             // status, and this one does not have to: measured, an invoice can carry `status = paid`
             // with a standing balance, and dropping this clause let a 3,000 note apply to it.
-            if (in_array($invoice->status, ['disputed', 'paid'], true)) {
+            // `Invoice::CREDIT_REFUSES` — the apply modal's picker scopes to `creditable()`, which
+            // reads the same list, so what is offered is what this accepts.
+            if (in_array($invoice->status, Invoice::CREDIT_REFUSES, true)) {
                 return 0.0;
             }
 

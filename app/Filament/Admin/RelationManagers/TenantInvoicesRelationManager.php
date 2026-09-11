@@ -49,7 +49,7 @@ class TenantInvoicesRelationManager extends RelationManager
                 // no lease, so the old hop dropped every one of them from the party's invoices tab —
                 // their صيانة was billed, overdue and absent from the screen that lists what they owe.
                 fn ($q, $ids) => $q->whereIn('asset_id', $ids),
-            ))
+            )->with('writeOffs'))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.invoice.number'))
@@ -66,9 +66,10 @@ class TenantInvoicesRelationManager extends RelationManager
                     ->label(__('admin.tables.invoice.due_date'))
                     ->date('d/m/Y')
                     ->sortable()
-                    // How late, not merely when — the number an operator is chasing.
-                    ->description(fn (Invoice $record) => $record->balance > 0 && $record->due_date->isPast()
-                        ? __('admin.tenant_invoices.days_overdue', ['days' => (int) $record->due_date->diffInDays(now())])
+                    // How late, not merely when — the number an operator is chasing. `isOverdue()`
+                    // nets the write-offs a raw `balance > 0` cannot see (`writeOffs` is loaded above).
+                    ->description(fn (Invoice $record) => $record->isOverdue()
+                        ? __('admin.tenant_invoices.days_overdue', ['days' => $record->daysOverdue()])
                         : null),
 
                 TextColumn::make('total')

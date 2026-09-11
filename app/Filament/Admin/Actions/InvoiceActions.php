@@ -51,7 +51,7 @@ class InvoiceActions
                 ->modalHeading(fn (Invoice $record) => __('admin.actions.dispute_line').' · '.$record->number)
                 ->modalDescription(__('admin.actions.dispute_line_hint'))
                 ->visible(fn (Invoice $record): bool => (auth()->user()?->can('invoices.edit') ?? false)
-                    && ! in_array($record->status, ['cancelled', 'written_off'], true))
+                    && $record->canDisputeLines())
                 ->authorize(fn (): bool => auth()->user()?->can('invoices.edit') ?? false)
                 ->schema(fn (Invoice $record): array => [
                     Select::make('invoice_item_id')

@@ -920,6 +920,56 @@ visible precisely while the void is not. A FULLY written-off invoice never reach
 `written_off` is already terminal, so this bites only on the partial case, which is the one that
 moves money.
 
+### An invoice door reads the model's predicate — never a status list (2026-09-12)
+
+The invoice has more doors than any other record — two resources, `InvoiceActions`, two relation
+managers, three pickers on other documents, two tabs, three widgets — and ONE register for the
+question every status literal on them was trying to answer (`InvoiceSettlement`). Measured before
+the change, **fourteen** buttons, pickers and tabs restated a rule as a literal beside a service
+holding another literal, and three had drifted or could:
+
+- **Void.** `EditInvoice::void_invoice` was visible on `draft | issued | overdue` (an ALLOWLIST)
+  while `VoidInvoiceService` refused `cancelled | credited | written_off` (a DENYLIST), under a
+  comment claiming the two could not drift. An invoice settled entirely by a credit note — `paid`,
+  no captured cash — was voidable by the service and had no button; so was a `disputed` one.
+  **`Invoice::voidBlockedBecause()`** is the one predicate now: `terminal` · `eta_filed` ·
+  `has_cash` · `has_write_off` · null, in the service's own order; the service throws on the
+  reason, the button is visible iff it answers null.
+- **Write off.** The button read `balance > 0` and a three-status list; a write-off deliberately
+  leaves `balance` standing, so an invoice whose forgiven remainder was all that stood was still
+  OFFERED and then refused. The button reads **`isPayable()`** (net of write-offs) and the service
+  reads `InvoiceSettlement::accepts()`.
+- **Dispute a line.** **`Invoice::canDisputeLines()`** (`CLOSED_TO_DISPUTE` = cancelled,
+  written_off) is read by `DisputeInvoiceItemService` and `InvoiceActions::disputeLine`.
+- **Which invoices a credit note may be applied AGAINST** is **`Invoice::scopeCreditable()`** —
+  `stillOwed()` minus `CREDIT_REFUSES` (`disputed`, `paid`), the service's own narrowing stated once
+  — read by both pickers on the credit-note page and by the CAM reconciliation's auto-apply.
+  The cheque picker reads `stillOwed()`, which INCLUDES `disputed`: a tenant may pay a disputed
+  invoice, an operator may not spend credit against one.
+- **Due-date colour and caption** on both registers and the tenant tab read `isOverdue()` /
+  `daysOverdue()` — the ninth spelling of "past due unless paid or cancelled", and the only one
+  that could see a write-off.
+- **The register's *Outstanding* and *Overdue* tabs** read `stillOwed()` / `overdue()` instead of
+  the stored stamp: `status = 'overdue'` is a projection a `partially_paid` invoice never carries,
+  so the AR clerk's own worklist under-reported what every other collections surface computed
+  (measured on the QA baseline: 4 rows carried the stamp where 11 were past due and owed).
+
+`AnInvoiceDoorReadsTheModelsPredicateConformanceTest` refuses `in_array($x->status, ['…'])` on a
+variable the file types as an invoice and `whereIn('status', ['…'])` on an invoice query anywhere
+under `app/Filament` — attributed by what the file SAYS (the closure's type, the query's root, the
+resource directory), never by a list of files, because its first cut keyed on the `Invoice` import
+and reported the credit-note page's own status. The two ETA literals are shielded by DERIVATION
+from `Modules::FROZEN` (a line behind `Modules::enabled('eta')`, a widget whose `widgetModule()` is
+`eta`); lifting the freeze turns the gate red naming both, which is the unfreeze checklist's
+signal. Deliberately NOT caught, none present today: a list of constants, `whereNotIn`,
+`whereIn('invoices.status', …)`, a chain of `=== 'x'` tests. **Not converted, stated:**
+`MonthlyRevenueTrend`'s `whereNotIn('status', [cancelled, credited, written_off])` is a *billed
+revenue* question (it counts DRAFTS — a defect of its own, module 17); `RecordStates`,
+`CreditUnearnedBillingService` and `LeaseTerminationService` carry lists that include `draft` or
+`paid` for their own reasons. (`AnInvoiceButtonOffersWhatItsServiceAcceptsTest` — nine cases,
+seven mutations each red: the void allowlist, the raw-balance write-off, `CREDIT_REFUSES`,
+`canDisputeLines()`, the Overdue tab's stamp, the tenant tab's caption, and the gate's own.)
+
 ## 4. Lifecycle / state machine
 
 | Status | Transition trigger | Next state(s) | Terminal? | Mutable via UI? |

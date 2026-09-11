@@ -1464,10 +1464,12 @@ class CamReconciliationService
         // of the party it was over-recovered from.
         $link = $allocation->chargeLink();
 
+        // `creditable()` — what `CreditNoteService::applyToInvoice()` below will accept (still
+        // owed net of write-offs, not disputed or paid). The hand list here read the raw balance,
+        // which a write-off deliberately leaves standing, and the apply then refused the row.
         $openInvoices = Invoice::query()
             ->where(key($link), current($link))
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
+            ->creditable()
             ->orderBy('due_date')
             ->get();
 

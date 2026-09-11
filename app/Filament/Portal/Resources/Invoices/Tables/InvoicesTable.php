@@ -73,13 +73,10 @@ class InvoicesTable
                     ->label(__('admin.tables.invoice.due_date'))
                     ->date('d/m/Y')
                     ->sortable()
-                    ->color(function ($record) {
-                        if (in_array($record->status, ['paid', 'cancelled'])) {
-                            return null;
-                        }
-
-                        return $record->due_date?->isPast() ? 'danger' : null;
-                    }),
+                    // `isOverdue()` — the ONE definition (past due AND still owed). This restated
+                    // it as "past due unless paid/cancelled", which coloured a written-off or fully
+                    // credited invoice's due date red.
+                    ->color(fn (Invoice $record): ?string => $record->isOverdue() ? 'danger' : null),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

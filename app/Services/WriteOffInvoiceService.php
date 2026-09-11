@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Services\Accounting\LedgerPoster;
 use App\Support\DepositBilling;
+use App\Support\InvoiceSettlement;
 use App\Support\PostingDate;
 use App\Support\ReversalReason;
 use App\Support\Translate;
@@ -41,7 +42,12 @@ class WriteOffInvoiceService
             /** @var Invoice $locked */
             $locked = Invoice::whereKey($invoice->getKey())->lockForUpdate()->firstOrFail();
 
-            if (in_array($locked->status, ['cancelled', 'written_off', 'draft'], true)) {
+            // `InvoiceSettlement::accepts()` — the ONE register of which statuses still carry live
+            // AR. A write-off forgives exactly what could still be paid, so the record page's
+            // *Write off* button reads `isPayable()` (accepts, and something left to collect) and
+            // this reads the same register; the hand list here lacked `credited`, which the
+            // amount guard below caught by accident.
+            if (! InvoiceSettlement::accepts($locked)) {
                 throw new DomainException(__('admin.refusals.write_off_not_live', [
                     'number' => $locked->number,
                     // The STATUS the operator reads on the screen, not the stored code — the same

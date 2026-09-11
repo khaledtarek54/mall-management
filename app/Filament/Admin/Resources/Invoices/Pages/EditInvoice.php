@@ -491,8 +491,11 @@ class EditInvoice extends EditRecord
                 ->label(__('admin.actions.write_off_invoice'))
                 ->icon('heroicon-o-receipt-percent')
                 ->color('danger')
-                ->visible(fn () => (float) $this->record->balance > 0
-                    && ! in_array($this->record->status, ['draft', 'cancelled', 'written_off'], true)
+                // `isPayable()` — accepts a settlement, and something left to collect: a write-off
+                // forgives exactly what could still be paid, and the service's status guard reads
+                // the same register. This restated it as `balance > 0` and a three-status list,
+                // which offered the button on a partly written-off invoice with nothing left.
+                ->visible(fn () => $this->record->isPayable()
                     && (Auth::user()?->can('invoices.void') ?? false))
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->modalDescription(__('admin.actions.write_off_invoice_confirm'))
@@ -565,15 +568,13 @@ class EditInvoice extends EditRecord
                     : 'admin.actions.void_invoice'))
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
-                ->visible(fn () => in_array($this->record->status, ['draft', 'issued', 'overdue'], true)
-                    && $this->record->eta_status !== 'valid' // a filed ETA tax invoice: use a credit note
-                    && $this->record->capturedCashPaid() <= 0 // reversible credit (notes + tenant credit) doesn't block
-                    // A standing write-off blocks it (SW-023) — the same shape as captured cash, and
-                    // hidden here as well as refused in the service, so the UI and the gate cannot
-                    // drift. The route out is `Reverse write-off`, which has no status bar of its own
-                    // and is visible whenever a write-off exists — but it sits in the *corrections*
-                    // group while this one is in *settlement*, so it is not side by side.
-                    && ! $this->record->writeOffs()->exists()
+                // `Invoice::voidBlockedBecause()` — the ONE predicate the service throws on, read
+                // here as "nothing blocks it". Until 2026-09-12 this carried a status ALLOWLIST
+                // (`draft | issued | overdue`) beside the service's DENYLIST, under a comment saying
+                // the two could not drift: an invoice settled entirely by credit, or a disputed one,
+                // was voidable by the service and had no button. The route out of a standing
+                // write-off is still `Reverse write-off` in the *corrections* group.
+                ->visible(fn () => $this->record->voidBlockedBecause() === null
                     && (Auth::user()?->can('invoices.void') ?? false))
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->requiresConfirmation()

@@ -342,6 +342,18 @@ applied (terminal if fully drained, but can re-issue or re-apply manually via Fi
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+### The apply picker offers what the service accepts — `Invoice::creditable()` (2026-09-12)
+
+Both invoice pickers on the credit-note page (`EditCreditNote` — *Apply to invoice* and the header's
+*Apply*) offered by raw `balance > 0` and a hand-kept three-status list, so an invoice whose forgiven
+remainder was all that stood (a partial write-off leaves `balance` standing by design) was offered
+and then refused, and `disputed` — which `CreditNoteService` refuses — was in the list. The
+service's narrowing is stated ONCE as `Invoice::scopeCreditable()` (`stillOwed()` minus
+`Invoice::CREDIT_REFUSES` = `disputed`, `paid`) and the service tests the same constant; CAM's
+auto-apply reads the same scope. Gated tree-wide by
+`AnInvoiceDoorReadsTheModelsPredicateConformanceTest` — see
+[module 05 → An invoice door reads the model's predicate](05-billing-invoices.md).
+
 ### AR Drift (FIXED)
 **Bug**: A credit applied to an invoice was erased when a later payment was added, because `Invoice::recomputeTotals()` summed only the `captured` payments pivot. The credit was recorded in `paid_amount` but no durable column tracked it.
 
