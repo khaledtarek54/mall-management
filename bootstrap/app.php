@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Sentry\Laravel\Integration;
@@ -178,11 +179,29 @@ return Application::configure(basePath: dirname(__DIR__))
                 ? $e->getMessage()
                 : (Response::$statusTexts[$status] ?? 'Error');
 
+            // **A 429 says it in the reader's language.** The framework throws it with its own English
+            // literal ("Too Many Attempts."), and the throttle runs FIRST — ahead of `SetApiLocale` — so
+            // the app locale is still the default here and a plain `__()` would answer English under
+            // `Accept-Language: ar`, green in every English-only test. The locale is read off the
+            // request instead, by the method the middleware itself uses. Keyed on the throttle's own
+            // exception, not on the status: a deliberate `abort(429, '…')` keeps its own words.
+            if ($e instanceof ThrottleRequestsException) {
+                $message = trans('api.too_many_requests', [], SetApiLocale::preferredLocale($request));
+            }
+
             if ($status === 500 && ! config('app.debug')) {
                 $message = 'Server error';
             }
 
-            return response()->json(['message' => $message, 'statusCode' => $status], $status);
+            // The exception's own headers travel with it — `Retry-After` and `X-RateLimit-*` on a 429,
+            // `Allow` on a 405. This rebuilt every HTTP error as a fresh response and dropped them, so the
+            // one instruction `MOBILE-API.md` gave the app about a 429 ("respect `Retry-After`") named a
+            // header that was never sent. Laravel's own JSON rendering keeps them; this now does too.
+            return response()->json(
+                ['message' => $message, 'statusCode' => $status],
+                $status,
+                $e instanceof HttpExceptionInterface ? $e->getHeaders() : [],
+            );
         });
 
         // A DomainException is a REFUSAL the operator caused and can act on — "that accounting

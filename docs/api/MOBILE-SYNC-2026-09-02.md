@@ -345,7 +345,7 @@ written for a human.
 | `404` | Not found **or not yours**. On `/me/feed` + marketing posts: module off | Treat as gone / hide the section |
 | `409` | `paymob-session`: gateway disabled · `pay-demo`: not available here | Hide the affordance |
 | `422` | Field validation **or** a business refusal (no `errors` key) | Show `message`; attach `errors` when present |
-| `429` | Throttled | Respect `Retry-After` |
+| `429` | Throttled. `Retry-After` is sent since 2026-09-11 (it was stripped before) | Wait `Retry-After` seconds; the `message` is localised, but word it yourself |
 | `502` | Paymob upstream failed | Offer retry, or share `paymentLinkUrl` |
 
 The two money endpoints also return a stable `error` code — branch on it rather than parsing

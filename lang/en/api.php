@@ -52,4 +52,8 @@ return [
     'not_found' => 'Resource not found.',
     'forbidden' => 'You do not have access to this resource.',
 
+    // A 429's message. No number in it: `Retry-After` carries the seconds, and the Arabic cannot agree a
+    // noun with a figure that runs from one to sixty.
+    'too_many_requests' => 'Too many attempts in a short time. Please wait a moment and try again.',
+
 ];

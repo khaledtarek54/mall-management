@@ -205,7 +205,10 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
   unnamed throttle keys a guest on the IP alone, so every unauthenticated route spent ONE counter:
   five screens of the feed left the next sign-in a 429 (mobile §L L1).
   `NoTwoThrottlesShareACounterConformanceTest` fails on a throttle that names no counter.
-- Throttled requests return 429.
+- Throttled requests return 429 with `Retry-After` and the `X-RateLimit-*` headers, and a message in the
+  `Accept-Language` language. Both were missing until 2026-09-11: the API renderer rebuilt every HTTP
+  error without the exception's headers, and read the locale after the throttle had already thrown —
+  so `api.too_many_requests` is resolved against `SetApiLocale::preferredLocale($request)`, never `__()`.
 
 ## 4. Lifecycle / state machine
 

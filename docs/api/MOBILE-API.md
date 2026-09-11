@@ -207,7 +207,7 @@ additionally carry an `errors` map (camelCase field → messages):
 | `403` | Blocked account, or a **read-only login attempting a write** (`auth.read_only`) — see below |
 | `404` | Not found **or** not yours |
 | `422` | Semantic validation failure (carries `errors`) |
-| `429` | Rate limited (respect `Retry-After`) |
+| `429` | Rate limited. Carries `Retry-After` (seconds) — **sent since 2026-09-11; before that the header was stripped**. `message` is in the `Accept-Language` language |
 | `500` | Server error |
 
 ### Rate limits
