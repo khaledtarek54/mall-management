@@ -56,7 +56,10 @@ final class BestEffortNotification
     /**
      * @param  Collection<int, mixed>|array<int, mixed>|mixed  $recipients
      * @param  array<string, mixed>  $context  what the caller was doing — the scan, the record
-     * @return bool whether it was delivered; callers that only report may ignore it
+     * @return bool false when the send THREW; callers that only report may ignore it. Since SW-252 a
+     *              transport failure on an inline send is absorbed one layer down, in
+     *              `BestEffortMailChannel`, and logged under the same event — so this is false only
+     *              for a fault above the channel, or a send the caller insisted on.
      */
     public static function send(mixed $recipients, mixed $notification, array $context = []): bool
     {

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Notifications\Channels\BestEffortMailChannel;
 use App\Notifications\InvoiceIssuedNotification;
 use App\Support\OpsLog;
 use Illuminate\Support\Facades\DB;
@@ -51,10 +52,15 @@ class SendInvoiceToTenantService
         }
 
         try {
-            $tenant->notifyPortal(new InvoiceIssuedNotification($invoice));
-        } catch (Throwable $e) {
             // Reported, never swallowed: the operator pressed send and is entitled to know it did
-            // not go. Re-thrown as a refusal so it renders as a message rather than the 500 page.
+            // not go. The mail channel treats a dead transport as a logged miss for every other
+            // inline send (SW-252) — this is the one call that INSISTS, because the PDF in the
+            // e-mail is what was asked for. Re-thrown as a refusal so it renders as a message
+            // rather than the 500 page.
+            BestEffortMailChannel::requiringDelivery(
+                fn () => $tenant->notifyPortal(new InvoiceIssuedNotification($invoice)),
+            );
+        } catch (Throwable $e) {
             OpsLog::warning('Invoice send to tenant failed', [
                 'invoice_id' => $invoice->id,
                 'error' => $e->getMessage(),

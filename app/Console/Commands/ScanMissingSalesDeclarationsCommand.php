@@ -6,6 +6,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\TenantSalesDeclaration;
 use App\Notifications\SalesDeclarationReminderNotification;
+use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -71,6 +72,20 @@ class ScanMissingSalesDeclarationsCommand extends Command
             $this->info("No missing percentage-rent declarations for {$periodLabel}.");
 
             return self::SUCCESS;
+        }
+
+        // The finding is recorded BEFORE anything is delivered (SW-244's rule, SW-252's instance):
+        // this scan runs ONCE a month and its next run scans the next month, so a finding that
+        // lives only in the delivery has exactly one chance to survive the transport. On 10 Sep
+        // 2026 it did not, and nothing on the box said the scan had run at all. The finding is who
+        // is MISSING, not who was chased — so it is logged before the idempotency loop, and a manual
+        // re-run of the same period records the same finding again, which is what a finding is.
+        if (! $this->option('dry-run')) {
+            OpsLog::warning('sales.declarations_missing', [
+                'period' => $periodKey,
+                'count' => $leases->count(),
+                'leases' => $leases->pluck('reference')->all(),
+            ]);
         }
 
         $reminded = 0;

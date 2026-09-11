@@ -6,6 +6,7 @@ use App\Contracts\AssistantModel;
 use App\Listeners\LogBackupFailures;
 use App\Models\Lease;
 use App\Notifications\Channels\BellChannel;
+use App\Notifications\Channels\BestEffortMailChannel;
 use App\Notifications\Channels\PushChannel;
 use App\Observers\LeaseObserver;
 use App\Services\Assistant\Models\ClaudeAssistantModel;
@@ -61,6 +62,7 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Notifications\Channels\DatabaseChannel;
+use Illuminate\Notifications\Channels\MailChannel;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
@@ -181,6 +183,13 @@ class AppServiceProvider extends ServiceProvider
         // classes — and every one added after it — instead of an `actions` key being remembered 36
         // times. Same seam as the AuthorizedAction bind above. See App\Notifications\Channels\BellChannel.
         $this->app->bind(DatabaseChannel::class, BellChannel::class);
+
+        // …and a notification's RECORD does not depend on its TRANSPORT. The `mail` channel resolves
+        // through the container the same way, so this one binding makes a transport failure on an
+        // inline send a logged miss instead of the thing that erases the bell row (and the
+        // idempotency stamp built on it) for that recipient and every recipient behind it. Queued
+        // mail, mail-only notifications and a caller that `requiringDelivery()` still throw.
+        $this->app->bind(MailChannel::class, BestEffortMailChannel::class);
 
         // …and read back in the READER's language rather than in whichever one was current when the
         // alert was raised (a scheduled command's `config('app.locale')`, or the sender's session).

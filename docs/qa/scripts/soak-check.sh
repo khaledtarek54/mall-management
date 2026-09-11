@@ -118,6 +118,10 @@ note() { problems+=("$1"); }
   # one line that matters (a scan's FINDING) out of the tail above. Learned from SW-244's review.
   n_delivery="$(cat storage/logs/ops-*.log 2>/dev/null | awk -v s="${SINCE:0:10} ${SINCE:11:8}" '{ ts=substr($1,2,10)" "substr($2,1,8); if (ts >= s) print }' | grep -c 'notification.delivery_failed' || true)"
   [[ "${n_delivery:-0}" != "0" ]] && echo "(+ ${n_delivery} notification.delivery_failed — deliveries that failed and were logged rather than crashing their scan)"
+  # …and the count reaches the VERDICT (SW-252's review): with the mail channel best-effort for
+  # every inline send, a dead transport no longer fails a job or crashes a scan, so this line is
+  # the ONLY place it shows. A parenthetical in a code block is not a signal anyone acts on.
+  [[ "${n_delivery:-0}" != "0" ]] && note "deliveries: ${n_delivery} notification.delivery_failed line(s) — a transport is failing"
   echo '```'
   echo
 

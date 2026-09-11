@@ -133,6 +133,12 @@ round changed the reading.
 
 ## 3 · Ops hygiene (XS each)
 
+- **OPS-10** — **OPEN.** A `Health` row that counts `notification.delivery_failed` over the last 24h.
+  Since SW-252 an inline mail failure is one ops-log WARNING line and no longer a failed job, so on
+  production a dead mail token would show ONLY there — the soak check now puts the count in its
+  verdict, but `atriom:notify-status` (Discord) watches `Health` rows and would not fire. XS: the
+  channel already writes the line; the row needs a durable counter (`failed_jobs`-shaped, not a Redis
+  key a flush zeroes) or a tail of `ops-*.log` for the window.
 - ~~**OPS-09**~~ — **DECIDED and gated 2026-09-10 — in the direction INFRASTRUCTURE.md §5 already argued, not the one this row proposed.** `noeviction` STAYS (every `Cache::lock()` lives in this store; `allkeys-lru` — and `volatile-lru`, since a lock key carries a TTL — can evict one mid-run), and the missing half is the CAP: `maxmemory 256mb` in `redis.conf`, so a runaway ends in a refused write rather than the OOM-killer. `atriom:health` now carries `redis_memory` (red with no cap, red on any eviction policy, red at 80%; four mutations proved), so the staging box reads red on it until the cap is set on the box — which is the point. The second-instance-for-the-queue idea was declined: it moves the queue and leaves the locks evictable. Was: give Redis a `maxmemory` and an eviction policy before production. Measured on the
   staging box 2026-09-10: healthy (1.66 MB used, peak 1.84, 0 evicted, 0 rejected, queue depth 0,
   last bgsave OK) but `maxmemory` is **0** — no cap — with `maxmemory-policy noeviction`. That pair
@@ -224,6 +230,30 @@ round changed the reading.
   were not transactional while the tab's comment claimed the register "always is" — a smuggled
   supervisor left an orphaned zone on the register; both pages declare it now.
   `AMultiSelectRefusesAScalarPayloadTest`; the zone test drives all four doors.
+- ~~**SW-252**~~ — **FIXED 2026-09-11 (found on the soak by reading the calendar against the box).**
+  `sales:scan-missing-declarations` ran on the 10th at 08:00 with the transport answering 403; two
+  tenants owed an August reminder and NOTHING was written — `via() = ['mail', 'database']`, Laravel
+  sends channels sequentially with no catch between them, so the tenant's mail threw and the tenant's
+  bell row (the mobile app's reminder AND the scan's idempotency stamp) was never written; the portal
+  login behind it was never reached; the command `warn()`ed to `/dev/null` and exited SUCCESS. Next
+  run 10 Oct scans September: August's chase was gone for good, and the 17th's estimate was about to
+  land on tenants never chased. **Nineteen of thirty-five inline notifications share that order.** ONE
+  seam: `App\Notifications\Channels\BestEffortMailChannel`, bound over `MailChannel` as `BellChannel`
+  is over `DatabaseChannel` — a transport failure on an inline send is an ops-log line, not the thing
+  that erases the record. Four failure families (the review found the first draft caught exactly the
+  one the box had shown it — MailerSend does not re-wrap its 422); queued mail, mail-only
+  notifications and a caller that `requiringDelivery()` still throw (`SendInvoiceToTenantService`
+  insists — the first draft had it toast "sent" over a message that never left). The scan records its
+  finding first (SW-244's rule) and the soak check puts a delivery-failure count in its VERDICT.
+  `ANotificationsRecordDoesNotDependOnItsTransportTest` (14 cases, 9 mutations). Recovered on the
+  box by re-running the scan for `2026-08` after the deploy. Account: [modules/19 § SW-252](../modules/19-notifications-scans.md#sw-252).
+- **SW-253** — **OPEN (found by the review of SW-252).** `sales:estimate-missing` (the 17th) estimates
+  any lease `missingSalesDeclarationsFor()` returns; it never checks that the tenant was CHASED. The
+  "week after the chase" is a schedule day, not a stamp — so a chase lost to any cause (a scan that
+  did not run, a period the reminder was never sent for) still ends in an estimate on a tenant who was
+  never asked. Market shape: the estimate follows a recorded reminder. S: the estimate skips (and
+  reports) a lease with no `sales_declaration_reminder` row for the period, or the 17th's run chases
+  first and estimates on the NEXT pass. Decide which; both are one query.
 - ~~**SW-251**~~ — **FIXED 2026-09-10 (found by the review of SW-248).** `Payment::booted()`'s
   `saved` hook sent `PaymentReceivedNotification` (not `ShouldQueue`, `mail`+`database`+`push`)
   inline — inside `CapturePaymentService::capture()` and the Paymob callback's transaction, under
