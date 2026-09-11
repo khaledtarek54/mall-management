@@ -66,6 +66,12 @@ class MarketingLevyService
         // is: a past month must bill the levy that was in force then, not the one derived from
         // today's rent. `updateOrCreate` on (lease, type) used to enforce exactly one row, which
         // is the assumption a schedule breaks.
+        // "From today" on a lease commencing later this month resolves, through `setAmount()`'s
+        // billing boundary, to the 1st — a date no row covers yet. That is answered by
+        // `ChargeScheduleService::pickInForce()`, which reads the FIRST row for a date before the
+        // schedule begins (it read the LAST until 2026-09-11, and overwrote the final projected
+        // levy rung with the base levy). A floor at commencement here was written first and
+        // removed: the boundary snap runs after it, so it changed nothing.
         return app(ChargeScheduleService::class)->setAmount(
             $lease,
             'marketing',

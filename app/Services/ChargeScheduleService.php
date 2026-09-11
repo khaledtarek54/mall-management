@@ -138,6 +138,53 @@ class ChargeScheduleService
     }
 
     /**
+     * Throw away the projected future and project it again from the clause as it NOW reads.
+     *
+     * What every clause edit needs and what the `Lease::updated` hook calls; also the repair for a
+     * ladder that has already drifted, which is why it is a method rather than the hook's body.
+     * Deactivates every not-yet-started `ORIGIN_ESCALATION` rung for the rent and the service
+     * charge (a stated, manual rung survives — the prune never touches one — and so does the rung
+     * that RESUMES a relief window, see `pruneProjectedLadder()`), prunes the levy rungs that rode
+     * on exactly those rent rungs, then projects. A cleared clause projects nothing.
+     *
+     * `clause: false` is the LEVY's own half: only the future levy rungs are pruned, and the
+     * projection is then a walk over an intact rent and service ladder — `setAmount()` no-ops on
+     * an unchanged amount, so it writes the levy rungs and nothing else. No rent rung changes id,
+     * and no relief window is walked over for a change that could not have moved it.
+     *
+     * One transaction either way. The hook already runs inside the save's own, but this is also
+     * the on-demand repair from a console, and a refusal from `Charge::saving` half-way through
+     * the projection would otherwise leave a ladder pruned with nothing projected in its place.
+     *
+     * @return int rungs written by the re-projection
+     */
+    public function retrueProjectedLadder(Lease $lease, bool $clause = true): int
+    {
+        return DB::transaction(function () use ($lease, $clause): int {
+            $today = CarbonImmutable::now()->startOfDay();
+
+            if ($clause) {
+                $rentPruned = $this->pruneProjectedLadder($lease, 'base_rent', $today);
+                $this->pruneProjectedLadder($lease, 'service_charge', $today);
+
+                if ($rentPruned !== []) {
+                    $this->pruneProjectedLadder($lease, 'marketing', $today, Charge::ORIGIN_LEVY, $rentPruned);
+                }
+            } else {
+                $this->pruneProjectedLadder($lease, 'marketing', $today, Charge::ORIGIN_LEVY);
+            }
+
+            if (! $lease->escalatesContractually()) {
+                return 0;
+            }
+
+            // `fresh()`, as every other caller passes: the projection reads the schedule it is
+            // writing into, and must see the rows the prune just closed.
+            return $this->projectTermEscalations($lease->fresh());
+        });
+    }
+
+    /**
      * Write the whole term's contracted rent steps up front (story LS-01).
      *
      * **Why at signing rather than one anniversary at a time.** Until now the only rent that
@@ -272,8 +319,15 @@ class ChargeScheduleService
             // rung in place and marks it `manual`), and compounding past one from the pre-stated
             // base is how a negotiated step's successors came out wrong. Falls back to the
             // carried figure when nothing covers the eve (a lease with no rent row yet).
+            //
+            // A RELIEF row on the eve is not the base either (2026-09-11): its amount is the
+            // concession, not the contract, and stepping from it compounded the whole ladder from
+            // the relieved figure. The carried figure is the contracted rent the relief was
+            // granted against, so it is the base there.
             $eveRent = $this->rowCovering($lease, 'base_rent', $effective->subDay());
-            $rentBase = $eveRent !== null ? (float) $eveRent->amount : $rent;
+            $rentBase = $eveRent !== null && $eveRent->origin !== Charge::ORIGIN_RELIEF
+                ? (float) $eveRent->amount
+                : $rent;
 
             $rent = $byAmount
                 ? round($rentBase + $step, 2)
@@ -293,8 +347,21 @@ class ChargeScheduleService
                 && $standing->start_date !== null
                 && CarbonImmutable::instance($standing->start_date)->gte($effective);
 
+            // An anniversary INSIDE a relief window is neither adopted nor written: the relief row
+            // standing on it is the operator's concession (it carried `manual` until 2026-09-11
+            // and WAS adopted — the rent, and the levy derived from it, came out at half), and
+            // `setAmount()` would amend it in place. The step still happens contractually:
+            // `$rent` carries it, the levy below is derived from it, and the rung that resumes
+            // after the window is what the next anniversary steps from — the prune keeps it.
+            $insideRelief = $standing?->origin === Charge::ORIGIN_RELIEF;
+
             if ($statedStep) {
                 $rent = (float) $standing->amount;
+            } elseif ($insideRelief) {
+                // The clause applies to the whole contract and only the window's own rows are
+                // stated, so the rung that RESUMES after it is re-priced to the step — the
+                // figure the levy below is derived from, or the two disagree for a year.
+                $this->repriceResumption($lease, 'base_rent', $standing, $rent, $expiry);
             } elseif ($rent > 0 && $this->setAmount($lease, 'base_rent', $rent, $effective, [
                 // `$rent > 0` guards the service-only shape: a zero rent must not mint zero rent
                 // and levy rows just because the service-charge ladder earned the walk.
@@ -330,7 +397,11 @@ class ChargeScheduleService
                 $eveService = $this->rowCovering($lease, 'service_charge', $effective->subDay());
 
                 if ($eveService?->origin !== Charge::ORIGIN_CAM_ESTIMATE) {
-                    $serviceBase = $eveService !== null ? (float) $eveService->amount : $service;
+                    // The rent's two relief rules, mirrored: a relief eve is not the base, and a
+                    // relief-covered anniversary is neither adopted nor written.
+                    $serviceBase = $eveService !== null && $eveService->origin !== Charge::ORIGIN_RELIEF
+                        ? (float) $eveService->amount
+                        : $service;
                     $service = round($serviceBase * (1 + $rate / 100), 2);
 
                     $covering = $this->rowCovering($lease, 'service_charge', $effective);
@@ -341,6 +412,8 @@ class ChargeScheduleService
 
                     if ($statedService) {
                         $service = (float) $covering->amount;
+                    } elseif ($covering?->origin === Charge::ORIGIN_RELIEF) {
+                        $this->repriceResumption($lease, 'service_charge', $covering, $service, $expiry);
                     } elseif ($covering !== null
                         && $covering->origin !== Charge::ORIGIN_CAM_ESTIMATE
                         && $this->setAmount($lease, 'service_charge', $service, $effective, [
@@ -355,6 +428,38 @@ class ChargeScheduleService
         }
 
         return $created;
+    }
+
+    /**
+     * Re-price the rung that resumes the contract after a relief window to the step the walk
+     * computed for the anniversary inside it.
+     *
+     * `overlayWindow()` pushed that rung past the window with the amount it had at the time, and
+     * the prune keeps it (it is the resumption, not a projection to throw away). When the clause
+     * has since moved the step, the resumed figure is stale by exactly the difference — so it is
+     * amended in place, `setAmount()`'s own rule for a row starting on the effective date. Only a
+     * PROJECTED rung is touched: a `manual` row after the window is the operator's, and a window
+     * running past the term resumes nothing.
+     */
+    private function repriceResumption(Lease $lease, string $type, Charge $relief, float $amount, CarbonImmutable $expiry): void
+    {
+        if ($relief->end_date === null || $amount <= 0) {
+            return;
+        }
+
+        $resumes = CarbonImmutable::instance($relief->end_date)->addDay();
+
+        if ($resumes->greaterThan($expiry)) {
+            return;
+        }
+
+        $resumption = $this->rowCovering($lease, $type, $resumes);
+
+        if ($resumption?->origin === Charge::ORIGIN_ESCALATION
+            && $resumption->start_date !== null
+            && CarbonImmutable::instance($resumption->start_date)->equalTo($resumes)) {
+            $this->setAmount($lease, $type, $amount, $resumes, [], Charge::ORIGIN_ESCALATION);
+        }
     }
 
     /**
@@ -496,11 +601,15 @@ class ChargeScheduleService
             /** @var Charge $row */
             $row = $resumeAfter['row'];
 
+            // The resumed row continues the contract, so it is never a relief row itself —
+            // `manual`, as it always was, whatever origin the window's own rows carry. A relief
+            // origin here would stop the prune re-linking the chain onto it and let nothing
+            // step from it.
             $resumed = Charge::create([
                 ...$lease->invoiceLinkAttributes(),
                 'name' => $row->name,
                 'type' => $type,
-                'origin' => $origin,
+                'origin' => Charge::ORIGIN_MANUAL,
                 'amount' => $resumeAfter['amount'],
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => $row->frequency,
@@ -664,12 +773,28 @@ class ChargeScheduleService
         // Nothing covers the date — fall back to the latest active row, which is what keeps a
         // pre-schedule lease (one open-ended row) and a lease whose schedule has run out behaving
         // sensibly instead of reading as "no rent".
-        return collect($charges)
+        $active = collect($charges)
             ->where('is_active', true)
             ->sortBy([
                 fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
                 fn (Charge $a, Charge $b) => $a->id <=> $b->id,
-            ])->last();
+            ])->values();
+
+        // …UNLESS the date is BEFORE the schedule begins, where "latest" is the wrong end of it.
+        // Every write here snaps to the billing boundary (the 1st), so a lease commencing on the
+        // 10th has no row covering the 1st of its own first month — and the answer to "what is in
+        // force before anything is" is the FIRST row, the one about to start, not the final rung
+        // three years out. Measured (the lease behind Trello RV4DrGHA + jF09XB3n, and its tail on staging): the levy
+        // re-sync on an ordinary save in the commencement month was handed the last projected
+        // rung and overwrote it with the base levy, 400 → 50 in the final year. A read is wrong
+        // the same way — a not-yet-started lease's "current rent" read as its last step.
+        $first = $active->first();
+
+        if ($first !== null && $first->start_date !== null && CarbonImmutable::instance($first->start_date)->gt($on)) {
+            return $first;
+        }
+
+        return $active->last();
     }
 
     /**
@@ -732,6 +857,14 @@ class ChargeScheduleService
      *    at that boundary — worse than the escalated amount. Each extends to the next surviving
      *    row's eve (a stated future step keeps its place) or to the pruned chain's outer bound;
      *    an end that abuts no pruned rung is an operator's own bound and is not moved.
+     *  - **A relief window is kept whole (2026-09-11).** `overlayWindow()` pushes a rung that
+     *    starts inside a relief past the window's end, still `escalation` — the RESUMPTION of the
+     *    contract after the concession. Pruned, it took the resumption with it, and the relief row
+     *    ending the day before then read as "chained onto a pruned rung" and was re-linked past
+     *    its own bound: measured, a rate edit on a lease with a six-month 50 % relief halved the
+     *    rent for the rest of the term, and the ladder looked ordinary. So a rung starting the day
+     *    after a relief row ends stays, and a relief row's end is never ours to move — both told
+     *    apart by `ORIGIN_RELIEF`, which is what that origin exists for.
      *
      * @param  list<string>|null  $onlyStartDates  restrict to rungs starting on these dates — the
      *                                             levy's lock-step rungs are matched to the rent
@@ -747,6 +880,18 @@ class ChargeScheduleService
         string $origin = Charge::ORIGIN_ESCALATION,
         ?array $onlyStartDates = null,
     ): array {
+        // The day after each relief window on this ladder ends — a rung starting there resumes
+        // the contract and is not a projection to throw away.
+        $resumptions = Charge::query()
+            ->where(...self::keyFor($lease))
+            ->where('type', $type)
+            ->where('origin', Charge::ORIGIN_RELIEF)
+            ->where('is_active', true)
+            ->whereNotNull('end_date')
+            ->get()
+            ->map(fn (Charge $c) => CarbonImmutable::instance($c->end_date)->addDay()->toDateString())
+            ->all();
+
         $future = Charge::query()
             ->where(...self::keyFor($lease))
             ->where('type', $type)
@@ -762,6 +907,7 @@ class ChargeScheduleService
             // codebase documents.
             ->filter(fn (Charge $c) => $onlyStartDates === null
                 || in_array(CarbonImmutable::instance($c->start_date)->toDateString(), $onlyStartDates, true))
+            ->reject(fn (Charge $c) => in_array(CarbonImmutable::instance($c->start_date)->toDateString(), $resumptions, true))
             ->values();
 
         if ($future->isEmpty()) {
@@ -796,7 +942,12 @@ class ChargeScheduleService
             ->values();
 
         foreach ($remaining as $i => $row) {
+            // The relief clause is belt-and-braces, and recorded as such rather than claimed:
+            // with a relief's resumption kept above, no pruned rung's eve is a relief row's end,
+            // so this branch is unreachable today (mutation leaves every case green). It stands
+            // for the day something else prunes the row after a window.
             if ($row->end_date === null
+                || $row->origin === Charge::ORIGIN_RELIEF
                 || ! in_array(CarbonImmutable::instance($row->end_date)->toDateString(), $prunedStartEves, true)) {
                 continue;
             }

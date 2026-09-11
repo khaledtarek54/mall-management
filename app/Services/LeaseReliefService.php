@@ -76,7 +76,11 @@ class LeaseReliefService
             : fn (float $wouldHaveBilled): float => $flatAmount;
 
         return DB::transaction(function () use ($lease, $type, $from, $to, $amountFor, $percentOff, $flatAmount, $data) {
-            $result = $this->schedule->overlayWindow($lease, $type, $from, $to, $amountFor, Charge::ORIGIN_MANUAL);
+            // `ORIGIN_RELIEF` on the window's own rows (2026-09-11): they carried `manual` and so read
+            // as STATED steps to the projection and as chain links to the prune — a concession
+            // adopted as the contract, and a window re-linked past its own end. The row that
+            // resumes after the window stays `manual`: it IS the contract continuing.
+            $result = $this->schedule->overlayWindow($lease, $type, $from, $to, $amountFor, Charge::ORIGIN_RELIEF);
 
             $firstRelief = $result['relief'][0] ?? null;
 

@@ -299,6 +299,7 @@ return [
             'renewal' => 'Carried on renewal',
             'levy' => 'Derived from base rent',
             'cam_estimate' => 'CAM re-estimate',
+            'relief' => 'Rent relief window',
         ],
     ],
     'fit_out_scope' => [

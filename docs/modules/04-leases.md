@@ -1139,7 +1139,11 @@
 >   underlying rows around the window instead of replacing them, so a relief spanning a contracted
 >   step produces one relief row per segment and resumes at the **post-step** amount. Contracted
 >   `base_rent_monthly` does NOT move (a concession is not a renegotiation) and the marketing levy
->   does not follow it — unlike a rent change, where both do.
+>   does not follow it — unlike a rent change, where both do. **The window's own rows carry
+>   `Charge::ORIGIN_RELIEF` (2026-09-11)** — they were `manual`, which read as a STATED step to the
+>   projection and as a chain link to the prune, and a clause edit over a relief halved the rent
+>   for the rest of the term; the row that resumes after the window stays `manual`, because it is
+>   the contract continuing. See *every edit to the clause re-trues the ladder* below.
 > - **Holdover bills, but only when an operator says so.** `holdover_from` is what lets
 >   `isBillableForPeriod()` past expiry; `holdover_rate_pct` (default 150%, `BillingSettings`) is
 >   applied to the row in force **at expiry**, not to a projected step the term never reached.
@@ -1312,6 +1316,79 @@
 > step applied would write the whole remaining ladder at the raw rate for exactly the lease whose
 > collar just proved it binds. (`AChangedRentReachesTheEndOfTheLeaseTest`, eight cases, three
 > mutations proved — the re-true, the stated-rung adoption, and the space-change wiring.)
+>
+> **EVERY EDIT TO THE CLAUSE RE-TRUES THE LADDER — the ladder is a function of the clause, and it
+> was being kept for one term of it (2026-09-11, Trello RV4DrGHA + jF09XB3n, both Critical).**
+> Billing reads the LADDER and never the clause, so a ladder projected from a clause the operator
+> then corrected goes on billing the correction's predecessor. `Lease::updated` re-projected on
+> exactly three hand-written events — clause cleared, service-charge toggle on, toggle off — and
+> on nothing else, so the tester's ordinary editing session on staging lease #21 (set the rate,
+> save, change the interval, save, change the rate again, save) left the ladder written at the
+> FIRST save: rungs at 10% where the clause read 100%, stepping every month where it read every
+> year — two cards, one cause, reproduced rung for rung. **`Lease::LADDER_TERMS`** names the seven
+> columns the projection is a function of (type · rate · amount · interval · the service-charge
+> toggle · the levy toggle and rate), the hook asks `wasChanged()` of the list, and
+> **`ChargeScheduleService::retrueProjectedLadder()`** does the whole of it: prune every
+> not-yet-started projected rent and service rung and the levy rungs riding on exactly those rent
+> rungs, then project again from the clause as it NOW reads — a cleared clause projects nothing,
+> so the three branches are gone and a change to the eighth term is covered by being registered.
+> The **collar is deliberately not a ladder term**: the projection writes the raw rate and the
+> sweep collars each rung the night it arrives, so a collar edit re-projecting nothing is the
+> existing arrangement, stated. A **started rung is history and a stated (`manual`) rung is a
+> term** — the prune touches neither, exactly as the cleared-clause prune above. **The interval is
+> the one term the sweep's own pointer reads**, so `saving` re-arms `next_escalation_date` from the
+> SWEEP'S OWN STATE — the pointer it carries is one old interval past the last step it applied, so
+> that step plus one NEW interval is the next, walked forward to the first anniversary on or after
+> today. The first cut read the last projected rung that had STARTED instead, and the review broke
+> it: rungs start on the 1st and the sweep applies on the anniversary day, so an interval edit in
+> between read a rung as applied while `base_rent_monthly` was never bumped, armed the pointer past
+> the sweep, and every later sweep amended the projected rungs DOWN a step for the rest of the
+> term. And a shortened interval a year in puts "last applied + new interval" in the PAST, where the
+> sweep would back-date a step over months already billed — hence the forward walk. **It is also
+> the REPAIR**: a ladder that has already drifted — staging lease #21 — is re-trued by the same
+> method on demand, which is why it is a public method rather than the hook's body.
+>
+> **A RELIEF WINDOW IS WALKED THROUGH, NOT OVER, and a relief row now says it is one.** The review
+> drove a rate edit on a lease carrying a six-month 50 % relief over the first step and got
+> `550@2027-09..2028-08 | 660@2028-09 | 792@2029-09` — rent halved for the rest of the term, ladder
+> looking ordinary. Three things compounded, all from one collapse: a relief's rows were written
+> `manual`, indistinguishable from a STATED step (the same collapse `ORIGIN_CAM_ESTIMATE` was
+> introduced to end), so the projection ADOPTED the relief segment standing on the anniversary as
+> the contracted figure and derived the levy from it; the prune took the rung that RESUMES the
+> contract after the window (`overlayWindow()` pushes it past the window, still `escalation`); and
+> the chain re-link then extended the relief row over the gap it left. `Charge::ORIGIN_RELIEF` is
+> the window's own rows' origin now (the resumed copy stays `manual` — it IS the contract
+> continuing), backfilled from each relief event's `rows_opened[].id` by
+> `2026_09_11_120000_a_relief_row_says_it_is_one`. The prune keeps a rung starting the day after a
+> relief row ends; the walk treats a relief-covered anniversary as neither adopted nor written and
+> a relief eve as no base (the carried figure is the contracted rent the relief was granted
+> against); and the resumption rung is RE-PRICED to the step the clause now says, so the levy —
+> derived from that same figure — and the resumed rent agree. The window's own rows stay exactly
+> as granted, to the day.
+>
+> **Two more came out of the same lease, both in the levy's tail.** `pickInForce()`'s fallback
+> for a date NOTHING covers answered with the LAST active row, which is right for a schedule that
+> has run out and wrong for one that has not begun: every write snaps to the billing boundary, so
+> a lease commencing on the 10th has no row covering the 1st of its own first month, and the
+> answer to "what is in force before anything is" is the FIRST row. Handed the last projected
+> rung instead, the levy re-sync on an ordinary save in the commencement month overwrote the
+> final year's levy with the base levy — 400 → 50 on the box. It reads the first row now. **And
+> the levy's re-sync moved OUT of `EditLease::afterSave()` into the hook** — it ran on every save
+> of the lease there (a write for nothing on most, and the door for this one), and once the levy
+> pair became ladder terms the ORDER was wrong: the hook projected the levy's rungs with no base
+> row in force, so `setAmount` opened the levy from commencement at the first STEP's amount, and
+> the page's re-sync then overwrote it with the base — measured through the real page, a levy
+> toggled on lost its first future step. `Lease::updated` re-syncs the base row FIRST
+> (`createLevyCharge()`), then re-trues; and a levy-only edit (`Lease::LEVY_TERMS`) re-trues ONLY
+> the levy rungs (`retrueProjectedLadder($lease, clause: false)`) — `setAmount()` no-ops on an
+> unchanged amount, so the walk over an intact rent ladder writes nothing for rent and no rent
+> rung changes id. (`AnEscalationClauseEditRetruesItsLadderTest` — fifteen cases: the tester's
+> exact session, the carried levy, the surviving stated rung, the collar-only no-churn control,
+> the pointer on a fresh, a mid-term and a second interval change, an interval edit inside the
+> 1st-to-anniversary window followed by the sweep, a step the sweep had applied, the relief walk,
+> the levy toggled on through the page, and the repair of staging's exact drifted state; nine
+> mutations each kill their own tooth, and the re-link's relief clause is recorded as
+> belt-and-braces — unreachable while the resumption is kept.)
 >
 > **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
 > `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to
@@ -1916,8 +1993,8 @@ which is why the seam sits where it does.
 
 | Status | Entry point | Allowed transitions | Exit rule / immutability |
 |--------|-------------|-------------------|--------------------------|
-| **draft** | New lease created in admin or via `LeaseCreationService`. | → `pending_approval` (leasing promotes it once the deal is signed), `active` (entry, where the property gates nothing), `cancelled` | Terms still being written: reserves the unit but carries no window and is never lapsed or activated by the act. |
-| **pending_approval** (*"Awaiting activation"*) | Entered where the property requires the deposit or cheques before going live (the wizard, or the form) — or a draft the operator promoted. | → `active` / `future` (the Activate act, `leases.activate`, refused until `LeaseActivation::shortfall()` is nil), `cancelled` (a reservation that lapsed) | Reserved unit; does NOT hold the premises against another signer; `reserved_until` stamped from the property's window and lapsed by `leases:expire`. |
+| **draft** | New lease created in admin or via `LeaseCreationService`. | → `pending_approval`, `active` (the Activate ACT, or entry where the property gates nothing), `cancelled` | Discarded if not activated; reserved unit if present; `reserved_until` stamped from the property's window and lapsed by `leases:expire`. |
+| **pending_approval** (*"Awaiting activation"*) | Entered where the property requires the deposit or cheques before going live (the wizard, or the form) — or a draft the operator promoted. | → `active` / `future` (the Activate act, `leases.activate`, refused until `LeaseActivation::shortfall()` is nil), `cancelled` (a reservation that lapsed) | Reserved unit; does NOT hold the premises against another signer. |
 | **active** | The Activate act, or entry on a property whose `lease_activation_requires` is `none` (the shipped default). | → `renewed` (renewal creates new lease), `terminated`, `expired`, `cancelled` | Unit is occupied. Invoices generate. Charges are active. Only one active lease per unit. |
 | **renewed** | Triggered when `LeaseRenewalService::renew()` marks original as 'renewed'. | (terminal for original) | Original lease is now closed; the renewal is a new 'active' lease linked via `previous_lease_id`. Unit is reserved (because the renewal—a new active lease—projects it to occupied). |
 | **expired** | Manual mark-as-expired or automated task (future). | (terminal) | Unit becomes vacant (unless another non-terminal lease on it). Invoicing stops. |
@@ -2182,7 +2259,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `base_rent_rate_per_sqm_year` (TextInput, EGP/m²/yr; required + visible only when the basis is `rate`) — the helper text shows the let area the derivation is using, updated live as units are picked.
    - `base_rent_monthly` (TextInput, numeric, ≥0; disabled on edit **and** on a rate-priced lease, dehydrated) — read-only on edit to enforce use of LeaseRentChangeService, read-only on `rate` because it is derived.
    - `service_charge_monthly` (TextInput, numeric, ≥0; disabled on edit, dehydrated) — helper text on edit warns "use Change Rent action".
-   - `has_marketing_levy` (Toggle, live, default true) — whether the marketing levy is billed to this tenant. `EditLease::afterSave()` re-syncs the `marketing` charge via `MarketingLevyService::createLevyCharge()` so a toggle change takes effect on the next run.
+   - `has_marketing_levy` (Toggle, live, default true) — whether the marketing levy is billed to this tenant. `EditLease::afterSave()` re-syncs the `marketing` charge via `MarketingLevyService::createLevyCharge()` — from `Lease::updated` since 2026-09-11 (the page no longer re-syncs it; the hook does, base row first, then the levy rungs, for every door) — so a toggle change takes effect on the next run.
    - `marketing_levy_rate` (TextInput, numeric, 0–100, suffix '%', visible if has_marketing_levy) — per-lease rate override; placeholder shows the mall default; blank = default.
    - `possession_date` + `rent_commencement_date` (DatePickers) — the handover date and the start of rent. Blank rent-commencement = no grace. The billing gate lives on the model: `Lease::periodInFitOut()` / `firstBillableMonth()` / `rentCommencesOn()`, shared by `MonthlyBillingService` and the ActionRequired "unbilled leases" card (so a lease in grace is neither billed nor flagged).
    - `billing_frequency` (Select: monthly / quarterly / semiannual / annual, default monthly) — the invoicing cadence. The cadence rule lives on the model: `Lease::billingCycleMonths()` (1/3/6/12) and `isBillingCycleStart()` (commencement-anchored, post-fit-out), used by `MonthlyBillingService` (bill the whole cycle on cycle-start months) and the "unbilled leases" card (don't nag off-cycle months). A manual "Generate Invoice" for an off-cycle month returns reason `off_cycle` with a clear notice.

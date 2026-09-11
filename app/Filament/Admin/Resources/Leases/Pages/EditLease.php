@@ -8,7 +8,6 @@ use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Models\Lease;
 use App\Services\LeaseAgreementPdfService;
-use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use App\Support\BillingRefusal;
 use App\Support\BillingWindow;
@@ -123,9 +122,13 @@ class EditLease extends EditRecord
             $this->record->unit_id,
         );
 
-        // Re-sync the marketing levy charge so a toggle/rate change on the form takes effect
-        // (activates/deactivates + re-rates the `marketing` charge for the next monthly run).
-        app(MarketingLevyService::class)->createLevyCharge($this->record);
+        // The marketing levy is NOT re-synced here any more (2026-09-11). `Lease::updated` does
+        // it — base row first, then the projected levy rungs — for every door that writes the
+        // levy's two columns, this page included. Doing it here AFTER the hook is what cost the
+        // levy its first future step when toggled on (the projection opened the levy from
+        // commencement at the stepped amount, and this re-sync then overwrote it with the base),
+        // and running it on every save, as it did before, is the door through which the final
+        // projected levy rung was overwritten with the base levy on staging (400 → 50).
     }
 
     /**

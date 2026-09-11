@@ -15,6 +15,7 @@ use App\Models\Concerns\Lease\HasLeaseTermState;
 use App\Models\Concerns\Lease\HasRenewalLineage;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\ChargeScheduleService;
+use App\Services\MarketingLevyService;
 use App\Services\RentEscalationService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
@@ -34,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -177,6 +179,42 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 return;
             }
 
+            // ── THE POINTER FOLLOWS THE INTERVAL (2026-09-11) ─────────────────────────────
+            //
+            // Armed once when null, and never re-armed: change *Steps every* from blank (12) to
+            // 6 on a fresh lease and the first step stayed at +12, then walked every 6 from
+            // there. Re-armed from the SWEEP'S OWN STATE: the pointer it carries is always the
+            // anniversary after the last one it applied (or after commencement when none), so
+            // one old interval back from it is that anniversary, and one NEW interval on from
+            // there is the next. A first cut read the last projected rung that had STARTED
+            // instead, and the review broke it: rungs start on the 1st and the sweep applies on
+            // the anniversary day, so an edit between the two read a rung as applied while
+            // `base_rent_monthly` was never bumped, armed the pointer past the sweep, and every
+            // later sweep amended the projected rungs DOWN one step for the rest of the term.
+            if ($lease->exists
+                && $lease->escalatesContractually()
+                && $lease->isDirty('escalation_interval_months')
+                && $lease->commencement_date !== null
+                && $lease->getOriginal('next_escalation_date') !== null) {
+                //
+                // And walked FORWARD on the new cadence to the first anniversary on or after
+                // today: shortening 12 → 6 a year in puts "last applied + 6" in the past, and a
+                // pointer in the past makes the next sweep back-date a step over months already
+                // billed and then amend the rung that had already started.
+                $commencement = CarbonImmutable::parse($lease->commencement_date);
+                $oldInterval = (int) ($lease->getOriginal('escalation_interval_months') ?: 12);
+                $lastApplied = CarbonImmutable::parse($lease->getOriginal('next_escalation_date'))
+                    ->subMonthsNoOverflow($oldInterval);
+                $next = $lease->escalationDateAfter($lastApplied->lessThan($commencement) ? $commencement : $lastApplied);
+                $today = CarbonImmutable::today();
+
+                while ($next->lessThan($today)) {
+                    $next = $lease->escalationDateAfter($next);
+                }
+
+                $lease->next_escalation_date = $next->format('Y-m-d');
+            }
+
             if ($lease->escalatesContractually()
                 && $lease->next_escalation_date === null
                 && $lease->commencement_date !== null) {
@@ -191,48 +229,54 @@ class Lease extends Model implements BillableAgreement, HasMedia
             }
         });
 
-        // ── The clause's projected future FOLLOWS the clause ───────────────────────────────────
-        // Two directions, one hook, on the MODEL for the standing reason: the API and services
-        // write leases without rendering a field. `updated`, not `saved` — on CREATE the charge
-        // rows are not seeded yet, and every creation door projects itself after seeding them.
+        // ── THE CLAUSE'S PROJECTED FUTURE FOLLOWS THE CLAUSE — every term of it (2026-09-11) ──
+        // On the MODEL for the standing reason: the API and services write leases without
+        // rendering a field. `updated`, not `saved` — on CREATE the charge rows are not seeded
+        // yet, and every creation door projects itself after seeding them.
         //
-        // ON: flipping the service-charge toggle projects ITS ladder. The rent side never needed
-        // this — every creation door projects, and a pre-projection lease is the backfill
-        // command's job — but the toggle is flipped on EXISTING leases whose rent ladder is
-        // already projected, which `atriom:project-lease-schedules` deliberately skips (any
-        // ORIGIN_ESCALATION row reads as "already projected"), so without this the forecast would
-        // show a stepping rent beside a flat service charge with no remedy path at all.
-        // Idempotent: projection no-ops on amounts already in force.
+        // This was three hand-written branches — clause cleared → prune; service-charge toggle
+        // on → project; toggle off → prune the service charge — and every OTHER term fell through
+        // them. Measured on staging (Trello RV4DrGHA + jF09XB3n, one lease): the operator typed 1
+        // into *Steps every* (nothing re-projected), flipped the toggle (which re-projected with
+        // whatever the lease carried — MONTHLY rungs from the first anniversary, 1,000 → 10,835
+        // over two years), cleared the interval (nothing re-projected, the monthly rungs stayed),
+        // and set the rate 10 → 100 the next day (nothing re-projected, the 10% rungs stayed).
+        // The lease said one thing and the billing engine — which reads the ladder, not the
+        // clause — billed another.
         //
-        // OFF: clearing the clause PRUNES its not-yet-started rungs. The `saving` hook above
-        // clears the clause's columns, and the sweep — the only thing that corrects a wrong rung,
-        // one anniversary at a time — never runs for a cleared clause (`none` is outside its
-        // whereIn; a cleared toggle fails the predicate), so the projected future would keep
-        // billing increases for a clause the operator removed, forever, with nothing left to
-        // catch it. The levy's lock-step rungs are matched to the rent rungs actually pruned, so
-        // a levy row that belongs to an operator's own future-dated rent change survives with it.
+        // Yardi regenerates the rent steps from the escalation setup whenever the setup changes;
+        // MRI the same. Here that is `ChargeScheduleService::retrueProjectedLadder()`: deactivate
+        // every not-yet-started PROJECTED rung (a stated, manual rung survives, a relief window
+        // is walked through rather than over, and the levy follows exactly the rent rungs
+        // pruned), then project again from the clause as it now reads. A cleared clause projects
+        // nothing, which is the old first branch. The collar columns are deliberately NOT in the
+        // list: the projection states the raw rate and the sweep collars it, so a collar change
+        // moves no rung and re-truing on it would only churn the audit trail.
+        //
+        // THE LEVY PAIR IS THE OTHER HALF, and it was `EditLease::afterSave()`'s until today —
+        // one door of the several that write these two columns. Re-syncing the BASE levy row
+        // (`createLevyCharge()`: on, off, or re-rated from today) must run BEFORE the projection
+        // writes the levy's future rungs, or the projection opens the levy from commencement at
+        // the first STEP's amount and the base re-sync then overwrites it — measured through the
+        // real page: a levy toggled on lost its first future step, and mid-term gained a
+        // back-dated row at the stepped amount. And the levy's own edit re-trues ONLY the levy
+        // rungs: `setAmount()` no-ops on an unchanged amount, so re-projecting over an intact
+        // rent ladder writes nothing for rent — no churn, and no walk over a relief.
         static::updated(function (self $lease) {
-            $schedule = app(ChargeScheduleService::class);
-            $today = CarbonImmutable::now()->startOfDay();
+            $levyMoved = $lease->wasChanged(self::LEVY_TERMS);
+            $clauseMoved = $lease->wasChanged(array_values(array_diff(self::LADDER_TERMS, self::LEVY_TERMS)));
 
-            if ($lease->wasChanged('escalation_type') && (string) $lease->escalation_type === 'none') {
-                $rentPruned = $schedule->pruneProjectedLadder($lease, 'base_rent', $today);
-                $schedule->pruneProjectedLadder($lease, 'service_charge', $today);
-
-                if ($rentPruned !== []) {
-                    $schedule->pruneProjectedLadder($lease, 'marketing', $today, Charge::ORIGIN_LEVY, $rentPruned);
-                }
-
+            if (! $levyMoved && ! $clauseMoved) {
                 return;
             }
 
-            if ($lease->wasChanged('escalation_applies_to_service_charge')) {
-                if ($lease->escalatesServiceCharge()) {
-                    $schedule->projectTermEscalations($lease);
-                } elseif (! $lease->escalation_applies_to_service_charge) {
-                    $schedule->pruneProjectedLadder($lease, 'service_charge', $today);
+            DB::transaction(function () use ($lease, $levyMoved, $clauseMoved) {
+                if ($levyMoved) {
+                    app(MarketingLevyService::class)->createLevyCharge($lease);
                 }
-            }
+
+                app(ChargeScheduleService::class)->retrueProjectedLadder($lease, clause: $clauseMoved);
+            });
         });
 
         // ── A FLOOR ABOVE ITS OWN CEILING HAS NO READING, AND THIS LEASE HAS THREE SUCH PAIRS ──
@@ -957,6 +1001,37 @@ class Lease extends Model implements BillableAgreement, HasMedia
             default => 1,
         };
     }
+
+    /**
+     * The columns the projected charge ladder is a FUNCTION of — an edit to any of them re-trues
+     * the ladder (`Lease::updated`). The escalation collar is deliberately absent: the projection
+     * states the raw rate and the sweep applies the collar each anniversary, so a collar edit
+     * moves no rung and re-truing on it would only churn the audit trail.
+     *
+     * @var list<string>
+     */
+    public const LADDER_TERMS = [
+        'escalation_type',
+        'escalation_rate',
+        'escalation_amount',
+        'escalation_interval_months',
+        'escalation_applies_to_service_charge',
+        'has_marketing_levy',
+        'marketing_levy_rate',
+    ];
+
+    /**
+     * The subset of {@see LADDER_TERMS} that moves only the LEVY's rungs — the base levy row is
+     * re-synced and the future levy rungs re-derived, and the rent and service ladders are left
+     * exactly as they stand (same rows, same ids).
+     *
+     * @var list<string>
+     */
+    public const LEVY_TERMS = [
+        'has_marketing_levy',
+        'marketing_levy_rate',
+    ];
+
 
     public function escalatesContractually(): bool
     {

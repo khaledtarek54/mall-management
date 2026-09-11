@@ -46,6 +46,16 @@ class Charge extends Model
 
     public const ORIGIN_LEVY = 'levy';            // derived from base rent (marketing levy)
 
+    /**
+     * A bounded rent relief's own rows (`LeaseReliefService` → `overlayWindow()`), written
+     * `manual` until 2026-09-11 and so indistinguishable from a stated step — which the
+     * projection ADOPTS as the contracted figure, and the prune's chain re-link EXTENDS past its
+     * own bound. Both are wrong for a concession: its amount is what the operator granted, not
+     * the contract's step, and its end is the operator's date. Its own origin lets the schedule
+     * tell the two apart, exactly as `ORIGIN_CAM_ESTIMATE` did for the reconciled estimate.
+     */
+    public const ORIGIN_RELIEF = 'relief';
+
     // A CAM re-estimate applied from the reconciliation (ApplyCamEstimateService). Its own value
     // rather than `manual` because the escalation clause must be able to tell an ESTIMATE from a
     // contractual figure: the annual true-up re-prices an estimate, so the escalation sweep and
