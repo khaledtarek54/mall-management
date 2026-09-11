@@ -209,6 +209,10 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
   `Accept-Language` language. Both were missing until 2026-09-11: the API renderer rebuilt every HTTP
   error without the exception's headers, and read the locale after the throttle had already thrown —
   so `api.too_many_requests` is resolved against `SetApiLocale::preferredLocale($request)`, never `__()`.
+  **Not every 429 is the rate limiter's:** `ForgotPasswordController` answers the password broker's own
+  per-address throttle with a hand-built `{ message }` 429 — no `Retry-After`, no `statusCode` — and it
+  goes to a REGISTERED address only, so its 429-or-200 tells a caller whether an address has an account.
+  Left as it was on 2026-09-11 (returning the generic 200 there closes both, and is a behaviour change).
 
 ## 4. Lifecycle / state machine
 
@@ -314,7 +318,7 @@ However, **key validation & business logic** is shared via:
   - `TenantResource`: id, name, legal_name, type, email, phone, whatsapp, contact_person, status, tax_id (re-exposed for ETA).
   - `InvoiceResource`: id, number, status, issue_date, due_date, period_start, period_end, subtotal, vat_amount, total, paid_amount, balance, currency, is_overdue, days_overdue, eta_status, eta_submission_id, items (when eager-loaded), lease (when eager-loaded).
   - `PaymentResource`: id, reference, amount, method, status, payment_date, allocations (pivot data with invoice numbers + amounts).
-  - `TenantRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs — the tenant's own intake files) and, since 2026-09-10 (SW-249), `resolution_evidence` (the operator's proof of the fix, SW-246's collection) in the same shape; both stream through `GET /me/requests/{id}/attachments/{media}`, which serves the two tenant-visible collections.
+  - `TenantRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs — the tenant's own intake files) and, since 2026-09-10 (SW-249), `resolution_evidence` (the operator's proof of the fix, SW-246's collection) in the same shape; both stream through `GET /me/requests/{id}/attachments/{media}`, which serves the two tenant-visible collections. The `can_*` flags describe the REQUEST, never the person: `can_cancel` (before work starts), `can_rate` (`RATEABLE`), `can_confirm` (`CONFIRMABLE` — gates confirm AND dispute), and since 2026-09-11 `can_comment` (`! isTerminal()`, the predicate `comment()` refuses on — a resolved request still takes a reply).
   - `TenantSalesDeclarationResource`: id, period_start, period_end, period_label, declared_sales (**null until reviewed**), calculated_percentage_rent, status, is_locked, `is_estimate` (the MALL raised it — from the column, 2026-09-11), declared_at, locked_at, `attachments` (streamed report URLs), `has_report`, lease (when loaded).
   - `PaymobSessionResource`: payment_token, iframe_url, order_id, payment_id, expires_at, reused, iframe_id.
   - `DeviceTokenResource`: id, platform, device_name, last_used_at.
@@ -528,7 +532,7 @@ round trip for a number already in hand.
 **Tenant Status & Login:**
 - Blocked tenants (status != 'active') get 403, not 401. This drives a specific "Account Blocked" screen in the app. Don't confuse with password failure (401).
 - **There are TWO 403s, and they are coded (2026-09-11).** `EnsureTenantActive` — the company is blocked, the token has just been destroyed — answers `error: tenant_inactive` (and so does the login, for the same condition); `EnsurePortalAdminForWrites` — a read-only login tried a write, the session is fine — answers `error: read_only`. Both throw `App\Exceptions\CodedHttpException`, which the API renderer in `bootstrap/app.php` turns into the `error` key beside `message` and `statusCode`. Before that the two bodies were identical and the app guessed which it had from the HTTP method — and its brief said every 403 meant "wipe the token", which signs a read-only person out for tapping a button. A new refusal a client must act on differently gets a code the same way; one it only has to show stays an `abort()`.
-- Inactive tenants can still view invoices/payments via API if they somehow have a token (the routes don't re-check status). This is intentional: a session shouldn't be invalidated mid-request if status changes. Password reset/change does revoke tokens, so a re-login is required.
+- An inactive or blacklisted company is refused on its NEXT request, whatever the route: `EnsureTenantActive` runs on every authenticated route, answers 403 `tenant_inactive` and destroys the token, so a re-login is refused the same way. (This line said the routes do not re-check status — contradicted by the middleware; corrected 2026-09-11.) Password reset/change also revoke tokens.
 
 **Scoping to the tenant is not the same question as scoping to what they may SEE (fixed 2026-08-16):**
 - `$request->user()->invoices()` answers "whose row is this?" and nothing else. Every controller did that correctly, and every one of them still handed over drafts — because the relationship is also what the admin and the GL read, so it must return everything.

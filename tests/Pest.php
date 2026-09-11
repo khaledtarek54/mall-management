@@ -315,6 +315,17 @@ function apiHeaders(Tenant $tenant, string $device = 'test-device'): array
     return ['Authorization' => 'Bearer '.tenantLogin($tenant)->createToken($device, ['tenant:*'])->plainTextToken];
 }
 
+/**
+ * The same header for ONE given login — `apiHeaders()` always answers for the company's first (an
+ * admin), which cannot say anything about a read-only person, or about two people on one company.
+ *
+ * @return array<string,string>
+ */
+function apiHeadersFor(TenantUser $user, string $device = 'test-device'): array
+{
+    return ['Authorization' => 'Bearer '.$user->createToken($device, ['tenant:*'])->plainTextToken];
+}
+
 function makeUser(string $role = 'manager', array $assetIds = []): User
 {
     seedRoles();

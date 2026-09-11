@@ -644,8 +644,11 @@ Authorization: Bearer <sanctum token>
 Accept: application/json
 ```
 
-Middleware: `auth:tenant-api` → `EnsureTenantActive` → `EnsurePortalAdminForWrites` →
-`throttle:60,1,api-me`. Starting a payment is a write, so a read-only login gets **403** here.
+Middleware, in the order they run (resolved from the route table, not the order they are written
+in): `auth:tenant-api` → `throttle:60,1,api-me` → … → `EnsureTenantActive` →
+`EnsurePortalAdminForWrites`. The throttle runs before the tenant checks, so a refused write still
+spends the counter, and a `429` is answered before any `403`. Starting a payment is a write, so a
+read-only login gets **403** here.
 No request body. `{invoice}` is numeric-constrained.
 
 ### Guards, in order
@@ -653,12 +656,14 @@ No request body. `{invoice}` is numeric-constrained.
 | Check | Response |
 |---|---|
 | Unauthenticated | `401 {"message":"Unauthenticated.","statusCode":401}` |
+| Over 60 req/min on the authed surface | `429`, with `Retry-After` |
+| Company blocked / inactive | `403 {"error":"tenant_inactive",…}` — and the token is destroyed |
+| A read-only login | `403 {"error":"read_only",…}` — the session is fine |
 | `PAYMOB_ENABLED=false` | `409 {"error":"paymob_disabled"}` |
 | Invoice belongs to another tenant | **`404`** — not 403. Another tenant's invoice must be indistinguishable from a non-existent one, or invoice IDs are enumerable |
 | Invoice `cancelled` / `credited` | `422 {"error":"invoice_not_payable","status":…}` |
 | `balance <= 0` | `422 {"error":"no_balance","balance":…}` |
 | Gateway threw | `502 {"error":"paymob_upstream_error"}` (the real exception is `report()`ed, never returned) |
-| Over 60 req/min on the authed surface | `429` |
 
 ### Success — `200`
 

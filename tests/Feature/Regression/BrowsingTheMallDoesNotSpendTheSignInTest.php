@@ -9,8 +9,9 @@
  * for all of them: five screens of the shopper feed and the next sign-in answered 429; three wrong
  * passwords and the reset refused before it was asked; the web pay page's four-second poll spent the
  * app's sign-in. Behind one NAT — a mall's Wi-Fi, the QA office — that is one person's browsing
- * locking another out of their first sign-in. The mobile team proved it on the live box: five GETs
- * across four public routes took one counter from 119 to 115.
+ * locking another out of their first sign-in. (The mobile team's live-box reading — one counter
+ * falling 119 → 115 across four public routes — does not tell the two apart: those routes are one
+ * group and share a counter by design. The first case below is the reading that does.)
  *
  * Every case but the last is one the shared counter FAILS. A throttled request is refused before it is
  * counted, so a shared count stops at the first ceiling it meets — each case crosses one route's

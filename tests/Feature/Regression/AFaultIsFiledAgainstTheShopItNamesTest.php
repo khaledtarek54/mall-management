@@ -146,6 +146,17 @@ it('does the same from the portal, which reaches the same service', function () 
     expect(TenantRequest::sole()->unit_id)->toBe($this->owned->id);
 });
 
+it('still files against the lease when the owned shop named has been deleted, as before', function () {
+    // A soft-deleted unit is not a shop anyone can report in. The reorder once refused this party —
+    // who holds a live lease — as having no shop at all; the clamp's answer, the lease, is the old one.
+    $this->owned->delete();
+
+    $request = reportFaultThroughTheService($this->party, $this->owned, 'electrical');
+
+    expect($request->unit_id)->toBe($this->leased->id)
+        ->and($request->lease_id)->toBe($this->lease->id);
+});
+
 it('files an owner\'s fault against their own shop when they name a stranger\'s, as before', function () {
     $owner = makeTenant(['name' => 'Owner Only']);
     $shop = makeUnit($this->mall, ['code' => 'OWNER-ONLY']);

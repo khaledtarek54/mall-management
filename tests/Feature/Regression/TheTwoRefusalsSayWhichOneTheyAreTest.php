@@ -1,7 +1,5 @@
 <?php
 
-use App\Models\Tenant;
-
 /**
  * Regression — mobile §L L14. The two 403s say which one they are.
  *
@@ -16,51 +14,40 @@ use App\Models\Tenant;
  * shows. Each code is paired with what must happen to the token, because that is the whole difference
  * between them.
  */
-function readOnlyToken(Tenant $tenant): string
-{
-    return makeTenantUser($tenant, isAdmin: false)->createToken('phone', ['tenant:*'])->plainTextToken;
-}
-
-function bearer(string $token): array
-{
-    return ['Authorization' => 'Bearer '.$token];
-}
-
 it('codes a read-only login\'s refused write `read_only` — and leaves its session alone', function () {
-    $tenant = makeTenant();
-    $token = readOnlyToken($tenant);
+    $headers = apiHeadersFor(makeTenantUser(makeTenant(), isAdmin: false));
 
-    $this->patchJson('/api/v1/me', ['phone' => '+20 100 000 0000'], bearer($token))
+    $this->patchJson('/api/v1/me', ['phone' => '+20 100 000 0000'], $headers)
         ->assertForbidden()
         ->assertExactJson(['message' => __('auth.read_only'), 'statusCode' => 403, 'error' => 'read_only']);
 
     app('auth')->forgetGuards();
 
     // The refusal was about the button, not the person: the same token still reads.
-    $this->getJson('/api/v1/me', bearer($token))->assertOk();
+    $this->getJson('/api/v1/me', $headers)->assertOk();
 });
 
 it('codes a company blocked mid-session `tenant_inactive` — and destroys the token', function () {
     $tenant = makeTenant();
-    $token = readOnlyToken($tenant);
+    $headers = apiHeadersFor(makeTenantUser($tenant, isAdmin: false));
     $tenant->update(['status' => 'blacklisted']);
 
-    $this->getJson('/api/v1/me', bearer($token))
+    $this->getJson('/api/v1/me', $headers)
         ->assertForbidden()
         ->assertExactJson(['message' => __('auth.account_blocked'), 'statusCode' => 403, 'error' => 'tenant_inactive']);
 
     // The guard caches who it resolved for the life of the test app; a real next request would not.
     app('auth')->forgetGuards();
 
-    $this->getJson('/api/v1/me', bearer($token))->assertUnauthorized();
+    $this->getJson('/api/v1/me', $headers)->assertUnauthorized();
 });
 
 it('codes a soft-deleted company the same way — its staff\'s logins still resolve, the company does not', function () {
     $tenant = makeTenant();
-    $token = readOnlyToken($tenant);
+    $headers = apiHeadersFor(makeTenantUser($tenant, isAdmin: false));
     $tenant->delete();
 
-    $this->getJson('/api/v1/me', bearer($token))
+    $this->getJson('/api/v1/me', $headers)
         ->assertForbidden()
         ->assertJsonPath('error', 'tenant_inactive');
 });

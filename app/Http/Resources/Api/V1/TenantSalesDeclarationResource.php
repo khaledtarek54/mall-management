@@ -42,9 +42,10 @@ class TenantSalesDeclarationResource extends JsonResource
             // **The MALL's figure, not the tenant's.** A tenant who is chased and still files nothing
             // has the period raised on their behalf by `sales:estimate-missing`, from their own
             // history — and that row reads exactly like one they filed: `submitted`, `declared_sales`
-            // holding the estimate, a percentage rent of 0 until staff lock it. So the app showed a
-            // turnover the tenant never typed as theirs, beside a 0 that reads "reviewed, nothing due"
-            // when nobody has reviewed anything (mobile §L L4, drift A9). From the COLUMN — never from
+            // holding the estimate, a percentage rent that is not final until staff lock it (0 as raised,
+            // a figure computed from the estimate once an operator saves it). So the app showed a
+            // turnover the tenant never typed as theirs, beside a rent that reads as reviewed when nobody
+            // has reviewed anything (mobile §L L4, drift A9). From the COLUMN — never from
             // `PercentageRentCalculationService`'s `is_estimate`, which means "not locked yet" and is
             // true of every tenant-filed declaration awaiting review.
             'is_estimate' => (bool) $this->is_estimate,

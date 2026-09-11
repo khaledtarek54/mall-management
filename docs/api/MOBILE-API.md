@@ -3,7 +3,7 @@
 > Tenant-facing REST API for the Atriom mall-management mobile app.
 > Base URL: `https://<host>/api/v1`
 > Auth: Bearer tokens (Laravel Sanctum), `tenant_users` provider — a person's login, since 2026-09-05.
-> Last updated: 2026-09-11 — **additive only; nothing here requires an app release.** Each rate limit is its own counter (browsing the visitor feed no longer spends the sign-in's), and a `429` now carries `Retry-After` and speaks the `Accept-Language` language. The two `403`s carry a stable `error` — `tenant_inactive` (company blocked; token destroyed) vs `read_only` (read-only login; session fine). New: `isEstimate` on a sales declaration, `canComment` on a request. A request is filed against the shop it names, including one the party owns while leasing another. Corrected: tokens expire after 30 days; `written_off` and `voided` were missing from the status lists; `overdue` can exceed `outstanding`. *Previously, 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships.* *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
+> Last updated: 2026-09-11 — **additive only; nothing here requires an app release.** Each rate limit is its own counter (browsing the visitor feed no longer spends the sign-in's), and the rate limiter's `429` now carries `Retry-After` and speaks the `Accept-Language` language (the password reset's own per-address `429` still carries neither). The two `403`s carry a stable `error` — `tenant_inactive` (company blocked; token destroyed) vs `read_only` (read-only login; session fine). New: `isEstimate` on a sales declaration, `canComment` on a request. A request is filed against the shop it names, including one the party owns while leasing another. Corrected: tokens expire after 30 days; `written_off` and `voided` were missing from the status lists; `overdue` can exceed `outstanding`. *Previously, 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships.* *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
 
 > ### 👉 The mobile developer starts at [`MOBILE-SYNC-2026-09-02.md`](MOBILE-SYNC-2026-09-02.md)
 >
@@ -210,10 +210,10 @@ additionally carry an `errors` map (camelCase field → messages):
 |---|---|
 | `400` | Malformed/missing request body (used on **login**) |
 | `401` | Missing/invalid/revoked token, or wrong login credentials |
-| `403` | Carries a stable **`error`** (since 2026-09-11) — branch on it, never on `message`. **`tenant_inactive`**: the company is blocked or inactive, and the token has just been destroyed → Blocked screen, never retry. **`read_only`**: a read-only login attempted a write → the session is fine; show the act as unavailable (see §2 above) |
+| `403` | Carries a stable **`error`** (since 2026-09-11) — branch on it, never on `message`. **`tenant_inactive`**: the company is blocked or inactive, and the token has just been destroyed → Blocked screen, never retry. **`read_only`**: a read-only login attempted a write → the session is fine; show the act as unavailable (see §2 above). A 403 with **no** `error` — from a server before 2026-09-11, or a refusal not yet coded — is neither: keep the handling you had |
 | `404` | Not found **or** not yours |
 | `422` | Semantic validation failure (carries `errors`) |
-| `429` | Rate limited. Carries `Retry-After` (seconds) — **sent since 2026-09-11; before that the header was stripped**. `message` is in the `Accept-Language` language |
+| `429` | Rate limited. Carries `Retry-After` (seconds) — **sent since 2026-09-11; before that the header was stripped**. `message` is in the `Accept-Language` language. **One exception:** `POST /auth/forgot-password` also answers its own `429` when a reset link was just sent for that address — `{ message }` only, no `Retry-After`, no `statusCode`. Treat both as optional |
 | `500` | Server error |
 
 ### Rate limits
@@ -290,8 +290,10 @@ password is weak / matches the old one.
 ```json
 { "email": "tenant1@atriomwalk.test" }
 ```
-→ Always `200 { "message": "If that email is registered, a reset link has been sent." }`
-(generic by design — no enumeration). `429` if throttled. The email contains a
+→ `200 { "message": "If that email is registered, a reset link has been sent." }`
+(generic by design). `429` if throttled — by the route's own limit (with `Retry-After`), or when a
+reset link was just sent for that address (`{ message }` only: no `Retry-After`, no `statusCode`).
+The email contains a
 deep link (`APP_MOBILE_RESET_URL?token=…&email=…`) the app should handle.
 
 #### 🔓 `POST /auth/reset-password`
@@ -391,8 +393,9 @@ Query: `status`, `period_from`, `period_until` (YYYY-MM-DD, against `issue_date`
   "lease": { "id": 9, "reference": "LSE-HW-2026-0007", "unit": { "id": 4, "code": "A-01", "floor": "G" } } } ],
   "meta": { "currentPage": 1, "lastPage": 4, "perPage": 25, "total": 92 }, "links": { ... } }
 ```
-Invoice `status` ∈ `draft`, `issued`, `partially_paid`, `overdue`, `paid`,
-`cancelled`, `credited`, `disputed`, `written_off`.
+Invoice `status` ∈ `issued`, `partially_paid`, `overdue`, `paid`, `cancelled`,
+`credited`, `disputed`, `written_off` — never `draft`: a draft is not a document yet,
+and no tenant surface returns one.
 > **`etaStatus` / `etaSubmissionId` / `etaLongId` are ABSENT** (2026-08-22). They carried the
 > Egyptian Tax Authority e-invoice references for a "tax-registered" badge. Module 16 is frozen
 > (`App\Support\Modules::FROZEN`), so no invoice is ever submitted and the keys could only ever be
@@ -791,8 +794,9 @@ now the same on both figures — **`null` means nobody has looked yet; `0` is an
 **One exception, and `isEstimate` names it** (since 2026-09-11). When a tenant is chased and still
 files nothing, the mall raises the period on their behalf (`sales:estimate-missing`, from their own
 trailing average): `isEstimate` is `true`, `declaredSales` holds the **mall's** estimate — not a figure
-the tenant typed — and `calculatedPercentageRent` is `0` until staff lock it, which is NOT "reviewed,
-nothing due". Label it as the mall's estimate and hold the rent as pending until `isLocked`. The
+the tenant typed — and `calculatedPercentageRent` is not final until staff lock it: `0` as raised, or a
+figure computed from the mall's estimate once an operator edits it, and in neither case "reviewed".
+Label it as the mall's estimate and hold the rent as pending until `isLocked`. The
 tenant cannot file over an estimate today (the period is refused as a duplicate), so do not build a
 "replace the estimate" action on this field.
 

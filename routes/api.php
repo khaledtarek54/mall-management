@@ -95,10 +95,13 @@ Route::prefix('v1')->group(function () {
     // web pay page all spent ONE counter per address, each route measuring the shared count against
     // its own ceiling. Five screens of the feed and the next sign-in answered 429; three wrong
     // passwords and the reset refused before it was asked. Behind one NAT — a mall's Wi-Fi, the QA
-    // office — that is one person's browsing locking another out of their first sign-in. The mobile
-    // team measured it on the live box: five GETs across four public routes took one counter from 119
-    // to 115 (their drift report, `BACKEND-SYNC-AUDIT.md` §L L1). The limits are unchanged; only the
-    // counters are separate, and `NoTwoThrottlesShareACounterConformanceTest` keeps them that way.
+    // office — that is one person's browsing locking another out of their first sign-in (the mobile
+    // team's drift report, `BACKEND-SYNC-AUDIT.md` §L L1). To see it on a box, do not watch the feed's
+    // own counter — its four routes are one group and share `api-public` by design, so 119 → 115 reads
+    // the same before and after. Browse five feed screens, then sign in wrongly: 429 before, 401 after;
+    // or read `/health`'s `X-RateLimit-Remaining` after them: 54 before, 59 after. The limits are
+    // unchanged; only the counters are separate, and `NoTwoThrottlesShareACounterConformanceTest` keeps
+    // them that way.
     Route::middleware('throttle:5,1,api-login')->group(function () {
         Route::post('auth/login', LoginController::class)->name('api.v1.auth.login');
     });

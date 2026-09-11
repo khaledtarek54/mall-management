@@ -24,7 +24,8 @@ use Illuminate\Http\Request;
  * paid and the tenant gets the standard payment-received notification.
  *
  * Guards mirror InitiatePaymobSessionController:
- *  - 403 invoice belongs to another tenant
+ *  - 403 coded `read_only` — a read-only login may not pay (EnsurePortalAdminForWrites)
+ *  - 404 invoice belongs to another tenant — 404, not 403, see below
  *  - 409 Paymob is enabled — use the real flow
  *  - 422 invoice not payable / no outstanding balance
  */

@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Routing\Middleware\ThrottleRequests;
-use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -44,14 +44,17 @@ function throttleCountersInTheRouteTable(): array
 
             [$class, $parameters] = array_pad(explode(':', $middleware, 2), 2, '');
 
-            if (! in_array($class, [ThrottleRequests::class, ThrottleRequestsWithRedis::class], true)) {
+            // `is_a`, not a list: ThrottleRequestsWithRedis extends it, and so would any throttle of ours.
+            if (! is_a($class, ThrottleRequests::class, true)) {
                 continue;
             }
 
             $parameters = $parameters === '' ? [] : explode(',', $parameters);
 
-            // One non-numeric parameter is a NAMED limiter (`throttle:api`), whose name is its counter.
-            $counter = count($parameters) === 1 && ! is_numeric($parameters[0])
+            // One parameter naming a REGISTERED limiter (`throttle:api`) is keyed by that name. Anything
+            // else that looks like one — `throttle:60|120`, the guest|user limit split — is no limiter at
+            // all: it keys on the requester alone, exactly like a throttle that names no counter.
+            $counter = count($parameters) === 1 && RateLimiter::limiter($parameters[0]) !== null
                 ? 'limiter:'.$parameters[0]
                 : ($parameters[2] ?? null);
 

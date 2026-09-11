@@ -88,10 +88,15 @@ class TenantRequestService
             // owned shops into this same method, so it had the same bug). So the ownership is asked
             // BEFORE the fallback, on the predicate the owner-only branch uses — `handed_over` AND
             // covering today — and a unit a lease of theirs holds still resolves through the lease.
+            // `whereHas('unit')`, or a soft-deleted shop still counts as owned: `Unit::find()` below then
+            // answers null and the party — who holds a live lease — was refused as having no shop at
+            // all, where before this branch the clamp filed it against their lease. That is the outcome
+            // it keeps.
             $namedOwnedUnit = $holdingLease === null && $requestedUnitId !== null && $tenant->unitOwnerships()
                 ->where('status', UnitOwnershipStatus::HandedOver)
                 ->covering()
                 ->where('unit_id', $requestedUnitId)
+                ->whereHas('unit')
                 ->exists();
 
             /** @var Lease|null $lease — the `?? activeLeases()->first()` fallback otherwise widens it to Model, hiding units()/unit. */

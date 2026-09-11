@@ -24,20 +24,20 @@ it('names only routes that exist — a rename cannot quietly make a personal act
 });
 
 it('lets a read-only login sign itself out', function () {
-    $token = makeTenantUser(makeTenant(), isAdmin: false)->createToken('phone', ['tenant:*'])->plainTextToken;
+    $headers = apiHeadersFor(makeTenantUser(makeTenant(), isAdmin: false));
 
-    $this->postJson('/api/v1/auth/logout', [], ['Authorization' => 'Bearer '.$token])->assertOk();
+    $this->postJson('/api/v1/auth/logout', [], $headers)->assertOk();
 
     app('auth')->forgetGuards();
 
     // Signed out means the token is gone, not merely that the request was not refused.
-    $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$token])->assertUnauthorized();
+    $this->getJson('/api/v1/me', $headers)->assertUnauthorized();
 });
 
 it('still refuses that login a write that is the company\'s — the control', function () {
-    $token = makeTenantUser(makeTenant(), isAdmin: false)->createToken('phone', ['tenant:*'])->plainTextToken;
+    $headers = apiHeadersFor(makeTenantUser(makeTenant(), isAdmin: false));
 
-    $this->postJson('/api/v1/me/requests', [], ['Authorization' => 'Bearer '.$token])
+    $this->postJson('/api/v1/me/requests', [], $headers)
         ->assertForbidden()
         ->assertJsonPath('error', 'read_only');
 });

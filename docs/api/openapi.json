@@ -6814,7 +6814,7 @@
                     },
                     "isEstimate": {
                         "type": "boolean",
-                        "description": "**The MALL's figure, not the tenant's.** A tenant who is chased and still files nothing\nhas the period raised on their behalf by `sales:estimate-missing`, from their own\nhistory \u2014 and that row reads exactly like one they filed: `submitted`, `declared_sales`\nholding the estimate, a percentage rent of 0 until staff lock it. So the app showed a\nturnover the tenant never typed as theirs, beside a 0 that reads \"reviewed, nothing due\"\nwhen nobody has reviewed anything (mobile \u00a7L L4, drift A9). From the COLUMN \u2014 never from\n`PercentageRentCalculationService`'s `is_estimate`, which means \"not locked yet\" and is\ntrue of every tenant-filed declaration awaiting review."
+                        "description": "**The MALL's figure, not the tenant's.** A tenant who is chased and still files nothing\nhas the period raised on their behalf by `sales:estimate-missing`, from their own\nhistory \u2014 and that row reads exactly like one they filed: `submitted`, `declared_sales`\nholding the estimate, a percentage rent that is not final until staff lock it (0 as raised,\na figure computed from the estimate once an operator saves it). So the app showed a\nturnover the tenant never typed as theirs, beside a rent that reads as reviewed when nobody\nhas reviewed anything (mobile \u00a7L L4, drift A9). From the COLUMN \u2014 never from\n`PercentageRentCalculationService`'s `is_estimate`, which means \"not locked yet\" and is\ntrue of every tenant-filed declaration awaiting review."
                     },
                     "declaredAt": {
                         "type": "string"
