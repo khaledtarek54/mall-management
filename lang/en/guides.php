@@ -1275,7 +1275,7 @@ return [
     ],
 
     'trial_balance' => [
-        'purpose' => 'Every account with its debit and credit total, for a period — the proof the books balance.',
+        'purpose' => 'Every account with its opening balance, the period\'s debits and credits, and its closing balance — the proof the books balance.',
         'steps' => [
             'Pick the period and the property, or read it consolidated.',
             'Check that debits equal credits.',

@@ -307,7 +307,7 @@ exported to **PDF (bilingual, right-to-left Arabic)** for owners/auditors.
 
 | Report | العربية | What it shows |
 |---|---|---|
-| **Trial Balance** | ميزان المراجعة | Every account with its debit/credit balance; total debits = total credits (proof the books balance). |
+| **Trial Balance** | ميزان المراجعة | Every account with its opening balance, the period's debits and credits, and its closing balance — three debit/credit pairs, each of which foots (proof the books balance). |
 | **Income Statement** | قائمة الدخل | Revenue − Expenses = Profit/Loss for the period. |
 | **Balance Sheet** | قائمة المركز المالي | Assets = Liabilities + Equity at a point in time. |
 | **Cash-Flow Statement** | قائمة التدفقات النقدية | Where cash came from and went — operating, investing, financing; reconciles to the actual cash change. |

@@ -518,8 +518,10 @@ All under the **Accounting** navigation group (`admin.groups.accounting`), gated
 - **`JournalEntryResource`** — قيود اليومية. Create a **manual** journal entry with a
   balanced lines repeater (live debit/credit totals); list + view auto-posted entries;
   a **Post** action and a **Void** (reverse) action. Editing is blocked once `posted`.
-- **`TrialBalance` page** — ميزان المراجعة. Every account with total debit / total
-  credit / closing balance; proves `Σ debit = Σ credit`. Filter by property + period.
+- **`TrialBalance` page** — ميزان المراجعة. Every account with a balance or a movement in the
+  window: **opening balance · the window's debit and credit · closing balance**, each balance on its
+  side, three column pairs that each foot (2026-09-11 — see *A month's trial balance opens with the
+  balance brought forward* below). Filter by property + period.
 - **`GeneralLedger` page** — دفتر الأستاذ. Per-account running statement (كشف حساب).
 
 Income statement & balance sheet pages land in **Phase 2**.
@@ -593,7 +595,7 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 
 | Report | Arabic | Definition |
 |--------|--------|------------|
-| Trial Balance | ميزان المراجعة | per account: Σ debit, Σ credit, balance — must net to zero overall |
+| Trial Balance | ميزان المراجعة | per account: opening balance (Dr/Cr) · the window's Σ debit and Σ credit · closing balance (Dr/Cr) — each of the three pairs must foot |
 | General Ledger / account statement | دفتر الأستاذ / كشف حساب | per account: every line, running balance |
 | Income Statement (P&L) | قائمة الدخل | Operating revenue − operating expenses = **NET OPERATING INCOME**; then ± below-the-line (depreciation, interest, gains/losses on disposal) = net profit. Contra-revenue nets into revenue. The split follows `ledger_accounts.statement_section`, never the code — see *A property P&L stops at net operating income* below. |
 | Balance Sheet | قائمة المركز المالي | Assets = Liabilities + Equity + net-income-for-period (until year-end close, Phase 4) |
@@ -1057,7 +1059,11 @@ Three ways it was sized wrong, and one way the fix was:
   statement was ever going to show, roughly **doubling** the figure (the unallocated P&L, then the
   entry that closes it). `unallocated()` now takes `excludeClosing`, and
   `ScopesLedgerReport::unallocatedExcludesClosing()` (default false) is true on exactly those two.
-  The trial balance and balance sheet, whose figures DO carry the close, still count it.
+  The trial balance and balance sheet, whose figures DO carry the close, still count it — and
+  since 2026-09-11 both count **cumulatively** (`unallocatedRange()` = `[null, periodEnd]`),
+  because the trial balance's closing column is an *as at* figure exactly as the balance sheet's
+  are: bounded to the month, a null-property entry dated before the window sat in nobody's
+  opening and was reported nowhere.
 - **The general ledger is ONE account's movements.** A portfolio-wide count beside it answers a
   question the reader did not ask, and reads as though that account were missing money it never had.
   `unallocatedAccountId()` narrows it — and **narrowed, `SUM(jl.debit)` is the wrong aggregate**: a
@@ -1080,6 +1086,57 @@ email's copy of that CSV, and the PDF — interpolated the same three placeholde
 places, which is what let the PDF drift. And `cumulative` (the flag that stops an *as at* statement
 being worded *"This period holds…"*) is answered by `unallocated()` itself, which owns the window,
 rather than derived again per renderer — where only one of the copies ever gets a test.
+
+### A month's trial balance opens with the balance brought forward (2026-09-11)
+
+**The defect.** `LedgerReportService::trialBalance()` aggregated `journal_lines` **inside the
+selected window only**. For the whole-ledger read (no `from`) that is a trial balance; for a month
+it is a movement summary under the trial balance's name. Measured on the demo books for August
+2026: bank `11102001` printed **Dr 17,000** — August's net movement — where its balance at 31
+August is **Cr 1,948,000**, and three accounts carrying a balance but no August entry were absent
+from the statement entirely. The opening-balance rule had existed the whole time, two methods down,
+in `accountLedger()` (*"movement strictly before `from`"*); this report never called it. Raised by
+the client on 2026-09-02 as *"Debit · Credit · افتتاحي · ختامي — four columns"*, which is Yardi's
+*Beginning · Debits · Credits · Ending*, SAP's and Odoo's *Initial · Debit · Credit · End* — and
+in the Egyptian ميزان المراجعة each of opening and closing is a debit/credit pair.
+
+**The rule.** Three column pairs, each footing on its own:
+
+| | Debit | Credit |
+|---|---|---|
+| **Opening** (الرصيد الافتتاحي) | net of every line strictly before `from`, on its side | |
+| **Movement** (الحركة) | Σ debit in the window | Σ credit in the window |
+| **Closing** (الرصيد الختامي) | opening + debit − credit, on its side | |
+
+`balanced` is true only when **all three** pairs foot. With no `from` the opening is zero on every
+row and the closing equals the movement — the whole-ledger read every caller without a window has
+always had, which is why no tie-out test in the suite moved. The same rows feed the screen, the CSV
+(nine columns) and the PDF (landscape — six money columns do not fit a portrait sheet).
+
+**Three things the fix got wrong on the first pass, each found by the review and each a tooth now:**
+
+- `aggregate()` answers for any account with a **line**, not a non-zero **net** — so an account
+  whose history before the window nets to nothing (a void and its re-post; every P&L account the
+  year-end close zeroed) printed as six dashes on every later month's statement, for ever, with
+  "Show accounts with no movement" off. Measured after `YearEndCloseService::close()`: January listed
+  every account that traded last year at nil. Such a row is dropped; the toggle's own helper still
+  lists it under `whereNotIn`, exactly as it lists a never-posted account.
+- The unallocated notice (EG-27) was still bounded to the month while the closing column had become
+  *as at*: a null-property entry dated before the window sat in nobody's opening and was reported
+  nowhere — silent on exactly the month it was missing from. `TrialBalance::unallocatedRange()` and
+  the PDF's `window:` are open-ended now, the reason `BalanceSheet::unallocatedRange()` already was.
+- `TrialBalance::report()` was called by the subheading, the rows and all six column totals —
+  eight calls, sixteen GROUP-BY aggregates over `journal_lines` per render. Memoised per request,
+  keyed on everything the answer depends on.
+
+**Gotchas.** The opening is two spellings of one bound (`whereDate <= from − 1 day` here,
+`whereDate < from` in `accountLedger()`); the regression test asserts the two agree for one account
+and window, which is the only thing tying them. `sortBy('code', SORT_STRING)` — PHP's default
+compares numeric strings as numbers and the database orders `la.code` as a varchar; identical on the
+shipped chart, divergent on an imported mixed-width one. A prior year not yet closed rolls into a
+P&L account's opening, as it does in SAP before the balance carry-forward: the report says what the
+ledger says, and the close is what moves it. `ATrialBalanceForAMonthOpensWithTheBalanceBroughtForwardTest`
+— thirteen mutations, each killing its own tooth.
 
 ### A period is the PAGE's answer, and a quarter is a quarter of the FISCAL year (2026-09-02)
 

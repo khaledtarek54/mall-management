@@ -31,25 +31,36 @@ class ReportCsvExporter
     /** @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>} */
     public function trialBalance(array $report): array
     {
+        // Three column pairs — opening, movement, closing — exactly as the screen and the PDF lay
+        // them out (`LedgerReportService::trialBalance()`), so a spreadsheet built from this file
+        // foots the same three ways the statement does.
         $rows = [];
         foreach ($report['rows'] as $r) {
             $r = (array) $r;
             $rows[] = [$r['code'], $this->name($r), __("admin.reports.csv.account_types.{$r['type']}"),
+                round((float) ($r['opening_debit'] ?? 0), 2), round((float) ($r['opening_credit'] ?? 0), 2),
+                round((float) ($r['debit_total'] ?? 0), 2), round((float) ($r['credit_total'] ?? 0), 2),
                 round((float) $r['debit_balance'], 2), round((float) $r['credit_balance'], 2)];
         }
-        // A totals line, so the exported file self-checks (debit total must equal credit total).
-        $rows[] = ['', __('admin.reports.csv.total'), '', round((float) $report['total_debit'], 2), round((float) $report['total_credit'], 2)];
+        // A totals line, so the exported file self-checks (each debit total must equal its credit).
+        $rows[] = ['', __('admin.reports.csv.total'), '',
+            round((float) ($report['total_opening_debit'] ?? 0), 2), round((float) ($report['total_opening_credit'] ?? 0), 2),
+            round((float) ($report['total_movement_debit'] ?? 0), 2), round((float) ($report['total_movement_credit'] ?? 0), 2),
+            round((float) $report['total_debit'], 2), round((float) $report['total_credit'], 2)];
         // …and the answer stated in words, because a totals line only self-checks for a reader who
         // thinks to compare two columns. The screen leads its subheading with it
         // (`TrialBalance::getSubheading()`) and the PDF prints it; measured 2026-09-04, no export
         // carried it at all (SW-182). Its own row, with the figure columns left empty so nothing a
         // spreadsheet totals picks it up.
-        $rows[] = ['', StatementIntegrity::balance((bool) $report['balanced']), '', '', ''];
+        $rows[] = ['', StatementIntegrity::balance((bool) $report['balanced']), '', '', '', '', '', '', ''];
 
         return [
             'headers' => [
                 __('admin.reports.csv.account_code'), __('admin.reports.csv.account'),
-                __('admin.reports.csv.type'), __('admin.reports.csv.debit'), __('admin.reports.csv.credit'),
+                __('admin.reports.csv.type'),
+                __('admin.reports.trial_balance_columns.opening_debit'), __('admin.reports.trial_balance_columns.opening_credit'),
+                __('admin.reports.trial_balance_columns.movement_debit'), __('admin.reports.trial_balance_columns.movement_credit'),
+                __('admin.reports.trial_balance_columns.closing_debit'), __('admin.reports.trial_balance_columns.closing_credit'),
             ],
             'rows' => $rows,
         ];

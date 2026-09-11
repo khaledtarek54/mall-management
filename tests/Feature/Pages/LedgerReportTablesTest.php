@@ -107,9 +107,12 @@ it('narrows the trial balance to the selected fiscal year', function () {
     $this->actingAs(makeUser('super_admin', [$asset->id]));
 
     asTenant($asset, function () {
-        // A year with no postings must come back empty rather than silently
+        // A PAST year with no postings must come back empty rather than silently
         // showing another year's ledger — the year picker is bound to the same
-        // $year property the PDF/CSV exports read.
+        // $year property the PDF/CSV exports read. A past year specifically: since
+        // 2026-09-11 the statement carries the balance brought forward, so a FUTURE
+        // year with no postings correctly shows every balance-sheet account's
+        // opening, which is not "another year's ledger" — it is this one's.
         $component = Livewire::test(TrialBalance::class)
             ->set('year', (int) now()->subYears(3)->year);
 

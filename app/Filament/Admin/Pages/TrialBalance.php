@@ -27,10 +27,12 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 
 /**
- * ميزان المراجعة — Trial Balance. Every account with movement, its total debit
- * and credit, and the net on its normal side. The two column totals must match.
+ * ميزان المراجعة — Trial Balance. Every account with a balance or a movement in the
+ * window: the balance brought forward, the window's debit and credit, and the closing
+ * balance, each on its own side. All three column pairs must foot.
  *
  * Rendered as a native Filament table over the report service's computed rows
  * (`records()`, not `query()` — a trial balance is an aggregate per account, not
@@ -163,14 +165,40 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
         ]);
     }
 
+    /**
+     * The report, ONCE per request. It is read by the subheading, the rows and all six column
+     * totals — measured before the memo, eight calls and sixteen GROUP-BY aggregates over
+     * `journal_lines` for one render. Keyed on everything that changes the answer, because a
+     * Livewire property moves between two calls in one request when a filter is being applied.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private array $reportMemo = [];
+
     protected function report(): array
     {
-        return app(LedgerReportService::class)->trialBalance(
+        $key = json_encode([$this->scopedAssetIds(), $this->periodStart()->toDateString(), $this->periodEnd()->toDateString(), $this->includeZeroBalances]);
+
+        return $this->reportMemo[$key] ??= app(LedgerReportService::class)->trialBalance(
             $this->scopedAssetIds(),
             $this->periodStart(),
             $this->periodEnd(),
             $this->includeZeroBalances,
         );
+    }
+
+    /**
+     * The closing balance is an *as at* figure now, so what the statement is missing is every
+     * unallocated entry up to the date — the same reason `BalanceSheet::unallocatedRange()` is
+     * open-ended. Bounded to the month, the notice under-counted (a null-property entry dated
+     * before the window sits in nobody's opening and was reported nowhere) and on a month with no
+     * such entry it fell silent while the opening column was still short.
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    protected function unallocatedRange(): array
+    {
+        return [null, $this->periodEnd()];
     }
 
     public function table(Table $table): Table
@@ -184,6 +212,10 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
                     'code' => $row['code'],
                     'account' => $locale === 'ar' ? $row['name_ar'] : $row['name_en'],
                     'type' => $row['type'],
+                    'opening_debit' => $row['opening_debit'],
+                    'opening_credit' => $row['opening_credit'],
+                    'debit_total' => $row['debit_total'],
+                    'credit_total' => $row['credit_total'],
                     'debit_balance' => $row['debit_balance'],
                     'credit_balance' => $row['credit_balance'],
                 ])
@@ -205,34 +237,14 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
                     // "what is IN 11101?" was the one screen that could not answer.
                     ->url(fn (array $record): ?string => $this->ledgerUrlForAccount($record['id'] ?? null))
                     ->color(fn (array $record): ?string => $this->ledgerUrlForAccount($record['id'] ?? null) ? 'primary' : null),
-                TextColumn::make('debit_balance')
-                    ->label(__('admin.fields.debit'))
-                    ->money('EGP')
-                    ->alignEnd()
-                    // A zero on one side is noise — the eye runs down whichever
-                    // column the account actually sits in.
-                    ->state(fn (array $record) => $record['debit_balance'] > 0 ? $record['debit_balance'] : null)
-                    ->placeholder('—')
-                    ->summarize(
-                        Summarizer::make('total')
-                            ->label(__('admin.reports.totals'))
-                            ->money('EGP')
-                            // Off the report, not the paginated page: this total is
-                            // half of the tie-out the whole statement is judged on.
-                            ->using(fn (): float => $this->report()['total_debit'])
-                    ),
-                TextColumn::make('credit_balance')
-                    ->label(__('admin.fields.credit'))
-                    ->money('EGP')
-                    ->alignEnd()
-                    ->state(fn (array $record) => $record['credit_balance'] > 0 ? $record['credit_balance'] : null)
-                    ->placeholder('—')
-                    ->summarize(
-                        Summarizer::make('total')
-                            ->label(__('admin.reports.totals'))
-                            ->money('EGP')
-                            ->using(fn (): float => $this->report()['total_credit'])
-                    ),
+                // Three column pairs, each footing on its own — opening, the window's movement,
+                // closing (2026-09-11). Until then the screen printed the window's NET MOVEMENT
+                // under "Debit / Credit", which for any window narrower than the whole ledger is
+                // not a balance: the August bank line read Dr 17,000 where the account stood at
+                // Cr 1,948,000. The rows are the service's own; nothing here re-derives.
+                ...$this->pairColumns('opening_debit', 'opening_credit', 'opening', 'total_opening_debit', 'total_opening_credit'),
+                ...$this->pairColumns('debit_total', 'credit_total', 'movement', 'total_movement_debit', 'total_movement_credit'),
+                ...$this->pairColumns('debit_balance', 'credit_balance', 'closing', 'total_debit', 'total_credit'),
             ])
             // A trial balance is read as one continuous statement that has to
             // foot; paginating it would split the totals off their rows.
@@ -240,5 +252,36 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
             ->emptyStateIcon('heroicon-o-scale')
             ->emptyStateHeading(__('admin.reports.no_movements'))
             ->emptyStateDescription(__('admin.reports.no_movements_hint'));
+    }
+
+    /**
+     * One debit/credit pair of the trial balance — the label is the pair's own name, the total is
+     * read off the REPORT rather than the paginated page, because each pair is half of a tie-out
+     * the whole statement is judged on.
+     *
+     * @return array<int, TextColumn>
+     */
+    private function pairColumns(string $debitKey, string $creditKey, string $pair, string $debitTotal, string $creditTotal): array
+    {
+        $column = fn (string $key, string $label, string $total): TextColumn => TextColumn::make($key)
+            ->label(__("admin.reports.trial_balance_columns.{$label}"))
+            ->money('EGP')
+            ->alignEnd()
+            // A zero on one side is noise — the eye runs down whichever column the account
+            // actually sits in.
+            ->state(fn (array $record) => ($record[$key] ?? 0) > 0 ? $record[$key] : null)
+            ->placeholder('—')
+            ->summarize(
+                Summarizer::make('total')
+                    ->label(__('admin.reports.totals'))
+                    ->money('EGP')
+                    // No `?? 0`: a mistyped total key must throw, not print 0.00 under "Totals".
+                    ->using(fn (): float => (float) $this->report()[$total])
+            );
+
+        return [
+            $column($debitKey, "{$pair}_debit", $debitTotal),
+            $column($creditKey, "{$pair}_credit", $creditTotal),
+        ];
     }
 }

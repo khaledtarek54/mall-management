@@ -42,7 +42,11 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.trial-balance', fn (): array => [
             'report' => $this->reports->trialBalance($assetIds, $from, $to, $includeZeroBalances),
             'meta' => $this->meta($property, $period),
-        ], $assetIds, $period, $locale, window: [$from, $to]);
+            // Landscape, as the income-statement spread is past four money columns: opening,
+            // movement and closing are six. The notice window is open-ended for the reason the
+            // balance sheet's is: the closing column is an *as at* figure, so what it is missing
+            // is every unallocated entry up to the date, not only the month's.
+        ], $assetIds, $period, $locale, landscape: true, window: [null, $to]);
     }
 
     public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string

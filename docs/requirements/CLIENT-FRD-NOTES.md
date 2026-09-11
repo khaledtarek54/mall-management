@@ -200,7 +200,7 @@ These four decisions steer the FRs below:
 | 4 | Lease PDF from the lease fields; template from Jawad | ✅ **Built** (`LeaseAgreementPdfService`) | **No code until the template arrives**; transpose it into the wording block | S | |
 | 5 | Statement: totals due to you / due from you | One-sided (AR only) | **Build** — two totals from figures that already exist | (with 6) | |
 | 6 | Statement shows the deposit, reservation money, debit / credit / balance | Sectioned PDF; deposit held appears nowhere | **Build** — the PDF renders the ledger (one source) | M | |
-| 7 | Trial balance: opening · debit · credit · closing | Net movement of the window only — **a correctness defect** | **Build** — the market's four columns | S–M | |
+| 7 | Trial balance: opening · debit · credit · closing | Net movement of the window only — **a correctness defect** | ✅ **Shipped 2026-09-11** — three debit/credit pairs on screen, CSV and PDF ([modules/21](../modules/21-general-ledger.md#a-months-trial-balance-opens-with-the-balance-brought-forward-2026-09-11)) | S–M | ✅ built |
 | 8 | Ledger column "Charge" → "Debit"; PDF = the screen, every detail | ✅ **Rename shipped 2026-09-03**; PDF still a different document | **Build** the PDF half (with 6) — per-line grain | (with 6) | |
 | 9 | Description says which invoice was paid and how | Method only | **Build** (with 6) | (with 6) | |
 | 10 | Statement footer "valid for X days" | Fixed sentence | **Build** as an operator wording block — no setting needed | XS | |
@@ -398,6 +398,12 @@ Debit · Credit · End) print the same four. The client is asking for the standa
 two reports cannot disagree; a prior year not yet closed rolls into the opening exactly as it does in
 SAP), period debit, period credit, closing; all four total and foot; the whole-year view opens at the
 fiscal start. Effort **S–M**. **First in the order** — it is the one item that is wrong today.
+
+**✅ Shipped 2026-09-11** as three debit/credit pairs (opening · movement · closing) on the screen,
+the CSV and the landscape PDF; `balanced` requires all three to foot. The review found three faults
+in the fix — nil-net history printing as six-dash rows, the unallocated notice still bounded to the
+month, and the report computed eight times per render — all closed and pinned. Detail in
+[modules/21](../modules/21-general-ledger.md#a-months-trial-balance-opens-with-the-balance-brought-forward-2026-09-11).
 
 **#19 — *"The trail balance should be as tree, parent general account, w ynzl mnha ka tree hide and
 show."***

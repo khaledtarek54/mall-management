@@ -388,9 +388,10 @@ Everything else in §2 and §3 can follow, and §4 needs nothing but a nod.
 trial balance, the fixed-asset register, per-charge escalation, utility cut-off on arrears…). Each is
 worked through against Yardi and the market, with what already exists and a recommendation, in
 [requirements/CLIENT-FRD-NOTES.md §6](requirements/CLIENT-FRD-NOTES.md#6-meeting-2026-09-02--decisions-yardi--market--what-exists--recommendation).
-**Nothing there is decided yet** — three of the twenty-five are already built, one is a correctness
-defect (the month trial balance has no opening balance), and five go back to the client as
-questions of meaning. Decided points move here as rows; built ones close into §8.
+Decided points move here as rows; built ones close into §8. Three of the twenty-five were already
+built and five go back to the client as questions of meaning. **Point 7 shipped 2026-09-11** — the
+month trial balance had no opening balance and was a movement summary; it now carries opening ·
+movement · closing, each a debit/credit pair that foots ([modules/21](modules/21-general-ledger.md#a-months-trial-balance-opens-with-the-balance-brought-forward-2026-09-11)).
 
 ### 9.1 · The accountant's sitting
 

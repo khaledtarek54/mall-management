@@ -88,10 +88,11 @@ it('says on the exported trial balance whether it balances, after the totals lin
     $rows = $csv['rows'];
     $totals = $rows[count($rows) - 2];
 
-    expect($csv['headers'])->toHaveCount(5)
+    // Nine columns since 2026-09-11 (three debit/credit pairs); the closing pair is the last two.
+    expect($csv['headers'])->toHaveCount(9)
         // The check is a row AFTER the totals line, not instead of it.
-        ->and((float) $totals[3])->toBe((float) $totals[4])
-        ->and((float) $totals[3])->toBeGreaterThan(0.0)
+        ->and((float) $totals[7])->toBe((float) $totals[8])
+        ->and((float) $totals[7])->toBeGreaterThan(0.0)
         ->and(end($rows)[1])->toBe(StatementIntegrity::balance(true));
 });
 

@@ -282,9 +282,16 @@ describe('the notice counts the population its own statement shows', function ()
         expect(collect($asked->getArrayCopy())->contains(fn (array $a) => $a['cumulative'] === true))->toBeTrue(
             'the balance sheet PDF counted a bounded period for an "as at" statement');
 
-        // …and the trial balance, which includes the close, must NOT have excluded it.
-        expect(collect($asked->getArrayCopy())->contains(fn (array $a) => $a['excludeClosing'] === false && $a['cumulative'] === false))->toBeTrue(
-            'the trial balance PDF dropped closing entries its own figures carry');
+        // …and the trial balance, which includes the close, must NOT have excluded it — and since
+        // 2026-09-11 its closing column is an *as at* figure, so its notice is cumulative like the
+        // balance sheet's. The three calls are asserted as the exact list, in call order, because
+        // "contains a cumulative-and-not-excluding call" is now satisfied by the balance sheet alone
+        // and would pass with the trial balance's window reverted to the month.
+        expect($asked->getArrayCopy())->toBe([
+            ['excludeClosing' => true, 'cumulative' => false],   // income statement
+            ['excludeClosing' => false, 'cumulative' => true],   // balance sheet
+            ['excludeClosing' => false, 'cumulative' => true],   // trial balance
+        ]);
     });
 
     it('does not call a cumulative read "this period"', function () {

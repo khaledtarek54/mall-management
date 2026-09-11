@@ -35,54 +35,122 @@ class LedgerReportService
     /**
      * ميزان المراجعة — Trial Balance.
      *
-     * One row per postable account that has movement, with total debit, total
-     * credit, and the net balance shown on its normal side. The grand total of
-     * the debit column must equal the grand total of the credit column.
+     * One row per postable account, with the balance BROUGHT FORWARD into the window, the window's
+     * own debit and credit movement, and the CLOSING balance — each balance shown on its side. Three
+     * pairs of columns, and each pair must foot: Σ opening debit = Σ opening credit, Σ movement
+     * debit = Σ movement credit, Σ closing debit = Σ closing credit. That is Odoo's *Initial ·
+     * Debit · Credit · End* and Yardi's *Beginning · Debits · Credits · Ending* read as
+     * debit/credit pairs, which is how an Egyptian ميزان المراجعة is laid out.
      *
-     * @return array{rows: Collection, total_debit: float, total_credit: float, balanced: bool}
+     * **Until 2026-09-11 this had no opening balance at all**, and so for any window narrower than
+     * the whole ledger it was a movement summary wearing the trial balance's name. Measured on the
+     * demo books for August 2026: bank `11102001` printed **Dr 17,000** — August's net movement —
+     * where its balance at 31 August is **Cr 1,948,000**, and three accounts carrying a balance
+     * but no August entry were absent from the statement entirely. The opening-balance rule had
+     * existed the whole time, two methods down, in {@see accountLedger()} ("movement strictly
+     * before `from`"); this report never called it. It is the same rule now, so the two cannot
+     * disagree about what an account opened at.
+     *
+     * With no `$from` the opening is zero on every row and the closing equals the movement — the
+     * whole-ledger read every caller without a window has always had.
+     *
+     * A prior year that has not been closed rolls into the opening of a P&L account, exactly as it
+     * does in SAP before the balance carry-forward: the report says what the ledger says, and the
+     * year-end close is what moves it into retained earnings.
+     *
+     * @return array{rows: Collection, total_opening_debit: float, total_opening_credit: float, total_movement_debit: float, total_movement_credit: float, total_debit: float, total_credit: float, balanced: bool}
      */
     /**
      * @param  bool  $includeZeroBalances  list postable accounts that had no movement at all (RP-02)
      */
     public function trialBalance(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null, bool $includeZeroBalances = false): array
     {
-        $rows = $this->aggregate($assetIds, $from, $to)
-            ->map(function ($row) {
-                $debit = round((float) $row->debit_total, 2);
-                $credit = round((float) $row->credit_total, 2);
-                $net = round($debit - $credit, 2); // + = net debit, − = net credit
+        // Brought forward = everything strictly before `$from`. `aggregate()` bounds on `whereDate
+        // <=`, so the day before `$from` is that bound exactly — the same window `accountLedger()`
+        // opens on with `whereDate < from`. Two spellings of one bound, and the regression test is
+        // what ties them: it asserts this report's opening equals that ledger's for the same
+        // account and window, so a change to either that the other does not follow goes red.
+        $opening = $from
+            ? $this->aggregate($assetIds, null, $from->copy()->subDay())->keyBy('id')
+            : collect();
+
+        $movement = $this->aggregate($assetIds, $from, $to)->keyBy('id');
+
+        // The UNION of the two populations. An account with a balance and no movement in the
+        // window is the very row a movement-only read dropped, and it is exactly the row a reader
+        // needs on a trial balance for one month.
+        //
+        // But `aggregate()` answers for any account with a LINE, not a non-zero NET — so an
+        // account whose history before the window nets to nothing (a void and its re-post, or
+        // every P&L account the year-end close zeroed) would print as a row of six dashes on
+        // every month's statement for ever, and only "Show accounts with no movement" is meant
+        // to list those. Measured before this filter: after a year-end close, January listed
+        // every account that traded last year at nil. Dropped here; the toggle's own helper
+        // picks them up by `whereNotIn` exactly as it did before.
+        $rows = $opening->keys()->merge($movement->keys())->unique()
+            ->reject(function ($id) use ($opening, $movement): bool {
+                $before = $opening->get($id);
+
+                return $movement->get($id) === null
+                    && $before !== null
+                    && round((float) $before->debit_total - (float) $before->credit_total, 2) == 0.0;
+            })
+            ->map(function ($id) use ($opening, $movement): array {
+                $before = $opening->get($id);
+                $within = $movement->get($id);
+                $account = $within ?? $before;
+
+                $openingNet = $before ? round((float) $before->debit_total - (float) $before->credit_total, 2) : 0.0;
+                $debit = $within ? round((float) $within->debit_total, 2) : 0.0;
+                $credit = $within ? round((float) $within->credit_total, 2) : 0.0;
+                $closingNet = round($openingNet + $debit - $credit, 2); // + = net debit, − = net credit
 
                 return [
-                    'account_id' => (int) $row->id,
-                    'code' => $row->code,
-                    'name_en' => $row->name_en,
-                    'name_ar' => $row->name_ar,
-                    'type' => $row->type,
-                    'normal_balance' => $row->normal_balance,
+                    'account_id' => (int) $account->id,
+                    'code' => $account->code,
+                    'name_en' => $account->name_en,
+                    'name_ar' => $account->name_ar,
+                    'type' => $account->type,
+                    'normal_balance' => $account->normal_balance,
+                    // Trial-balance presentation: a positive net sits in the debit column, a
+                    // negative net in the credit column — for the opening and the closing alike.
+                    'opening_debit' => $openingNet > 0 ? $openingNet : 0.0,
+                    'opening_credit' => $openingNet < 0 ? -$openingNet : 0.0,
                     'debit_total' => $debit,
                     'credit_total' => $credit,
-                    // Trial-balance presentation: positive net sits in the debit
-                    // column, negative net in the credit column.
-                    'debit_balance' => $net > 0 ? $net : 0.0,
-                    'credit_balance' => $net < 0 ? -$net : 0.0,
+                    'debit_balance' => $closingNet > 0 ? $closingNet : 0.0,
+                    'credit_balance' => $closingNet < 0 ? -$closingNet : 0.0,
                 ];
             })
+            // SORT_STRING: the database orders `la.code` as a varchar, and PHP's default compares
+            // numeric strings as numbers — identical on the shipped 8-digit leaves, and a mixed-
+            // width imported chart would put '9' after '10' on screen and before it in the ledger.
+            ->sortBy('code', SORT_STRING)
             ->values();
 
         if ($includeZeroBalances) {
             $rows = $rows->concat($this->accountsWithNoMovement($rows->pluck('account_id')->all()))
-                ->sortBy('code')
+                ->sortBy('code', SORT_STRING)
                 ->values();
         }
 
-        $totalDebit = round($rows->sum('debit_balance'), 2);
-        $totalCredit = round($rows->sum('credit_balance'), 2);
+        $totals = [
+            'total_opening_debit' => round($rows->sum('opening_debit'), 2),
+            'total_opening_credit' => round($rows->sum('opening_credit'), 2),
+            'total_movement_debit' => round($rows->sum('debit_total'), 2),
+            'total_movement_credit' => round($rows->sum('credit_total'), 2),
+            'total_debit' => round($rows->sum('debit_balance'), 2),
+            'total_credit' => round($rows->sum('credit_balance'), 2),
+        ];
 
         return [
             'rows' => $rows,
-            'total_debit' => $totalDebit,
-            'total_credit' => $totalCredit,
-            'balanced' => abs($totalDebit - $totalCredit) < 0.005,
+            ...$totals,
+            // Every pair, not only the closing one: a ledger whose entries all balance foots on all
+            // three, and one that does not is the thing this flag exists to say out loud.
+            'balanced' => abs($totals['total_opening_debit'] - $totals['total_opening_credit']) < 0.005
+                && abs($totals['total_movement_debit'] - $totals['total_movement_credit']) < 0.005
+                && abs($totals['total_debit'] - $totals['total_credit']) < 0.005,
         ];
     }
 
@@ -490,7 +558,8 @@ class LedgerReportService
      * Aggregate posted debit/credit per postable account with movement.
      */
     /**
-     * Postable accounts that produced no line at all in the range.
+     * Postable accounts the trial balance is not already listing — no balance brought forward and
+     * no line in the window (or, since 2026-09-11, a history that nets to nothing).
      *
      * `aggregate()` starts from `journal_lines`, so an account nobody has posted to is absent from
      * every ledger report rather than present at zero. That is the right default — a trial balance
@@ -521,6 +590,8 @@ class LedgerReportService
                 'name_ar' => $account->name_ar,
                 'type' => $account->type,
                 'normal_balance' => $account->normal_balance,
+                'opening_debit' => 0.0,
+                'opening_credit' => 0.0,
                 'debit_total' => 0.0,
                 'credit_total' => 0.0,
                 'debit_balance' => 0.0,

@@ -46,14 +46,16 @@ it('flattens the trial balance to rows that self-balance', function () {
     $report = $this->reports->trialBalance([$this->asset->id], $this->from, $this->to);
     $csv = $this->exporter->trialBalance($report);
 
-    expect($csv['headers'])->toHaveCount(5);
+    // code · account · type, then three debit/credit pairs — opening, movement, closing
+    // (2026-09-11; it was one pair, the window's net movement, until then).
+    expect($csv['headers'])->toHaveCount(9);
 
     // The totals line — followed since SW-182 by the ✓/✗ the screen and the PDF both carry, so
     // `end()` no longer finds it. Located by its own label rather than by position, which is what
-    // made this assertion fragile in the first place.
+    // made this assertion fragile in the first place. The CLOSING pair is the last two cells.
     $totals = collect($csv['rows'])->first(fn (array $row): bool => $row[1] === __('admin.reports.csv.total'));
-    expect((float) $totals[3])->toBe((float) $totals[4])
-        ->and((float) $totals[3])->toBeGreaterThan(0.0)
+    expect((float) $totals[7])->toBe((float) $totals[8])
+        ->and((float) $totals[7])->toBeGreaterThan(0.0)
         // Every data row carries an account code + numeric debit/credit.
         ->and($csv['rows'][0][0])->not->toBeEmpty();
 });

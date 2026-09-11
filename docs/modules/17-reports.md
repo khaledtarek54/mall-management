@@ -446,7 +446,9 @@ report now exports to **CSV**:
   Account names follow the locale; amounts are plain numbers (no separators/symbol) so a spreadsheet
   reads them as numbers. Methods: `trialBalance`, `incomeStatement`, `balanceSheet`, `cashFlow`,
   `generalLedger`, `arAging`. Statements carry per-section subtotals + a final net line, so the CSV
-  reads exactly like the on-screen report; the trial balance carries a self-checking totals row.
+  reads exactly like the on-screen report; the trial balance carries its three debit/credit pairs
+  (opening · movement · closing, nine columns since 2026-09-11) and a totals row that self-checks
+  each pair.
   Since EG-28 they also carry the **chart's own group subtotals** — current vs non-current, operating
   revenue vs other income — from `App\Support\StatementGroups`, the same helper the screen and the
   PDF use. *"Reads exactly like the on-screen report"* is a claim that has to be kept true by
