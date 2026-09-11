@@ -43,7 +43,11 @@ class ChargeCodeSeeder extends Seeder
         ['code' => 'base_rent', 'en' => 'Base rent', 'ar' => 'الإيجار الأساسي', 'role' => 'rent_revenue', 'tax' => 'VAT_EXEMPT', 'sort' => 10],
         ['code' => 'service_charge', 'en' => 'Service charge', 'ar' => 'رسوم الخدمة', 'role' => 'service_charge_revenue', 'tax' => 'VAT_14', 'sort' => 20],
         // The levy follows rent today. Flagged for the accountant as possibly a taxable service —
-        // which is now their edit to make, on this row, rather than a code change.
+        // which is now their edit to make, on this row, rather than a code change. The tester
+        // asked for 14% on it (Trello D0fZZ0fK, 2026-09-11) and the owner kept it here: a
+        // promotional-fund contribution arguably IS a service at the standard rate under VAT Law
+        // 67/2016, but collecting a tax nobody has ruled due is the worse default, and the ruling
+        // is one row on /admin/charge-codes that reaches every lease the moment it is made.
         ['code' => 'marketing', 'en' => 'Marketing levy', 'ar' => 'رسوم التسويق', 'role' => 'marketing_revenue', 'tax' => 'VAT_EXEMPT', 'sort' => 30],
         ['code' => 'utility', 'en' => 'Utility recharge', 'ar' => 'إعادة تحميل المرافق', 'role' => 'utility_revenue', 'tax' => 'VAT_14', 'sort' => 40],
         // Parking is a licence to use a space rather than a lease of it, and the VAT Law schedules

@@ -232,7 +232,7 @@ a rebuild.
 
 | # | Ships as | ✓ or change |
 |---|---|---|
-| A1.2–A1.6 | Percentage rent, CAM true-up, late fees and the marketing levy are **VAT-exempt**; levy is **5% of base rent only** | |
+| A1.2–A1.6 | Percentage rent, late fees and the marketing levy are **VAT-exempt** (the levy is your accountant's call — a promotional service is arguably taxable; your QA asked for 14% on 2026-09-11 and it stays exempt until ruled — one row on `/admin/charge-codes`); CAM recovery carries 14%; levy is **5% of base rent only** | |
 | A1.7 | Late fee **2%** of outstanding · **minimum 50 EGP** · **7-day grace** · charged **once** · **no cap** | |
 | A1.8 | **Security deposit 3 months** · **escalation 7% fixed** (a CPI-indexed option exists) | |
 | A1.9 | Percentage rent on an **artificial breakpoint**: (sales − threshold) × rate | |
