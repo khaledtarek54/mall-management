@@ -9,10 +9,10 @@ use App\Services\TenantStatementPdfService;
 use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\TenantBalances;
 use App\Support\TenantScope;
-use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -22,7 +22,6 @@ use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Contracts\HasTable;
@@ -211,31 +210,7 @@ class TenantsTable
                             ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         blank: fn (Builder $query) => $query,
                     ),
-                Filter::make('created_range')
-                    ->label(__('admin.users.created'))
-                    ->schema([
-                        DatePicker::make('created_from')
-                            ->label(__('admin.filters.created_from'))
-                            ->native(false),
-                        DatePicker::make('created_until')
-                            ->label(__('admin.filters.created_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['created_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '>=', $date))
-                        ->when($data['created_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['created_from'] ?? null) {
-                            $indicators[] = __('admin.filters.created_from').': '.Carbon::parse($data['created_from'])->format('d/m/Y');
-                        }
-                        if ($data['created_until'] ?? null) {
-                            $indicators[] = __('admin.filters.created_until').': '.Carbon::parse($data['created_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('created_at', __('admin.users.created'), name: 'created_range'),
                 TrashedFilter::make(),
 
                 ...CustomFieldsTable::filters('tenant'),

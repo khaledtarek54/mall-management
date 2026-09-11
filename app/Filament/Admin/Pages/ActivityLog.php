@@ -11,17 +11,15 @@ use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
 use App\Support\AssignedAssets;
 use App\Support\Filament\CauserFilter;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Modules;
 use BackedEnum;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
-use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Pagination\CursorPaginator;
@@ -250,31 +248,7 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
                     }),
 
                 // Custom date range — used when the preset doesn't fit.
-                Filter::make('created_range')
-                    ->label(__('admin.activity.when'))
-                    ->schema([
-                        DatePicker::make('created_from')
-                            ->label(__('admin.filters.created_from'))
-                            ->native(false),
-                        DatePicker::make('created_until')
-                            ->label(__('admin.filters.created_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['created_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '>=', $date))
-                        ->when($data['created_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['created_from'] ?? null) {
-                            $indicators[] = __('admin.filters.created_from').': '.Carbon::parse($data['created_from'])->format('d/m/Y');
-                        }
-                        if ($data['created_until'] ?? null) {
-                            $indicators[] = __('admin.filters.created_until').': '.Carbon::parse($data['created_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('created_at', __('admin.activity.when'), name: 'created_range'),
             ])
             ->filtersFormColumns(2)
             ->defaultSort('id', 'desc')

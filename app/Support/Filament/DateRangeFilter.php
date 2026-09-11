@@ -16,7 +16,11 @@ use Illuminate\Database\Eloquent\Builder;
  * the only way to answer it was to sort by date and scroll.
  *
  * Extracted rather than copied a seventh and eighth time. The copies had not drifted yet, which is
- * the only moment extracting one is cheap.
+ * the only moment extracting one is cheap — and then the five older copies were never converted
+ * and sixteen more were written beside the seam. Measured 2026-09-12: twenty-one inline copies
+ * against three uses, nine of them with NO chip (an applied range with nothing in the bar to say
+ * so or to clear it — SW-025's own defect), under four spellings of the picker keys. All read
+ * this now; `ADateRangeFilterIsOneDefinitionConformanceTest` keeps it so.
  *
  * **`whereDate`, deliberately.** These columns are `date` on some tables and `datetime` on others
  * (`announcements.sent_at`), and a plain `>=` against a `datetime` silently excludes everything
@@ -25,9 +29,17 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class DateRangeFilter
 {
-    public static function make(string $column, ?string $label = null): Filter
+    /**
+     * @param  string  $column  the date column the range narrows
+     * @param  string|null  $label  the filter's label; the field's own label by default
+     * @param  string|null  $name  the filter's NAME — the key saved views and the remembered
+     *                             filter state are stored under. Defaults to the column. Given
+     *                             where a hand-written copy this replaces already had a name
+     *                             (`payment_date_range`), so what an operator saved keeps working.
+     */
+    public static function make(string $column, ?string $label = null, ?string $name = null): Filter
     {
-        return Filter::make($column)
+        return Filter::make($name ?? $column)
             ->label($label ?? __('admin.fields.'.$column))
             ->schema([
                 DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),

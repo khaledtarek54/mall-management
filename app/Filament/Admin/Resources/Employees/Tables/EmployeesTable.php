@@ -5,14 +5,13 @@ namespace App\Filament\Admin\Resources\Employees\Tables;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -81,15 +80,7 @@ class EmployeesTable
                 SelectFilter::make('payment_method')
                     ->label(__('admin.employees.fields.payment_method'))
                     ->options(fn (): array => __('admin.employees.methods')),
-                Filter::make('hire_date')
-                    ->label(__('admin.employees.fields.hire_date'))
-                    ->schema([
-                        DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
-                        DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),
-                    ])
-                    ->query(fn ($query, array $data) => $query
-                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('hire_date', '>=', $d))
-                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('hire_date', '<=', $d))),
+                DateRangeFilter::make('hire_date', __('admin.employees.fields.hire_date')),
                 TrashedFilter::make(),
             ])
             ->recordActions([

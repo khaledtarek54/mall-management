@@ -6,10 +6,10 @@ use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Support\CategorySuggestions;
+use App\Support\Filament\DateRangeFilter;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
@@ -136,15 +136,7 @@ class FixedAssetsTable
                         [],   // only what is actually in use — a filter for zero rows is noise
                         FixedAsset::query()->whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
                     )),
-                Filter::make('acquisition_date')
-                    ->label(__('admin.fixed_assets.fields.acquisition_date'))
-                    ->schema([
-                        DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
-                        DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),
-                    ])
-                    ->query(fn ($query, array $data) => $query
-                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('acquisition_date', '>=', $d))
-                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('acquisition_date', '<=', $d))),
+                DateRangeFilter::make('acquisition_date', __('admin.fixed_assets.fields.acquisition_date')),
                 // Fully-depreciated assets still on the books — the write-off worklist.
                 //
                 // An asset is fully depreciated when accumulated has reached the DEPRECIABLE BASE

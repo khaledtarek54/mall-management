@@ -5,15 +5,14 @@ namespace App\Filament\Admin\Resources\Announcements\Tables;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
 use App\Models\User;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -110,15 +109,7 @@ class AnnouncementsTable
                     ->relationship('creator')
                     ->entity(User::class),
 
-                Filter::make('sent_at')
-                    ->label(__('admin.announcements.fields.sent_at'))
-                    ->schema([
-                        DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
-                        DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),
-                    ])
-                    ->query(fn ($query, array $data) => $query
-                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('sent_at', '>=', $d))
-                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('sent_at', '<=', $d))),
+                DateRangeFilter::make('sent_at', __('admin.announcements.fields.sent_at')),
 
                 TrashedFilter::make(),
             ])

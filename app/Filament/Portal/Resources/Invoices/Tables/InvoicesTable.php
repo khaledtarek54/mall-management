@@ -7,14 +7,13 @@ use App\Models\Invoice;
 use App\Models\Unit;
 use App\Services\InvoicePdfService;
 use App\Support\BadgeColors;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Portal;
 use App\Support\StatusOptions;
-use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -109,31 +108,7 @@ class InvoicesTable
                     ->query(fn (Builder $query, array $data): Builder => $query
                         // Either agreement — a unit owner reads his own assessments here too.
                         ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->forUnit((int) $unitId))),
-                Filter::make('period')
-                    ->label(__('admin.filters.period'))
-                    ->schema([
-                        DatePicker::make('period_from')
-                            ->label(__('admin.filters.period_from'))
-                            ->native(false),
-                        DatePicker::make('period_until')
-                            ->label(__('admin.filters.period_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['period_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '>=', $date))
-                        ->when($data['period_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['period_from'] ?? null) {
-                            $indicators[] = __('admin.filters.period_from').': '.Carbon::parse($data['period_from'])->format('d/m/Y');
-                        }
-                        if ($data['period_until'] ?? null) {
-                            $indicators[] = __('admin.filters.period_until').': '.Carbon::parse($data['period_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('period_start', __('admin.filters.period'), name: 'period'),
                 // Two filters, because the tenant's dashboard shows two figures and they are not
                 // the same set. This one is EVERYTHING STILL OWED — the set behind "Outstanding
                 // balance", which is the stat that links here.

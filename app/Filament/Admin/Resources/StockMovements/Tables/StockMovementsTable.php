@@ -7,13 +7,12 @@ use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
@@ -89,18 +88,7 @@ class StockMovementsTable
                     ->label(__('admin.inventory.fields.item'))
                     ->relationship('item')
                     ->entity(InventoryItem::class),
-                Filter::make('moved_on')
-                    ->label(__('admin.inventory.fields.moved_on'))
-                    ->schema([
-                        DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
-                        DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),
-                    ])
-                    // `$query`, never `$q`: Filament resolves an untyped closure argument by NAME,
-                    // and a filter whose first parameter is named anything else registers,
-                    // renders and filters nothing while looking correct in review.
-                    ->query(fn ($query, array $data) => $query
-                        ->when($data['from'] ?? null, fn ($scoped, $date) => $scoped->whereDate('moved_on', '>=', $date))
-                        ->when($data['until'] ?? null, fn ($scoped, $date) => $scoped->whereDate('moved_on', '<=', $date))),
+                DateRangeFilter::make('moved_on', __('admin.inventory.fields.moved_on')),
             ])
             // The only register in the panel with no way to open a row. Three of its columns
             // (unit cost, source reference, who moved it) are toggled off by default and `notes`

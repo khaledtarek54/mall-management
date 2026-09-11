@@ -8,9 +8,9 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Invoice;
 use App\Support\BadgeColors;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\ResourceLink;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -72,20 +72,7 @@ class LeaseInvoicesRelationManager extends RelationManager
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.invoice')),
-                Filter::make('period')
-                    ->label(__('admin.filters.period'))
-                    ->schema([
-                        DatePicker::make('period_from')
-                            ->label(__('admin.filters.period_from'))
-                            ->native(false),
-                        DatePicker::make('period_until')
-                            ->label(__('admin.filters.period_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['period_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '>=', $date))
-                        ->when($data['period_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '<=', $date))),
+                DateRangeFilter::make('period_start', __('admin.filters.period'), name: 'period'),
                 Filter::make('unpaid_only')
                     // *Outstanding*, the word the tenant's own invoices tab uses for the same
                     // query — it was labelled *Overdue only* here, which is a different question

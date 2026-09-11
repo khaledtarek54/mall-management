@@ -803,5 +803,12 @@
     "path": "tests/Feature/Regression/SeededPasswordHonoursConfigNotEnvTest.php",
     "old": "        $stripped = PhpSource::withoutComments($source);",
     "new": "        $stripped = implode('', array_map(fn (array|string $t): string => is_array($t) ? (in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true) ? '' : $t[1]) : $t, token_get_all($source)));"
+  },
+  {
+    "name": "ADateRangeFilterIsOneDefinition — a register writes its date range inline again",
+    "gate": "tests/Feature/Scenarios/ADateRangeFilterIsOneDefinitionConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Employees/Tables/EmployeesTable.php",
+    "old": "                DateRangeFilter::make('hire_date', __('admin.employees.fields.hire_date')),",
+    "new": "                \\Filament\\Tables\\Filters\\Filter::make('hire_date')->schema([\\Filament\\Forms\\Components\\DatePicker::make('from'), \\Filament\\Forms\\Components\\DatePicker::make('until')])->query(fn ($query, array $data) => $query->when($data['from'] ?? null, fn ($q, $v) => $q->whereDate('hire_date', '>=', $v))),"
   }
 ]

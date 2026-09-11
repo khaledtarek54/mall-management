@@ -3,14 +3,12 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Support\BadgeColors;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\TenantScope;
-use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class TenantLeasesRelationManager extends RelationManager
@@ -62,20 +60,7 @@ class TenantLeasesRelationManager extends RelationManager
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.lease')),
-                Filter::make('expiry_range')
-                    ->label(__('admin.tables.lease.ends'))
-                    ->schema([
-                        DatePicker::make('expiry_from')
-                            ->label(__('admin.filters.expiry_from'))
-                            ->native(false),
-                        DatePicker::make('expiry_until')
-                            ->label(__('admin.filters.expiry_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['expiry_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('expiry_date', '>=', $date))
-                        ->when($data['expiry_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('expiry_date', '<=', $date))),
+                DateRangeFilter::make('expiry_date', __('admin.tables.lease.ends'), name: 'expiry_range'),
             ])
             ->filtersFormColumns(2)
             ->headerActions([])

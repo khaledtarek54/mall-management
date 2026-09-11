@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Users\Tables;
 
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\User;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\PermissionVocabulary;
 use Carbon\Carbon;
 use Filament\Actions\ActionGroup;
@@ -12,13 +13,10 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Spatie\Permission\Models\Role;
 
 class UsersTable
@@ -108,31 +106,7 @@ class UsersTable
                             ? $indicator
                             : Indicator::make($indicator.': '.PermissionVocabulary::roleLabel($name))];
                     }),
-                Filter::make('created_range')
-                    ->label(__('admin.users.created'))
-                    ->schema([
-                        DatePicker::make('created_from')
-                            ->label(__('admin.filters.created_from'))
-                            ->native(false),
-                        DatePicker::make('created_until')
-                            ->label(__('admin.filters.created_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['created_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '>=', $date))
-                        ->when($data['created_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['created_from'] ?? null) {
-                            $indicators[] = __('admin.filters.created_from').': '.Carbon::parse($data['created_from'])->format('d/m/Y');
-                        }
-                        if ($data['created_until'] ?? null) {
-                            $indicators[] = __('admin.filters.created_until').': '.Carbon::parse($data['created_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('created_at', __('admin.users.created'), name: 'created_range'),
             ])
             ->filtersFormColumns(2)
             // Grouped into one menu. Four inline actions pushed the table past the viewport —

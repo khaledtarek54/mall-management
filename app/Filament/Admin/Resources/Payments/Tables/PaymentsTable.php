@@ -13,11 +13,11 @@ use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\TableGroup;
 use App\Support\StatusOptions;
-use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -27,7 +27,6 @@ use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -104,31 +103,7 @@ class PaymentsTable
                     ->label(__('admin.filters.tenant'))
                     ->relationship('tenant')
                     ->entity(Tenant::class),
-                Filter::make('payment_date_range')
-                    ->label(__('admin.tables.payment.date'))
-                    ->schema([
-                        DatePicker::make('payment_from')
-                            ->label(__('admin.filters.payment_from'))
-                            ->native(false),
-                        DatePicker::make('payment_until')
-                            ->label(__('admin.filters.payment_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['payment_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('payment_date', '>=', $date))
-                        ->when($data['payment_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['payment_from'] ?? null) {
-                            $indicators[] = __('admin.filters.payment_from').': '.Carbon::parse($data['payment_from'])->format('d/m/Y');
-                        }
-                        if ($data['payment_until'] ?? null) {
-                            $indicators[] = __('admin.filters.payment_until').': '.Carbon::parse($data['payment_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('payment_date', __('admin.tables.payment.date'), name: 'payment_date_range'),
                 Filter::make('amount_range')
                     ->label(__('admin.tables.payment.amount'))
                     ->schema([

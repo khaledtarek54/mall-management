@@ -10,9 +10,9 @@ use App\Models\Tenant;
 use App\Services\CreditNotePdfService;
 use App\Support\BadgeColors;
 use App\Support\Exports;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
-use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -20,14 +20,11 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class CreditNotesTable
 {
@@ -95,31 +92,7 @@ class CreditNotesTable
                     ->label(__('admin.filters.tenant'))
                     ->relationship('tenant')
                     ->entity(Tenant::class),
-                Filter::make('issue_date_range')
-                    ->label(__('admin.fields.issue_date'))
-                    ->schema([
-                        DatePicker::make('issued_from')
-                            ->label(__('admin.filters.issued_from'))
-                            ->native(false),
-                        DatePicker::make('issued_until')
-                            ->label(__('admin.filters.issued_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['issued_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('issue_date', '>=', $date))
-                        ->when($data['issued_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('issue_date', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['issued_from'] ?? null) {
-                            $indicators[] = __('admin.filters.issued_from').': '.Carbon::parse($data['issued_from'])->format('d/m/Y');
-                        }
-                        if ($data['issued_until'] ?? null) {
-                            $indicators[] = __('admin.filters.issued_until').': '.Carbon::parse($data['issued_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('issue_date', null, name: 'issue_date_range'),
                 TrashedFilter::make(),
             ])
             ->filtersFormColumns(2)

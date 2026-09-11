@@ -13,6 +13,7 @@ use App\Services\LeaseCreationService;
 use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\LeaseActivation;
@@ -20,7 +21,6 @@ use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
 use App\Support\StatusOptions;
 use App\Support\TenantScope;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -264,56 +264,8 @@ class LeasesTable
                         ->when($data['value'] ?? null, fn (Builder $q, $v) => $q
                             ->where('has_percentage_rent', true)
                             ->where('percentage_rent_frequency', $v))),
-                Filter::make('commencement_range')
-                    ->label(__('admin.tables.lease.start'))
-                    ->schema([
-                        DatePicker::make('commencement_from')
-                            ->label(__('admin.filters.commencement_from'))
-                            ->native(false),
-                        DatePicker::make('commencement_until')
-                            ->label(__('admin.filters.commencement_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['commencement_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('commencement_date', '>=', $date))
-                        ->when($data['commencement_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('commencement_date', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['commencement_from'] ?? null) {
-                            $indicators[] = __('admin.filters.commencement_from').': '.Carbon::parse($data['commencement_from'])->format('d/m/Y');
-                        }
-                        if ($data['commencement_until'] ?? null) {
-                            $indicators[] = __('admin.filters.commencement_until').': '.Carbon::parse($data['commencement_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
-                Filter::make('expiry_range')
-                    ->label(__('admin.tables.lease.ends'))
-                    ->schema([
-                        DatePicker::make('expiry_from')
-                            ->label(__('admin.filters.expiry_from'))
-                            ->native(false),
-                        DatePicker::make('expiry_until')
-                            ->label(__('admin.filters.expiry_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['expiry_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('expiry_date', '>=', $date))
-                        ->when($data['expiry_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('expiry_date', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['expiry_from'] ?? null) {
-                            $indicators[] = __('admin.filters.expiry_from').': '.Carbon::parse($data['expiry_from'])->format('d/m/Y');
-                        }
-                        if ($data['expiry_until'] ?? null) {
-                            $indicators[] = __('admin.filters.expiry_until').': '.Carbon::parse($data['expiry_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('commencement_date', __('admin.tables.lease.start'), name: 'commencement_range'),
+                DateRangeFilter::make('expiry_date', __('admin.tables.lease.ends'), name: 'expiry_range'),
                 Filter::make('expiring_soon')
                     ->label(__('admin.filters.expiring_soon'))
                     ->query(fn (Builder $query) => $query->where('status', 'active')->whereBetween('expiry_date', [now(), now()->addDays(90)])),

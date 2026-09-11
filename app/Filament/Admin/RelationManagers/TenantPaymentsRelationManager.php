@@ -5,15 +5,13 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\PaymentMethod;
 use App\Support\BadgeColors;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class TenantPaymentsRelationManager extends RelationManager
@@ -73,20 +71,7 @@ class TenantPaymentsRelationManager extends RelationManager
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.payment')),
-                Filter::make('payment_date_range')
-                    ->label(__('admin.tables.payment.date'))
-                    ->schema([
-                        DatePicker::make('payment_from')
-                            ->label(__('admin.filters.payment_from'))
-                            ->native(false),
-                        DatePicker::make('payment_until')
-                            ->label(__('admin.filters.payment_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['payment_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('payment_date', '>=', $date))
-                        ->when($data['payment_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date))),
+                DateRangeFilter::make('payment_date', __('admin.tables.payment.date'), name: 'payment_date_range'),
             ])
             ->filtersFormColumns(2)
             // NO HEADER ACTION. *Record payment* used to live here — a `->url()` link into

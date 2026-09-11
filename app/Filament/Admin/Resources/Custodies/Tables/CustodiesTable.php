@@ -6,11 +6,11 @@ use App\Filament\Admin\Resources\Custodies\CustodyResource;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use App\Models\Employee;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
@@ -106,15 +106,7 @@ class CustodiesTable
                         'cash' => __('admin.employees.methods.cash'),
                         'bank' => __('admin.employees.methods.bank'),
                     ]),
-                Filter::make('custody_date')
-                    ->label(__('admin.custodies.fields.custody_date'))
-                    ->schema([
-                        DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
-                        DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),
-                    ])
-                    ->query(fn ($query, array $data) => $query
-                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('custody_date', '>=', $d))
-                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('custody_date', '<=', $d))),
+                DateRangeFilter::make('custody_date', __('admin.custodies.fields.custody_date')),
                 TrashedFilter::make(),
             ])
             ->recordActions([

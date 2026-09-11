@@ -5,15 +5,13 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
 use App\Support\Filament\CauserFilter;
-use Filament\Forms\Components\DatePicker;
+use App\Support\Filament\DateRangeFilter;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\Paginator;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Activity;
@@ -79,20 +77,7 @@ class ActivitiesRelationManager extends RelationManager
                 // The audit trail's most-asked question, defined once — see CauserFilter for why
                 // the morph type clause has to travel with it.
                 CauserFilter::make(),
-                Filter::make('created_range')
-                    ->label(__('admin.activity.when'))
-                    ->schema([
-                        DatePicker::make('created_from')
-                            ->label(__('admin.filters.created_from'))
-                            ->native(false),
-                        DatePicker::make('created_until')
-                            ->label(__('admin.filters.created_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['created_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '>=', $date))
-                        ->when($data['created_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '<=', $date))),
+                DateRangeFilter::make('created_at', __('admin.activity.when'), name: 'created_range'),
             ])
             ->filtersFormColumns(2)
             ->headerActions([])

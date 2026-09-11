@@ -15,13 +15,13 @@ use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\BadgeColors;
 use App\Support\Exports;
+use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\TableGroup;
 use App\Support\Modules;
 use App\Support\Pdf\DocumentLocale;
 use App\Support\StatusOptions;
-use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -33,7 +33,6 @@ use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -151,56 +150,8 @@ class InvoicesTable
                         // ownership, so a lease-only clause returned nothing for an owner-occupied
                         // unit and read as "no invoices" rather than "this filter cannot see him".
                         ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->forUnit((int) $unitId))),
-                Filter::make('period')
-                    ->label(__('admin.filters.period'))
-                    ->schema([
-                        DatePicker::make('period_from')
-                            ->label(__('admin.filters.period_from'))
-                            ->native(false),
-                        DatePicker::make('period_until')
-                            ->label(__('admin.filters.period_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['period_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '>=', $date))
-                        ->when($data['period_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['period_from'] ?? null) {
-                            $indicators[] = __('admin.filters.period_from').': '.Carbon::parse($data['period_from'])->format('d/m/Y');
-                        }
-                        if ($data['period_until'] ?? null) {
-                            $indicators[] = __('admin.filters.period_until').': '.Carbon::parse($data['period_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
-                Filter::make('due_date_range')
-                    ->label(__('admin.tables.invoice.due_date'))
-                    ->schema([
-                        DatePicker::make('due_from')
-                            ->label(__('admin.filters.due_from'))
-                            ->native(false),
-                        DatePicker::make('due_until')
-                            ->label(__('admin.filters.due_until'))
-                            ->native(false),
-                    ])
-                    ->columns(2)
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['due_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('due_date', '>=', $date))
-                        ->when($data['due_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('due_date', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['due_from'] ?? null) {
-                            $indicators[] = __('admin.filters.due_from').': '.Carbon::parse($data['due_from'])->format('d/m/Y');
-                        }
-                        if ($data['due_until'] ?? null) {
-                            $indicators[] = __('admin.filters.due_until').': '.Carbon::parse($data['due_until'])->format('d/m/Y');
-                        }
-
-                        return $indicators;
-                    }),
+                DateRangeFilter::make('period_start', __('admin.filters.period'), name: 'period'),
+                DateRangeFilter::make('due_date', __('admin.tables.invoice.due_date'), name: 'due_date_range'),
                 Filter::make('overdue_only')
                     ->label(__('admin.filters.overdue_only'))
                     // The same definition as the sidebar badge and the dashboard card — a filter
