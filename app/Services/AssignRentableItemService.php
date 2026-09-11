@@ -171,20 +171,18 @@ class AssignRentableItemService
             throw new InvalidArgumentException("Unknown escalation mode [{$mode}].");
         }
 
-        DB::transaction(function () use ($holder, $item, $mode, $rate, $amount): void {
-            $today = CarbonImmutable::today()->toDateString();
+        // The same door `assign()` keeps: a rule is a term of a tenancy that can still be acted
+        // on. The items tab's row action already refuses outside `OPEN_TO_COMMERCIAL_ACTS`; the
+        // lease form's table reaches this writer too, so the refusal lives here, once.
+        if (! $this->holderCanTakeOn($holder)) {
+            throw new DomainException(__('admin.errors.rentable_item_lease_not_active'));
+        }
 
-            // The OPEN holding first, then the latest one still ahead: a bay released at a
-            // future date and re-let from the day after has two live holdings for a while, and
-            // the rule the operator sets is for the one that goes on (found by review — an
-            // unordered `first()` ruled the ending one).
-            $held = $holder->rentableItems()
-                ->wherePivot('rentable_item_id', $item->id)
-                ->where(fn ($q) => $q->whereNull('rentable_item_holdings.effective_to')
-                    ->orWhereDate('rentable_item_holdings.effective_to', '>=', $today))
-                ->orderByRaw('rentable_item_holdings.effective_to is null desc')
-                ->orderByDesc('rentable_item_holdings.effective_from')
-                ->first();
+        DB::transaction(function () use ($holder, $item, $mode, $rate, $amount): void {
+            // The live holding this item has on the lease — the open one first, then the latest
+            // still ahead (`RentableItemPricing::liveHoldingsQuery()`, the ONE predicate the lease
+            // form's table lists from, so the row ruled on is the row written).
+            $held = RentableItemPricing::liveHoldingOf($holder, $item);
 
             if (! $held) {
                 throw new DomainException(__('admin.errors.rentable_item_not_held'));

@@ -673,7 +673,9 @@ steps on the same anniversary by ITS OWN rule, stored on its holding (Yardi: the
 the item's charge); a lease can be created WITH its items — the standard form's *Parking & rentable
 items* table and the quick wizard's third step; and the rule is set from the lease's TABS (the
 schedule tab's and the items tab's *Annual increase* row actions) with the form's table refilling
-from them. Module 35 has the rules and the two pre-existing defects the review found on the way
+from them — **and, the same day, from the form's own *Annual increase* tab**, where each bay is a
+row beside the rent's and the service charge's (Voyager's one escalation screen per lease; the
+create form's items table then carries the letting only). Module 35 has the rules and the two pre-existing defects the review found on the way
 (a future-dated release billed nothing from the day it was recorded; a re-let bay was closed and
 summed twice).
 

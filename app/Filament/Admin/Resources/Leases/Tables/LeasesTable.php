@@ -528,7 +528,7 @@ class LeasesTable
                             // follows-lease bay inherits here.
                             Step::make(__('admin.sections.rentable_items_at_creation'))
                                 ->icon('heroicon-o-ticket')
-                                ->description(__('admin.sections.rentable_items_at_creation_description'))
+                                ->description(__('admin.sections.rentable_items_at_creation_wizard_description'))
                                 ->schema([
                                     LeaseForm::rentableItemsAtCreation(
                                         fn (Get $get): Lease => (new Lease)->forceFill([

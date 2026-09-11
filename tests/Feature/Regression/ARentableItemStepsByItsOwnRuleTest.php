@@ -21,7 +21,9 @@ use App\Support\RentableItemPricing;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
@@ -430,15 +432,32 @@ describe('through the panel', function () {
             $a = RentableItem::create(['asset_id' => $this->asset->id, 'code' => 'P-A', 'type' => 'parking', 'status' => 'available', 'monthly_rate' => 500]);
             $b = RentableItem::create(['asset_id' => $this->asset->id, 'code' => 'P-B', 'type' => 'storage', 'status' => 'available', 'monthly_rate' => 800]);
 
-            Livewire::test(CreateLease::class)->fillForm([
+            // The items are LET on the Lease details tab; their annual increase is decided on
+            // the Annual increase tab, one row per item beside the service charge's — the rows
+            // the items table derives as items are picked (`syncItemRuleRows()`, keyed by the
+            // item row), and the rule typed there is what the item is let under.
+            $page = Livewire::test(CreateLease::class)->fillForm([
                 'unit_id' => $unit->id, 'tenant_id' => $tenant->id, 'status' => 'active',
                 'commencement_date' => '2025-06-01', 'term_months' => 36, 'expiry_date' => '2028-05-31',
                 'base_rent_monthly' => 1000, 'service_charge_monthly' => 250,
                 'escalation_type' => 'fixed_percent', 'escalation_rate' => 10, 'security_deposit_months' => 3,
                 'rentable_items' => [
-                    ['rentable_item_id' => $a->id, 'monthly_rate' => 500, 'effective_from' => null, 'escalation_mode' => ChargeEscalation::FIXED_AMOUNT, 'escalation_rate' => null, 'escalation_amount' => 50],
-                    ['rentable_item_id' => $b->id, 'monthly_rate' => 700, 'effective_from' => '2025-09-01', 'escalation_mode' => ChargeEscalation::FOLLOWS_LEASE, 'escalation_rate' => null, 'escalation_amount' => null],
+                    // A rule smuggled INLINE on the item row (the shape the form no longer
+                    // produces) must lose to the tab's row, which is what the operator read.
+                    'row-a' => ['rentable_item_id' => $a->id, 'monthly_rate' => 500, 'effective_from' => null, 'escalation_mode' => ChargeEscalation::NONE],
+                    'row-b' => ['rentable_item_id' => $b->id, 'monthly_rate' => 700, 'effective_from' => '2025-09-01'],
                 ],
+            ]);
+
+            $rows = collect($page->get('data.charge_escalations'));
+            expect($rows->keys()->all())->toContain('item-row-a', 'item-row-b')
+                ->and($rows->get('item-row-a')['rentable_item_id'])->toBe($a->id)
+                ->and($rows->firstWhere('type', 'service_charge'))->not->toBeNull();
+
+            $page->fillForm([
+                'charge_escalations.item-row-a.escalation_mode' => ChargeEscalation::FIXED_AMOUNT,
+                'charge_escalations.item-row-a.escalation_amount' => 50,
+                'charge_escalations.item-row-b.escalation_mode' => ChargeEscalation::FOLLOWS_LEASE,
             ])->call('create')->assertHasNoFormErrors();
 
             $lease = Lease::where('tenant_id', $tenant->id)->sole();
@@ -467,7 +486,7 @@ describe('through the panel', function () {
                 'base_rent_monthly' => 1000, 'service_charge_monthly' => 250,
                 'escalation_type' => 'fixed_percent', 'escalation_rate' => 10, 'security_deposit_months' => 3,
                 'rentable_items' => [
-                    ['rentable_item_id' => $a->id, 'monthly_rate' => 500, 'effective_from' => null, 'escalation_mode' => ChargeEscalation::NONE, 'escalation_rate' => null, 'escalation_amount' => null],
+                    ['rentable_item_id' => $a->id, 'monthly_rate' => 500, 'effective_from' => null],
                 ],
             ])->call('create')->assertHasNoFormErrors()
                 ->assertNotified(__('admin.rentable_items.not_attached_title'));
@@ -561,21 +580,79 @@ describe('through the panel', function () {
             expect(holdingOf($lease, $a)->escalation_mode)->toBe(ChargeEscalation::FIXED_AMOUNT)
                 ->and(parkingLadder($lease))->toBe('500.00@2025-06 575.00@2026-01 650.00@2027-01');
 
-            // One reading, two surfaces: the tab's column and the form's derived parking row say the same words.
-            $rows = EditLease::chargeEscalationRows($lease->fresh());
-            $parking = collect($rows)->firstWhere('type', 'parking');
-            expect($parking['derived'])->toBeTrue()
-                ->and($parking['summary'])->toBe('P-A — '.__('admin.charge_escalation.own_amount', ['amount' => '75.00']));
+            // One rule, two surfaces: the form's Annual increase table lists the LIVE holding as
+            // its own row — never the spring's, which nothing can rule on any more — reading what
+            // the tab just wrote. The row is keyed by the item, the way `setEscalation()` addresses it.
+            $rows = collect(EditLease::chargeEscalationRows($lease->fresh()));
+            $itemRows = $rows->where('type', 'parking');
+            expect($itemRows)->toHaveCount(1)
+                ->and($itemRows->first()['rentable_item_id'])->toBe($a->id)
+                ->and($itemRows->first()['escalation_mode'])->toBe(ChargeEscalation::FIXED_AMOUNT)
+                ->and((float) $itemRows->first()['escalation_amount'])->toBe(75.0);
 
             $tab->assertSee(__('admin.charge_escalation.own_amount', ['amount' => '75.00']));
 
             $en = Livewire::test(EditLease::class, ['record' => $lease->getKey()]);
-            $en->assertSee('P-A — +EGP 75.00 a year')->assertSee('Parking & rentable items')
-                ->assertDontSee('admin.charge_escalation')->assertDontSee('admin.sections');
+            $en->assertSee('P-A')->assertSee('Parking & rentable items')
+                ->assertDontSee('admin.charge_escalation')->assertDontSee('admin.sections')->assertDontSee('admin.enums');
+            $mounted = collect($en->get('data.charge_escalations'))->firstWhere('rentable_item_id', $a->id);
+            expect($mounted['escalation_mode'])->toBe(ChargeEscalation::FIXED_AMOUNT);
+
+            // The tab announces, the table refills — the same seam the charge rows take.
+            app(AssignRentableItemService::class)->setEscalation($lease->fresh(), $a, ChargeEscalation::PERCENT, rate: 12);
+            $en->dispatch(RecordChanged::EVENT);
+            $refilled = collect($en->get('data.charge_escalations'))->firstWhere('rentable_item_id', $a->id);
+            expect($refilled['escalation_mode'])->toBe(ChargeEscalation::PERCENT)
+                ->and((float) $refilled['escalation_rate'])->toBe(12.0);
 
             app()->setLocale('ar');
             Livewire::test(EditLease::class, ['record' => $lease->getKey()])
-                ->assertSee('P-A — ')->assertDontSee('admin.charge_escalation')->assertDontSee('admin.sections');
+                ->assertSee('P-A')->assertDontSee('admin.charge_escalation')->assertDontSee('admin.sections')->assertDontSee('admin.enums');
+        });
+    });
+
+    it('rules on a bay from the form\'s Annual increase table through the register\'s writer, touching only what changed', function () {
+        asTenant($this->asset, function () {
+            $lease = stepLease(['unit_id' => makeUnit($this->asset)->id], $this->asset);
+            $a = stepBay($lease, 'P-A');
+            $b = stepBay($lease, 'P-B', 1000);
+            $c = stepBay($lease, 'P-C', 300);
+            letBay($lease, $a, ChargeEscalation::NONE);
+            letBay($lease, $b, ChargeEscalation::FIXED_AMOUNT, amount: 100);
+            // Let from a date still ahead: LIVE, so the writer can rule on it and the table
+            // must list it — "held today" would leave it out (the tab's row action shows for it).
+            letBay($lease, $c, ChargeEscalation::NONE, from: '2025-08-01');
+            $ladderBefore = $lease->charges()->where('type', 'parking')->pluck('id')->sort()->values()->all();
+
+            $page = Livewire::test(EditLease::class, ['record' => $lease->getKey()]);
+            $rows = collect($page->get('data.charge_escalations'));
+            $keyA = $rows->search(fn (array $row): bool => ($row['rentable_item_id'] ?? null) === $a->id);
+            expect($keyA)->not->toBeFalse()
+                ->and($rows->where('type', 'parking')->pluck('rentable_item_id')->sort()->values()->all())->toBe([$a->id, $b->id, $c->id]);
+
+            // Rule on A from the form; B's row is submitted untouched.
+            $page->fillForm([
+                "charge_escalations.{$keyA}.escalation_mode" => ChargeEscalation::PERCENT,
+                "charge_escalations.{$keyA}.escalation_rate" => 5,
+            ])->call('save')->assertHasNoFormErrors();
+
+            expect(holdingOf($lease, $a)->escalation_mode)->toBe(ChargeEscalation::PERCENT)
+                ->and((float) holdingOf($lease, $a)->escalation_rate)->toBe(5.0)
+                ->and(holdingOf($lease, $b)->escalation_mode)->toBe(ChargeEscalation::FIXED_AMOUNT)
+                ->and(parkingLadder($lease))->toBe('1500.00@2025-06 1800.00@2025-08 1925.00@2026-01 2051.25@2027-01');
+
+            // A second save with nothing changed re-mints nothing: the ladder keeps its ids.
+            $minted = $lease->charges()->where('type', 'parking')->pluck('id')->sort()->values()->all();
+            Livewire::test(EditLease::class, ['record' => $lease->getKey()])->call('save')->assertHasNoFormErrors();
+            expect($lease->charges()->where('type', 'parking')->pluck('id')->sort()->values()->all())->toBe($minted)
+                ->and($minted)->not->toBe($ladderBefore);
+
+            // The writer keeps the door `assign()` keeps — the items tab's row action already
+            // refused outside `OPEN_TO_COMMERCIAL_ACTS`, and the form now reaches the same writer,
+            // so the refusal is the service's, once (found by review: two doors, two rules).
+            $lease->forceFill(['status' => 'expired'])->saveQuietly();
+            expect(fn () => app(AssignRentableItemService::class)->setEscalation($lease->fresh(), $a, ChargeEscalation::NONE))
+                ->toThrow(DomainException::class, __('admin.errors.rentable_item_lease_not_active'));
         });
     });
 
@@ -600,6 +677,44 @@ describe('through the panel', function () {
                 ->assertDontSee(__('admin.rentable_items.draft_holds_none'))
                 ->assertDontSee('admin.sections.rentable')->assertDontSee('admin.actions.add_rentable')
                 ->assertDontSee('admin.rentable_items.draft');
+
+            // The annual increase is NOT beside the item (the operator's ask, 2026-09-12): the
+            // Lease details table lets the item, and the Annual increase tab rules on it — a row
+            // there per item picked, gone again when the item is removed, keyed so a typed rule
+            // follows its item.
+            $bay = RentableItem::create(['asset_id' => $this->asset->id, 'code' => 'P-Q', 'type' => 'parking', 'status' => 'available', 'monthly_rate' => 500]);
+            $page->assertFormFieldDoesNotExist('rentable_items.k1.escalation_mode');
+            $page->fillForm(['rentable_items' => ['k1' => ['rentable_item_id' => $bay->id, 'monthly_rate' => 500, 'effective_from' => null]]]);
+            expect(collect($page->get('data.charge_escalations'))->has('item-k1'))->toBeTrue();
+            $page->fillForm(['charge_escalations.item-k1.escalation_mode' => ChargeEscalation::PERCENT, 'charge_escalations.item-k1.escalation_rate' => 4])
+                ->assertSee('P-Q');
+            // A later edit to the item's own row (its rate) re-derives the tab's rows and must
+            // keep the rule already typed against it.
+            $page->fillForm(['rentable_items.k1.monthly_rate' => 600]);
+            $kept = collect($page->get('data.charge_escalations'))->get('item-k1');
+            expect($kept['escalation_mode'])->toBe(ChargeEscalation::PERCENT)
+                ->and((float) $kept['escalation_rate'])->toBe(4.0);
+            // In a BROWSER the harness cannot see two things, so both are pinned on the component
+            // (the status-select lesson): the table must NOT be live — a child input with no
+            // liveness of its own inherits the parent's, and that made the rate box round-trip the
+            // whole form on every keystroke (found by review, measured) — and a delete must render
+            // the WHOLE form, not the repeater alone, or the tab's row outlives the item.
+            $page->assertFormFieldExists('rentable_items', checkFieldUsing: fn (Repeater $table): bool => ! $table->isLive()
+                && ! $table->shouldPartiallyRenderAfterActionsCalled());
+            $page->assertFormFieldExists('rentable_items.k1.monthly_rate', checkFieldUsing: fn (TextInput $rate): bool => ! $rate->isLive());
+
+            // The label is read off THIS mall's register at sync time and carried on the row —
+            // never resolved at render off the row's id, which the client controls: a foreign
+            // mall's item makes no row and shows no code (found by review, measured).
+            $foreign = RentableItem::create(['asset_id' => makeAsset(['code' => 'ZZ'])->id, 'code' => 'ZZ-SECRET-9', 'type' => 'parking', 'status' => 'available', 'monthly_rate' => 1]);
+            $page->fillForm(['rentable_items.k2' => ['rentable_item_id' => $foreign->id, 'monthly_rate' => 1, 'effective_from' => null]]);
+            expect(collect($page->get('data.charge_escalations'))->has('item-k2'))->toBeFalse();
+            $page->assertDontSee('ZZ-SECRET-9');
+            $page->fillForm(['rentable_items' => ['k1' => ['rentable_item_id' => $bay->id, 'monthly_rate' => 600, 'effective_from' => null]]]);
+
+            $page->fillForm(['rentable_items' => []]);
+            expect(collect($page->get('data.charge_escalations'))->has('item-k1'))->toBeFalse()
+                ->and(collect($page->get('data.charge_escalations'))->firstWhere('type', 'service_charge'))->not->toBeNull();
 
             app()->setLocale('ar');
             Livewire::test(CreateLease::class)

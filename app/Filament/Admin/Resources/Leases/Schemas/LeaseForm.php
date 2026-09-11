@@ -419,6 +419,7 @@ class LeaseForm
                                 self::rentableItemsAtCreation(
                                     fn (Get $get): Lease => self::clauseAsTyped($get),
                                     fn (Get $get): ?string => $get('../../commencement_date') ?: null,
+                                    ruleInline: false,
                                 )->visible(fn (Get $get): bool => $get('status') !== 'draft'),
                             ]),
                     ])->columns(3),
@@ -1102,15 +1103,29 @@ class LeaseForm
                         // The rent follows the clause above by definition and the marketing levy
                         // follows the rent, so neither is asked. Every other recurring charge on the
                         // schedule is a row here: on CREATE that is the service charge this form
-                        // seeds; on EDIT it is every type the schedule holds (a bay, a signage
-                        // licence, a chiller charge) read from the rung in force today. The rows are
-                        // not a lease column — `EditLease::afterSave()` writes each through
+                        // seeds; on EDIT it is every type the schedule holds (a signage licence, a
+                        // chiller charge) read from the rung in force today. The rows are not a
+                        // lease column — `EditLease::afterSave()` writes each through
                         // `ChargeScheduleService::setEscalation()`, the one writer, and
                         // `CreateLease::afterCreate()` seeds the service charge with its answer.
                         //
+                        // AND ONE ROW PER BAY, STORE OR SIGN (2026-09-12, the operator's ask): the
+                        // annual increase of every charge is decided on ONE tab, which is where
+                        // Voyager keeps a lease's escalation schedule — per charge, rentable items
+                        // included — rather than beside each item on the tab that lets it. The
+                        // letting (which bay, at what rate, from when) stays on the Lease details
+                        // tab; the increase lives here. On CREATE the item rows are kept in step
+                        // with that tab's table (`syncItemRuleRows()`, keyed by the item row so a
+                        // typed rule follows its item); on EDIT they are the LIVE holdings
+                        // (`RentableItemPricing::liveHoldings()`) and `EditLease::afterSave()`
+                        // writes a changed one through `AssignRentableItemService::setEscalation()`
+                        // — the same writer the Parking & rentable items tab's row action takes, so
+                        // the two surfaces cannot disagree, and the table refills when that tab
+                        // announces.
+                        //
                         // A TABLE, not a stack of cards: an operator reads "service charge · follows
-                        // the clause · —" against "parking · fixed amount · 500" in one glance, which
-                        // is the reading the client's own sentence describes.
+                        // the clause · —" against "parking bay P-A · fixed amount · 500" in one
+                        // glance, which is the reading the client's own sentence describes.
                         Section::make(__('admin.sections.escalation_charges'))
                             ->description(__('admin.sections.escalation_charges_description'))
                             ->components([
@@ -1133,34 +1148,29 @@ class LeaseForm
                                     ])
                                     ->schema([
                                         Hidden::make('type'),
-                                        // A DERIVED row — the parking charge — is read-only here: its
-                                        // rule is per ITEM, set on the Parking & rentable items tab,
-                                        // and `summary` is what that tab holds, in words, so the two
-                                        // surfaces show one answer (2026-09-12).
-                                        Hidden::make('derived'),
-                                        Hidden::make('summary'),
+                                        // An ITEM row carries the item it rules on: `item_key` on the
+                                        // create form (the row on the Lease details tab it belongs to),
+                                        // `rentable_item_id` on both doors — the id `setEscalation()`
+                                        // addresses the live holding by.
+                                        Hidden::make('item_key'),
+                                        Hidden::make('rentable_item_id'),
+                                        Hidden::make('item_label'),
                                         Placeholder::make('charge')
                                             ->hiddenLabel()
-                                            ->content(fn (Get $get): string => ChargeCode::labelFor((string) $get('type'))),
+                                            ->content(fn (Get $get): string => self::ruledRowLabel($get)),
                                         // The options NAME what a follows-lease row would inherit,
                                         // read live off the clause fields on the previous section —
                                         // a bare "Follows the clause" over a clause that is a fixed
                                         // amount offers a choice that does nothing. The trio is the
                                         // one every screen that asks builds (`EscalationRuleFields`).
                                         ...(function (): array {
-                                            [$mode, $rate, $amount] = self::ruleFieldsInTable(fn (Get $get): bool => ! $get('derived'));
+                                            [$mode, $rate, $amount] = self::ruleFieldsInTable();
 
                                             // A TABLE repeater hands one column to each non-hidden component
                                             // in order and drops whatever runs past the last column, so the
-                                            // two things that can occupy the "mode" cell share ONE group.
+                                            // things that can occupy the figure cell share ONE group.
                                             return [
-                                                Group::make([
-                                                    $mode,
-                                                    Placeholder::make('managed_on_tab')
-                                                        ->hiddenLabel()
-                                                        ->content(__('admin.charge_escalation.parking_managed_on_tab'))
-                                                        ->visible(fn (Get $get): bool => (bool) $get('derived')),
-                                                ]),
+                                                $mode,
                                                 Group::make([
                                                     $rate,
                                                     $amount,
@@ -1176,14 +1186,7 @@ class LeaseForm
                                                             ]),
                                                             self::clauseAsTyped($get),
                                                         ))
-                                                        ->visible(fn (Get $get): bool => ! $get('derived')
-                                                            && ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
-                                                    Placeholder::make('items')
-                                                        ->hiddenLabel()
-                                                        ->content(fn (Get $get): string => filled($get('summary'))
-                                                            ? __('admin.charge_escalation.parking_items', ['items' => $get('summary')])
-                                                            : __('admin.charge_escalation.parking_no_items'))
-                                                        ->visible(fn (Get $get): bool => (bool) $get('derived')),
+                                                        ->visible(fn (Get $get): bool => ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
                                                 ]),
                                             ];
                                         })(),
@@ -1651,13 +1654,31 @@ class LeaseForm
      * the form's setting the wizard's third step was inert — accepted, created the lease, let
      * nothing, said nothing).
      *
+     * `$ruleInline` is the other difference (2026-09-12, the operator's ask): on the create FORM
+     * each item's annual increase is decided on the Annual increase tab beside every other
+     * charge's — Voyager's one escalation screen — so this table carries the letting only and
+     * keeps that tab's item rows in step (`syncItemRuleRows()`, on every change to it: a row
+     * added, removed or re-pointed). The quick-lease WIZARD has no such tab — three steps, one of
+     * them this table — so there the rule stays beside the item.
+     *
      * @param  Closure(Get): Lease  $clause
      * @param  Closure(Get): ?string  $commencement  the earliest date an item may be held from
      */
-    public static function rentableItemsAtCreation(Closure $clause, Closure $commencement, bool $dehydrated = false): Repeater
+    public static function rentableItemsAtCreation(Closure $clause, Closure $commencement, bool $dehydrated = false, bool $ruleInline = true): Repeater
     {
         [$mode, $rate, $amount] = EscalationRuleFields::make($clause, inTable: true);
         $mode->default(fn (): string => ChargeEscalation::defaultModeFor(TenantScope::currentAssetId()));
+
+        $columns = [
+            TableColumn::make(__('admin.resources.rentable_item.singular')),
+            TableColumn::make(__('admin.fields.item_monthly_rate')),
+            TableColumn::make(__('admin.fields.held_from')),
+        ];
+
+        if ($ruleInline) {
+            $columns[] = TableColumn::make(__('admin.fields.escalation_mode'));
+            $columns[] = TableColumn::make(__('admin.fields.escalation_figure'));
+        }
 
         return Repeater::make('rentable_items')
             ->hiddenLabel()
@@ -1665,13 +1686,21 @@ class LeaseForm
             ->defaultItems(0)
             ->reorderable(false)
             ->addActionLabel(__('admin.actions.add_rentable_item'))
-            ->table([
-                TableColumn::make(__('admin.resources.rentable_item.singular')),
-                TableColumn::make(__('admin.fields.item_monthly_rate')),
-                TableColumn::make(__('admin.fields.held_from')),
-                TableColumn::make(__('admin.fields.escalation_mode')),
-                TableColumn::make(__('admin.fields.escalation_figure')),
-            ])
+            // Every change to this table — a row added or removed (the repeater's own actions
+            // announce), an item picked (the child Select is live, and a child's update reaches
+            // the parent's hook by path prefix) — re-derives the Annual increase tab's item rows.
+            // NOT `live()` on the repeater itself: a child input with no liveness of its own
+            // inherits the parent's, so that made the rate box round-trip the whole form on
+            // every keystroke (found by review, measured). What a delete needs instead is a FULL
+            // render rather than the repeater's own partial one, or the other tab's table keeps
+            // the row the sync just removed until something else re-renders.
+            ->partiallyRenderAfterActionsCalled($ruleInline)
+            ->afterStateUpdated(function (Get $get, Set $set) use ($ruleInline): void {
+                if (! $ruleInline) {
+                    self::syncItemRuleRows($get, $set);
+                }
+            })
+            ->table($columns)
             ->schema([
                 Select::make('rentable_item_id')
                     ->hiddenLabel()
@@ -1705,40 +1734,144 @@ class LeaseForm
                     // so first.
                     ->minDate(fn (Get $get): ?string => $commencement($get))
                     ->placeholder(__('admin.helpers.rentable_item_from_commencement')),
-                $mode,
-                Group::make([
-                    $rate,
-                    $amount,
-                    // Nothing to type: the sentence says what the row inherits, or that it
-                    // stands still — the same cell the "Which charges step" table shows.
-                    Placeholder::make('inherits')
-                        ->hiddenLabel()
-                        ->content(fn (Get $get): string => ChargeEscalation::describe(
-                            (new Charge)->forceFill([
-                                'escalation_mode' => $get('escalation_mode'),
-                                'escalation_rate' => $get('escalation_rate'),
-                                'escalation_amount' => $get('escalation_amount'),
-                            ]),
-                            $clause($get),
-                        ))
-                        ->visible(fn (Get $get): bool => ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
-                ]),
+                ...($ruleInline ? [
+                    $mode,
+                    Group::make([
+                        $rate,
+                        $amount,
+                        // Nothing to type: the sentence says what the row inherits, or that it
+                        // stands still — the same cell the "Which charges step" table shows.
+                        Placeholder::make('inherits')
+                            ->hiddenLabel()
+                            ->content(fn (Get $get): string => ChargeEscalation::describe(
+                                (new Charge)->forceFill([
+                                    'escalation_mode' => $get('escalation_mode'),
+                                    'escalation_rate' => $get('escalation_rate'),
+                                    'escalation_amount' => $get('escalation_amount'),
+                                ]),
+                                $clause($get),
+                            ))
+                            ->visible(fn (Get $get): bool => ! in_array($get('escalation_mode'), [ChargeEscalation::PERCENT, ChargeEscalation::FIXED_AMOUNT], true)),
+                    ]),
+                ] : []),
             ]);
     }
 
     /**
-     * The annual-increase trio as table cells, reading the clause as typed — for the "Which
-     * charges step" table and the items-at-creation table alike, so the two cannot differ on
-     * what a follows-lease option says or when the rate box shows.
+     * Keep the Annual increase tab's ITEM rows in step with the Lease details tab's items table
+     * (create form only). One row per item row over there, keyed by that row's own key so a rule
+     * already typed follows its item through a re-pick or a removal beside it; the charge rows
+     * (the service charge, on create) are left as they are. A new item row is proposed as the
+     * property proposes every new charge (`billing.new_charges_follow_escalation`).
+     */
+    public static function syncItemRuleRows(Get $get, Set $set): void
+    {
+        $items = collect($get('rentable_items') ?? [])
+            ->filter(fn ($row): bool => is_array($row) && filled($row['rentable_item_id'] ?? null));
+
+        $current = collect($get('charge_escalations') ?? [])->filter(fn ($row): bool => is_array($row));
+
+        $charges = $current->filter(fn (array $row): bool => blank($row['item_key'] ?? null));
+        $byItemKey = $current->filter(fn (array $row): bool => filled($row['item_key'] ?? null))->keyBy('item_key');
+
+        // The row's label is read HERE, off this mall's own register, and carried on the row:
+        // the table renders it without a query per row, and a `rentable_item_id` in the client's
+        // payload can only ever name something this mall lets (found by review — resolving the
+        // label at render time read another mall's item code off a crafted id).
+        $labels = RentableItem::query()
+            ->where('asset_id', TenantScope::currentAssetId())
+            ->whereKey($items->pluck('rentable_item_id')->unique()->values()->all())
+            ->get()
+            ->mapWithKeys(fn (RentableItem $item): array => [$item->id => self::itemLabel($item)]);
+
+        $itemRows = $items
+            ->filter(fn (array $row): bool => $labels->has((int) $row['rentable_item_id']))
+            ->mapWithKeys(function (array $row, string|int $key) use ($byItemKey, $labels): array {
+                $standing = $byItemKey->get((string) $key);
+
+                return ["item-{$key}" => [
+                    'type' => 'parking',
+                    'item_key' => (string) $key,
+                    'rentable_item_id' => (int) $row['rentable_item_id'],
+                    'item_label' => $labels->get((int) $row['rentable_item_id']),
+                    'escalation_mode' => $standing['escalation_mode'] ?? ChargeEscalation::defaultModeFor(TenantScope::currentAssetId()),
+                    'escalation_rate' => $standing['escalation_rate'] ?? null,
+                    'escalation_amount' => $standing['escalation_amount'] ?? null,
+                ]];
+            });
+
+        $set('charge_escalations', $charges->all() + $itemRows->all());
+    }
+
+    /** How a rentable item is named on the "Which charges step" table: its kind, then its code. */
+    public static function itemLabel(RentableItem $item): string
+    {
+        return __('admin.enums.rentable_item_type.'.$item->type).' — '.$item->label();
+    }
+
+    /**
+     * The rules the create form's items were given on the Annual increase tab, folded back onto
+     * the item rows `CreateLease::afterCreate()` lets through `AssignRentableItemService` — paired
+     * by the item row's key. The TAB's row wins where one exists (it is what the operator read);
+     * an item row with none keeps whatever it carries — nothing, ordinarily, so `assign()`
+     * proposes the property's rule; its own inline rule from a form submitted across the deploy
+     * that moved the rule, which is the friendlier reading of a payload the screen no longer
+     * produces.
      *
-     * @param  Closure(Get): bool|null  $applies
+     * @param  array<string|int, array<string, mixed>>  $items
+     * @param  array<string|int, array<string, mixed>>  $escalations
+     * @return list<array<string, mixed>>
+     */
+    public static function itemRowsWithRules(array $items, array $escalations): array
+    {
+        $rules = collect($escalations)
+            ->filter(fn ($row): bool => is_array($row) && filled($row['item_key'] ?? null))
+            ->keyBy('item_key');
+
+        return collect($items)
+            ->filter(fn ($row): bool => is_array($row))
+            ->map(function (array $row, string|int $key) use ($rules): array {
+                $rule = $rules->get((string) $key);
+
+                if ($rule === null) {
+                    return $row + ['escalation_mode' => null, 'escalation_rate' => null, 'escalation_amount' => null];
+                }
+
+                return array_merge($row, [
+                    'escalation_mode' => $rule['escalation_mode'] ?? null,
+                    'escalation_rate' => $rule['escalation_rate'] ?? null,
+                    'escalation_amount' => $rule['escalation_amount'] ?? null,
+                ]);
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * What a row of the "Which charges step" table is about: a charge type through the
+     * catalogue, or a rentable item by the label the row was built with (`itemLabel()`, read
+     * server-side at sync or mount — never resolved here off the row's id).
+     */
+    private static function ruledRowLabel(Get $get): string
+    {
+        if (filled($get('rentable_item_id')) && filled($get('item_label'))) {
+            return (string) $get('item_label');
+        }
+
+        return ChargeCode::labelFor((string) $get('type'));
+    }
+
+    /**
+     * The annual-increase trio as table cells, reading the clause as typed — for the "Which
+     * charges step" table, so its rows cannot differ on what a follows-lease option says or when
+     * the rate box shows.
+     *
      * @return array{0: Select, 1: TextInput, 2: TextInput}
      */
-    private static function ruleFieldsInTable(?Closure $applies = null): array
+    private static function ruleFieldsInTable(): array
     {
         [$mode, $rate, $amount] = EscalationRuleFields::make(
             fn (Get $get): Lease => self::clauseAsTyped($get),
-            $applies,
             inTable: true,
         );
 

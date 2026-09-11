@@ -1379,16 +1379,30 @@
 > `derivedStatePaths()` refilled nothing (measured); and it is `refreshFormData` that is aliased,
 > NOT the `#[On]` listener, because Livewire keys attribute listeners by EVENT and an aliased trait
 > method keeps its attribute, so overriding the listener registered two handlers and the alias won
-> (found by review; the test dispatches the event, never calls the method). The form's table shows
-> the register's rules in words against a read-only parking row (`RentableItemPricing::
-> describeHoldings()`, the same sentence the items tab's column shows), pointing at the tab that
-> rules per item. **Doors left alone, and why**: the lease importer cannot state items (a CSV row
+> (found by review; the test dispatches the event, never calls the method). **The form's table rules
+> on each bay itself since the same day (the operator's ask: "make the annual increase inside the
+> Annual increase tab")** — one row per LIVE holding (`RentableItemPricing::liveHoldings()`, the
+> same predicate `setEscalation()` addresses the holding by, so the row ruled on is the holding
+> written), written back in `afterSave()` through `AssignRentableItemService::setEscalation()`
+> only where it changed; on CREATE the items table on the Lease details tab carries the LETTING
+> only (item · rate · from) and keeps the Annual increase tab's item rows in step
+> (`LeaseForm::syncItemRuleRows()`, keyed by the item row so a typed rule follows its item), and
+> `CreateLease::afterCreate()` folds those rows back onto the items (`itemRowsWithRules()`, the
+> tab's row winning over anything inline). Voyager's shape: one escalation screen per lease over
+> every charge, rentable items included; the quick-lease wizard has no such step, so there the
+> rule stays beside the item. Found by review of it: the items repeater must NOT be `live()` (a
+> child input inherits the parent's liveness, so the rate box round-tripped the whole form per
+> keystroke — a delete needs `partiallyRenderAfterActionsCalled(false)` instead, or the tab's row
+> outlives the item); the row's label is read off THIS mall's register at sync time and carried
+> on the row, never resolved at render off the client-controlled id (a crafted id read another
+> mall's item code); and the register's writer now refuses a lease outside
+> `OPEN_TO_COMMERCIAL_ACTS`, once, for the tab and the form alike. **Doors left alone, and why**: the lease importer cannot state items (a CSV row
 > is one lease, not a list); the charge importer and `UnitOwnershipChargesRelationManager` never
 > write holdings; the ownership tab's assign modal offers no rule. **Recorded, not built**: a
 > relief window on the parking row (unreachable — relief is offered for the rent and the service
 > charge only; the walk stays out of one if that widens); a follows-lease bay under a `none` clause
 > keeps the pointer armed for a sweep that no-ops, as a follows-lease charge does.
-> (`ARentableItemStepsByItsOwnRuleTest`, twenty-one cases, twenty-seven mutations each killing
+> (`ARentableItemStepsByItsOwnRuleTest`, twenty-two cases, thirty-nine mutations each killing
 > their own tooth; `release()` also pinned — it too wrote every holding of the item, pre-existing.)
 >
 > **Clearing a clause takes its projected future with it (2026-09-05).** The `saving` hook clears
@@ -2449,7 +2463,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `reference` (TextInput, disabled, dehydrated) — auto-generated, read-only.
    - `unit_id` (Select, live, required) — master unit; filters to non-occupied/non-reserved unless `show_occupied_units` toggle. Validation rule prevents active-lease conflicts.
    - `additional_unit_ids` (Select, multiple, dehydrated=false) — non-master units for multi-unit leases; dehydrated=false (processed in `afterCreate()` / `afterSave()`). Disabled by `Lease::premisesLockedBecause()` — live (use *Change premises*), or a draft that has stepped / carries an act's row — and free on a plain draft, where a change re-prices a rate-priced rent and its seeded rows (2026-09-11).
-   - **Parking & rentable items** (Section, create only, always on screen; while `status` is `draft` it shows a one-line note — a draft holds nothing, Voyager's own rule — and the table replaces the note the moment the status leaves draft, which is why the status Select is `live()`): a `Repeater::table()` of items let WITH the lease — the item (the property's free, in-service list, `RentableItemOptions::lettableIn()`, `distinct()`), the negotiated rate (prefilled from the register's asking rate on pick), a from-date (blank = the commencement; not before it) and the annual-increase trio. `dehydrated(false)` — `CreateLease::afterCreate()` lets each row through `AssignRentableItemService::assign()` and NAMES any it could not (a refusal is a warning, never a failed create). The quick wizard's third step is the same builder, dehydrating — an action's `$data` is the dehydrated state — and `LeaseCreationService::create()` assigns them (2026-09-12).
+   - **Parking & rentable items** (Section, create only, always on screen; while `status` is `draft` it shows a one-line note — a draft holds nothing, Voyager's own rule — and the table replaces the note the moment the status leaves draft, which is why the status Select is `live()`): a `Repeater::table()` of items let WITH the lease — the item (the property's free, in-service list, `RentableItemOptions::lettableIn()`, `distinct()`), the negotiated rate (prefilled from the register's asking rate on pick), a from-date (blank = the commencement; not before it) — the letting only: each item's annual increase is a row on the *Annual increase* tab's table, kept in step with this one (`LeaseForm::syncItemRuleRows()`). `dehydrated(false)` — `CreateLease::afterCreate()` lets each row through `AssignRentableItemService::assign()` and NAMES any it could not (a refusal is a warning, never a failed create). The quick wizard's third step is the same builder, dehydrating — an action's `$data` is the dehydrated state — and `LeaseCreationService::create()` assigns them (2026-09-12).
    - `tenant_id` (Select, required, searchable, creatable inline) — with quick-create form (name, phone, email).
    - `status` (Select) — draft, pending_approval, active, etc.
    - `show_occupied_units` (Toggle, live, dehydrated=false) — toggles unit dropdown visibility.
@@ -2495,11 +2509,13 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
      `EditLease::chargeEscalationRows()` from the rung in force today and written back in
      `afterSave()` through `ChargeScheduleService::setEscalation()` — only for rows that changed,
      because ruling re-walks that type's ladder. The rent and the levy are never rows: the clause
-     and the rent answer for them, and the section says so. **The parking row is a READ-ONLY row
-     (2026-09-12)** carrying the register's rules in words (`RentableItemPricing::describeHoldings()`
-     — *"P-12 — +EGP 500.00 a year · P-13 — Follows the rent — +7% a year"*), because a bay is
-     ruled on PER ITEM on the Parking & rentable items tab; the same sentence that tab's column
-     shows. The table REFILLS when a tab announces a change (`EditLease::refreshFormData()`, by
+     and the rent answer for them, and the section says so. **Each bay, store or sign the lease
+     holds is its OWN row (2026-09-12)** — *"Parking bay — P-12 · … · fixed amount · 500"* — one per
+     live holding (`RentableItemPricing::liveHoldings()`), written back through
+     `AssignRentableItemService::setEscalation()` where it changed: the rule is per ITEM, and it is
+     decided here beside every other charge's (Voyager's one escalation screen), or from the
+     Parking & rentable items tab's row action, through the same writer. On CREATE the rows are
+     derived from the Lease details tab's items table as items are picked. The table REFILLS when a tab announces a change (`EditLease::refreshFormData()`, by
      hand — an array path is invisible to `fillPartially()`), so it never shows a rule a tab
      already changed. The same three fields are also on the schedule tab's own *Annual increase*
      row action and *Add charge* modal, the items tab's *Annual increase* row action and the

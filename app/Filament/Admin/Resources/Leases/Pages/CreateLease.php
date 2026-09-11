@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Pages;
 
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Filament\Admin\Resources\Leases\Schemas\LeaseForm;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
@@ -127,7 +128,15 @@ class CreateLease extends CreateRecord
         //
         // After the projection above, deliberately: `rebuildCharge()` re-projects the register's
         // ladder itself, and a lease armed by the walk above is what that projection keys on.
-        self::attachRentableItems($lease, $this->data['rentable_items'] ?? []);
+        //
+        // Each item's annual increase was decided on the Annual increase tab, beside every other
+        // charge's (2026-09-12); `itemRowsWithRules()` pairs those rows back onto the items by
+        // the item row's key, so the rule the operator typed against "parking bay P-A" is the one
+        // P-A is let under.
+        self::attachRentableItems($lease, LeaseForm::itemRowsWithRules(
+            $this->data['rentable_items'] ?? [],
+            $this->data['charge_escalations'] ?? [],
+        ));
     }
 
     /**

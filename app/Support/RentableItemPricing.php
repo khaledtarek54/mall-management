@@ -9,6 +9,7 @@ use App\Services\ChargeScheduleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * What a lease PAYS for the bays, cages and signage faces it holds on a date — each item at its
@@ -74,14 +75,53 @@ final class RentableItemPricing
             return false;
         }
 
+        return self::liveHoldingsQuery($lease, $today)
+            ->whereNotNull('rentable_item_holdings.escalation_mode')
+            ->where('rentable_item_holdings.escalation_mode', '!=', ChargeEscalation::NONE)
+            ->exists();
+    }
+
+    /**
+     * The holdings a rule can still reach — LIVE: open, or released at a date still ahead.
+     * A holding already given back is history and keeps what it carried.
+     *
+     * ONE predicate for the writer and every reader of it (2026-09-12): the OPEN holding first,
+     * then the latest one still ahead, because a bay released at a future date and re-let from
+     * the day after has two live holdings for a while and the rule the operator sets is for the
+     * one that goes on (found by review — an unordered `first()` ruled the ending one). The
+     * lease form's *Which charges step* table lists exactly what `setEscalation()` will address,
+     * through this method, so the row the operator rules on is the row that is written.
+     */
+    public static function liveHoldingsQuery(Lease $lease, ?CarbonImmutable $today = null): BelongsToMany
+    {
         $today = ($today ?? CarbonImmutable::today())->toDateString();
 
         return $lease->rentableItems()
             ->where(fn ($q) => $q->whereNull('rentable_item_holdings.effective_to')
                 ->orWhereDate('rentable_item_holdings.effective_to', '>=', $today))
-            ->whereNotNull('rentable_item_holdings.escalation_mode')
-            ->where('rentable_item_holdings.escalation_mode', '!=', ChargeEscalation::NONE)
-            ->exists();
+            ->orderByRaw('rentable_item_holdings.effective_to is null desc')
+            ->orderByDesc('rentable_item_holdings.effective_from');
+    }
+
+    /**
+     * One live holding per ITEM — the one `setEscalation()` addresses — in code order.
+     *
+     * @return Collection<int, RentableItem>
+     */
+    public static function liveHoldings(Lease $lease, ?CarbonImmutable $today = null): Collection
+    {
+        return self::liveHoldingsQuery($lease, $today)->get()
+            ->unique(fn (RentableItem $item): int => $item->id)
+            ->sortBy('code')
+            ->values();
+    }
+
+    /** The live holding of one item, or null when the lease does not hold it (any more, or yet). */
+    public static function liveHoldingOf(Lease $lease, RentableItem $item, ?CarbonImmutable $today = null): ?RentableItem
+    {
+        return self::liveHoldingsQuery($lease, $today)
+            ->wherePivot('rentable_item_id', $item->id)
+            ->first();
     }
 
     /**
@@ -162,19 +202,5 @@ final class RentableItemPricing
             : $items->sum(fn (RentableItem $item) => (float) $item->getRelationValue('pivot')->monthly_rate);
 
         return round((float) $total, 2);
-    }
-
-    /**
-     * The register's rules in words, one item after another — what the lease form's "Which
-     * charges step" table shows against the parking row, so the form and the Rentable items tab
-     * cannot tell the operator two different things. Empty when nothing is held.
-     */
-    public static function describeHoldings(Lease $lease, ?CarbonImmutable $on = null): string
-    {
-        $on ??= CarbonImmutable::today();
-
-        return self::heldOn($lease, $on)
-            ->map(fn (RentableItem $item): string => $item->code.' — '.ChargeEscalation::describe($item->getRelationValue('pivot'), $lease))
-            ->implode(' · ');
     }
 }

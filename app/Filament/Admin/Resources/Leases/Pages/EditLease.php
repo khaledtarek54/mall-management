@@ -5,8 +5,11 @@ namespace App\Filament\Admin\Resources\Leases\Pages;
 use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Filament\Admin\Resources\Leases\Schemas\LeaseForm;
 use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Models\Lease;
+use App\Models\RentableItem;
+use App\Services\AssignRentableItemService;
 use App\Services\ChargeScheduleService;
 use App\Services\LeaseAgreementPdfService;
 use App\Services\MonthlyBillingService;
@@ -138,12 +141,28 @@ class EditLease extends EditRecord
     }
 
     /**
-     * One row per ruleable charge type, plus — where the lease holds anything — a DERIVED row for
-     * the parking charge carrying the register's rules in words (2026-09-12): the form cannot
-     * rule on a bay (that is per item, on the Parking & rentable items tab) but it must show what
-     * the tab holds, or the two surfaces tell the operator different things.
+     * How a "Which charges step" row is told apart for the changed-rows comparison: a charge by
+     * its type, an item by the item it rules on.
      *
-     * @return list<array{type: string, escalation_mode: string, escalation_rate: ?float, escalation_amount: ?float, derived?: bool, summary?: string}>
+     * @param  array<string, mixed>  $row
+     */
+    private static function ruledRowKey(array $row): string
+    {
+        return filled($row['rentable_item_id'] ?? null)
+            ? 'item:'.(int) $row['rentable_item_id']
+            : 'type:'.(string) ($row['type'] ?? '');
+    }
+
+    /**
+     * One row per ruleable charge type, plus one per LIVE rentable-item holding (2026-09-12): a
+     * bay, store or sign steps by its own rule on its holding, and that rule is decided on the
+     * Annual increase tab beside every other charge's — Voyager's one escalation screen. The item
+     * rows list exactly what `AssignRentableItemService::setEscalation()` will address
+     * (`RentableItemPricing::liveHoldings()` — the same predicate), so the row ruled on is the
+     * holding written; the Parking & rentable items tab's row action writes the same holding
+     * through the same service, and this table refills when that tab announces.
+     *
+     * @return list<array{type: string, escalation_mode: string, escalation_rate: ?float, escalation_amount: ?float, rentable_item_id?: int}>
      */
     public static function chargeEscalationRows(Lease $lease): array
     {
@@ -158,16 +177,19 @@ class EditLease extends EditRecord
             ->orderBy('type')
             ->pluck('type');
 
-        $parking = RentableItemPricing::heldOn($lease, $today)->isNotEmpty()
-            ? [[
-                'type' => 'parking',
-                'derived' => true,
-                'summary' => RentableItemPricing::describeHoldings($lease, $today),
-                'escalation_mode' => ChargeEscalation::NONE,
-                'escalation_rate' => null,
-                'escalation_amount' => null,
-            ]]
-            : [];
+        $items = RentableItemPricing::liveHoldings($lease, $today)
+            ->map(function (RentableItem $item): array {
+                $holding = $item->getRelationValue('pivot');
+
+                return [
+                    'type' => 'parking',
+                    'rentable_item_id' => $item->id,
+                    'item_label' => LeaseForm::itemLabel($item),
+                    'escalation_mode' => ChargeEscalation::modeOf($holding),
+                    'escalation_rate' => $holding->escalation_rate === null ? null : (float) $holding->escalation_rate,
+                    'escalation_amount' => $holding->escalation_amount === null ? null : (float) $holding->escalation_amount,
+                ];
+            });
 
         return $types
             ->map(function (string $type) use ($lease, $schedule, $today): ?array {
@@ -192,7 +214,7 @@ class EditLease extends EditRecord
             })
             ->filter()
             ->values()
-            ->concat($parking)
+            ->concat($items)
             ->all();
     }
 
@@ -256,13 +278,24 @@ class EditLease extends EditRecord
         // ladder (new ids, an audit trail full of churn) for a lease whose escalation nobody
         // touched. Compared against what the schedule holds now, not against the form's
         // initial state — a save is what the operator meant, whatever the form had shown.
-        $carried = collect(self::chargeEscalationRows($this->record))->keyBy('type');
+        //
+        // An ITEM row (a bay, store or sign — `rentable_item_id` set) goes through the register's
+        // own writer, `AssignRentableItemService::setEscalation()`, which addresses the live
+        // holding and re-walks the parking ladder; a charge row through the schedule's. Both are
+        // keyed here the way the rows were built, so an unchanged row writes nothing.
+        $carried = collect(self::chargeEscalationRows($this->record))->keyBy(fn (array $row): string => self::ruledRowKey($row));
         $schedule = app(ChargeScheduleService::class);
+        $register = app(AssignRentableItemService::class);
 
         foreach ($this->data['charge_escalations'] ?? [] as $row) {
-            $type = (string) ($row['type'] ?? '');
+            if (! is_array($row)) {
+                continue;
+            }
 
-            if ($type === '' || in_array($type, ChargeEscalation::DERIVED_TYPES, true)) {
+            $type = (string) ($row['type'] ?? '');
+            $itemId = filled($row['rentable_item_id'] ?? null) ? (int) $row['rentable_item_id'] : null;
+
+            if ($type === '' || ($itemId === null && in_array($type, ChargeEscalation::DERIVED_TYPES, true))) {
                 continue;
             }
 
@@ -273,12 +306,29 @@ class EditLease extends EditRecord
             // for every writer and every comparison — `ChargeEscalation::normalise()`.
             $ruled = ChargeEscalation::normalise($row['escalation_mode'] ?? null, $row['escalation_rate'] ?? null, $row['escalation_amount'] ?? null);
 
-            $standing = $carried->get($type);
+            $standing = $carried->get(self::ruledRowKey($row));
 
             if ($standing !== null
                 && $standing['escalation_mode'] === $ruled['escalation_mode']
                 && $standing['escalation_rate'] === $ruled['escalation_rate']
                 && $standing['escalation_amount'] === $ruled['escalation_amount']) {
+                continue;
+            }
+
+            if ($itemId !== null) {
+                // A row for an item the lease no longer holds live (released between the mount and
+                // the save) is not a term to write: the register's writer would refuse it, and
+                // the table lists the live set again on the next render.
+                if ($standing === null) {
+                    continue;
+                }
+
+                $item = RentableItem::query()->find($itemId);
+
+                if ($item !== null) {
+                    $register->setEscalation($this->record->fresh(), $item, $ruled['escalation_mode'], $ruled['escalation_rate'], $ruled['escalation_amount']);
+                }
+
                 continue;
             }
 

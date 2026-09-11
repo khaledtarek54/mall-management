@@ -253,10 +253,13 @@ header and tab, and the unit ownership's tab — from one definition (`RentableI
 above; the assign modal's rule trio is `ruleFields()` there, built against the lease where the
 holder is one). **The lease's
 Parking & rentable items tab** (`LeaseRentableItemsRelationManager`) shows each holding's rule in
-words (`ChargeEscalation::describe()` — the same sentence the lease form's "Which charges step"
-table shows against its read-only parking row) and rules on a live holding through its *Annual
-increase* row action; the assign modal asks the rule where the bay is let, proposed as the property
-proposes a new charge (`billing.new_charges_follow_escalation`). The trio of fields is
+words (`ChargeEscalation::describe()`) and rules on a live holding through its *Annual increase*
+row action; the assign modal asks the rule where the bay is let, proposed as the property proposes
+a new charge (`billing.new_charges_follow_escalation`). **The lease form's *Annual increase* tab
+rules on the same holdings** — one row per live holding on its "Which charges step" table
+(`RentableItemPricing::liveHoldings()`, the predicate `setEscalation()` shares), so a bay is
+ruled on beside the rent and the service charge, Voyager's one escalation screen, and both
+surfaces write through `AssignRentableItemService::setEscalation()`. The trio of fields is
 `App\Support\Filament\EscalationRuleFields`, built once for every screen that asks.
 
 ## 7. Gotchas
@@ -337,8 +340,8 @@ projected ladder, the sweep and the stored rate, a none-clause lease swept for i
 and the amount-clause guard, a bay let mid-term or dated past an anniversary, a back-dated
 assignment and release re-laying the whole ladder, a future-dated release still billing, the tab
 writers, the renewal carry, the ownership control, both creation doors driven through the panel,
-and the form's table refilled from the tabs through the real event — twenty-one cases, twenty-seven
-mutations) ·
+the form's table refilled from the tabs through the real event, and the form's Annual increase tab
+ruling on a bay through the register's writer — twenty-two cases, thirty-nine mutations) ·
 `tests/Feature/Regression/RentableItemNotLettableAreaTest.php` (the invariant) ·
 `tests/Feature/Regression/RentableItemAssignmentTest.php` (letting, releasing, re-letting, billing
 through the real monthly run, and every refusal with a paired control) ·
