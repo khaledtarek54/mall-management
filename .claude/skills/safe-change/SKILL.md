@@ -65,6 +65,38 @@ commit message which doors you left and why; that sentence is the deliverable of
   deletion policy, `ValueSets`, morph map, locks). When in doubt, read it there rather than here —
   this file must not become a second, drifting copy of them.
 
+## 3b. Configurable — the way the MARKET is configurable (Khaled, 2026-09-11)
+
+**Nothing an operator could reasonably differ on ships as a literal.** Every threshold, period,
+basis, default, rate, vocabulary and wording a rule reads comes from a SETTING, a CATALOGUE or a
+WORDING BLOCK — the system is dynamic. But **which knobs exist, at which tier, with which default
+is decided by the standard, exactly as the behaviour is (step 1)**: Yardi first, then the market.
+A switch nobody in the market offers is a decision surface nobody reads, and a rule the market
+configures that we hard-code is a deploy for a change the operator should make from a screen.
+
+Ask three questions of every rule in the change, and write the answers into the commit:
+
+1. **Is it configured in Yardi / the market, and at which TIER?** Lease term → the lease's own
+   column, defaulted from the property (`PropertySettings::OVERRIDABLE`, with the REASON it may
+   differ per building — an allow-list, not a default). Property policy → `PropertySettings`.
+   Company policy → the `*Settings` group (`app/Settings/`). A vocabulary → an `IsCodeCatalogue`
+   row, never a PHP list. Tenant-facing wording → a `DocumentText` block. Statutory figures →
+   dated master-data rungs (`tax_rates`, `payroll_rates`), never settings.
+2. **What is the DEFAULT?** The market's (Yardi's), so a fresh install behaves like the reference
+   system, and **the client's own rule is what they SET** — a configuration act, recorded in
+   STATUS/the module doc, applied on staging by hand and never baked in as the code default.
+   Stricter-than-Yardi ships as a setting whose default is Yardi's.
+3. **Is it READ, and by every consumer?** A setting that nothing consults is the inert-settings
+   defect (`SettingsReachConformanceTest`, `PropertySettingsConformanceTest`); one the scheduler
+   cannot honour is not a setting (`BillingDay`); one honoured by one module and ignored by its
+   sibling means two things (`sla_working_clock_priorities`). Read at RUN time, never at
+   schedule-definition time. Freeze the answer on the row where a later change must not re-price
+   work in flight (a lease's terms, an SLA clock, an invoice's rate).
+
+**Do not over-configure.** Two rules that the market treats as one setting stay one; a rule the
+market treats as invariant (an invoice is immutable once issued, a deposit is a liability) is
+NOT a toggle. Configurability follows the standard in both directions.
+
 ## 4. UI/UX is part of the fix, not a follow-up
 
 - A refusal is **the app talking to a person**: translated EN **and** AR, naming the CAUSE and the
