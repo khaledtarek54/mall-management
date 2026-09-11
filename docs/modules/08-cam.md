@@ -1027,6 +1027,18 @@ invariant).
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+### `cam_allocations.status = disputed` has NO writer (found 2026-09-12)
+
+The set holds `disputed`, but no Select offers it and no service assigns it — a tenant cannot
+dispute a CAM share from the panel. Nothing distinguishes it either: `CamReconciliationService`
+only ever tests `status !== 'pending'`, so a disputed row (were one to arrive by import) counts as
+acted-on, the same as a billed one. It surfaced when the allocation tab's status colour map moved into
+`App\Support\BadgeColors`: the status-reachability gate's exemption for this value had pointed its
+proof token at the string `disputed` in that map, under a sentence claiming the table sets it from
+the operator's pick. The exemption now says what is true. Closing it is a **Dispute share** act on
+the allocation (open decision, module 08); the value stays in `ValueSets` for imported rows.
+
+
 ### Double-bill regression (FIXED)
 
 **Bug**: `generateAllocations()` always set `status='pending'`, so re-running it on a pool with a 'billed' allocation would reset the status back to 'pending'. The next billing pass would then create a second charge.

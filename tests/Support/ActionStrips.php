@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Support\PhpSource;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -99,7 +100,7 @@ class ActionStrips
         $registries = [];
 
         foreach ($files as $class => $file) {
-            preg_match_all("/Action::make\('([^']+)'\)/", self::withoutComments((string) file_get_contents($file)), $matches);
+            preg_match_all("/Action::make\('([^']+)'\)/", PhpSource::withoutComments((string) file_get_contents($file)), $matches);
 
             $registries[$class] = array_values(array_unique($matches[1]));
         }
@@ -120,7 +121,7 @@ class ActionStrips
                     continue;
                 }
 
-                preg_match_all('/\b'.preg_quote($short, '/').'::(\w+)\(/', self::withoutComments((string) file_get_contents($file)), $calls);
+                preg_match_all('/\b'.preg_quote($short, '/').'::(\w+)\(/', PhpSource::withoutComments((string) file_get_contents($file)), $calls);
 
                 foreach (array_unique($calls[1]) as $method) {
                     $registries[$class] = array_values(array_unique(array_merge(
@@ -170,7 +171,7 @@ class ActionStrips
             glob(app_path('Filament/*/Actions/*Actions.php')) ?: [],
         ) as $file) {
             $class = self::classOf($file);
-            $source = self::withoutComments((string) file_get_contents($file));
+            $source = PhpSource::withoutComments((string) file_get_contents($file));
 
             // Each `public static function name(...): Action { ... }` body, up to the next method.
             preg_match_all('/public static function (\w+)\([^)]*\): Action\s*\{(.*?)(?=\n    (?:public|private|protected) |\n\}\s*$)/s', $source, $methods, PREG_SET_ORDER);
@@ -201,7 +202,7 @@ class ActionStrips
         $out = [];
 
         foreach (glob(app_path('Filament/Actions/*Action.php')) ?: [] as $file) {
-            $source = self::withoutComments((string) file_get_contents($file));
+            $source = PhpSource::withoutComments((string) file_get_contents($file));
 
             if (preg_match("/Action::make\('([^']+)'\)/", $source, $m)) {
                 $out[self::classOf($file)] = $m[1];
@@ -210,29 +211,6 @@ class ActionStrips
                 // `OpenRecordAction::make()` names its act through a constant, so the row-click
                 // seam can read the same name.
                 $out[self::classOf($file)] = $c[1];
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * Comments blanked to spaces. `PostMonthAction`'s docblock shows `Action::make('vendor_bills.edit')`
-     * as a usage example, and read raw that example was the factory's "name".
-     */
-    private static function withoutComments(string $source): string
-    {
-        $out = $source;
-
-        foreach (token_get_all($source) as $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-
-            $at = strpos($out, $token[1]);
-
-            if ($at !== false) {
-                $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
             }
         }
 

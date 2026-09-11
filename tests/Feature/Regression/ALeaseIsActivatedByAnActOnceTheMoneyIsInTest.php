@@ -22,6 +22,7 @@ use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
+use Tests\Support\LockSpy;
 
 /**
  * **A lease is ACTIVATED by an act, once the money is in — and the reservation lapses when it
@@ -172,6 +173,28 @@ it('activates once the deposit is held, clears the window, holds the unit and re
     expect($event->payload[LeaseEventNarrative::KEY])->toBe('lease_activated')
         ->and(LeaseEventNarrative::resolve($event, 'en'))->toContain('Active')->toContain('01/09/2026')
         ->and(LeaseEventNarrative::resolve($event, 'ar'))->toMatch('/\p{Arabic}/u');
+});
+
+it('takes the lease lock, then the unit lock, on the real activation path', function () {
+    // `ConcurrencyPolicy::PROVEN` has claimed this since dfe49970 with no test driving `LockSpy`
+    // through the service — `CriticalSectionsTakeTheirLockTest` was red on `main` for ten days
+    // saying so (found 2026-09-12). Activation is the moment a pending lease starts to hold its
+    // premises, so it is the fourth writer that can put two leases on one shop; the spy sees the
+    // locks the sqlite suite otherwise compiles to nothing.
+    requireMoney($this, days: 14);
+    $lease = enteredLease($this);
+    depositReceipt($lease, 30000);
+
+    $spy = LockSpy::watch(fn () => app(ActivateLeaseService::class)->activate($lease));
+
+    // THE ROW READ, by statement shape — `locked('leases')` alone is satisfied by the double-let
+    // guard's `exists(… leases … for update)` on the same path, and stayed green with the
+    // service's own `lockForUpdate()` deleted (mutation, 2026-09-12). Isolate, then mutate.
+    $ownRow = collect($spy->lockedStatements('leases'))
+        ->contains(fn (string $sql): bool => (bool) preg_match('/from "leases" where "leases"\."id" = \?/', $sql));
+
+    expect($ownRow)->toBeTrue('activation must lock the lease row it re-reads, not only what the double-let guard locks')
+        ->and($spy->locked('units'))->toBeTrue('activation must lock the units it is about to hold');
 });
 
 it('activates as FUTURE when the commencement is ahead — the calendar answers, not the act', function () {

@@ -43,6 +43,7 @@
  * red.
  */
 
+use App\Support\PhpSource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -104,16 +105,7 @@ function nullableFkSources(): array
             if (! $f->isFile() || $f->getExtension() !== 'php') {
                 continue;
             }
-            $src = file_get_contents($f->getPathname());
-            $out = $src;
-            foreach (token_get_all($src) as $token) {
-                if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                    $at = strpos($out, $token[1]);
-                    if ($at !== false) {
-                        $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
-                    }
-                }
-            }
+            $out = PhpSource::fileWithoutComments($f->getPathname());
             $files[ltrim(str_replace(base_path().'/', '', $f->getPathname()), '/')] = $out;
         }
     }

@@ -131,6 +131,26 @@ class LockSpy
             ->contains(fn (array $l): bool => $l['table'] === $table && $l['mode'] === $mode);
     }
 
+    /**
+     * The SQL of every lock taken on `$table`, so a test can name WHICH read the service locked.
+     *
+     * `locked('leases')` is true whenever ANY statement in the request locked that table — and
+     * on the activation path the double-let guard (`Unit::isActivelyLeasedForUpdate()`) locks
+     * `leases` on its own, so with the service's re-read of its own row unlocked the table-level
+     * assertion stayed green (mutation, 2026-09-12). A tooth on the row-locking read has to match
+     * the statement: `from "leases" where "leases"."id" = ?`, not the guard's `exists(…)`.
+     *
+     * @return array<int, string>
+     */
+    public function lockedStatements(string $table, string $mode = 'for-update'): array
+    {
+        return collect($this->locks)
+            ->filter(fn (array $l): bool => $l['table'] === $table && $l['mode'] === $mode)
+            ->pluck('sql')
+            ->values()
+            ->all();
+    }
+
     /** @return array<int, string> tables locked, in order, for a readable failure message */
     public function lockedTables(): array
     {

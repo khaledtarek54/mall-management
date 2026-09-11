@@ -152,7 +152,28 @@ it('never offers a create-option form with no way to create', function () {
 
             $chainStart = strrpos(substr($source, 0, $at), '::make(');
             $before = $chainStart === false ? '' : substr($source, $chainStart, $at - $chainStart);
-            $after = substr($source, $at, 600);
+            // Forward from the END of the form array (its matching paren) to the next picker's
+            // `::make(` — never a fixed width. The source arrives with comments BLANKED to their
+            // own length (`PhpSource`), so a five-line comment between the form array and
+            // `->createOptionUsing(` is ~400 characters of space; a 600-character window put
+            // `BankAccountForm`'s correct chain past its own edge (review, 2026-09-12). The array
+            // holds its own `TextInput::make(…)` fields, which is why the walk starts after it.
+            $open = strpos($source, '(', $at);
+            $depth = 0;
+            $close = $open;
+
+            for ($k = $open, $n = strlen($source); $k < $n; $k++) {
+                if ($source[$k] === '(') {
+                    $depth++;
+                } elseif ($source[$k] === ')' && --$depth === 0) {
+                    $close = $k;
+
+                    break;
+                }
+            }
+
+            $chainEnd = strpos($source, '::make(', $close);
+            $after = $chainEnd === false ? substr($source, $close) : substr($source, $close, $chainEnd - $close);
 
             if (! str_contains($before, '->relationship(')
                 && ! str_contains($after, '->createOptionUsing(')) {

@@ -21,6 +21,7 @@ use App\Services\IssueInvoiceService;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Services\TenantRequestService;
 use App\Support\ActivityLogChangeRenderer;
+use App\Support\PhpSource;
 use App\Support\ValueSets;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Builder;
@@ -855,30 +856,21 @@ function rmActionChains(string $code, string $action): array
 }
 
 /**
- * A PHP file's source with every comment and docblock removed.
+ * A PHP file's source with every comment and docblock BLANKED to spaces — offsets and line
+ * numbers intact — through `App\Support\PhpSource`, the one tokenizer every source-reading gate
+ * shares (2026-09-12).
  *
- * `token_get_all` is exact where a regex would guess: it never mistakes a `//` inside a string
- * literal for a comment. Shared, because two conformance gates read source and this project's own
- * rule is that a helper declared in two test files is a FATAL redeclaration on any single-process
- * run — invisible under `--parallel`, and it exits the suite 255 with no output at all.
+ * This helper used to REMOVE comment tokens, and seven test files had written a blanking copy of
+ * their own beside it because a gate that reports positions needs them kept. Eighteen callers
+ * read it; the two fixed-width lookaheads among them (120 and 600 characters) had to be widened
+ * when blanking arrived, because a comment that used to cost nothing now costs its own length.
+ * Shared, because this project's own rule is that a helper declared in two test files is a FATAL
+ * redeclaration on any single-process run — invisible under `--parallel`, and it exits the suite
+ * 255 with no output at all.
  */
 function sourceWithoutComments(string $path): string
 {
-    $out = '';
-
-    foreach (token_get_all((string) file_get_contents($path)) as $token) {
-        if (is_array($token)) {
-            if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-            $out .= $token[1];
-
-            continue;
-        }
-        $out .= $token;
-    }
-
-    return $out;
+    return PhpSource::fileWithoutComments($path);
 }
 
 /**
@@ -892,25 +884,7 @@ function sourceWithoutComments(string $path): string
  */
 function sourceWithoutCommentsOrStrings(string $path): string
 {
-    $out = '';
-
-    foreach (token_get_all((string) file_get_contents($path)) as $token) {
-        if (! is_array($token)) {
-            $out .= $token;
-
-            continue;
-        }
-
-        if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-            continue;
-        }
-
-        $out .= in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_INLINE_HTML], true)
-            ? "''"
-            : $token[1];
-    }
-
-    return $out;
+    return PhpSource::withoutCommentsOrStrings((string) file_get_contents($path));
 }
 
 /**

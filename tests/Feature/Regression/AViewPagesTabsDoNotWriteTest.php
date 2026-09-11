@@ -13,6 +13,7 @@ use App\Models\Announcement;
 use App\Models\FiscalYear;
 use App\Models\OwnerStatementRun;
 use App\Models\TenantRequest;
+use App\Support\PhpSource;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\ViewRecord;
@@ -372,10 +373,7 @@ it('registers every tab that still links into a create form, with a reason', fun
         ->filter(function (string $path): bool {
             // Comments stripped: this file's own explanations name the call, and a gate that fires
             // on a sentence is one that gets weakened rather than fixed.
-            $code = collect(token_get_all(file_get_contents($path)))
-                ->reject(fn ($token) => is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true))
-                ->map(fn ($token) => is_array($token) ? $token[1] : $token)
-                ->implode('');
+            $code = PhpSource::withoutComments(file_get_contents($path));
 
             return str_contains($code, 'ResourceLink::create(');
         })

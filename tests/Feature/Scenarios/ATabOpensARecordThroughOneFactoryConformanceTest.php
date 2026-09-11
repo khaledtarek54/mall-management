@@ -2,6 +2,7 @@
 
 use App\Filament\Actions\OpenRecordAction;
 use App\Support\Filament\RowClickTarget;
+use App\Support\PhpSource;
 use Tests\Support\ActionStrips;
 
 /*
@@ -31,20 +32,7 @@ const OPEN_LINK_EXEMPT = [
 /** Comment-stripped source, so a docblock naming the pattern is not a hit. */
 function openLinkSource(string $file): string
 {
-    $source = (string) file_get_contents($file);
-    $out = $source;
-
-    foreach (token_get_all($source) as $token) {
-        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-            $at = strpos($out, $token[1]);
-
-            if ($at !== false) {
-                $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
-            }
-        }
-    }
-
-    return $out;
+    return PhpSource::fileWithoutComments($file);
 }
 
 it('declares no hand-written open act and no row link into a resource page outside the factory', function () {

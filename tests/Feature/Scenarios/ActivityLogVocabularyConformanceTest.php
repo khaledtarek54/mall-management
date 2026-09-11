@@ -5,6 +5,7 @@ use App\Models\Invoice;
 use App\Support\AccessControlAudit;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
+use App\Support\PhpSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
@@ -108,19 +109,7 @@ function activitySourceLiterals(string $pattern): array
             continue;
         }
 
-        $code = '';
-        foreach (token_get_all((string) file_get_contents($file->getPathname())) as $token) {
-            if (is_array($token)) {
-                if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                    continue;
-                }
-                $code .= $token[1];
-
-                continue;
-            }
-
-            $code .= $token;
-        }
+        $code = PhpSource::fileWithoutComments($file->getPathname());
 
         if (preg_match_all($pattern, $code, $matches)) {
             $found = array_merge($found, $matches[1]);

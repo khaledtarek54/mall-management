@@ -18,6 +18,7 @@
  */
 
 use App\Support\LineNarrative;
+use App\Support\PhpSource;
 use Illuminate\Support\Facades\Lang;
 
 /**
@@ -109,15 +110,6 @@ function describeAsCalls(string $source): array
     return $calls;
 }
 
-/** PHP source with comments removed, so a key named in a docblock is not read as a writer. */
-function withoutComments(string $source): string
-{
-    return implode('', array_map(
-        fn ($token) => is_array($token) ? (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? ' ' : $token[1]) : $token,
-        token_get_all($source),
-    ));
-}
-
 it('resolves every registered narrative in both languages', function () {
     $broken = [];
 
@@ -178,7 +170,7 @@ it('has a writer for every narrative it catalogues', function () {
     $written = [];
 
     foreach (lineWritingFiles() as $path) {
-        $source = withoutComments(file_get_contents($path));
+        $source = PhpSource::withoutComments(file_get_contents($path));
 
         foreach (array_keys(LineNarrative::KEYS) as $key) {
             if (str_contains($source, "'{$key}'")) {

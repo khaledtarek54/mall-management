@@ -16,6 +16,7 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Models\VendorDocument;
+use App\Support\PhpSource;
 use App\Support\ResourceLink;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -627,15 +628,7 @@ it('routes every parameterised create link through ResourceLink::create()', func
 
         // Comments stripped first, or the files DOCUMENTING this trap are reported as committing
         // it — the prose-false-positive shape this codebase has hit three times.
-        $stripped = $source;
-        foreach (token_get_all($source) as $token) {
-            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                $at = strpos($stripped, $token[1]);
-                if ($at !== false) {
-                    $stripped = substr_replace($stripped, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
-                }
-            }
-        }
+        $stripped = PhpSource::withoutComments($source);
 
         // Every shape that reaches getUrl WITH parameters — the no-argument form is fine, it can
         // collide with nothing:
@@ -721,15 +714,7 @@ it('never passes a `tenant` query key to getUrl — that is the tenancy route pa
 
         // Comments stripped first, or the two files DOCUMENTING this trap are reported as
         // committing it — the prose-false-positive shape this codebase has hit three times.
-        $stripped = $source;
-        foreach (token_get_all($source) as $token) {
-            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                $at = strpos($stripped, $token[1]);
-                if ($at !== false) {
-                    $stripped = substr_replace($stripped, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
-                }
-            }
-        }
+        $stripped = PhpSource::withoutComments($source);
 
         // A `getUrl(` call whose parameter array names `tenant`, within the call's own window.
         preg_match_all('/getUrl\(/', $stripped, $calls, PREG_OFFSET_CAPTURE);

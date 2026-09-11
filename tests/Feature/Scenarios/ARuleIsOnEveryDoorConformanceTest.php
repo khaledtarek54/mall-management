@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\PhpSource;
+
 /**
  * §9.3 gate 2 — A RULE MUST BE ON EVERY DOOR, NOT ON THE FIRST ONE.
  *
@@ -71,27 +73,14 @@ const RULE_DOORS = [
  *
  * token_get_all, not a regex: a bracket- or line-counting stripper fails OPEN on a delimiter
  * inside a string, which is the exact fault SW-228's review found in an earlier door sweep.
- * (Same 6 lines as `MoneyDocumentDoors::withoutComments`, which is deliberately private —
- * blanked to spaces so offsets stay meaningful in failure messages.)
+ * Through `PhpSource`, the one tokenizer — blanked to spaces so offsets stay meaningful in
+ * failure messages.
  */
 function ruleDoorSource(string $relative): string
 {
     static $cache = [];
 
-    if (! isset($cache[$relative])) {
-        $out = $source = file_get_contents(base_path($relative));
-        foreach (token_get_all($source) as $token) {
-            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                $at = strpos($out, $token[1]);
-                if ($at !== false) {
-                    $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
-                }
-            }
-        }
-        $cache[$relative] = $out;
-    }
-
-    return $cache[$relative];
+    return $cache[$relative] ??= PhpSource::fileWithoutComments(base_path($relative));
 }
 
 /** Every app/ php file, relative paths, memoised. */

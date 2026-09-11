@@ -3,6 +3,7 @@
 use App\Http\Middleware\SetApiLocale;
 use App\Http\Middleware\SetLocale;
 use App\Http\Requests\Api\V1\Profile\UpdateProfileRequest;
+use App\Support\PhpSource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
@@ -50,25 +51,7 @@ it('accepts a language the panel speaks on the tenant profile, and refuses one i
 it('writes the language list down in exactly one place', function () {
     // Comments stripped, so a sentence ABOUT the list is never mistaken for a second copy of it —
     // a gate that fires on prose is one that gets weakened rather than fixed.
-    $stripComments = function (string $source): string {
-        $out = '';
-
-        foreach (token_get_all($source) as $token) {
-            if (is_array($token)) {
-                if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                    continue;
-                }
-
-                $out .= $token[1];
-
-                continue;
-            }
-
-            $out .= $token;
-        }
-
-        return $out;
-    };
+    $stripComments = fn (string $source): string => PhpSource::withoutComments($source);
 
     $scanned = 0;
     $offenders = [];

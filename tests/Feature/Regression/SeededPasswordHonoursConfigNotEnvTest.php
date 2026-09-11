@@ -22,6 +22,7 @@ declare(strict_types=1);
 */
 
 use App\Models\User;
+use App\Support\PhpSource;
 use Database\Seeders\LearningSeeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
@@ -51,12 +52,7 @@ it('reads the password from config, never env(), anywhere under database/seeders
         $source = $file->getContents();
 
         // Strip comments first — this file's own docblock quotes env() and would flag itself.
-        $stripped = implode('', array_map(
-            fn (array|string $t): string => is_array($t)
-                ? (in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true) ? '' : $t[1])
-                : $t,
-            token_get_all($source)
-        ));
+        $stripped = PhpSource::withoutComments($source);
 
         if (preg_match('/(?<![_a-zA-Z0-9$>])env\s*\(/', $stripped)) {
             $offenders[] = $file->getRelativePathname();

@@ -796,5 +796,12 @@
     "path": "app/Filament/Admin/RelationManagers/UnitMetersRelationManager.php",
     "old": "                OpenRecordAction::make(UtilityMeterResource::class),",
     "new": "                Action::make('open')->url(fn ($record) => UtilityMeterResource::getUrl('edit', ['record' => $record])),"
+  },
+  {
+    "name": "OneSourceStripper — a test file rebuilds comment-free source itself again",
+    "gate": "tests/Feature/Scenarios/OneSourceStripperConformanceTest.php",
+    "path": "tests/Feature/Regression/SeededPasswordHonoursConfigNotEnvTest.php",
+    "old": "        $stripped = PhpSource::withoutComments($source);",
+    "new": "        $stripped = implode('', array_map(fn (array|string $t): string => is_array($t) ? (in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true) ? '' : $t[1]) : $t, token_get_all($source)));"
   }
 ]

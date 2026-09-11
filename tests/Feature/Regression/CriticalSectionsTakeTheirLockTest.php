@@ -15,6 +15,7 @@ use App\Support\ConcurrencyPolicy;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\File;
 use Tests\Support\LockSpy;
 
@@ -41,6 +42,9 @@ use Tests\Support\LockSpy;
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
+    // The preventive sweep routes the orders it raises to a ROLE; with no roles seeded spatie
+    // throws `RoleDoesNotExist` before the lock is ever taken. Red on `main` until 2026-09-12.
+    $this->seed(RolesPermissionsSeeder::class);
     $this->asset = makeAsset(['code' => 'MALL']);
 
     // Auto-apply credit OFF, and this is load-bearing rather than tidiness.

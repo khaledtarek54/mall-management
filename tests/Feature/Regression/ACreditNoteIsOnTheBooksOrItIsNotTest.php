@@ -3,6 +3,7 @@
 use App\Models\CreditNote;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
 use App\Services\CreditNotePdfService;
+use App\Support\PhpSource;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Symfony\Component\Finder\Finder;
@@ -88,11 +89,7 @@ it('lets no other file re-list the pair', function () {
         // mention of the pair is a DOCBLOCK explaining this very defect. A gate that fires on a
         // sentence is one that gets weakened rather than fixed — this project has recorded that
         // twice — and here it would have buried the two REAL copies the sweep did find.
-        $source = collect(token_get_all($file->getContents()))
-            ->reject(fn ($token) => is_array($token)
-                && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true))
-            ->map(fn ($token) => is_array($token) ? $token[1] : $token)
-            ->implode('');
+        $source = PhpSource::withoutComments($file->getContents());
 
         if (! str_contains($source, 'CreditNote')) {
             continue;

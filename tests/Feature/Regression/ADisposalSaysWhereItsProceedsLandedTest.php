@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\FixedAssets\Pages\EditFixedAsset;
 use App\Models\FixedAsset;
+use App\Support\PhpSource;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -107,25 +108,7 @@ it('never conditions a field on a sibling the operator cannot reach', function (
     // whatever `x` held when the modal opened, and the field either never appears (this row) or
     // never disappears (the charge-schedule toggle, which then writes a decision onto a row the
     // rule was never meant to reach).
-    $stripComments = function (string $source): string {
-        $out = '';
-
-        foreach (token_get_all($source) as $token) {
-            if (is_array($token)) {
-                if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                    continue;
-                }
-
-                $out .= $token[1];
-
-                continue;
-            }
-
-            $out .= $token;
-        }
-
-        return $out;
-    };
+    $stripComments = fn (string $source): string => PhpSource::withoutComments($source);
 
     // The text of the first argument to each `->visible(` / `->hidden(`, matched by PAREN DEPTH and
     // not by a regex: a condition closure routinely contains calls, arrays and nested parens, and a
@@ -217,7 +200,11 @@ it('never conditions a field on a sibling the operator cannot reach', function (
 
         foreach ($fieldChains as $name => $declarations) {
             foreach ($declarations as $declaration) {
-                if (str_contains($declaration, '->live(')) {
+                // A `Hidden` is filled by the SYSTEM and never typed, so a condition reading it
+                // is settled on render and has nothing to react to — `->live()` on it would be
+                // meaningless. The lease form's items table conditions its rule fields on a
+                // hidden `derived` flag (742fa241), which read as an unreachable sibling here.
+                if (str_contains($declaration, '->live(') || str_starts_with($declaration, 'Hidden::make(')) {
                     $live[$name] = true;
                 }
             }

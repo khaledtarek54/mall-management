@@ -286,7 +286,7 @@ final class MoneyDocumentDoors
                 // rather than fixed, the finding already recorded for two of the PDF gates. No file
                 // needs the blanking today; it is here so that explaining the rule cannot break it.
                 // Offsets are preserved, so the array literal is still sliced from the real source.
-                if (preg_match_all(self::createPattern($short), self::withoutComments($source), $m, PREG_OFFSET_CAPTURE) === 0) {
+                if (preg_match_all(self::createPattern($short), PhpSource::withoutComments($source), $m, PREG_OFFSET_CAPTURE) === 0) {
                     continue;
                 }
 
@@ -343,26 +343,6 @@ final class MoneyDocumentDoors
     private static function createPattern(string $short): string
     {
         return '/(?<![\\w\\\\])'.preg_quote($short, '/').'::create\\(\\[/';
-    }
-
-    /** The same source with every comment replaced by spaces — offsets, and string literals, intact. */
-    private static function withoutComments(string $source): string
-    {
-        $out = $source;
-
-        foreach (token_get_all($source) as $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-
-            $at = strpos($out, $token[1]);
-
-            if ($at !== false) {
-                $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
-            }
-        }
-
-        return $out;
     }
 
     /**

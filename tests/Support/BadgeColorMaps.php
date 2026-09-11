@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Support\PhpSource;
 use App\Support\ValueSets;
 use Filament\Facades\Filament;
 use RecursiveDirectoryIterator;
@@ -69,7 +70,7 @@ final class BadgeColorMaps
         $found = [];
 
         foreach (self::files() as $file) {
-            $src = self::withoutComments((string) file_get_contents($file));
+            $src = PhpSource::withoutComments((string) file_get_contents($file));
             $imports = self::imports($src);
             $relative = str_replace(base_path().'/', '', $file);
 
@@ -345,25 +346,5 @@ final class BadgeColorMaps
         }
 
         return $imports;
-    }
-
-    /** Comments blanked to spaces — offsets intact, a docblock naming `match` invisible. */
-    private static function withoutComments(string $source): string
-    {
-        $out = $source;
-
-        foreach (token_get_all($source) as $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-
-            $at = strpos($out, $token[1]);
-
-            if ($at !== false) {
-                $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
-            }
-        }
-
-        return $out;
     }
 }

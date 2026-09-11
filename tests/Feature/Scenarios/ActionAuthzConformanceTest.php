@@ -36,6 +36,7 @@
 */
 
 use App\Support\ActionAuthz;
+use App\Support\PhpSource;
 
 /**
  * Strip comments (and normalise whitespace) using PHP's own tokenizer.
@@ -53,17 +54,7 @@ function stripPhpComments(string $src): string
     // self-test's snippet does not, and that discrepancy would leave the self-test exercising a
     // different code path from the scan it is meant to certify.
     $tagged = str_contains(substr($src, 0, 16), '<?php');
-    $out = '';
-
-    foreach (token_get_all($tagged ? $src : '<?php '.$src) as $token) {
-        if (is_array($token)) {
-            $out .= in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? ' ' : $token[1];
-
-            continue;
-        }
-
-        $out .= $token;
-    }
+    $out = PhpSource::withoutComments($tagged ? $src : '<?php '.$src);
 
     return $tagged ? $out : substr($out, strlen('<?php '));
 }
@@ -95,7 +86,11 @@ function filamentActionChains(string $src): array
         $end = closeParen($src, $pos);
 
         while ($end !== null && $end < strlen($src)) {
-            if (! preg_match('/\A\s*\??->\s*\w+\s*\(/', substr($src, $end + 1, 120), $m)) {
+            // No lookahead cap: the stripper BLANKS a comment to its own length (offsets kept),
+            // so a mid-chain comment is a run of whitespace as long as the comment was, and a
+            // 120-character window terminated the walk at exactly the case the self-test exists
+            // for. `\A\s*` scans only that whitespace.
+            if (! preg_match('/\A\s*\??->\s*\w+\s*\(/', substr($src, $end + 1), $m)) {
                 break;
             }
             $open = $end + 1 + strlen($m[0]) - 1;

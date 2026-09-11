@@ -295,21 +295,7 @@ final class RowActionPolicy
     /** A file's PHP with comments and docblocks removed — never grep prose for code. */
     private static function code(string $file): string
     {
-        $code = '';
-
-        foreach (token_get_all((string) file_get_contents($file)) as $token) {
-            if (! is_array($token)) {
-                $code .= $token;
-
-                continue;
-            }
-
-            if (! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                $code .= $token[1];
-            }
-        }
-
-        return $code;
+        return PhpSource::fileWithoutComments($file);
     }
 
     /**
@@ -332,7 +318,9 @@ final class RowActionPolicy
      */
     public static function segments(string $source): array
     {
-        $tokens = token_get_all($source);
+        // Comments blanked FIRST, through the one stripper — so the walk below never meets a
+        // comment token and the apostrophe-in-a-comment trap recorded above cannot recur.
+        $tokens = token_get_all(PhpSource::withoutComments($source));
         $open = null;
 
         for ($i = 0; $i < count($tokens) - 2; $i++) {
@@ -414,9 +402,7 @@ final class RowActionPolicy
                 continue;
             }
 
-            if (! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                $current .= $token[1];
-            }
+            $current .= $token[1];
         }
 
         $flattened = [];

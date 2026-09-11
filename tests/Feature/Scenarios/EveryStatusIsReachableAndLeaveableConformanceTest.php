@@ -39,6 +39,7 @@
  * gateway-written; sweeping it would demand exemptions for a module deliberately invisible.
  */
 
+use App\Support\PhpSource;
 use App\Support\ProjectedState;
 use App\Support\ValueSets;
 use Illuminate\Database\Eloquent\Model;
@@ -199,8 +200,16 @@ const STATUS_EXEMPT = [
     'violations.status.resolved' => ['the violation form\'s status Select (options = Violation::STATUSES)', 'app/Filament/Admin/Resources/Violations/Schemas/ViolationForm.php', 'Violation::STATUSES'],
     'unit_ownerships.status.reserved' => ['the ownership form\'s status Select (options = UnitOwnershipStatus::options())', 'app/Filament/Admin/Resources/UnitOwnerships/Schemas/UnitOwnershipForm.php', 'UnitOwnershipStatus::options()'],
 
-    // CAM: a tenant disputes their share off the allocation, and the true-up reads the flag.
-    'cam_allocations.status.disputed' => ['CamReconciliationService reads it and the allocation table sets it from the operator\'s pick; no literal write exists', 'app/Filament/Admin/RelationManagers/CamAllocationsRelationManager.php', 'disputed'],
+    // CAM: NOTHING WRITES IT (measured 2026-09-12). This row used to claim "the allocation table
+    // sets it from the operator's pick" with its proof token pointing at the string `disputed` in
+    // `CamAllocationsRelationManager` — which was that tab's status COLOUR MAP, not a writer; the
+    // day the map moved into `BadgeColors` the token vanished and the claim was exposed. No Select
+    // offers it, no service assigns it, and the true-up reads a flag no screen can set. Recorded
+    // as the gap it is (docs/modules/08-cam.md → Gotchas) rather than re-pointed at another
+    // string that happens to exist; a "Dispute share" act on the allocation is the module-08
+    // decision that closes it, and the token below is the value's declaration, the one thing
+    // that IS true.
+    'cam_allocations.status.disputed' => ['no writer exists — a Dispute act on the allocation is an open module-08 decision; the value stays in the set for imported rows', 'app/Models/CamAllocation.php', "'disputed'"],
 ];
 
 function statusGateSources(): array
@@ -211,16 +220,7 @@ function statusGateSources(): array
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('app')));
         foreach ($it as $f) {
             if ($f->isFile() && $f->getExtension() === 'php') {
-                $src = file_get_contents($f->getPathname());
-                $out = $src;
-                foreach (token_get_all($src) as $t) {
-                    if (is_array($t) && in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                        $at = strpos($out, $t[1]);
-                        if ($at !== false) {
-                            $out = substr_replace($out, str_repeat(' ', strlen($t[1])), $at, strlen($t[1]));
-                        }
-                    }
-                }
+                $out = PhpSource::fileWithoutComments($f->getPathname());
                 $files[ltrim(str_replace(base_path().'/', '', $f->getPathname()), '/')] = $out;
             }
         }

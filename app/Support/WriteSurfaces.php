@@ -68,7 +68,7 @@ use Throwable;
  * - `fieldsAskedIn()` is file-wide, so a repeater's child fields are hoisted into the parent's set.
  *   Harmless at one comparable pair; a false-positive engine if that ever grows.
  * - This is the third spelling of *what is a field* in this application, beside
- *   `MoneyDocumentDoors` and `ModalFieldReach`, and `withoutComments()` is the second copy. That is
+ *   `MoneyDocumentDoors` and `ModalFieldReach`. That is
  *   a debt: the repo's own rule says extract on the second call site, and doing it means touching
  *   two gates whose own tests would have to be re-proved.
  */
@@ -161,7 +161,7 @@ final class WriteSurfaces
         // and for the same reason: a manager whose docblock explains "there is no AttachAction
         // here" would otherwise be read as pivot-writing and drop out of parity silently. No file
         // trips it today; it is here so that explaining the rule cannot break it.
-        $source = self::withoutComments($source);
+        $source = PhpSource::withoutComments($source);
 
         return (bool) preg_match('/(AttachAction|AssociateAction)::make/', $source)
             && ! preg_match('/CreateAction::make/', $source);
@@ -199,7 +199,7 @@ final class WriteSurfaces
             return false;
         }
 
-        $bare = self::withoutComments($source);
+        $bare = PhpSource::withoutComments($source);
 
         // Filament's own create/edit surfaces need no further argument: they save the record.
         if (preg_match('/public function form\(/', $bare) || preg_match('/CreateAction::make/', $bare)) {
@@ -875,7 +875,7 @@ final class WriteSurfaces
                 continue;
             }
 
-            $source = self::withoutComments((string) file_get_contents($file->getPathname()));
+            $source = PhpSource::withoutComments((string) file_get_contents($file->getPathname()));
 
             if (! preg_match_all(self::CREATES, $source, $m)) {
                 continue;
@@ -917,7 +917,7 @@ final class WriteSurfaces
                     continue;
                 }
 
-                $source = self::withoutComments((string) file_get_contents($file->getPathname()));
+                $source = PhpSource::withoutComments((string) file_get_contents($file->getPathname()));
 
                 if (! preg_match_all(self::CREATES, $source, $m)) {
                     continue;
@@ -928,26 +928,6 @@ final class WriteSurfaces
                         $out[self::relative($file->getPathname()).' → '.$short] = 'App\\Models\\'.$short;
                     }
                 }
-            }
-        }
-
-        return $out;
-    }
-
-    /** The same source with every comment replaced by spaces — offsets, and string literals, intact. */
-    private static function withoutComments(string $source): string
-    {
-        $out = $source;
-
-        foreach (token_get_all($source) as $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-
-            $at = strpos($out, $token[1]);
-
-            if ($at !== false) {
-                $out = substr_replace($out, str_repeat(' ', strlen($token[1])), $at, strlen($token[1]));
             }
         }
 

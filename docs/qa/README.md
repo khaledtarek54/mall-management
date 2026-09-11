@@ -55,6 +55,17 @@ Measured on the whole panel: **100 screens, clean**, in about a minute.
 | [POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md) | What that verification found and deliberately did **not** fix, with the reason each can wait — plus §0, the nine MVP-blocking money fixes that shipped, so they are not re-opened from the report. |
 | [scripts/](scripts/README.md) | The runnable harness behind `composer qa` (and `composer qa:baseline`), including `race.sh` — the two-process proof that a lock actually serialises, which sqlite can never give you. |
 
+### Writing a gate that READS SOURCE
+
+Read it through `App\Support\PhpSource::withoutComments()` (or `fileWithoutComments()`,
+`withoutCommentsOrStrings()` when string literals must not count either) — never a copy of the
+tokenizer loop. Comments are BLANKED to their own length, so a byte offset or a line number measured
+on the result points into the real file. Then walk to a **structural boundary** (a matching paren,
+the next `::make(`), never a fixed number of characters: two gates carried 120- and 600-character
+lookaheads that were green only while their helper collapsed comments (2026-09-12).
+`OneSourceStripperConformanceTest` refuses a new copy of the loop; a token WALK that indexes the
+array to follow nesting is a different shape and is left alone.
+
 ## How to use it
 
 1. **Per release**, run `composer qa` — the harness restores the MySQL baseline before each suite, so a failure is the code and not the leftovers of the last run. A failure becomes a bug → fix → add a **regression test** (`tests/Feature/Regression/`) → re-run.

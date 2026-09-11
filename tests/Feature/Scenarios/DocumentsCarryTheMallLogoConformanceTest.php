@@ -19,6 +19,7 @@
 */
 
 use App\Support\IssuingEntity;
+use App\Support\PhpSource;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -136,16 +137,11 @@ it('passes a property to the issuer block from every service that has one', func
         // COMMENTS STRIPPED FIRST, via PHP's own tokenizer. This sweep greps raw source, so a
         // docblock that mentions `IssuingEntity::forView()` in prose — describing the seam, three
         // lines above a call that does pass an asset — reported that service as an offender. A gate
-        // that fires on a sentence is one that gets weakened rather than fixed. Not extracted to a
-        // shared helper: a file-scope function of the same name already exists in another gate, and
-        // two of them is a fatal redeclaration that exits the whole suite with no output.
-        $stripped = '';
-
-        foreach (token_get_all($code) as $token) {
-            $stripped .= is_array($token)
-                ? (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? ' ' : $token[1])
-                : $token;
-        }
+        // that fires on a sentence is one that gets weakened rather than fixed. Through `PhpSource`
+        // since 2026-09-12: this file carried its own copy because a file-scope function of the
+        // same name sat in another gate and two of them is a fatal redeclaration — which is exactly
+        // how twenty-four copies came to exist, and why the seam is a class.
+        $stripped = PhpSource::withoutComments($code);
 
         // `forView()` with nothing between the parentheses can never produce a logo.
         if (preg_match('~IssuingEntity::forView\(\s*\)~', $stripped)) {
