@@ -109,6 +109,11 @@ return [
     | quoting it to a retail manager answers a business question with an implementation. Switch it
     | on for a technical demo or for a team that IS technical, and re-run
     | `atriom:rebuild-assistant-index`.
+    |
+    | It also puts the benchmark systems' NAMES in front of whoever reads the answers: the module
+    | docs explain most rules as "the reference system does X". The operator's rule (2026-09-12)
+    | is that the dashboard never names another system, and `TheDashboardNamesNoOtherSystem…`
+    | can only see the corpora that are on by default — so on a client-facing box this stays off.
     */
     'index_technical_docs' => (bool) env('ASSISTANT_INDEX_TECHNICAL_DOCS', false),
 

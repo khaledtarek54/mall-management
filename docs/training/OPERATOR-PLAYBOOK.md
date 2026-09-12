@@ -448,7 +448,7 @@ operator feels first:
 | **Which SLA priorities run on WORKING time?** | **None — every priority runs on bare hours.** So an urgent job raised Thursday 17:00 is due Friday 17:00 with nobody on site, **and a vendor penalty is charged off that clock** |
 | **The returned-cheque fee** | **0**, and the action stays hidden until you price it |
 | **A vendor SLA penalty is booked as a cost reduction, so the saving flows into the CAM pool tenants reimburse** — intended? | The benefit reaches tenants |
-| **Auto-apply open credit** | **On** (Voyager's behaviour). A credit raised while a charge is disputed will otherwise be consumed by the next invoice |
+| **Auto-apply open credit** | **On** (the market-standard behaviour). A credit raised while a charge is disputed will otherwise be consumed by the next invoice |
 | **Which roles must have two-factor authentication?** | **Nobody is forced.** Switching it on marches every listed role through TOTP at next login — schedule it |
 | **A user with no property assigned — see nothing, or everything?** | The two layers disagree today; the result is an account that can open no page |
 

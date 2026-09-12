@@ -314,9 +314,9 @@
         }
     },
     "tests": {
-        "files": 1368,
+        "files": 1369,
         "e2e_specs": 23,
-        "scenarios": 229,
+        "scenarios": 230,
         "regressions": 869
     }
 }

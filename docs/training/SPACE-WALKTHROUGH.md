@@ -268,7 +268,7 @@ that the operator saw the change everywhere they looked *while the money ignored
 | **Occupancy map** `/admin/occupancy-map` | Every **unit** as a card, grouped by floor, coloured by status, with per-status counts, status filter and search by unit or tenant | `reports.view` ∪ `units.view` |
 | **Rentable item map** `/admin/rentable-item-map` | Every **bay / cage / signage face / kiosk pitch**, same grouping | `rentable_items.view` ∪ `reports.view` |
 
-They are separate screens on purpose — Yardi treats parking as its own space type, with different
+They are separate screens on purpose — parking is its own space type, with different
 holders and different pricing — but they share the property resolution and the floor ordering, so
 they can never disagree about access or about where a basement sorts.
 

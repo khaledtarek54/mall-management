@@ -289,7 +289,9 @@ break.
 `ASSISTANT_INDEX_TECHNICAL_DOCS=true`, then `php artisan atriom:rebuild-assistant-index`. That adds
 `docs/modules/` — the per-module reference, the deepest description of this system that exists — so
 the assistant can answer *"how does the GL decide which account to post to"*. It is **off by
-default** because it answers a retail manager's business question with an implementation.
+default** because it answers a retail manager's business question with an implementation — and
+because those docs name the benchmark systems, which the dashboard never does (see *Which
+documentation may be quoted*).
 
 ### Paid (Claude — better answers, no free tier)
 
@@ -359,6 +361,18 @@ Indexed: **`docs/visual/`** (the handbook — bilingual, and already published a
 chunks carry a real URL) and **`docs/training/`** (the walkthroughs, whose own README says they are
 *"written for someone new to the BUSINESS — not to the codebase"*; published nowhere, so the
 excerpt **is** the answer rather than a pointer). 530 sections, 405 English and 125 Arabic.
+
+**An indexed page is DASHBOARD TEXT, whatever file it came from** (operator decision, 2026-09-12:
+*"don't ever mention Yardi or another system inside the dashboard"* — found on `/admin/settings`, two
+helper texts explaining a default as *"Yardi's default"*). An excerpt shown under the search box is
+read exactly as a helper text is, so the corpora the assistant quotes — `SOURCES` + `ROOT_FILES`,
+derived from `DocCorpus::files()` — never name a benchmark system, and neither does any translation
+string, template, inline string under `app/`, seeded value or handbook chrome.
+`TheDashboardNamesNoOtherSystemConformanceTest` sweeps all six and is mutation-proved on each;
+the standard itself still governs the BEHAVIOUR and is still named in `docs/benchmarks/`,
+`docs/modules/` and CLAUDE.md, which are written for whoever changes the code. That is also why
+`ASSISTANT_INDEX_TECHNICAL_DOCS` must stay off on a client-facing box: `docs/modules/` explains most
+rules as *"the reference system does X"*, and the gate can only see the corpora that are on by default.
 
 Rebuilt by **`php artisan atriom:rebuild-assistant-index`**, which is a **deploy step in
 `deploy.sh`, not a scheduled job** — a correction to the original design. These files change when
@@ -691,7 +705,9 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 `TheFloatingAssistantIsAChatTest`, `AssistantFieldsConformanceTest`,
 `TheModelOnlyWordsWhatRetrievalFoundTest`, the evaluation set
 (`TheAssistantAnswersTheseQuestionsTest`), `AssistantVocabularyConformanceTest` and
-`TheAssistantCountsWhatWasAskedTest` — **135 in all**, green together. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
+`TheAssistantCountsWhatWasAskedTest` — **135 in all**, green together — plus
+`TheDashboardNamesNoOtherSystemConformanceTest`, which sweeps the quoted corpora with the rest of
+the rendered surfaces. Phase B is tested through a FAKE implementation of the contract, so the suite spends nothing;
 the ceiling, the cache and the default-off were each mutation-proved. Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.

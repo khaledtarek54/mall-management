@@ -1160,7 +1160,7 @@ with this tenant.
 **What it asks you to add.** A repeater of **deductions** (description + amount) — damage, cleaning,
 unreturned keys — plus a **settlement date** and a document reference.
 
-**What it does, in Yardi's order:**
+**What it does, in the standard settlement order:**
 1. **Arrears are netted off the deposit first.** An unpaid rent invoice is a real document that may
    already have reached the tax authority; a deduction is an assessment made at settlement.
 2. Then the operator's deductions are **forfeited** (the landlord keeps them — this turns liability

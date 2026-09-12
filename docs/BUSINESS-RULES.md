@@ -29,20 +29,21 @@ You do **not** need to read any code. Each rule is described in business terms. 
 
 ---
 
-## ✅ Decisions taken from the Yardi standard (2026-08-09)
+## ✅ Decisions taken from the market standard (2026-08-09)
 
-Standing instruction: **where a business rule is genuinely uncertain, follow Yardi Voyager
-Commercial rather than guessing or waiting.** These were open; they are now decided, with the basis
-stated so they are not re-litigated.
+Standing instruction: **where a business rule is genuinely uncertain, follow the established
+commercial property-management standard rather than guessing or waiting.** These were open; they are now decided, with the basis
+stated so they are not re-litigated. *(The reference systems are named in `docs/benchmarks/`; this
+file is quoted inside the panel by the assistant, so it does not name them — operator decision, 2026-09-12.)*
 
 | Was open | Decided | Basis |
 |---|---|---|
-| Percentage-rent basis for NEW leases | **Annual (cumulative year-to-date)** — the form default flips from `monthly` | Yardi accrues percentage rent on cumulative YTD sales against an annual breakpoint, settled over the year. A monthly basis charges overage in a strong month that a weak one should have absorbed, so a seasonal tenant pays more across the year than their clause says |
-| Straight-line rent (RA-01) | **Build it, ship it switched OFF** — no longer "waiting for the accountant" | Yardi straight-lines commercial rent as standard. The accountant's remaining job is to flip a switch against a before/after they can read, not to authorise the work |
-| Does a rent RELIEF abate the marketing levy? | **No** | Yardi abates per charge code: an abatement on the rent code does not touch a separate promotional-fund code |
-| Which cap scope, denominator, gross-up and estimate bases are "right" | **Configurable, defaulted to the legacy behaviour** (RC-01/03/04/05/07) | Yardi makes all four per-pool settings rather than conventions. Existing pools keep the basis they were reconciled on |
+| Percentage-rent basis for NEW leases | **Annual (cumulative year-to-date)** — the form default flips from `monthly` | The standard accrues percentage rent on cumulative YTD sales against an annual breakpoint, settled over the year. A monthly basis charges overage in a strong month that a weak one should have absorbed, so a seasonal tenant pays more across the year than their clause says |
+| Straight-line rent (RA-01) | **Build it, ship it switched OFF** — no longer "waiting for the accountant" | Commercial rent is straight-lined as standard. The accountant's remaining job is to flip a switch against a before/after they can read, not to authorise the work |
+| Does a rent RELIEF abate the marketing levy? | **No** | The standard abates per charge code: an abatement on the rent code does not touch a separate promotional-fund code |
+| Which cap scope, denominator, gross-up and estimate bases are "right" | **Configurable, defaulted to the legacy behaviour** (RC-01/03/04/05/07) | The standard makes all four per-pool settings rather than conventions. Existing pools keep the basis they were reconciled on |
 
-**Two things Yardi cannot decide, and neither should be assumed:**
+**Two things no industry standard can decide, and neither should be assumed:**
 
 - **Which basis each of the 24 EXISTING percentage-rent leases is on.** That is a fact in each
   signed contract, not an industry convention. They stay on `monthly` until someone reads the
@@ -50,10 +51,10 @@ stated so they are not re-litigated.
   **Percentage-rent basis** filter so pulling that review list is one click.
 - **Jawad's chart of accounts.** An Egyptian statutory and entity-specific artifact.
 
-**And a whole class Yardi is simply not evidence for: Egyptian tax.** Questions 1–5, 7 and 10 below
+**And a whole class the industry standard is simply not evidence for: Egyptian tax.** Questions 1–5, 7 and 10 below
 are VAT rates, exemptions and ETA readiness. A US/UK property system has no standing on whether
-base rent is VAT-exempt under Egyptian law. **Those still need the accountant**, and following Yardi
-there would be worse than admitting the gap.
+base rent is VAT-exempt under Egyptian law. **Those still need the accountant**, and following a foreign
+convention there would be worse than admitting the gap.
 
 
 ## 🔴 Top open questions to confirm first

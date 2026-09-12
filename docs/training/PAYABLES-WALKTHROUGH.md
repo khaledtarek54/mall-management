@@ -221,7 +221,7 @@ duplicate while looking like coverage.
 | Cancelled bill | Excluded, so a mis-key can be cancelled and re-entered |
 | Why not a DB index | Because of the two rows above |
 
-> **This deviates from Yardi, which warns and lets you through. Here it refuses**, because this
+> **This deviates from the market standard, which warns and lets you through. Here it refuses**, because this
 > particular failure pays money out of the door.
 
 ## 4.3 Input tax on a supplier's bill
@@ -390,7 +390,7 @@ tenant is the **account**.
 
 # Part 8 — Recurring costs
 
-`/admin/recurring-expenses` + a daily run. Yardi's Recurring Payables, which this system had no
+`/admin/recurring-expenses` + a daily run. The recurring-payables register every accounting system carries, which this system had no
 counterpart to at all — recurrence existed only on the revenue side, so every cost arriving on a
 calendar (real-estate tax, municipal levies, a licence renewal, a fixed retainer) was somebody's
 reminder.
@@ -404,7 +404,7 @@ reminder.
 
 **Draft, deliberately.** `vendor_bills.reference` is the *supplier's* invoice number — unique per
 vendor and impossible to invent — and posting Dr Expense / Cr AP for an invoice nobody sent invents a
-creditor's claim. Voyager stages its recurring payable batch for exactly this reason.
+creditor's claim. The market-standard systems stage their recurring payable batch for exactly this reason.
 
 So a recurring supplier cost is a **worklist item**: the system drafts it, you fill in their invoice
 number when it arrives, and approve.

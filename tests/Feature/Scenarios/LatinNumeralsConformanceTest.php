@@ -42,6 +42,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Number;
+use Tests\Support\RenderedText;
 
 /* ---- helpers -------------------------------------------------------------- */
 
@@ -50,65 +51,14 @@ use Illuminate\Support\Number;
  *
  * The catalogues are LOADED rather than read as text, which is what makes this precise: a
  * translator reads values, so values are what is swept — a comment above one is not output.
+ * The loader is `Tests\Support\RenderedText` since its second call site (the other-systems sweep,
+ * 2026-09-12); this name stays so the sweeps below read as they always did.
  *
- * @return array<string, string>
+ * @return array<string, array<string, string>>
  */
 function latinNumeralsCatalogueStrings(): array
 {
-    $byLocale = [];
-
-    foreach (glob(lang_path('*'), GLOB_ONLYDIR) ?: [] as $localeDir) {
-        $locale = basename($localeDir);
-        $byLocale[$locale] ??= [];
-
-        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($localeDir));
-
-        foreach ($files as $file) {
-            if ($file->getExtension() !== 'php') {
-                continue;
-            }
-
-            $loaded = require $file->getPathname();
-
-            if (! is_array($loaded)) {
-                continue;
-            }
-
-            $label = $locale.':'.substr($file->getPathname(), strlen(lang_path()) + 1);
-
-            latinNumeralsFlatten($loaded, $label, $byLocale[$locale]);
-        }
-    }
-
-    // JSON catalogues are the other half of Laravel's translation system — `__('Hello!')` in a
-    // mail template reads `lang/ar.json`, not `lang/ar/`. Swept because the sweep exists to be
-    // complete, not because these are dirty today.
-    foreach (glob(lang_path('*.json')) ?: [] as $jsonFile) {
-        $locale = basename($jsonFile, '.json');
-        $byLocale[$locale] ??= [];
-
-        $loaded = json_decode(file_get_contents($jsonFile), true);
-
-        if (is_array($loaded)) {
-            latinNumeralsFlatten($loaded, $locale.':'.basename($jsonFile), $byLocale[$locale]);
-        }
-    }
-
-    return $byLocale;
-}
-
-/** @param  array<string, mixed>  $node */
-function latinNumeralsFlatten(array $node, string $prefix, array &$out): void
-{
-    foreach ($node as $key => $value) {
-        $path = $prefix.':'.$key;
-
-        if (is_array($value)) {
-            latinNumeralsFlatten($value, $path, $out);
-        } elseif (is_string($value)) {
-            $out[$path] = $value;
-        }
-    }
+    return RenderedText::catalogueStrings();
 }
 
 /**
@@ -122,37 +72,18 @@ function latinNumeralsFlatten(array $node, string $prefix, array &$out): void
  */
 function latinNumeralsStringLiterals(string $path): array
 {
-    $found = [];
-
-    foreach (token_get_all(file_get_contents($path)) as $token) {
-        if (! is_array($token)) {
-            continue;
-        }
-
-        if (in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_INLINE_HTML], true)) {
-            $found[] = [$token[2], $token[1]];
-        }
-    }
-
-    return $found;
+    return RenderedText::stringLiterals($path);
 }
 
-/** @return array<int, string> */
+/**
+ * Every PHP file under `database/`, RECURSIVE — `database/settings/` holds 40-odd migrations that
+ * write seeded VALUES, and a non-recursive glob of three named directories missed every one.
+ *
+ * @return array<int, string>
+ */
 function latinNumeralsSeededFiles(): array
 {
-    $paths = [];
-
-    // RECURSIVE, and the whole of `database/`: `database/settings/` holds 40-odd migrations that
-    // write seeded VALUES, and a non-recursive glob of three named directories missed every one.
-    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(database_path()));
-
-    foreach ($files as $file) {
-        if ($file->getExtension() === 'php') {
-            $paths[] = $file->getPathname();
-        }
-    }
-
-    return $paths;
+    return RenderedText::phpFilesUnder(database_path());
 }
 
 /* ---- the sweep ------------------------------------------------------------ */

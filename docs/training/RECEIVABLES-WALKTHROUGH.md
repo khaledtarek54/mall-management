@@ -232,7 +232,7 @@ The run refuses to bill a month twice — correctly. So a **back-dated** charge 
 and no invoice ever raises it. Measured: a month billed at 44,000, a 14,000 service charge added into
 it, run answers *skipped*, **14,000 lost**.
 
-It is **not refused** — back-dating is legitimate and Yardi does not block it either — but you are
+It is **not refused** — back-dating is legitimate and standard practice does not block it either — but you are
 now told at the moment you do it, with the covering invoice **named**. Act on that toast: either
 credit and re-issue, or raise the charge on its own document.
 
@@ -399,7 +399,7 @@ pay links, the portal table) and `?status=draft` let a tenant enumerate them.
 | **Which supplies are taxable?** | `charge_codes.tax_code` | The accountant | **No** — it is a row |
 | **What does that tax charge?** | `tax_codes` + `tax_rates` at `/admin/tax-codes` | The catalogue | **No** — dated rungs |
 
-This is Yardi's shape: a *Tax* flag on the charge code — *"Yes means this charge is taxable; it does
+This is the market-standard shape: a *Tax* flag on the charge code — *"Yes means this charge is taxable; it does
 not mean this charge is a tax."*
 
 ## 7.2 A rate is a dated rung, never a column
@@ -605,7 +605,7 @@ draft ──issue──▶ issued ──apply──▶ issued (balance left) ─
 
 ## 10.3 Un-apply, never stack — and why it is better than the benchmark
 
-Yardi reverses a credit with a second offsetting charge. Atriom **un-applies the original**. Two
+Most systems reverse a credit with a second offsetting charge. Atriom **un-applies the original**. Two
 documents that cancel each other look tidy and then double-count the moment anything else touches
 the invoice.
 
@@ -706,7 +706,7 @@ Five rules:
    invoices, in that property, **oldest due first**, capped per invoice. Any surplus stays on account
    and is drawable.
 3. **A bounce reverses nothing** — no payment existed before clearing. Re-present it. (This is better
-   than Voyager, which enters a receipt and then reverses it.)
+   than the usual approach, which enters a receipt and then reverses it.)
 4. **One physical cheque, one row.** Keyed on (tenant, bank, number) among non-cancelled cheques. Two
    rows for one piece of paper are each independently clearable, and `lodgeSeries()` re-run over the
    same cheque book regenerates the identical numbers *by design*.

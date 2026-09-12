@@ -76,7 +76,7 @@ final class DocCorpus
     public const NOT_INDEXED = [
         'accounting' => 'Mixed audience, and the operator-facing half (WALKTHROUGH, ACCOUNTANT-BRIEFING) is aimed at the ACCOUNTANT rather than the person at the panel. It also carries posting maps and tax-catalogue tables that mean nothing out of context. Revisit if the accountant ever gets their own reader.',
         'qa' => 'Test plans and findings. About whether the software works, not about how the business runs.',
-        'benchmarks' => 'Notes on Yardi, MRI and the FM specialists — how OTHER systems behave. Quoting it would describe a screen this system does not have.',
+        'benchmarks' => 'Notes on how OTHER property-management and FM systems behave. Quoting it would describe a screen this system does not have.',
         'gap-analysis' => 'What is missing. Answering "how do I do X" with "we have not built X" is right only when true, and this document is about the roadmap rather than the build — it would be wrong more often than right.',
         'operations' => 'Deploys, staging, infrastructure. For whoever runs the servers, not whoever runs the mall.',
         'integrations' => 'Provider setup and credentials, including this assistant\'s own design. Configuration work, and none of it is an answer to a question typed into the panel.',
