@@ -267,6 +267,24 @@ round changed the reading.
   percentage-rent lease the operator EXCUSED from filing is still chased on the 10th and still
   estimated on the 17th, and the lease list's "owing" filter shows a different set from the two
   commands.
+- **SW-257** — **OPEN (found on the soak, 2026-09-12).** `leases:scan-option-windows` announces
+  *closing* (within the lead of `latest_notice_date`) before it checks *opening*, and stamps only the
+  event it sent — so an option already inside its closing lead when first seen (NG's renewal: earliest
+  1 Sep, latest 25 Sep, seeded 5 Sep) got *"the deadline is near; decide"* on the 6th and *"notice may
+  now be served; start the conversation"* on the 7th, in that order. XS: once `closing_notified_at`
+  is set, an opening is moot — stamp `opening_notified_at` alongside it, or skip the opening branch
+  when a closing has gone. One line in `eventFor()` + a tooth.
+- ~~**SW-256**~~ — **FIXED 2026-09-12 (found on the soak by reading the overdue set at 06:00).** Three
+  NG invoices due THAT DAY read `overdue` on the register, the portal and the mobile app while the
+  ageing report filed them under *Current*. `due_date` is a DATE cast (midnight), so `< now()` and
+  `isPast()` were true from 00:00 on the due day; `AgingBuckets`, the AR report, the AP badge and
+  both chase sweeps already said `whereDate('<')` — Yardi's boundary. `Invoice::pastDue()` /
+  `isPastDue()` compare on DAYS now, and four inline `due_date->isPast()` copies (`/me/balance`,
+  `/me/summary`, both statement PDFs) read the predicate. **The review found the fee's door**: with
+  zero grace the late fee fired ON the due day; grace days are days AFTER the due date and the fee
+  lands on `due + grace + 1` — every fee one day later than before, stated (8th due, 7 days, fee on
+  the 16th, which the soak calendar had predicted). `AnInvoiceDueTodayIsCurrentNotOverdueTest`
+  (11 cases, 9 mutations). Account: [modules/05 § SW-256](../modules/05-billing-invoices.md).
 - **SW-255** — **OPEN (found by `atriom:doors --check-diff` on SW-254, pre-existing since 2026-08-30).**
   `leases.requires_sales_reporting` has no door but the lease form: `LeaseImporter` and
   `LeaseExporter` carry neither it nor `has_percentage_rent`, so a migrating operator's "must

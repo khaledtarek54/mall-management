@@ -48,16 +48,21 @@ class LateFeeService
         //  1. Arrears is the one dataset that never shrinks. Hydrating every past-due invoice with
         //     its lease held the entire backlog in memory at 04:00, growing every month.
         //
-        //  2. This loop CREATES invoices that match its own filter. A late fee is now its own
-        //     invoice (see `applyTo`), issued today, due `today + payment_terms_days` — which on
-        //     zero-day terms is due today, i.e. inside `due_date <= today`. `chunkById()` pages
-        //     forward on ascending id, so it would walk straight into the fees it had just raised
-        //     and consider charging a late fee on a late fee, in the same run. The old `->get()`
-        //     was safe from that by accident, because it snapshotted first. Taking the ids up front
-        //     keeps that property on purpose, and states why.
+        //  2. This loop CREATES invoices that could match its own filter. A late fee is now its
+        //     own invoice (see `applyTo`), issued today, due `today + payment_terms_days` — which
+        //     on zero-day terms is due today. Until SW-256 the filter was `<= today`, so that fee
+        //     was INSIDE it, and `chunkById()` (paging forward on ascending id) would have walked
+        //     straight into the fees it had just raised and considered charging a late fee on a
+        //     late fee, in the same run. The filter is `pastDue()` now — strictly before today —
+        //     so a same-day fee sits outside it; the snapshot stays anyway, because reason 1 alone
+        //     earns it and a future zero-terms fee dated yesterday must not reopen the hole.
+        //
+        // **`pastDue()`, the register's own boundary, and not a restatement of it** (SW-256): a
+        // document due TODAY is current, so it cannot be late-charged today whatever its grace —
+        // the guard in `applyTo()` says the same thing with the grace added.
         $ids = Invoice::query()
             ->chaseable()
-            ->whereDate('due_date', '<=', $today->toDateString())
+            ->pastDue($today)
             ->orderBy('id')
             ->pluck('id');
 
@@ -164,8 +169,18 @@ class LateFeeService
 
             // This lease's own grace period. Checked HERE rather than in the batch query so the
             // single-invoice path (a manual action, a test) obeys the same rule the sweep does.
+            //
+            // **Grace days are days AFTER the due date with no penalty, and the fee lands on the
+            // day after the last of them** (SW-256, 2026-09-12) — Yardi's reading, and the only
+            // one consistent with a document due today being CURRENT: with `grace_days = 0` the
+            // old `greaterThan()` charged ON the due day, i.e. a penalty on a document the
+            // register, the ageing and the tenant's app all called current, and the 06:00 sweep
+            // then reverted the status the fee had just written. So the last grace day is
+            // `due + grace` inclusive and the fee fires from `due + grace + 1`. Stated because it
+            // moves EVERY fee one day later than before on every install: 8th due, 7 days'
+            // grace, fee on the 16th — which is also what the soak calendar had predicted.
             if (blank($locked->due_date)
-                || CarbonImmutable::instance($locked->due_date)->addDays($terms['grace_days'])->greaterThan($today)) {
+                || CarbonImmutable::instance($locked->due_date)->addDays($terms['grace_days'])->greaterThanOrEqualTo($today)) {
                 return false;
             }
 

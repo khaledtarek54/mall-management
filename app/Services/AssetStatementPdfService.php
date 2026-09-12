@@ -116,8 +116,7 @@ class AssetStatementPdfService
         $summary = [
             'outstanding' => (float) $invoicesAll->sum(fn (Invoice $inv): float => $inv->collectableBalance()),
             'overdue' => (float) $invoicesAll
-                ->filter(fn (Invoice $inv): bool => $inv->collectableBalance() > 0
-                    && $inv->due_date && $inv->due_date->isPast())
+                ->filter(fn (Invoice $inv): bool => $inv->collectableBalance() > 0 && $inv->isPastDue())
                 ->sum(fn (Invoice $inv): float => $inv->collectableBalance()),
             'total_billed' => (float) $invoicesAll->sum('total'),
             'total_paid' => (float) $invoicesAll->sum('paid_amount'),

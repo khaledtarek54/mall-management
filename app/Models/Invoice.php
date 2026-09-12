@@ -22,6 +22,8 @@ use App\Support\InvoiceSettlement;
 use App\Support\OpsLog;
 use App\Support\PropertySettings;
 use App\Support\Translate;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -612,9 +614,11 @@ class Invoice extends Model
      * counted the raw status, so one screen offered three different answers to one question
      * (SW-016).
      *
-     * `where`, not `whereDate`: an invoice due TODAY is overdue from midnight, which is what the
-     * six call sites this replaces have always done. The two console sweeps use `whereDate` and are
-     * deliberately left alone — that is a separate question about the day a fee starts accruing.
+     * The date half is `pastDue()` below, compared on DAYS: an invoice due TODAY is current and is
+     * overdue from tomorrow (SW-256). Until 2026-09-12 this scope said `where('due_date', '<',
+     * now())` — overdue from midnight on the due day — under a sentence calling the two console
+     * sweeps' `whereDate('<')` *"a separate question about the day a fee starts accruing"*. It was
+     * the same question, answered two ways on one register.
      */
     public function scopeOverdue(Builder $query): Builder
     {
@@ -623,27 +627,49 @@ class Invoice extends Model
 
     /**
      * The DATE half of overdue, on its own — named once so the display scope above, the row twin
-     * `isPastDue()` that `recomputeTotals()` projects the status from, and the sweep that keeps
-     * that projection honest (`billing:scan-overdue-invoices`, SW-245) cannot drift on the day an
-     * invoice becomes late. Same boundary the scope has always used: due today is past due from
-     * midnight. Yardi's aging calls a document due today *current* and the two chase sweeps follow
-     * that with `whereDate('<')` — a separate, stated question about the day a fee starts accruing.
+     * `isPastDue()` that `recomputeTotals()` projects the status from, the sweep that keeps that
+     * projection honest (`billing:scan-overdue-invoices`, SW-245), the mobile app's two money
+     * figures and both statement PDFs cannot drift on the day an invoice becomes late.
+     *
+     * **A document due TODAY is current; it is late from TOMORROW** (SW-256, 2026-09-12). That is
+     * Yardi's boundary — its aging calls a document due today *current* — and it was already this
+     * app's boundary everywhere but here: `AgingBuckets::keyFor()` files `days <= 0` under
+     * *Current*, the AR report, the AP list and both chase sweeps say `whereDate('<')`, and the
+     * late-fee sweep waits out its grace. Only the STATUS said otherwise: `due_date` is a DATE cast,
+     * i.e. midnight, so `< now()` and `isPast()` were both true from 00:00 on the due day — and the
+     * status is the one reading the tenant sees. Measured on the staging soak: three invoices due
+     * 12 Sep read **Overdue** on the register, the portal and the mobile app at 06:00 that morning
+     * while the ageing report beside them said *Current*. Compared on DAYS, never on `now()`.
      */
-    public function scopePastDue(Builder $query): Builder
+    public function scopePastDue(Builder $query, ?CarbonInterface $on = null): Builder
     {
-        return $query->where('due_date', '<', now());
+        return $query->whereDate('due_date', '<', self::dayOf($on));
     }
 
     /** The complement, for finding a stored `overdue` that the calendar no longer supports. */
-    public function scopeNotPastDue(Builder $query): Builder
+    public function scopeNotPastDue(Builder $query, ?CarbonInterface $on = null): Builder
     {
-        return $query->where(fn (Builder $q) => $q->whereNull('due_date')->orWhere('due_date', '>=', now()));
+        return $query->where(fn (Builder $q) => $q
+            ->whereNull('due_date')
+            ->orWhereDate('due_date', '>=', self::dayOf($on)));
     }
 
     /** Row twin of {@see scopePastDue()}. */
-    public function isPastDue(): bool
+    public function isPastDue(?CarbonInterface $on = null): bool
     {
-        return $this->due_date !== null && $this->due_date->isPast();
+        return $this->due_date !== null && $this->due_date->toDateString() < self::dayOf($on);
+    }
+
+    /**
+     * The DAY the past-due question is asked of — today unless the caller says otherwise. The
+     * late-fee sweep runs `runForToday($today)` for a date that is not the clock's (a catch-up, a
+     * test), and a predicate reading the clock behind that argument selected the fee invoice the
+     * same run had just raised. Compared as `Y-m-d` strings on both sides, which is what
+     * `whereDate()` does in SQL, so the row twin and the query twin cannot disagree by an hour.
+     */
+    private static function dayOf(?CarbonInterface $on): string
+    {
+        return ($on ? CarbonImmutable::instance($on) : CarbonImmutable::today())->toDateString();
     }
 
     /**

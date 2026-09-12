@@ -239,7 +239,7 @@ class TenantStatementPdfService
             'outstanding' => (float) $invoicesAll->sum(fn ($i): float => $i->collectableBalance()),
             'overdue' => (float) $invoicesAll
                 ->filter(fn ($i): bool => $i->collectableBalance() > 0)
-                ->filter(fn ($inv) => $inv->due_date && $inv->due_date->isPast())
+                ->filter(fn ($inv) => $inv->isPastDue())
                 ->sum(fn ($i): float => $i->collectableBalance()),
             'deposit_held' => $deposit['held'],
             'credit_notes_unapplied' => $creditNotesUnapplied,

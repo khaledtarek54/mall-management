@@ -193,7 +193,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 
 **Account Balance & Delinquency:**
 - Outstanding balance = sum of invoice balances (where status IN `issued`, `partially_paid`, `overdue`) minus credit-note balances.
-- Delinquent: a tenant with at least one invoice where `balance > 0`, `due_date < now()`, and status IN (`issued`, `partially_paid`, `overdue`).
+- Delinquent: a tenant with at least one invoice that is past due (`Invoice::pastDue()` — `due_date` strictly before TODAY; a document due today is current, SW-256) and still collectable (`stillOwed()`).
 - Balance endpoint returns: `outstanding`, `overdue` (sum of past-due portions), `open_count` (invoices with balance > 0).
 
 **Rate Limiting:**
@@ -234,7 +234,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - Transitions:
   - `issued` → `partially_paid` (payment received but balance > 0).
   - `partially_paid` / `issued` → `paid` (balance = 0).
-  - Any status → `overdue` (automatic, based on due_date < now in queries; no status change, just a computed field).
+  - Any status → `overdue` (automatic, based on `Invoice::pastDue()` — `due_date` before TODAY, never on the due day (SW-256) — in queries; no status change, just a computed field).
   - Any status → `cancelled` (if not paid; may revert if re-invoiced).
   - Any status → `credited` (if credit note issued).
 - Immutable once paid/cancelled. The app displays these states and filters by status.

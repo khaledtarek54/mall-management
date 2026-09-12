@@ -91,7 +91,7 @@ record returns **404**, never their data.
 | `paid_amount` | How much has been allocated to the invoice from captured payments. |
 | `balance` | `total − paid_amount`. What's still owed. |
 | `outstanding` | Across all open invoices: net AR (open balances − unapplied credit notes). |
-| `overdue` | What is owed on invoices whose `due_date` is in the past. **Not** netted by unapplied credit notes the way `outstanding` is, so it can exceed `outstanding` for a tenant holding credit — never present it as a slice of it. |
+| `overdue` | What is owed on invoices whose `due_date` is BEFORE today — a document due today is current, not overdue (SW-256, 2026-09-12). **Not** netted by unapplied credit notes the way `outstanding` is, so it can exceed `outstanding` for a tenant holding credit — never present it as a slice of it. |
 
 VAT in Egypt is 14%. Currency is always **EGP** in the pilot.
 
@@ -1049,6 +1049,15 @@ is bridged by `SnakeCaseRequestKeys` + `CamelCaseResponseKeys` middleware (using
 `App\Support\KeyCase`); the `{message, statusCode}` error envelope is produced by
 the `render` callback in `bootstrap/app.php`. Login error codes (400/401/403)
 live in `LoginRequest::failedValidation` + `LoginTenantAction`.
+
+## Changelog note — 2026-09-12
+
+`overdue` on `/me/balance` and `/me/summary`, and `isOverdue` / `daysOverdue` / `status` on the
+invoice payload: **same keys, same types, corrected answer on ONE day** — the due day. An invoice
+due today is **current**: `isOverdue: false`, `daysOverdue: 0`, `status: "issued"`, and its balance
+sits in `outstanding` and not in `overdue`. It becomes overdue from the next day (`daysOverdue: 1`
+on the first late day). Before this the two headline figures and the badge called it overdue from
+00:00 on the due day while the operator's ageing report called it current (SW-256).
 
 ## Changelog note — 2026-09-05
 

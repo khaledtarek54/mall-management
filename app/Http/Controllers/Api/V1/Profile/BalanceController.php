@@ -33,7 +33,7 @@ class BalanceController extends ApiController
         // deliberately leaves `balance` standing (it is not a settlement channel), which is exactly
         // why every collections read has to say `collectableBalance()` out loud.
         $overdue = (float) $openInvoices
-            ->filter(fn ($inv) => $inv->collectableBalance() > 0 && $inv->due_date && $inv->due_date->isPast())
+            ->filter(fn ($inv) => $inv->collectableBalance() > 0 && $inv->isPastDue())
             ->sum(fn ($inv) => $inv->collectableBalance());
 
         return $this->ok([

@@ -33,7 +33,7 @@ class SummaryController extends ApiController
         // it exists to show. See BalanceController for the full note; the two must agree, which is
         // why they are fixed together.
         $overdue = (float) $openInvoices
-            ->filter(fn ($inv) => $inv->collectableBalance() > 0 && $inv->due_date && $inv->due_date->isPast())
+            ->filter(fn ($inv) => $inv->collectableBalance() > 0 && $inv->isPastDue())
             ->sum(fn ($inv) => $inv->collectableBalance());
 
         return $this->ok([

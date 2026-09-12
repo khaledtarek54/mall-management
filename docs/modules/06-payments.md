@@ -328,7 +328,7 @@ Orchestrates Paymob API: auth → createOrder → requestPaymentKey. Throws Runt
 ### LateFeeService::runForToday(?CarbonImmutable) → array
 **Signature:** `public function runForToday(?CarbonImmutable $today = null): array`
 
-Applies late fees to all invoices past due_date + grace_days with balance > 0. Returns stats: `{considered, applied, skipped, failed}`.
+Applies late fees to all invoices strictly past `due_date + grace_days` with a collectable balance — grace days are days AFTER the due date with no penalty, and the fee lands on the day after the last of them (`due + grace + 1`; SW-256, 2026-09-12 — before that it fired ON `due + grace`, which with zero grace was the due day itself). The batch selects through `Invoice::pastDue()`, the register's own boundary. Returns stats: `{considered, applied, skipped, failed}`.
 
 - **Idempotency:** Skips invoices that already carry a `late_fee` InvoiceItem.
 - **Locking:** `DB::transaction` + `lockForUpdate` inside the transaction re-checks the guard so concurrent runs don't double-charge.
