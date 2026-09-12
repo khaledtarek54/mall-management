@@ -817,5 +817,12 @@
     "path": "app/Filament/Admin/Resources/Invoices/Pages/EditInvoice.php",
     "old": "                ->visible(fn () => $this->record->voidBlockedBecause() === null",
     "new": "                ->visible(fn () => in_array($this->record->status, ['draft', 'issued', 'overdue'], true)"
+  },
+  {
+    "name": "MigrationIndexNamesFitMysql — the point-18 legs' unique index lets Laravel derive a 66-character name again",
+    "gate": "tests/Feature/Scenarios/MigrationIndexNamesFitMysqlConformanceTest.php",
+    "path": "database/migrations/2026_09_12_600000_a_fixed_asset_is_transferred_between_properties_by_an_act.php",
+    "old": "            $table->unique(['fixed_asset_transfer_id', 'direction'], 'fa_transfer_legs_transfer_direction_unique');\n            $table->index(['asset_id', 'transferred_on'], 'fa_transfer_legs_asset_date_index');",
+    "new": "            $table->unique(['fixed_asset_transfer_id', 'direction']);\n            $table->index(['asset_id', 'transferred_on'], 'fa_transfer_legs_asset_date_index');"
   }
 ]

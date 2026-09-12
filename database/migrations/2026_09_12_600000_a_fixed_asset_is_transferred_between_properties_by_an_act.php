@@ -25,7 +25,39 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
+    /**
+     * Index names are STATED, not derived: Laravel's default for the legs' unique index
+     * (`fixed_asset_transfer_legs_fixed_asset_transfer_id_direction_unique`, 66 chars) is over
+     * MySQL's 64-character identifier limit, which sqlite does not enforce — the whole suite was
+     * green and the first deploy of this migration died on the box mid-way, after both CREATEs
+     * and before either index. Hence the `hasTable`/`hasIndex` guards: this migration re-runs on
+     * that box against the tables it left behind, and on a fresh install creates them outright.
+     */
     public function up(): void
+    {
+        if (! Schema::hasTable('fixed_asset_transfers')) {
+            $this->createTransfers();
+        } elseif (! Schema::hasIndex('fixed_asset_transfers', 'fa_transfers_asset_date_index')) {
+            Schema::table('fixed_asset_transfers', fn (Blueprint $table) => $table->index(['fixed_asset_id', 'transferred_on'], 'fa_transfers_asset_date_index'));
+        }
+
+        if (! Schema::hasTable('fixed_asset_transfer_legs')) {
+            $this->createLegs();
+
+            return;
+        }
+
+        Schema::table('fixed_asset_transfer_legs', function (Blueprint $table) {
+            if (! Schema::hasIndex('fixed_asset_transfer_legs', 'fa_transfer_legs_transfer_direction_unique')) {
+                $table->unique(['fixed_asset_transfer_id', 'direction'], 'fa_transfer_legs_transfer_direction_unique');
+            }
+            if (! Schema::hasIndex('fixed_asset_transfer_legs', 'fa_transfer_legs_asset_date_index')) {
+                $table->index(['asset_id', 'transferred_on'], 'fa_transfer_legs_asset_date_index');
+            }
+        });
+    }
+
+    private function createTransfers(): void
     {
         Schema::create('fixed_asset_transfers', function (Blueprint $table) {
             $table->id();
@@ -41,9 +73,12 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['fixed_asset_id', 'transferred_on']);
+            $table->index(['fixed_asset_id', 'transferred_on'], 'fa_transfers_asset_date_index');
         });
+    }
 
+    private function createLegs(): void
+    {
         Schema::create('fixed_asset_transfer_legs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('fixed_asset_transfer_id')->constrained('fixed_asset_transfers')->cascadeOnDelete();
@@ -57,8 +92,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['fixed_asset_transfer_id', 'direction']);
-            $table->index(['asset_id', 'transferred_on']);
+            $table->unique(['fixed_asset_transfer_id', 'direction'], 'fa_transfer_legs_transfer_direction_unique');
+            $table->index(['asset_id', 'transferred_on'], 'fa_transfer_legs_asset_date_index');
         });
     }
 
