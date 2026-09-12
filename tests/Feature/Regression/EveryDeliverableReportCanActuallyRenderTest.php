@@ -27,8 +27,9 @@ it('renders every report that claims to be deliverable', function () {
         ->keys()
         ->filter(fn (string $page): bool => is_a($page, DeliverableReport::class, true));
 
-    // The premise: a sweep that stopped collecting would report no offenders and pass.
-    expect($deliverable)->toHaveCount(20);
+    // The premise: a sweep that stopped collecting would report no offenders and pass. Twenty-one
+    // since the aged payables report (2026-09-12).
+    expect($deliverable)->toHaveCount(21);
 
     asTenant($asset, function () use ($deliverable) {
         $broken = [];

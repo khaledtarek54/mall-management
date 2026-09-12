@@ -179,14 +179,9 @@ class LedgerReportService
             ->where('jl.ledger_account_id', $account->id)
             ->when($assetIds !== null, fn ($q) => $q->whereIn('je.asset_id', $assetIds));
 
-        // Opening balance = movement strictly before `from`.
-        $opening = 0.0;
-        if ($from) {
-            $before = (clone $base)->whereDate('je.entry_date', '<', $from->toDateString())
-                ->selectRaw('COALESCE(SUM(jl.debit),0) as d, COALESCE(SUM(jl.credit),0) as c')
-                ->first();
-            $opening = round($sign * ((float) $before->d - (float) $before->c), 2);
-        }
+        // Opening balance = movement strictly before `from` — the same SQL sum `closingBalance()`
+        // reads, so a statement's opening and a control account's balance are one arithmetic.
+        $opening = $from ? $this->closingBalance($account, $assetIds, $from->copy()->subDay()) : 0.0;
 
         $lines = (clone $base)
             ->when($from, fn ($q) => $q->whereDate('je.entry_date', '>=', $from->toDateString()))
@@ -226,6 +221,37 @@ class LedgerReportService
             'lines' => $lines,
             'closing' => $running,
         ];
+    }
+
+    /**
+     * One account's balance as at the END of a day, on its normal side — a SQL sum, never the
+     * lines (2026-09-12, the aged-payables report).
+     *
+     * `accountLedger()['closing']` answered the same question by loading every posted line of the
+     * account into PHP to run a balance forward, which is what a STATEMENT needs and what a control
+     * total does not: `BooksReconciliationService::controlBalance()` read the receivables control
+     * account that way on every call, and the aged-payables page put that call on every Livewire
+     * round-trip. Two derivations of one balance could drift, so `accountLedger()` reads its OPENING
+     * through this method and its running loop is the other side of the same sum; the sign rule
+     * (`normal_balance`) lives in one place.
+     *
+     * Null `$asOf` = every posted line, which is what a control account is compared against.
+     */
+    public function closingBalance(LedgerAccount $account, ?array $assetIds = null, ?CarbonInterface $asOf = null): float
+    {
+        $sign = $account->normal_balance === 'debit' ? 1 : -1;
+
+        $sums = DB::table('journal_lines as jl')
+            ->join('journal_entries as je', 'je.id', '=', 'jl.journal_entry_id')
+            ->whereIn('je.status', self::REPORTABLE)
+            ->whereNull('je.deleted_at')
+            ->where('jl.ledger_account_id', $account->id)
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('je.asset_id', $assetIds))
+            ->when($asOf !== null, fn ($q) => $q->whereDate('je.entry_date', '<=', $asOf->toDateString()))
+            ->selectRaw('COALESCE(SUM(jl.debit),0) as d, COALESCE(SUM(jl.credit),0) as c')
+            ->first();
+
+        return round($sign * ((float) $sums->d - (float) $sums->c), 2);
     }
 
     /**

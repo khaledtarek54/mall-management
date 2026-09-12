@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages;
 
 use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
+use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
@@ -169,7 +170,10 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
                 ->alignEnd()
                 // The deepest bucket is the one a collections clerk scans for.
                 ->color($key === 'd_90_plus' ? 'danger' : ($key === 'current' ? 'gray' : null))
-                ->state(fn (array $record): float => (float) $record['buckets'][$key]))
+                // An empty bucket is BLANK, not "EGP 0.00" — the same reading as the aged payables
+                // beside it, and the one every ageing report on the market gives an empty bucket.
+                ->state(fn (array $record): ?float => (float) $record['buckets'][$key] > 0 ? (float) $record['buckets'][$key] : null)
+                ->placeholder('—'))
             ->all();
 
         return $table
@@ -260,9 +264,10 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
                         return app(TenantStatementPdfService::class)->filename($tenant);
                     }),
             ])
-            ->recordUrl(fn (array $record): ?string => $record['tenant']
-                ? TenantResource::getUrl('edit', ['record' => $record['tenant_id']])
-                : null)
+            // Edit-then-view PER RECORD, null where the role may open neither — a `viewer` holding
+            // `tenants.view` alone was being linked into the edit page's 403 (found reviewing the
+            // aged-payables twin, which had copied the flaw).
+            ->recordUrl(fn (array $record): ?string => OpenRecordAction::urlFor(TenantResource::class, $record['tenant']))
             ->emptyStateHeading(__('admin.collections.empty'));
     }
 }

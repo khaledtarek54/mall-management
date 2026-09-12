@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\ActivityLog;
+use App\Filament\Admin\Pages\ApAging;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -67,6 +68,8 @@ class ReportCatalogue
 
     public const RECEIVABLES = 'receivables';
 
+    public const PAYABLES = 'payables';
+
     public const LEASING = 'leasing';
 
     public const OPERATIONS = 'operations';
@@ -74,7 +77,7 @@ class ReportCatalogue
     public const TAX = 'tax';
 
     /** Display order of the categories on the hub. */
-    public const CATEGORIES = [self::FINANCIAL, self::RECEIVABLES, self::LEASING, self::OPERATIONS, self::TAX];
+    public const CATEGORIES = [self::FINANCIAL, self::RECEIVABLES, self::PAYABLES, self::LEASING, self::OPERATIONS, self::TAX];
 
     /**
      * page class => [category, a one-line description key, and the words an operator might search].
@@ -102,6 +105,11 @@ class ReportCatalogue
         ArAgingByType::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging_by_type', 'keywords' => ['ageing', 'charge type', 'rent', 'service charge', 'أعمار حسب النوع', 'رسوم الخدمة', 'الإيجار']],
         ArCollections::class => ['category' => self::RECEIVABLES, 'key' => 'ar_collections', 'keywords' => ['collections', 'paid', 'recovery', 'التحصيل', 'المحصل', 'السداد']],
         BillingRunPreview::class => ['category' => self::RECEIVABLES, 'key' => 'billing_run_preview', 'keywords' => ['billing', 'run', 'preview', 'dry run', 'معاينة الفوترة', 'تشغيل الفوترة', 'الفوترة الشهرية']],
+
+        // ---- Payables ----
+        // Its own category rather than a row under Receivables: the hub is read by what side of the
+        // books a question is on, and "whom do we owe" is the opposite side from "who owes us".
+        ApAging::class => ['category' => self::PAYABLES, 'key' => 'ap_aging', 'keywords' => ['payables', 'ap', 'ageing', 'aging', 'suppliers', 'vendors', 'bills', 'owe', 'creditors', 'أعمار الذمم الدائنة', 'الموردون', 'الدائنون', 'فواتير الموردين', 'ندين']],
 
         // ---- Leasing ----
         RentRoll::class => ['category' => self::LEASING, 'key' => 'rent_roll', 'keywords' => ['tenancy schedule', 'rent', 'occupancy', 'كشف الإيجارات', 'جدول الإشغال', 'الإيجارات']],
@@ -248,6 +256,7 @@ class ReportCatalogue
         ArAging::class => ['asOf'],
         ArAgingByType::class => ['asOf'],
         ArCollections::class => ['asOf'],
+        ApAging::class => ['asOf'],
         RentRoll::class => ['asOf'],
         ExpirationSchedule::class => ['asOf'],
         SalesAnalytics::class => ['asOf'],

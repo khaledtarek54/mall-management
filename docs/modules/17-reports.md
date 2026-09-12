@@ -1040,6 +1040,72 @@ drill-down can never surface an invoice its own summary did not count.
 
 ---
 
+## Aged payables (2026-09-12, the reports audit)
+
+`/admin/ap-aging` ([`ApAging`](../../app/Filament/Admin/Pages/ApAging.php), reading
+[`ApAgingService`](../../app/Services/Reports/ApAgingService.php)) — the payables mirror of the
+collections worklist: one row per SUPPLIER, their open bills split across the same ageing buckets,
+worst-first (deepest bucket, then size), with bill count, oldest item in days, last payment date (or
+a red *never paid*), an *Open bills* action landing on that supplier's unpaid bills in the register,
+the row opening the supplier record through `OpenRecordAction::urlFor()` (edit, else view, else
+plain text — `VendorResource` has no View page, so a `viewer` holding `vendors.view` alone was being
+linked into a 403 by the first cut, and `ArCollections` had the same flaw with `TenantResource`;
+both read the resolver now), CSV + XLSX, saved views and scheduled delivery. Its own **Payables** heading on the report hub, and last in the Payables sidebar
+group as `ArCollections` is in Receivables. Property-scoped, EN + AR. Gated on `reports.view`
+**and the Vendors module**: a report on supplier bills belongs to the module that records them.
+
+**Why it did not exist.** `vendor_bills` carried `due_date` and `balance` from the day it shipped,
+`billing:reconcile` already tied the AP control account to the bills, and the only payables view
+was the bill register with status tabs — so nothing answered the question a mall's accountant
+settles every week, *which suppliers do we pay first, and does what the bills say we owe agree with
+the ledger*. Every accounting system prints an aged payables beside its aged receivables (the
+reference system's Aged Payables, SAP's vendor line-item ageing, Odoo's Aged Payable); it was the
+one standard financial report the catalogue had no counterpart to.
+
+**Three rules, each a tooth in `AnAgedPayablesReportSaysWhomWeOweTest`:**
+
+- **Aged by DUE date, and a bill with no terms is due on receipt.** Days late count from
+  `due_date`, falling back to `bill_date` when none was recorded — reading a null due date as
+  *never late* would hide exactly the bills nobody set terms on. The buckets are `AgingBuckets`,
+  the receivables' own boundaries: one company policy for how late is late, so the two ageings an
+  accountant reads side by side cannot bucket the same 45 days two ways.
+- **The set is the reconciler's set, plus the as-of cutoff.** `postable()` (drafts and cancelled
+  out) and `balance > 0` — what `BooksReconciliationService::glTieOut()` sums as expected AP —
+  narrowed to bills dated on or before the as-of day. On today's reading the cutoff removes only a
+  bill dated in the FUTURE, and that one, if it has posted, shows as ⚠ rather than being folded in:
+  a supplier bill dated next month is a mistyped date and the ageing is where somebody notices it.
+  (The review found the first cut comparing the control account against the reconciler's OWN
+  bills figure, which counted the future bill on both sides and printed ✓ over two totals that
+  differed — the page compares against the total it prints.)
+- **The tie-out is on the subheading, for TODAY's reading only, on the reconciler's tolerance.**
+  `BooksReconciliationService::apControlBalance($assetIds)` is the control account's balance for
+  the mall the operator is standing in — comparing one mall's bills against EVERY mall's control
+  account would report a delta that is really the neighbours (proved: a posted bill in another mall
+  leaves this mall's ✓ standing) — read through the new `LedgerReportService::closingBalance()`, a
+  SQL sum, because `accountLedger()['closing']` loads every posted line of the account into PHP and
+  the reconciler had been reading the receivables control account that way on every call; the
+  page ties on `BooksReconciliationService::EPS`, so a delta the reconcile command passes cannot
+  read as ⚠ beside it. A back-dated ageing reads bills at their CURRENT balance (a payment since has
+  already moved it), the same limit the receivables ageing has, so no tie-out is offered there — it
+  would compare a reconstructed day against a live ledger and report the calendar as a difference.
+  The ⚠ line names the three figures and the four causes (not yet posted · dated in the future ·
+  posted twice · money moved outside the payments tab), in the reader's language.
+- **The last payment is money that REACHED the supplier, in THIS mall.** A voided payment is not a
+  payment (`recompute()` and the journalizer both leave it out; a bounced cheque read as *last paid
+  on* says the opposite of what the column is for), and `VendorBillPayment` is property-owned
+  through its bill, so a mall pinned to one property is not shown the day another mall paid — one
+  grouped query for the page, not one per row.
+
+**An empty bucket is BLANK on both worklists now**, not `EGP 0.00` — five columns of zeroes per
+row buried the one figure the eye scans for, and every ageing report on the market leaves an empty
+bucket empty. The CSV keeps the `0.00`; a spreadsheet wants a number.
+
+Nineteen mutations, each killing its own tooth — including the sort, whose first fixture happened
+to insert suppliers in the order the report must open in and so proved nothing about sorting until
+the young supplier was created first; and the blank bucket, whose first assertion was
+`assertDontSee('EGP 0.00')` with a plain space where Filament writes a NO-BREAK space, green with
+the blanking deleted.
+
 ## Lease expiration schedule
 
 `/admin/expiration-schedule` ([`ExpirationSchedule`](../../app/Filament/Admin/Pages/ExpirationSchedule.php) +

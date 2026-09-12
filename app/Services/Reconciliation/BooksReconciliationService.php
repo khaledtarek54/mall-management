@@ -35,8 +35,12 @@ use App\Support\InvoiceSettlement;
  */
 class BooksReconciliationService
 {
-    /** Money tolerance — one piastre. */
-    private const EPS = 0.01;
+    /**
+     * Money tolerance — one piastre. Public since the aged-payables page ties out on the SAME
+     * boundary: a page saying ⚠ at a delta the reconcile command passes would be the disagreement
+     * the shared method exists to prevent, at its edge.
+     */
+    public const EPS = 0.01;
 
     public function __construct(
         private LedgerReportService $reports,
@@ -385,9 +389,22 @@ class BooksReconciliationService
      * imply (all-time / cumulative). Consumed by both the reconcile check above and
      * the `accounting:sync-ledger` printout, so the two can never disagree.
      *
+     * **Scoped to a set of properties when one is given (2026-09-12, the aged-payables report).** The
+     * reconcile command asks the portfolio question and passes nothing. A report page asks it for
+     * the mall the operator is standing in, and comparing that mall's bills against EVERY mall's
+     * control account would report a delta that is really the other malls — so both halves narrow
+     * on `asset_id` together, through this ONE method rather than a scoped copy of its arithmetic
+     * beside it. Null keeps the portfolio reading byte-for-byte. **The scoped AR half is a stated
+     * limit, and nothing reads it yet**: the GL narrows on the ENTRY's `asset_id`, and a receipt
+     * allocated across two malls posts under a null entry asset with per-mall AR credits on its
+     * LINES (`PaymentJournalizer`), while the invoices it relieves stay in scope — the same
+     * boundary EG-27's statements have. The AP journalizers all post under the bill's own property,
+     * so the scoped AP reading is exact.
+     *
+     * @param  array<int, int>|null  $assetIds
      * @return array{configured:bool, ar?:array{gl:float,expected:float,delta:float}, ap?:array{gl:float,expected:float,delta:float}}
      */
-    public function glTieOut(): array
+    public function glTieOut(?array $assetIds = null): array
     {
         // Nothing to tie out until the GL is both configured (roles mapped) AND
         // populated (something posted) — else skip rather than raise a false failure.
@@ -411,14 +428,15 @@ class BooksReconciliationService
         // Net AR = open invoice balances − standing (unapplied) credit notes; credited
         // invoices are excluded because their credit note reverses them on the GL side.
         // Round each sum before subtracting (matches the sync-command's original math).
-        $glAr = $this->controlBalance($arAccounts);
+        $glAr = $this->controlBalance($arAccounts, $assetIds);
         // Exclude DRAFT invoices — the InvoiceJournalizer recognises revenue only at issue,
         // so a draft's balance is not on the GL; counting it here would raise a false AR delta.
         // 'written_off' joins the exclusions for the same reason as 'credited': the GL side has
         // already been relieved (Dr Bad Debt / Cr AR), so counting the invoice's untouched balance
         // here would raise a false AR delta on every written-off debt.
         $countedStatuses = ['cancelled', 'credited', 'draft', 'written_off'];
-        $invoiceBalances = round((float) Invoice::whereNotIn('status', $countedStatuses)->sum('balance'), 2);
+        $inScope = fn ($query) => $assetIds === null ? $query : $query->whereIn('asset_id', $assetIds);
+        $invoiceBalances = round((float) $inScope(Invoice::whereNotIn('status', $countedStatuses))->sum('balance'), 2);
 
         // PARTIAL write-offs, on invoices still counted above.
         //
@@ -430,17 +448,17 @@ class BooksReconciliationService
         // an AR delta from the day it was booked, permanently and with no way to clear it.
         $partiallyWrittenOff = round((float) InvoiceWriteOff::whereHas(
             'invoice',
-            fn ($q) => $q->whereNotIn('status', $countedStatuses),
+            fn ($q) => $inScope($q->whereNotIn('status', $countedStatuses)),
         )->sum('amount'), 2);
 
         // The register, not a re-listed pair: a control total the reconciler compares the GL against
         // has to count exactly the notes the GL counted.
-        $outstandingCredits = round((float) CreditNote::query()->onTheBooks()->sum('balance'), 2);
+        $outstandingCredits = round((float) $inScope(CreditNote::query()->onTheBooks())->sum('balance'), 2);
         $expectedAr = round($invoiceBalances - $partiallyWrittenOff - $outstandingCredits, 2);
 
         // AP = outstanding vendor-bill balances (excludes draft + cancelled).
-        $glAp = $this->controlBalance($apAccounts);
-        $expectedAp = round((float) VendorBill::whereNotIn('status', ['cancelled', 'draft'])->sum('balance'), 2);
+        $glAp = $this->apControlBalance($assetIds);
+        $expectedAp = round((float) $inScope(VendorBill::query()->postable())->sum('balance'), 2);
 
         return [
             'configured' => true,
@@ -450,20 +468,42 @@ class BooksReconciliationService
     }
 
     /**
+     * The payables control account's balance alone — what the aged-payables page ties its own total
+     * to on every render, so it must not pay for the receivables half {@see glTieOut()} computes
+     * beside it. Null when no account is mapped to the role or nothing has posted: there is nothing
+     * to tie to, and a ✓ over an empty ledger is the reassurance this project refuses to print.
+     *
+     * @param  array<int, int>|null  $assetIds
+     */
+    public function apControlBalance(?array $assetIds = null): ?float
+    {
+        $accounts = $this->accounts->accountsFor('accounts_payable');
+
+        if ($accounts === [] || ! JournalEntry::where('status', 'posted')->exists()) {
+            return null;
+        }
+
+        return $this->controlBalance($accounts, $assetIds);
+    }
+
+    /**
      * The combined closing balance of every chart account a control role points at.
      *
-     * Per account rather than one summed query, because `accountLedger()` applies the account's own
-     * `normal_balance` sign. Adding raw debits and credits here would be a second reading of a
-     * balance the ledger report already owns, and the two would then be free to disagree.
+     * Per account rather than one summed query, because `closingBalance()` applies the account's
+     * own `normal_balance` sign. Adding raw debits and credits here would be a second reading of a
+     * balance the ledger report already owns, and the two would then be free to disagree. A SQL sum
+     * since 2026-09-12 — it read `accountLedger()['closing']`, which loads every posted line of the
+     * account into PHP to run a statement forward, on a call a report page now makes per render.
      *
      * @param  array<int, LedgerAccount>  $accounts
+     * @param  array<int, int>|null  $assetIds  narrow to these properties' postings; null = the portfolio
      */
-    private function controlBalance(array $accounts): float
+    private function controlBalance(array $accounts, ?array $assetIds = null): float
     {
         $total = 0.0;
 
         foreach ($accounts as $account) {
-            $total += (float) $this->reports->accountLedger($account)['closing'];
+            $total += $this->reports->closingBalance($account, $assetIds);
         }
 
         return round($total, 2);

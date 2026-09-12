@@ -18,6 +18,12 @@
         "guide": "announcements"
     },
     {
+        "screen": "ApAging",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "ap_aging"
+    },
+    {
         "screen": "ApprovalRuleResource",
         "panel": "admin",
         "kind": "resource",

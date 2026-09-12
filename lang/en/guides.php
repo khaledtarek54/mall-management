@@ -1276,6 +1276,25 @@ return [
         ],
     ],
 
+    'ap_aging' => [
+        'purpose' => 'Whom we owe, how much, and how late — every supplier with an open bill, split by days past due, checked against the payables account in the ledger.',
+        'steps' => [
+            'Pick the day to age at — today for the weekly payment run, a month-end for the file.',
+            'Read the list from the top: it is ordered worst-first, deepest bucket then size.',
+            'Use "Open bills" on a row to land on that supplier\'s unpaid bills and pay from there; the row itself opens the supplier\'s record.',
+            'Export it for the payment meeting; the columns follow the ageing buckets set in Billing settings.',
+        ],
+        'affects' => [
+            'Nothing directly. It reads the bills; paying one happens on the bill\'s own payments tab.',
+        ],
+        'rules' => [
+            'Days late count from the bill\'s due date. A bill recorded without terms is due the day it was dated — reading no terms as "never late" would hide exactly the bills nobody set terms on.',
+            'Only approved bills with a balance are payables: a draft is not on the books yet and a cancelled one has left them. This is the same set the month-end reconcile ties the payables account to, so the total here and the control account agree by construction.',
+            'The tie-out line appears for today\'s reading only. A back-dated ageing shows bills at their current balance, so comparing it against the live ledger would report a difference that is really the calendar.',
+            'The buckets are the ones the receivables age at — one policy for how late is late, so the two reports an accountant reads side by side cannot bucket the same 45 days two ways.',
+        ],
+    ],
+
     'trial_balance' => [
         'purpose' => 'Every account with its opening balance, the period\'s debits and credits, and its closing balance — the proof the books balance.',
         'steps' => [

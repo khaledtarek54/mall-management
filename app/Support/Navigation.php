@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Filament\Admin\Pages\ActivityLog;
+use App\Filament\Admin\Pages\ApAging;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -238,6 +239,9 @@ final class Navigation
             // Not in `reports`: the scorecard is read when DECIDING who to dispatch, so it belongs
             // beside the vendor register it ranks.
             VendorScorecard::class,
+            // The payables mirror of `ArCollections`, last in its group as that one is in
+            // Receivables: registers first, then the report read over them.
+            ApAging::class,
         ],
 
         // ── The owner relationship ─────────────────────────────────────────────────────────────

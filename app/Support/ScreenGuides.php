@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Filament\Admin\Pages\ActivityLog;
+use App\Filament\Admin\Pages\ApAging;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -262,6 +263,7 @@ class ScreenGuides
         ArAging::class => 'ar_aging',
         ArAgingByType::class => 'ar_aging_by_type',
         ArCollections::class => 'ar_collections',
+        ApAging::class => 'ap_aging',
         TrialBalance::class => 'trial_balance',
         GeneralLedger::class => 'general_ledger',
         Budget::class => 'budget',

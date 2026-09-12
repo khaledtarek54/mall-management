@@ -861,6 +861,10 @@
             "slug": "activity-log"
         },
         {
+            "class": "ApAging",
+            "slug": "ap-aging"
+        },
+        {
             "class": "ArAging",
             "slug": "ar-aging"
         },
