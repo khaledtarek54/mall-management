@@ -216,7 +216,7 @@ These four decisions steer the FRs below:
 | 20 | Gross and net area per unit | One area | ✅ **Shipped 2026-09-12** — `units.net_area_sqm` beside the gross (the existing column, relabelled *Gross area*, stays the only figure money reads); load factor under it on the register and the property tab; on the lease agreement and the rent roll; net ≤ gross on every door and the model; the Remeasure survey carries both ([modules/01](../modules/01-properties-units.md#a-unit-carries-its-net-area-beside-its-gross-2026-09-12-meeting-point-20)) | S | ✅ built |
 | 21 | The management contract is between the unit owner and Jawad | Terms stored, fee charged by nothing (gap B1) | **Decision, not code** — it answers half of B1 | (M once ruled) | |
 | 22 | Possession date: better description if blank → today | Helper exists; nothing computes it | **Ask** what "calculated from today" means; wording only | XS | |
-| 23 | Late fees → notify Eltizam to cut electricity/water; anything else? | Tenant + owner notified; no operations step | **Build** a collections stage that raises an operations request | M | |
+| 23 | Late fees → notify Eltizam to cut electricity/water; anything else? | Tenant + owner notified; no operations step | **Build** a collections stage that raises an operations request — design and market study in §6.6 | M | ⏸ **Deferred 2026-09-13** (Khaled: *"not needed now"*) |
 | 24 | Annual increase on all charges, % or fixed | Base rent (+ same % on service charge) | ✅ **Shipped 2026-09-12** — every charge row carries its own rule (follows the clause · own % · own fixed EGP · none), Yardi's grain; **each parking bay / item by its own rule on its holding, items let with the lease, the rule set from the tabs** (same day); the lease form's *Annual increase* tab and its "Which charges step" table; `billing.new_charges_follow_escalation` per property (off = Yardi) ([modules/04](../modules/04-leases.md), [35](../modules/35-rentable-items.md)) | M | ✅ built |
 | 25 | Vending machines, toy cars — "like units", later | ✅ **Built** (rentable items, module 35) | **Nothing now**; a unit type or a rentable item when they return to it | XS | |
 
@@ -737,6 +737,48 @@ non-emergency work orders and new fit-out permits, hold parking / access cards, 
 portal, exclusion from renewal options, an alert to the owner above a threshold, a mark on the rent
 roll. Cutting power has legal exposure in Egypt; the system records the **request** and the decision,
 and a person turns the switch. Effort **M**.
+
+> **⏸ DEFERRED 2026-09-13 — Khaled: *"I think this feature is not needed now."*** Nothing was built.
+> The study that preceded the decision is kept here so it is not redone the day the ask returns.
+>
+> **The market's whole late-payment workflow, not only the fee.** Voyager: the late fee is a BATCH
+> with a cutoff date, per charge code, previewed *report only* then posted; letters (first · second ·
+> final) are produced in batches from the delinquency report under configurable templates; the
+> Voyager 8 collections dashboard breaks arrears down **by status, by legal stage, by charge code and
+> by aging**, with outreach assigned and every attempt and outcome logged; a tenant moves *Notice →
+> Evict*, and on `Evict` a RECEIPT WARNS (taking money can derail the case); a charge can be put on
+> *Hold* to refuse payment against it; *send to attorney* is Voyager Legal; a monthly collections
+> report decides *send to agency, yes/no*; payment plans are a POLICY (e.g. three instalments, first
+> 50%), not a system object; write-off by the accountant. Entrata/RealPage: ONE delinquency policy
+> applied across properties, stages triggered by days past due, a notice per stage, a partial payment
+> never pauses escalation. **No benchmark system cuts a utility** — self-help is unlawful in the US, a
+> crime in the UAE (Dubai Law 26/2007 art. 34), and in Egypt cutting a tenant's water without a court
+> order is a crime (the water-utility law, art. 45 — six months' imprisonment or more and EGP
+> 10k–100k); electricity carries the same exposure. Egyptian malls still do it under the lease clause
+> because the mall is the utility customer and sub-meters the shops — at their own risk.
+>
+> **What Atriom already has**: late fees on three tiers · a per-invoice dunning ladder
+> (`dunning_followup_days` 0 = once, `dunning_max_notices`, operator wording incl. the final notice)
+> · the owner overdue alert · the AR collections worklist and aging by type · line disputes ·
+> write-off and recovery · the tenant communication log. **Missing**: a collections STAGE, any
+> operations step, a legal rung, payment plans.
+>
+> **The design that was ready to build (one `/safe-change`)**: a DERIVED stage per tenant (current →
+> overdue → reminded → final notice → suspension requested → services suspended → legal) on the
+> worklist and the tenant page; two per-property thresholds, both shipping 0 = off (the market's
+> answer — no automatic operations step): *suspension request after N days overdue* and *after N live
+> late fees*, the client's rule being SET on staging; the act = ONE `FacilityWorkOrder` to operations
+> per tenant per delinquency episode (`collections_action` + `tenant_id` on the work order, the
+> description worded at read time), raised by a daily sweep, executed and evidenced by a person,
+> cancelled automatically if the tenant settles before it is executed and followed by a *Restore
+> services* order if after; *Refer to legal* / *Withdraw* on the tenant with the reason on the trail.
+> A work order and not a tenant request, because a request is the tenant's own board and renders in
+> their portal. The "anything else" list to put to the client: block non-emergency work orders and new
+> fit-out permits while suspended · hold parking and access cards · portal banner · renewal-option
+> exclusion · owner alert above a threshold · rent-roll mark · a payment-plan object · a receipt
+> warning while in legal · a reconnection fee charge code. Open decisions when it returns: the
+> staging rule (late fees ≥ 1, days, or both); restore on *nothing past due* or on the original
+> arrears only; whether the final notice must precede the request; legal in the same slice.
 
 ---
 

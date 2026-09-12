@@ -482,7 +482,10 @@ and the re-survey alike. No setting — which area is charged on is not a knob a
 **Your confirmation is still wanted**: rent in your contracts is priced on the gross (my assumption,
 and the shipped shape); if it is the net, the figures are corrected by a re-survey, not by code
 ([modules/01](modules/01-properties-units.md#a-unit-carries-its-net-area-beside-its-gross-2026-09-12-meeting-point-20)).
-Next in the memo's order: 23 (late fees → an operations request to cut services).
+Point 23 (late fees → an operations request to cut services) is **deferred** on Khaled's call
+(2026-09-13, *"not needed now"*); the market study and the ready design are kept in
+[CLIENT-FRD-NOTES §6.6](requirements/CLIENT-FRD-NOTES.md#66-collections-23) for the day it returns.
+What is left of the memo is decisions, not code: 2 (X days) · 4 (the lease template) · 12 · 21 · 22.
 
 ### 9.1 · The accountant's sitting
 
