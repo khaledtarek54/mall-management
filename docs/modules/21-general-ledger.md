@@ -425,6 +425,12 @@ document's real date.
    ledger's running balance from the document's date onward; under the shipped defaults (Yardi's)
    both warn in figures, and each is a per-property setting the operator turns to *refuse* — the
    drawer's ON is SAP's cash-journal rule. See [the section below](#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12).
+10. **The trial balance is read as the chart's tree, and every fold of it foots** (2026-09-12,
+    meeting point 19). `App\Support\LedgerTree` rolls every leaf up into every ancestor through
+    `parent_id`, each of the six columns summed on its own side; the screen opens folded to the
+    roots and unfolds on click, the PDF prints the fold on screen, the CSV carries the whole tree
+    with a level per row, and the totals are the LEAVES' at every fold. See
+    [the section below](#the-trial-balance-reads-as-the-charts-tree-2026-09-12).
 
 ---
 
@@ -526,7 +532,9 @@ All under the **Accounting** navigation group (`admin.groups.accounting`), gated
 - **`TrialBalance` page** — ميزان المراجعة. Every account with a balance or a movement in the
   window: **opening balance · the window's debit and credit · closing balance**, each balance on its
   side, three column pairs that each foot (2026-09-11 — see *A month's trial balance opens with the
-  balance brought forward* below). Filter by property + period.
+  balance brought forward* below). Filter by property + period. **Read as the chart's tree since
+  2026-09-12** — opens folded to the roots, a summary row's code unfolds its branch, *Unfold all* /
+  *Fold all* in the header (see *The trial balance reads as the chart's tree* below).
 - **`GeneralLedger` page** — دفتر الأستاذ. Per-account running statement (كشف حساب).
 
 Income statement & balance sheet pages land in **Phase 2**.
@@ -1237,6 +1245,82 @@ shipped chart, divergent on an imported mixed-width one. A prior year not yet cl
 P&L account's opening, as it does in SAP before the balance carry-forward: the report says what the
 ledger says, and the close is what moves it. `ATrialBalanceForAMonthOpensWithTheBalanceBroughtForwardTest`
 — thirteen mutations, each killing its own tooth.
+
+### The trial balance reads as the chart's tree (2026-09-12)
+
+**The ask** (client meeting 2026-09-02, point 19): *"the trial balance should be a tree — the parent
+general account, and under it the accounts, hide and show"* — and, the day it shipped, *"make sure
+the tree by default is minimised"*.
+
+**Atriom before.** A flat list of every postable leaf, ordered by code — sixty rows an accountant
+reads by scanning for the group they want. The chart is five levels deep (`1 · 11 · 111 · 11101 ·
+11101001`), every summary account already exists as a row (`is_postable = false`) with a derived,
+self-healing `parent_id` (EG-28), and no report read the hierarchy past the top group
+(`StatementGroups` subtotals the statements by the step below the root; the trial balance did not
+group at all). Voyager runs financial reports at an account-tree level, Odoo's trial balance folds
+by account group, SAP's financial-statement version is a tree — standard, and the market's shape.
+
+**The rule.** `App\Support\LedgerTree` is the ONE helper, and three renderers read it:
+
+- `build($leafRows, $sumKeys)` — every ancestor of a leaf ON the statement becomes a node carrying
+  the column sums of the leaves beneath it, **debit and credit sides summed separately** (a branch
+  holding a receivable and its allowance shows Dr 5,000 · Cr 1,000, never a net 4,000 — netting
+  would print a figure the totals row does not contain). A leaf keeps its own figures; nothing is
+  re-derived. Depth-first, siblings compared as code STRINGS — the order the flat listing and the
+  general ledger use (`SORT_STRING`, the database's varchar order), deliberately not the natural
+  compare `StatementGroups` uses for the top groups, which would put `9` before `10` on a
+  mixed-width imported chart and after it in the ledger. A leaf the chart never placed stands at the
+  root and still counts; a postable parent on an imported chart is both a row and a branch, its
+  roll-up its own postings plus the leaves; a cycle a hand-edited `parent_id` could write (the app
+  derives parents from a strict code prefix, so it cannot) stops the walk at the first revisited id
+  and puts the looping node at the root rather than dropping the branch.
+- `visible($nodes, $expandedCodes = [])` — a node is shown only when **every ancestor is open**, so
+  `[]` is the roots alone — one line per account type that moved, still footing — and
+  `parentCodes()` is the whole tree. That is the ONE reading of "which rows are on show".
+- **The screen** (`TrialBalance`): `public array $expanded = []` — a browsing state, deliberately
+  NOT a report parameter (`ReportParameters` snapshots scalars only, so a saved view or a remembered
+  preference never carries it, and a reload opens the tree folded again); kept as what is OPEN
+  rather than what is closed so a period change re-folds whatever branches it brings in. The code
+  cell IS the fold control (Filament's column `->action()`, a chevron by `has_children`/`collapsed`,
+  pointing along the reading direction under RTL; a leaf's cell is `disabledClick`, a plain
+  `<div>`), indented by depth with `padding-inline-start`; *Unfold all* / *Fold all* in the header.
+  A summary account has no ledger of its own, so only a leaf links into the general ledger. The
+  totals row still reads the REPORT's totals, not the visible rows.
+- **The PDF** prints the tree at the fold on screen — a printed copy is a picture of what was looked
+  at (the page passes `expanded:` by name; a caller with no screen gets the roots unless it passes
+  `parentCodes()`).
+- **The CSV** carries the WHOLE tree with a `Level` column — **last**, so a template built on the
+  nine columns the file always had does not shift (the rule the custom-field exports follow). Not
+  at the screen's fold, deliberately: a spreadsheet outlines the hierarchy itself, and a file folded
+  to five roots would have thrown away every row a reader cannot get back. The scheduled delivery
+  and the assistant's report runner go through the same `reportCsv()`, so they carry it too.
+
+**Two things worth knowing.** Filament memoises `getTableRecords()` for the request, and a column
+action resolves its row from that memo BEFORE the action runs — so the toggle calls
+`flushCachedTableRecords()`, or the re-render reads the rows as they stood before the click and the
+tree moves on the NEXT click. And `StatementGroups::chart()` — the memo both helpers read — lives in
+the container, which on a queue daemon is one long-lived process; its docblock had claimed the
+container alone answered that, and `app()->instance()` lives exactly as long as a static does.
+`LedgerAccount` now drops the memo on every save, delete and restore (`StatementGroups::forgetChart()`),
+which is what makes the sentence true.
+
+**No setting.** The fold is a run-time control, not configuration — neither Voyager nor Odoo
+configures the level a trial balance opens at; the operator's *minimised by default* is the code's
+default because it is what the market does, not a client deviation. The balance sheet and the
+income statement are deliberately NOT converted here — they subtotal by `StatementGroups` and take
+the tree later on the same helper.
+
+`ATrialBalanceReadsAsTheChartsTreeTest` — fourteen cases, twenty-six mutations each killing its own
+tooth (the roll-up, each side on its own, sibling order, `has_children`, the postable-parent merge,
+the depth rule of `visible()`, the `collapsed` flag, `parentCodes()`, the cache flush, the leaf cell,
+the leaf-only link, the folded default, the PDF's fold from the service AND from the page, the
+indentation, the subtotal row, the CSV's whole tree and its level, both header actions, the toggle
+folding back, the cycle guard both ways, the string order, the memo forget, the leaf-toggle guard).
+**The review found the change red on four sibling tests it had not run** — an anonymous subclass of
+`LedgerReportPdfService` with the old signature is a PHP fatal that exits the file with ZERO output
+(a fourth cause of that symptom beside the helper collision, the trait property and the wiped
+database), a template rendered without `nodes`, two CSV tests indexing nine columns — and one that
+had gone vacuous (a folded table of two roots compared against two leaves and passed).
 
 ### A period is the PAGE's answer, and a quarter is a quarter of the FISCAL year (2026-09-02)
 

@@ -463,7 +463,17 @@ EARLIER netted to zero and passed; a bank's own account was read per property an
 allocated across two malls; and payroll was judged from the 1st its entry is dated rather than the
 day it is approved and paid
 ([modules/21](modules/21-general-ledger.md#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12)).
-Next in the memo's order: 19 (the trial balance as a tree), then 20, 23.
+**Point 19 shipped 2026-09-12** — the trial balance reads as the chart's tree: every summary
+account is a row carrying the sums of the leaves beneath it (debit and credit sides each on their
+own), it opens **folded to the roots** — your follow-up the same day — and a click on a summary
+account's code unfolds its branch, with *Unfold all* / *Fold all* in the header. The PDF prints the
+tree at the fold on screen; the CSV carries the whole tree with a level column, last, so a
+spreadsheet outlines it itself and nothing built on the old nine columns shifts. The totals are the
+leaves' at every fold. No setting — the fold is a control, not configuration, and minimised-by-
+default is the market's shape. The balance sheet and P&L keep their group subtotals for now and take
+the tree later on the same helper
+([modules/21](modules/21-general-ledger.md#the-trial-balance-reads-as-the-charts-tree-2026-09-12)).
+Next in the memo's order: 20 (gross and net area per unit), then 23.
 
 ### 9.1 · The accountant's sitting
 

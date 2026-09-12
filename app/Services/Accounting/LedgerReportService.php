@@ -5,6 +5,7 @@ namespace App\Services\Accounting;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Support\CashFlowSection;
+use App\Support\LedgerTree;
 use App\Support\StatementSection;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -32,6 +33,9 @@ class LedgerReportService
     /** @see JournalEntry::REPORTABLE_STATUSES — the rule lives on the model, not here. */
     private const REPORTABLE = JournalEntry::REPORTABLE_STATUSES;
 
+    /** The six money columns of a trial-balance row — what {@see LedgerTree} rolls up into each branch. */
+    public const TRIAL_BALANCE_SUMS = ['opening_debit', 'opening_credit', 'debit_total', 'credit_total', 'debit_balance', 'credit_balance'];
+
     /**
      * ميزان المراجعة — Trial Balance.
      *
@@ -58,10 +62,8 @@ class LedgerReportService
      * does in SAP before the balance carry-forward: the report says what the ledger says, and the
      * year-end close is what moves it into retained earnings.
      *
-     * @return array{rows: Collection, total_opening_debit: float, total_opening_credit: float, total_movement_debit: float, total_movement_credit: float, total_debit: float, total_credit: float, balanced: bool}
-     */
-    /**
      * @param  bool  $includeZeroBalances  list postable accounts that had no movement at all (RP-02)
+     * @return array{rows: Collection, tree: list<array<string, mixed>>, total_opening_debit: float, total_opening_credit: float, total_movement_debit: float, total_movement_credit: float, total_debit: float, total_credit: float, balanced: bool}
      */
     public function trialBalance(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null, bool $includeZeroBalances = false): array
     {
@@ -145,6 +147,12 @@ class LedgerReportService
 
         return [
             'rows' => $rows,
+            // The same rows as the chart's tree — every ancestor with the six columns summed over
+            // the leaves beneath it (meeting 2026-09-02, point 19). Built HERE, once, so the screen,
+            // the CSV and the PDF fold the same nodes; each applies its own fold with
+            // `LedgerTree::visible()`. The totals below are over the LEAVES and are what every
+            // fold of the tree still foots to.
+            'tree' => LedgerTree::build($rows, self::TRIAL_BALANCE_SUMS),
             ...$totals,
             // Every pair, not only the closing one: a ledger whose entries all balance foots on all
             // three, and one that does not is the thing this flag exists to say out loud.

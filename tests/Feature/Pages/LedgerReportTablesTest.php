@@ -64,9 +64,11 @@ it('renders the trial balance as a table whose rows and totals match the report 
     $this->actingAs(makeUser('super_admin', [$asset->id]));
 
     asTenant($asset, function () {
-        $component = Livewire::test(TrialBalance::class)->assertOk();
+        // The tree opens folded to its roots (point 19, 2026-09-12); the LEAVES are what this
+        // case compares against the service, so unfold everything and keep only the leaf rows.
+        $component = Livewire::test(TrialBalance::class)->assertOk()->callAction('expand_all');
 
-        $records = collect($component->instance()->getTableRecords());
+        $records = collect($component->instance()->getTableRecords())->where('is_leaf', true);
         expect($records)->not->toBeEmpty();
 
         // The table must agree with the service, account for account — this is

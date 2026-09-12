@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Services\Reports\StatementSpread;
 use App\Support\IssuingEntity;
+use App\Support\LedgerTree;
 use App\Support\Pdf\DocumentLocale;
 use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonInterface;
@@ -36,17 +37,31 @@ class LedgerReportPdfService
      *
      * Declared AFTER `$locale` so the five existing positional call sites are untouched; the page
      * passes it by name.
+     *
+     * `$expanded` is the fold on screen — the codes whose branches the operator opened — so the
+     * printed tree is the one they were looking at (point 19, 2026-09-12). Empty is the tree
+     * folded to its roots, exactly as the screen opens; a caller with no screen that wants every
+     * leaf passes `LedgerTree::parentCodes()`. Named too, for the same reason.
+     *
+     * @param  list<string>  $expanded
      */
-    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null, bool $includeZeroBalances = false): string
+    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null, bool $includeZeroBalances = false, array $expanded = []): string
     {
-        return $this->render('accounting.pdf.trial-balance', fn (): array => [
-            'report' => $this->reports->trialBalance($assetIds, $from, $to, $includeZeroBalances),
-            'meta' => $this->meta($property, $period),
+        return $this->render('accounting.pdf.trial-balance', function () use ($assetIds, $from, $to, $includeZeroBalances, $expanded, $property, $period): array {
+            $report = $this->reports->trialBalance($assetIds, $from, $to, $includeZeroBalances);
+
+            return [
+                'report' => $report,
+                // The tree at the fold, resolved HERE so the template loops one list and holds no
+                // opinion about which rows a fold hides.
+                'nodes' => LedgerTree::visible($report['tree'], $expanded),
+                'meta' => $this->meta($property, $period),
+            ];
             // Landscape, as the income-statement spread is past four money columns: opening,
             // movement and closing are six. The notice window is open-ended for the reason the
             // balance sheet's is: the closing column is an *as at* figure, so what it is missing
             // is every unallocated entry up to the date, not only the month's.
-        ], $assetIds, $period, $locale, landscape: true, window: [null, $to]);
+        }, $assetIds, $period, $locale, landscape: true, window: [null, $to]);
     }
 
     public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string

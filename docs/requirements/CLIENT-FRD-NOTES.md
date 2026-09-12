@@ -212,7 +212,7 @@ These four decisions steer the FRs below:
 | 16 | Cash box / bank can never be credit | No guard | ✅ **Shipped 2026-09-12** — `CashBalanceGuard` on every posting source: an outflow past the account's running balance from the document's date onward is WARNED in figures and recorded, or REFUSED in the same words with the way out — per property, `accounting.refuse_overdrawn_cash` / `accounting.refuse_overdrawn_bank`, both shipped OFF (Yardi's), **both ON on staging as the client's rule** (cash ON = SAP's cash-journal rule); the bank register shows each account's GL balance ([modules/21](../modules/21-general-ledger.md#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12)) | M | ✅ built |
 | 17 | TB daily depreciation; 60 months shows 25% not 20% | 25% = Law 91 tax pool, correct; 20% is the unshown book rate | **Not a bug** — the book rate now shows on the register (the *Annual rate %* column) and the form, beside the tax pool; daily posting declined (14) | — | ✅ closed by 14 |
 | 18 | Transfer an asset between places | `asset_id` editable → rewrites history | ✅ **Shipped 2026-09-12** — *Transfer* act on the asset's page (destination · date · reason), two GL legs on the transfer date (OUT of the old property, IN to the new, NBV through `inter_property_clearing`), history stays where it was, depreciation follows from the transfer month, a *Transfers* tab; `asset_id` REFUSED once depreciating ([modules/23 §2.11](../modules/23-fixed-assets.md)) | M | ✅ built |
-| 19 | Trial balance as a collapsible tree | Flat list | **Build** a ledger tree (screen + PDF) | M | |
+| 19 | Trial balance as a collapsible tree | Flat list | ✅ **Shipped 2026-09-12** — `LedgerTree`: every summary account a row with the sums of the leaves beneath it, opens **folded to the roots** (the client's ask), a click on the code unfolds a branch, *Unfold all* / *Fold all*; the PDF prints the fold on screen, the CSV carries the whole tree with a level column; every fold foots to the same totals ([modules/21](../modules/21-general-ledger.md#the-trial-balance-reads-as-the-charts-tree-2026-09-12)) | M | ✅ built |
 | 20 | Gross and net area per unit | One area | **Build** net area as an informational second measure | S | |
 | 21 | The management contract is between the unit owner and Jawad | Terms stored, fee charged by nothing (gap B1) | **Decision, not code** — it answers half of B1 | (M once ruled) | |
 | 22 | Possession date: better description if blank → today | Helper exists; nothing computes it | **Ask** what "calculated from today" means; wording only | XS | |
@@ -438,6 +438,16 @@ folds and unfolds by account group; SAP's financial-statement version is a tree.
 through `parent_id` (already derived and self-healing, EG-28), rendered as a collapsible tree on
 screen and indented with subtotals on the PDF and CSV; the balance sheet and P&L take it later on the
 same helper. Effort **M**.
+
+**✅ Shipped 2026-09-12.** `App\Support\LedgerTree` — one helper, three renderers. The screen opens
+**folded to the roots** (the client's own follow-up the same day: *"make sure the tree by default is
+minimized"*) and a click on a summary account's code unfolds its branch one level at a time, with
+*Unfold all* / *Fold all* in the header; the fold is a browsing state, never saved into a view. The
+PDF prints the tree at the fold on screen; the CSV carries the whole tree with a *Level* column last,
+because a spreadsheet outlines it itself. Debit and credit sides roll up separately and the totals
+are the leaves', so every fold foots to the same figures. The balance sheet and P&L are not
+converted (they keep `StatementGroups`' subtotals) — later, on the same helper. Detail in
+[modules/21](../modules/21-general-ledger.md#the-trial-balance-reads-as-the-charts-tree-2026-09-12).
 
 ---
 

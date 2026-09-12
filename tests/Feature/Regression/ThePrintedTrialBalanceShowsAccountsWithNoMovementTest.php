@@ -8,6 +8,7 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Support\IssuingEntity;
+use App\Support\LedgerTree;
 use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -98,7 +99,7 @@ it('prints the list the operator is looking at', function () {
             parent::__construct($reports);
         }
 
-        public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null, bool $includeZeroBalances = false): string
+        public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null, bool $includeZeroBalances = false, array $expanded = []): string
         {
             $this->seen[] = $includeZeroBalances;
 
@@ -122,6 +123,8 @@ it('draws the nil account onto the page', function () {
     $render = fn (array $report): string => PdfDocument::make('accounting.pdf.trial-balance')
         ->data([
             'report' => $report,
+            // The template prints the tree the service resolved (point 19) — every node here.
+            'nodes' => LedgerTree::visible($report['tree'], LedgerTree::parentCodes($report['tree'])),
             'meta' => ['property' => 'Consolidated', 'period' => '2026', 'generated_on' => '01/01/2026', 'locale' => 'en'],
             ...IssuingEntity::forViewScopedTo(null),
         ])

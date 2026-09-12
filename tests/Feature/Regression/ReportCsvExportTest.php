@@ -47,8 +47,9 @@ it('flattens the trial balance to rows that self-balance', function () {
     $csv = $this->exporter->trialBalance($report);
 
     // code · account · type, then three debit/credit pairs — opening, movement, closing
-    // (2026-09-11; it was one pair, the window's net movement, until then).
-    expect($csv['headers'])->toHaveCount(9);
+    // (2026-09-11; it was one pair, the window's net movement, until then) — and the tree level
+    // LAST (2026-09-12), so nothing built on the nine shifted.
+    expect($csv['headers'])->toHaveCount(10);
 
     // The totals line — followed since SW-182 by the ✓/✗ the screen and the PDF both carry, so
     // `end()` no longer finds it. Located by its own label rather than by position, which is what

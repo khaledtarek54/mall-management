@@ -447,8 +447,12 @@ report now exports to **CSV**:
   reads them as numbers. Methods: `trialBalance`, `incomeStatement`, `balanceSheet`, `cashFlow`,
   `generalLedger`, `arAging`. Statements carry per-section subtotals + a final net line, so the CSV
   reads exactly like the on-screen report; the trial balance carries its three debit/credit pairs
-  (opening · movement · closing, nine columns since 2026-09-11) and a totals row that self-checks
-  each pair.
+  (opening · movement · closing, nine columns since 2026-09-11), a totals row that self-checks
+  each pair, and — since 2026-09-12 — the chart's WHOLE tree, every summary account a row carrying
+  the sums of the leaves beneath it, with a `Level` column LAST (0 = a root) so a spreadsheet
+  outlines the hierarchy itself; the totals stay the leaves' (the screen opens folded and the PDF
+  prints its fold; the file carries everything —
+  [modules/21](21-general-ledger.md#the-trial-balance-reads-as-the-charts-tree-2026-09-12)).
   Since EG-28 they also carry the **chart's own group subtotals** — current vs non-current, operating
   revenue vs other income — from `App\Support\StatementGroups`, the same helper the screen and the
   PDF use. *"Reads exactly like the on-screen report"* is a claim that has to be kept true by

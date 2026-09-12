@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Models\Invoice;
 use App\Support\IncomeStatementLayout;
 use App\Support\JournalNarrative;
+use App\Support\LedgerTree;
 use App\Support\StatementGroups;
 use App\Support\StatementIntegrity;
 use Illuminate\Support\Collection;
@@ -28,31 +29,42 @@ class ReportCsvExporter
             : ($row['name_en'] ?? $row['name_ar'] ?? $row['code'] ?? '');
     }
 
-    /** @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>} */
+    /**
+     * The trial balance as the chart's WHOLE tree (point 19, 2026-09-12): every summary account is
+     * its own row carrying the sums of the leaves beneath it, with a `Level` column (0 = a root)
+     * so a spreadsheet can outline, filter or pivot the hierarchy itself — LAST, so a colleague's
+     * template built on the nine columns this file always had does not shift (the rule the custom
+     * field exports follow). Deliberately NOT at the screen's fold, where the PDF is: the screen
+     * opens folded to its roots, and a file at that fold would have thrown away every row a reader
+     * cannot get back — a working file carries the data and lets the spreadsheet do the folding.
+     * The totals are the report's own, over the LEAVES — a summary row is never added into them,
+     * so the file foots exactly as the flat listing did.
+     *
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
     public function trialBalance(array $report): array
     {
         // Three column pairs — opening, movement, closing — exactly as the screen and the PDF lay
         // them out (`LedgerReportService::trialBalance()`), so a spreadsheet built from this file
         // foots the same three ways the statement does.
         $rows = [];
-        foreach ($report['rows'] as $r) {
-            $r = (array) $r;
+        foreach (LedgerTree::visible($report['tree'], LedgerTree::parentCodes($report['tree'])) as $r) {
             $rows[] = [$r['code'], $this->name($r), __("admin.reports.csv.account_types.{$r['type']}"),
                 round((float) ($r['opening_debit'] ?? 0), 2), round((float) ($r['opening_credit'] ?? 0), 2),
                 round((float) ($r['debit_total'] ?? 0), 2), round((float) ($r['credit_total'] ?? 0), 2),
-                round((float) $r['debit_balance'], 2), round((float) $r['credit_balance'], 2)];
+                round((float) $r['debit_balance'], 2), round((float) $r['credit_balance'], 2), $r['depth']];
         }
         // A totals line, so the exported file self-checks (each debit total must equal its credit).
         $rows[] = ['', __('admin.reports.csv.total'), '',
             round((float) ($report['total_opening_debit'] ?? 0), 2), round((float) ($report['total_opening_credit'] ?? 0), 2),
             round((float) ($report['total_movement_debit'] ?? 0), 2), round((float) ($report['total_movement_credit'] ?? 0), 2),
-            round((float) $report['total_debit'], 2), round((float) $report['total_credit'], 2)];
+            round((float) $report['total_debit'], 2), round((float) $report['total_credit'], 2), ''];
         // …and the answer stated in words, because a totals line only self-checks for a reader who
         // thinks to compare two columns. The screen leads its subheading with it
         // (`TrialBalance::getSubheading()`) and the PDF prints it; measured 2026-09-04, no export
         // carried it at all (SW-182). Its own row, with the figure columns left empty so nothing a
         // spreadsheet totals picks it up.
-        $rows[] = ['', StatementIntegrity::balance((bool) $report['balanced']), '', '', '', '', '', '', ''];
+        $rows[] = ['', StatementIntegrity::balance((bool) $report['balanced']), '', '', '', '', '', '', '', ''];
 
         return [
             'headers' => [
@@ -61,6 +73,7 @@ class ReportCsvExporter
                 __('admin.reports.trial_balance_columns.opening_debit'), __('admin.reports.trial_balance_columns.opening_credit'),
                 __('admin.reports.trial_balance_columns.movement_debit'), __('admin.reports.trial_balance_columns.movement_credit'),
                 __('admin.reports.trial_balance_columns.closing_debit'), __('admin.reports.trial_balance_columns.closing_credit'),
+                __('admin.reports.tree.level'),
             ],
             'rows' => $rows,
         ];

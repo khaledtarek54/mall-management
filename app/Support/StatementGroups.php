@@ -194,13 +194,21 @@ final class StatementGroups
     /**
      * The whole chart as a lookup, memoised per request.
      *
-     * One query for a statement of any size. Memoised through the container rather than a static,
-     * because a `queue:work` daemon outlives the request and a scheduled delivery would otherwise
-     * render tomorrow's statement against yesterday's chart.
+     * One query for a statement of any size. Memoised in the container so it can be FORGOTTEN —
+     * `LedgerAccount` drops it on every save, delete and restore ({@see forgetChart()}) — where a
+     * static would outlive a chart edit for the rest of the process. That matters on a queue
+     * daemon, which is one long-lived process: a memo nothing forgets would render tomorrow's
+     * statement against the chart as it stood when the worker booted. (Until 2026-09-12 this
+     * docblock claimed the container alone answered that; `app()->instance()` lives exactly as
+     * long as a static does, and the forget is what makes the sentence true.)
      *
-     * @return array<int, array{parent_id: ?int, code: string, name_en: string, name_ar: string}>
+     * Public since its second call site — {@see LedgerTree}, which walks the SAME tree to the
+     * leaves rather than to the step below the root (meeting 2026-09-02, point 19). One memo, one
+     * query, one reading of `parent_id`; a second loader would be a second chart to keep in step.
+     *
+     * @return array<int, array{parent_id: ?int, code: string, name_en: string, name_ar: string, type: string}>
      */
-    private static function chart(): array
+    public static function chart(): array
     {
         if (app()->has(self::MEMO)) {
             return app(self::MEMO);
@@ -208,18 +216,25 @@ final class StatementGroups
 
         $chart = LedgerAccount::query()
             ->withTrashed()
-            ->get(['id', 'parent_id', 'code', 'name_en', 'name_ar'])
+            ->get(['id', 'parent_id', 'code', 'name_en', 'name_ar', 'type'])
             ->keyBy('id')
             ->map(fn (LedgerAccount $a): array => [
                 'parent_id' => $a->parent_id === null ? null : (int) $a->parent_id,
                 'code' => (string) $a->code,
                 'name_en' => (string) $a->name_en,
                 'name_ar' => (string) $a->name_ar,
+                'type' => (string) $a->type,
             ])
             ->all();
 
         app()->instance(self::MEMO, $chart);
 
         return $chart;
+    }
+
+    /** Drop the memo — called by `LedgerAccount` whenever a row is written, so a statement rendered later in the same process reads the chart as it now stands. */
+    public static function forgetChart(): void
+    {
+        app()->forgetInstance(self::MEMO);
     }
 }

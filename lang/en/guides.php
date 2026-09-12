@@ -1281,6 +1281,7 @@ return [
         'steps' => [
             'Pick the period and the property, or read it consolidated.',
             'Check that debits equal credits.',
+            'Click a summary account\'s code to fold or unfold its branch; Fold all leaves the roots.',
             'Drill into an account that looks wrong.',
         ],
         'affects' => [

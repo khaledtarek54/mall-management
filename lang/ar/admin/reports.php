@@ -190,6 +190,12 @@ return [
             'closing_debit' => 'ختامي مدين',
             'closing_credit' => 'ختامي دائن',
         ],
+        'tree' => [
+            'collapse_all' => 'طيّ الكل',
+            'expand_all' => 'فرد الكل',
+            'summary_of_branch' => 'مجموع الحسابات التابعة',
+            'level' => 'المستوى',
+        ],
         'running_balance' => 'الرصيد',
         'income_statement_title' => 'قائمة الدخل',
         'balance_sheet_title' => 'قائمة المركز المالي',

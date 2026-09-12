@@ -9,6 +9,7 @@ use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\IssuingEntity;
+use App\Support\LedgerTree;
 use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -147,14 +148,15 @@ it('prints the three pairs on the CSV, with a totals line that foots each pair',
     $report = app(LedgerReportService::class)->trialBalance(null, $this->from, $this->to);
     $csv = app(ReportCsvExporter::class)->trialBalance($report);
 
-    // code · account · type · opening Dr · opening Cr · debit · credit · closing Dr · closing Cr
-    expect($csv['headers'])->toHaveCount(9);
+    // code · account · type · opening Dr · opening Cr · debit · credit · closing Dr · closing Cr,
+    // then the tree level LAST (2026-09-12 — `ATrialBalanceReadsAsTheChartsTreeTest`).
+    expect($csv['headers'])->toHaveCount(10);
 
     $bankRow = collect($csv['rows'])->first(fn (array $r): bool => $r[0] === $report['rows']->firstWhere('account_id', $this->bank)['code']);
-    expect(array_slice($bankRow, 3))->toBe([100000.0, 0.0, 0.0, 17000.0, 83000.0, 0.0]);
+    expect(array_slice($bankRow, 3, 6))->toBe([100000.0, 0.0, 0.0, 17000.0, 83000.0, 0.0]);
 
     $totals = collect($csv['rows'])->first(fn (array $r): bool => $r[1] === __('admin.reports.csv.total'));
-    expect(array_slice($totals, 3))->toBe([100000.0, 100000.0, 17000.0, 17000.0, 100000.0, 100000.0]);
+    expect(array_slice($totals, 3, 6))->toBe([100000.0, 100000.0, 17000.0, 17000.0, 100000.0, 100000.0]);
 });
 
 it('draws the three pairs onto the printed copy, landscape', function () {
@@ -165,6 +167,8 @@ it('draws the three pairs onto the printed copy, landscape', function () {
     $html = PdfDocument::make('accounting.pdf.trial-balance')
         ->data([
             'report' => $report,
+            // The template prints the tree the service resolved (point 19); every node here.
+            'nodes' => LedgerTree::visible($report['tree'], LedgerTree::parentCodes($report['tree'])),
             'meta' => ['property' => 'Consolidated', 'period' => 'Aug 2026', 'generated_on' => '31/08/2026', 'locale' => 'en'],
             ...IssuingEntity::forViewScopedTo(null),
         ])
@@ -179,7 +183,9 @@ it('draws the three pairs onto the printed copy, landscape', function () {
 
     // …and the service turns the page: six money columns do not fit a portrait sheet.
     $source = file_get_contents(app_path('Services/Accounting/LedgerReportPdfService.php'));
-    $method = substr($source, strpos($source, 'function trialBalance('), 900);
+    // The method body up to the next one — never a byte count, which a longer comment outgrows.
+    $start = strpos($source, 'function trialBalance(');
+    $method = substr($source, $start, strpos($source, 'public function', $start + 1) - $start);
     expect($method)->toContain('landscape: true');
 });
 
@@ -208,7 +214,9 @@ it('shows the six columns on the screen, mapped from the report row for row', fu
     $component = Livewire::test(TrialBalance::class)
         ->set('year', 2026)
         ->set('period', '2026-08')
-        ->assertOk();
+        ->assertOk()
+        // The tree opens folded to its roots (point 19); the leaf is on show once unfolded.
+        ->callAction('expand_all');
 
     $rows = collect($component->instance()->getTableRecords());
     $bank = $rows->first(fn (array $row): bool => $row['id'] === $this->bank);

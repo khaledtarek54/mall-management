@@ -11,6 +11,7 @@ use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
+use App\Support\LedgerTree;
 use App\Support\ReportPreferences;
 use App\Support\StatementIntegrity;
 use BackedEnum;
@@ -38,6 +39,16 @@ use Illuminate\Support\Carbon;
  * (`records()`, not `query()` — a trial balance is an aggregate per account, not
  * a row set). That buys sorting, column control and a real footer tie-out, and
  * replaces the hand-written <table> with inline styles this page used to ship.
+ *
+ * **Read as the chart's TREE since 2026-09-12 (meeting point 19)**: every summary account is a
+ * row carrying the sums of the leaves beneath it, indented by depth, and a click on its code
+ * unfolds or folds the branch ({@see LedgerTree}). **It opens folded to the
+ * roots** — one line per account type that moved, still footing (the operator's ask) — and
+ * *Unfold all* shows every summary row above the leaves this page always listed. The fold is a
+ * browsing state, not a report parameter:
+ * it is not saved into a view or a preference, and a reload opens the tree folded again. The PDF
+ * prints the tree AT THE FOLD ON SCREEN, so what is downloaded is what was looked at; the CSV is
+ * the whole tree with a level per row, because a spreadsheet outlines it itself.
  */
 class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTable
 {
@@ -79,6 +90,27 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
             GuideAction::for(static::class),
             $this->saveViewAction(),
             $this->postToLedgerAction(),
+            // Unfold / fold the whole tree — a browsing state, so the gate is the page's own.
+            Action::make('expand_all')
+                ->label(__('admin.reports.tree.expand_all'))
+                ->icon('heroicon-o-plus-circle')
+                ->color('gray')
+                ->visible(fn (): bool => $this->canViewReports() && array_diff(LedgerTree::parentCodes($this->report()['tree']), $this->expanded) !== [])
+                ->authorize(fn (): bool => $this->canViewReports())
+                ->action(function (): void {
+                    $this->expanded = LedgerTree::parentCodes($this->report()['tree']);
+                    $this->flushCachedTableRecords();
+                }),
+            Action::make('collapse_all')
+                ->label(__('admin.reports.tree.collapse_all'))
+                ->icon('heroicon-o-minus-circle')
+                ->color('gray')
+                ->visible(fn (): bool => $this->canViewReports() && $this->expanded !== [])
+                ->authorize(fn (): bool => $this->canViewReports())
+                ->action(function (): void {
+                    $this->expanded = [];
+                    $this->flushCachedTableRecords();
+                }),
             Action::make('download_pdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->icon('heroicon-o-document-arrow-down')
@@ -99,6 +131,8 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
                         // handed the operator a statement without them. Named, because the
                         // parameter sits after $locale.
                         includeZeroBalances: $this->includeZeroBalances,
+                        // The fold on screen travels to the printed copy too (point 19).
+                        expanded: $this->expanded,
                     );
 
                     return response()->streamDownload(
@@ -148,6 +182,38 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
      * how this person reads a trial balance rather than which moment they wanted.
      */
     public bool $includeZeroBalances = false;
+
+    /**
+     * The codes UNFOLDED on screen — empty is the tree folded to its roots, which is how the page
+     * opens. A plain Livewire array, deliberately not a report parameter: `ReportParameters`
+     * snapshots scalars only, so a saved view or a remembered preference never carries it — a
+     * fold is how the operator is reading the statement right now, not which statement they
+     * asked for. Kept as what is OPEN rather than what is closed so a period change re-folds
+     * whatever branches it brings in, instead of opening them because the old fold never named
+     * them.
+     *
+     * @var list<string>
+     */
+    public array $expanded = [];
+
+    public function toggleNode(string $code): void
+    {
+        abort_unless($this->canViewReports(), 403);
+
+        // A leaf has nothing to unfold; a payload naming one is ignored rather than recorded.
+        if (! in_array($code, LedgerTree::parentCodes($this->report()['tree']), true)) {
+            return;
+        }
+
+        $this->expanded = in_array($code, $this->expanded, true)
+            ? array_values(array_diff($this->expanded, [$code]))
+            : [...$this->expanded, $code];
+
+        // The click resolved its row from `getTableRecords()`, which memoises for the request —
+        // without this the re-render reads the rows as they stood BEFORE the fold and the tree
+        // moves on the next click, not this one.
+        $this->flushCachedTableRecords();
+    }
 
     public function filtersForm(Schema $schema): Schema
     {
@@ -206,37 +272,65 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
         $locale = app()->getLocale();
 
         return $table
-            ->records(fn (): array => $this->report()['rows']
-                ->map(fn (array $row): array => [
-                    'id' => $row['account_id'],
-                    'code' => $row['code'],
-                    'account' => $locale === 'ar' ? $row['name_ar'] : $row['name_en'],
-                    'type' => $row['type'],
-                    'opening_debit' => $row['opening_debit'],
-                    'opening_credit' => $row['opening_credit'],
-                    'debit_total' => $row['debit_total'],
-                    'credit_total' => $row['credit_total'],
-                    'debit_balance' => $row['debit_balance'],
-                    'credit_balance' => $row['credit_balance'],
+            // The chart's tree at the fold on screen: a summary row carries the sums of the
+            // leaves beneath it, and a folded branch shows its summary row alone (point 19).
+            // Keyed by CODE, so a click on `11` resolves the same row whatever the fold.
+            ->records(fn (): array => collect(LedgerTree::visible($this->report()['tree'], $this->expanded))
+                ->map(fn (array $node): array => [
+                    '__key' => $node['code'],
+                    'id' => $node['account_id'],
+                    'code' => $node['code'],
+                    'account' => $locale === 'ar' ? $node['name_ar'] : $node['name_en'],
+                    'type' => $node['type'],
+                    'depth' => $node['depth'],
+                    'is_leaf' => $node['is_leaf'],
+                    'has_children' => $node['has_children'],
+                    'collapsed' => $node['collapsed'],
+                    'opening_debit' => $node['opening_debit'],
+                    'opening_credit' => $node['opening_credit'],
+                    'debit_total' => $node['debit_total'],
+                    'credit_total' => $node['credit_total'],
+                    'debit_balance' => $node['debit_balance'],
+                    'credit_balance' => $node['credit_balance'],
                 ])
                 ->all())
+            // A summary row reads as the heading of its branch — a tint a shade past the stripe
+            // `TableDefaults` gives every other row, so it does not vanish into the striping.
+            ->recordClasses(fn (array $record): ?string => $record['has_children'] ? 'bg-gray-100 dark:bg-white/10' : null)
             ->columns([
                 TextColumn::make('code')
                     ->label(__('admin.tables.ledger_account.code'))
                     ->fontFamily('mono')
-                    ->size('sm'),
+                    ->size('sm')
+                    // The chevron IS the fold control: a summary row's code folds or unfolds its
+                    // branch on click, a leaf's code is plain text (`disabledClick`, so the cell
+                    // renders no button at all). Indented by depth in the reading direction — and
+                    // a FOLDED chevron points along it, since Filament flips no column icon under
+                    // RTL and a branch on the Arabic panel opens to the left.
+                    ->icon(fn (array $record): ?string => $record['has_children']
+                        ? ($record['collapsed'] ? ($locale === 'ar' ? 'heroicon-m-chevron-left' : 'heroicon-m-chevron-right') : 'heroicon-m-chevron-down')
+                        : null)
+                    ->weight(fn (array $record): string => $record['has_children'] ? 'bold' : 'normal')
+                    ->extraCellAttributes(fn (array $record): array => ['style' => 'padding-inline-start: '.(0.75 + $record['depth'] * 1.25).'rem'])
+                    ->disabledClick(fn (array $record): bool => ! $record['has_children'])
+                    ->action(function (array $record): void {
+                        $this->toggleNode((string) $record['code']);
+                    }),
                 TextColumn::make('account')
                     ->label(__('admin.tables.ledger_account.account'))
-                    ->weight('medium')
-                    ->description(fn (array $record): string => __("admin.enums.ledger_account_type.{$record['type']}"))
+                    ->weight(fn (array $record): string => $record['has_children'] ? 'bold' : 'medium')
+                    ->description(fn (array $record): string => $record['has_children']
+                        ? __('admin.reports.tree.summary_of_branch')
+                        : __("admin.enums.ledger_account_type.{$record['type']}"))
                     // Into the general ledger for THIS account, over the period and property the
                     // trial balance was run for — the same link the income statement and the
                     // balance sheet have carried since the drill-down shipped, through the same
                     // builder. The row already held the account id (`'id' => $row['account_id']`,
                     // above) and nothing opened it, so the one screen an accountant uses to ask
-                    // "what is IN 11101?" was the one screen that could not answer.
-                    ->url(fn (array $record): ?string => $this->ledgerUrlForAccount($record['id'] ?? null))
-                    ->color(fn (array $record): ?string => $this->ledgerUrlForAccount($record['id'] ?? null) ? 'primary' : null),
+                    // "what is IN 11101?" was the one screen that could not answer. A summary
+                    // account has no ledger of its own — nothing posts to it — so no link.
+                    ->url(fn (array $record): ?string => $record['is_leaf'] ? $this->ledgerUrlForAccount($record['id'] ?? null) : null)
+                    ->color(fn (array $record): ?string => $record['is_leaf'] && $this->ledgerUrlForAccount($record['id'] ?? null) ? 'primary' : null),
                 // Three column pairs, each footing on its own — opening, the window's movement,
                 // closing (2026-09-11). Until then the screen printed the window's NET MOVEMENT
                 // under "Debit / Credit", which for any window narrower than the whole ledger is

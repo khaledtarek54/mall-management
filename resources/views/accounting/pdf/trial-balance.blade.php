@@ -6,6 +6,12 @@
     then the printed statement carried the window's net movement under the heading "balance", and a
     month's trial balance is not a movement summary. Rendered LANDSCAPE by the service: six money
     columns on a portrait page are either clipped or shrunk past reading.
+
+    Printed as the chart's TREE at the fold the screen was at (2026-09-12, point 19): `$nodes` is
+    the visible list the service resolved — a summary account indented by its depth in bold with
+    the sums of the leaves beneath it, a folded branch as its summary row alone. The totals are
+    still the report's own, over the LEAVES, so a folded tree foots to the same figures as the
+    open one.
 --}}
 @section('content')
     @php $locale = $meta['locale'] ?? app()->getLocale(); @endphp
@@ -30,9 +36,11 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($report['rows'] as $row)
-                <tr>
-                    <td class="code">{{ $row['code'] }}</td>
+            @foreach($nodes as $row)
+                <tr{!! $row['has_children'] ? ' class="subtotal-row"' : '' !!}>
+                    {{-- Indented in the READING direction — a fixed `padding-left` would push an
+                         Arabic tree's children the wrong way. --}}
+                    <td class="code" style="padding-{{ $locale === 'ar' ? 'right' : 'left' }}: {{ 6 + $row['depth'] * 12 }}px;">{{ $row['code'] }}</td>
                     <td>{{ $locale === 'ar' ? $row['name_ar'] : $row['name_en'] }}</td>
                     <td class="num">{{ ($row['opening_debit'] ?? 0) > 0 ? number_format($row['opening_debit'], 2) : '—' }}</td>
                     <td class="num">{{ ($row['opening_credit'] ?? 0) > 0 ? number_format($row['opening_credit'], 2) : '—' }}</td>

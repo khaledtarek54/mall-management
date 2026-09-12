@@ -151,6 +151,14 @@ return [
             'closing_debit' => 'Closing · Dr',
             'closing_credit' => 'Closing · Cr',
         ],
+        // The trial balance read as the chart's tree (2026-09-12, point 19): a summary account's
+        // row carries the sums of the leaves beneath it and folds on click.
+        'tree' => [
+            'collapse_all' => 'Fold all',
+            'expand_all' => 'Unfold all',
+            'summary_of_branch' => 'Sum of the accounts beneath',
+            'level' => 'Level',
+        ],
         'income_statement_title' => 'Income Statement',
         'balance_sheet_title' => 'Balance Sheet',
         'net_profit' => 'Net profit',

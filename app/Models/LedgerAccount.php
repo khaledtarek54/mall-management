@@ -9,6 +9,7 @@ use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\MoneyAccount;
 use App\Support\PostingRoleExposure;
+use App\Support\StatementGroups;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -237,6 +238,13 @@ class LedgerAccount extends Model
                 static::adoptOrphanedDescendants($account);
             }
         });
+
+        // The statements' memo of the chart (`StatementGroups::chart()`) is dropped on every
+        // write, so a tree built later in the same process — a queue worker outlives the request —
+        // reads the chart as it now stands. Cheap: one container key, no query.
+        static::saved(fn () => StatementGroups::forgetChart());
+        static::deleted(fn () => StatementGroups::forgetChart());
+        static::restored(fn () => StatementGroups::forgetChart());
     }
 
     /**

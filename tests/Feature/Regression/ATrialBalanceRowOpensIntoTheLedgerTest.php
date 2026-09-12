@@ -53,7 +53,8 @@ it('turns an account row into a link carrying the report own period and property
 
     $url = $page->getTable()
         ->getColumn('account')
-        ->record(['id' => $account->id, 'type' => $account->type])
+        // The row shape the page builds: a LEAF links, a summary node (point 19) does not.
+        ->record(['id' => $account->id, 'type' => $account->type, 'is_leaf' => true, 'has_children' => false])
         ->getUrl();
 
     expect($url)->toContain('general-ledger')
