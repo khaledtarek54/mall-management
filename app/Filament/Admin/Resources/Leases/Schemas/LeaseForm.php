@@ -33,6 +33,7 @@ use App\Support\TenantScope;
 use App\Support\ValueSets;
 use Carbon\CarbonImmutable;
 use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -322,7 +323,11 @@ class LeaseForm
                                 TextInput::make('name')->label(__('admin.fields.brand_name'))->required()->maxLength(Tenant::FIELD_MAX['name']),
                                 TextInput::make('phone')->label(__('admin.fields.phone'))->tel()->maxLength(Tenant::FIELD_MAX['phone']),
                                 TextInput::make('email')->label(__('admin.fields.email'))->email()->maxLength(Tenant::FIELD_MAX['email']),
-                            ]),
+                            ])
+                            // A door onto the TENANT register, gated on that register's own right (2026-09-12): the create-option action carries no gate of its own, and a role granted `leases.create` without `tenants.create` would mint tenants through it.
+                            ->createOptionAction(fn (Action $action): Action => $action
+                                ->authorize(fn (): bool => (bool) auth()->user()?->can('tenants.create'))
+                                ->visible(fn (): bool => (bool) auth()->user()?->can('tenants.create'))),
                         // `renewed` and `terminated` are OUTCOMES of a service, not states to type.
                         // Selecting them here wrote the status and skipped everything the act means:
                         // terminating deactivates the charge schedule, credits unearned billing,

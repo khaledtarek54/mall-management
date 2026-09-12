@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RecordsBankAccount;
 use App\Services\DepreciationService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
@@ -32,7 +33,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: FixedAsset::class)]
 class FixedAsset extends Model
 {
-    use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, RecordsBankAccount, SoftDeletes;
 
     /**
      * The register rows that are still ON THE BALANCE SHEET.
@@ -66,7 +67,16 @@ class FixedAsset extends Model
         // from `method`, which is the ACCOUNTING basis — the two answer different questions
         // and an asset routinely has a different rate under each.
         'tax_pool',
+        // The outbound RAIL the purchase moved on (a `payment_methods` code; the legacy `cash|bank`
+        // literals are its floor), and WHICH bank account — `RecordsBankAccount`, the ninth
+        // document on the concern, so the acquisition's credit leg lands in that bank's own chart
+        // account rather than the generic `bank` role (meeting 2026-09-02, point 15).
         'funded_from',
+        'bank_account_id',
+        // The supplier it was bought from — a `vendors` row, never a typed name: the market
+        // acquires an asset THROUGH the supplier, and the bill that capitalises it (the next
+        // slice) needs a counterparty that exists.
+        'vendor_id',
         'status',
         'is_opening_balance',
         'opening_accumulated_depreciation',
@@ -116,6 +126,18 @@ class FixedAsset extends Model
     public function disposal(): HasOne
     {
         return $this->hasOne(FixedAssetDisposal::class);
+    }
+
+    /** The supplier it was bought from; `withTrashed()` so the register still names a retired one. */
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class)->withTrashed();
+    }
+
+    /** This document calls its rail `funded_from` — the acquisition entry's credit side. */
+    public static function bankAccountRailColumn(): string
+    {
+        return 'funded_from';
     }
 
     /**
@@ -366,8 +388,12 @@ class FixedAsset extends Model
             // or note after disposal. Guarded on the ORIGINAL status so the disposal itself, which
             // sets `status` and `disposed_on` in one update, is not blocked by its own outcome.
             // (Module 23 close-out, 2026-08-11 — the AP/AR/lease mirror of the same rule.)
+            // `funded_from` and `bank_account_id` joined the list on 2026-09-12: they choose the
+            // acquisition entry's CREDIT leg, and re-pointing it on a sold asset restates a posted
+            // acquisition under a disposal that has already netted it off — the same restatement
+            // the cost freeze exists to refuse, through the other side of the entry.
             if ($fixedAsset->exists && $fixedAsset->getOriginal('status') === 'disposed') {
-                foreach (['acquisition_cost', 'salvage_value', 'acquisition_date', 'useful_life_months', 'method', 'asset_id', 'disposed_on', 'status'] as $field) {
+                foreach (['acquisition_cost', 'salvage_value', 'acquisition_date', 'useful_life_months', 'method', 'asset_id', 'disposed_on', 'status', 'funded_from', 'bank_account_id'] as $field) {
                     if ($fixedAsset->isDirty($field)) {
                         throw new \DomainException(__('admin.fixed_assets.errors.disposed_immutable'));
                     }

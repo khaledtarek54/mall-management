@@ -349,7 +349,7 @@ return [
         'stock_movement_id' => 'Stock movement',
         'acquisition_date' => 'Acquisition date',
         'tax_pool' => 'Tax pool',
-        'funded_from' => 'Funded from',
+        'funded_from' => 'Paid by',
         'opening_accumulated_depreciation' => 'Opening accumulated depreciation',
         'reorder_quantity' => 'Reorder quantity',
         'description_en' => 'Description (English)',

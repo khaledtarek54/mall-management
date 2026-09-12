@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Concerns\RecordsBankAccount;
+use App\Models\FixedAsset;
 use App\Models\Payment;
+use App\Models\PostDatedCheque;
 use App\Models\VendorBillPayment;
 use App\Support\MoneyDocumentDoors;
 
@@ -106,6 +108,31 @@ it('is actually sweeping the panel', function () {
 
     expect($withoutADoor)->toBe([], 'These documents have no screen that asks how the money moved, so nothing '
         .'about them is being checked: '.implode(', ', array_map('class_basename', $withoutADoor)));
+});
+
+/**
+ * The registry sees a document however it DECLARES the concern.
+ *
+ * It grepped each model file for the literal line `use RecordsBankAccount;` — which matched a
+ * trait declared on a line of its own and nothing else. `PostDatedCheque` declares it in a
+ * combined `use A, B, RecordsBankAccount, …;` and was invisible to this whole gate from the day
+ * it adopted the concern (2026-09-02); `FixedAsset` (2026-09-12) would have joined it, and the
+ * sentence "the gate then covers its form" would have covered nothing. Derived by reflection now,
+ * and this is the tooth: the two combined-line declarers must be in the registry, and the
+ * registry must equal what `class_uses_recursive` says over every model on disk.
+ */
+it('sees a document that declares the concern on a combined use line', function () {
+    $documents = array_keys(MoneyDocumentDoors::documents());
+
+    expect($documents)->toContain(PostDatedCheque::class)
+        ->and($documents)->toContain(FixedAsset::class);
+
+    $byReflection = collect(glob(app_path('Models/*.php')))
+        ->map(fn (string $file) => 'App\\Models\\'.basename($file, '.php'))
+        ->filter(fn (string $model) => class_exists($model) && in_array(RecordsBankAccount::class, class_uses_recursive($model), true))
+        ->sort()->values()->all();
+
+    expect($documents)->toBe($byReflection);
 });
 
 /** An exemption for a door that no longer exists is a claim nobody re-reads. */

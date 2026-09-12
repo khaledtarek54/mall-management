@@ -183,12 +183,19 @@ final class MoneyDocumentDoors
         $documents = [];
 
         foreach (glob(app_path('Models/*.php')) ?: [] as $file) {
-            if (! str_contains((string) file_get_contents($file), 'use RecordsBankAccount;')) {
-                continue;
-            }
-
             /** @var class-string $model */
             $model = 'App\\Models\\'.basename($file, '.php');
+
+            // By REFLECTION, never by grepping the file for `use RecordsBankAccount;` — that literal
+            // matched only a model declaring the trait on a line of its own. `PostDatedCheque`
+            // declares it in a combined `use A, B, RecordsBankAccount, …;` and had been invisible to
+            // this registry since the day it adopted the concern (2026-09-02), and `FixedAsset`
+            // (2026-09-12) would have joined it: the gate that "then covers its form" would have
+            // covered nothing. `$relationship` is resolved by reflection in `WriteSurfaces` for the
+            // same reason.
+            if (! class_exists($model) || ! in_array(RecordsBankAccount::class, class_uses_recursive($model), true)) {
+                continue;
+            }
 
             $documents[$model] = [
                 'rail' => $model::bankAccountRailColumn(),

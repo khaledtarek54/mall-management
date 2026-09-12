@@ -5,6 +5,7 @@ namespace App\Filament\Imports;
 use App\Filament\Imports\Concerns\ResolvesVisibleAssetByCode;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetCategory;
+use App\Models\Vendor;
 use App\Support\DataTransferNotice;
 use App\Support\ValueSets;
 use Filament\Actions\Imports\Exceptions\RowImportFailedException;
@@ -129,9 +130,38 @@ class FixedAssetImporter extends Importer
                 ->label(__('admin.fields.notes'))
                 ->rules(['nullable', 'max:2000']),
 
-            // `method` and `funded_from` are deliberately absent. Depreciation is straight-line
-            // only, and `funded_from` picks the CREDIT side of an acquisition entry this importer
-            // never posts — offering it would imply a choice that has no effect.
+            // The supplier, by its CODE (point 15) — the identity the vendor register keys on and
+            // exports. Resolved to an EXISTING row and refused in words otherwise: an importer that
+            // minted a vendor from a spreadsheet cell would be the free-text door the form
+            // deliberately does not offer, on a counterparty the next slice's supplier bill needs
+            // to be real. `fillRecordUsing` so the cell never reaches `data_set($record,
+            // 'vendor_code', …)` on a column the table does not have. A BLANK cell clears — the
+            // `UnitImporter::floor` rule: what a door set, the same door must be able to unset.
+            ImportColumn::make('vendor_code')
+                ->label(__('admin.fields.vendor_code'))
+                ->rules(['nullable', 'max:40'])
+                ->fillRecordUsing(function (FixedAsset $record, ?string $state): void {
+                    $code = trim((string) $state);
+
+                    if ($code === '') {
+                        $record->vendor_id = null;
+
+                        return;
+                    }
+
+                    $vendor = Vendor::query()->where('code', $code)->first(['id']);
+
+                    if ($vendor === null) {
+                        throw new RowImportFailedException(__('admin.fixed_assets.errors.unknown_vendor_code', ['code' => $code]));
+                    }
+
+                    $record->vendor_id = $vendor->id;
+                }),
+
+            // `method`, `funded_from` and `bank_account_id` are deliberately absent. Depreciation is
+            // straight-line only, and the rail and the bank pick the CREDIT side of an acquisition
+            // entry this importer never posts (every row is an opening balance) — offering them
+            // would imply a choice that has no effect.
         ];
     }
 

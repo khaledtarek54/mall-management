@@ -348,7 +348,7 @@ return [
         'stock_movement_id' => 'حركة المخزون',
         'acquisition_date' => 'تاريخ الاقتناء',
         'tax_pool' => 'وعاء الضريبة',
-        'funded_from' => 'مموّلة من',
+        'funded_from' => 'طريقة السداد',
         'opening_accumulated_depreciation' => 'مجمع الإهلاك الافتتاحي',
         'reorder_quantity' => 'كمية إعادة الطلب',
         'description_en' => 'الوصف (إنجليزي)',

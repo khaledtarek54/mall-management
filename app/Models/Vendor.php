@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
-#[DeletableWhenUnused(blockedBy: ['bills', 'contracts', 'tenantRequests', 'documents'], instead: 'set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills')]
+#[DeletableWhenUnused(blockedBy: ['bills', 'contracts', 'tenantRequests', 'documents', 'fixedAssets'], instead: 'set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills')]
 // shared vendor catalog; engagement per-property (VendorContract/Bill)
 #[PortfolioShared]
 class Vendor extends Model
@@ -121,6 +121,12 @@ class Vendor extends Model
     public function trades(): BelongsToMany
     {
         return $this->belongsToMany(Trade::class);
+    }
+
+    /** The fixed assets bought from this supplier (point 15) — a reference the register keeps. */
+    public function fixedAssets(): HasMany
+    {
+        return $this->hasMany(FixedAsset::class);
     }
 
     public function bills(): HasMany

@@ -4,10 +4,15 @@ namespace App\Filament\Admin\Resources\FixedAssets\Schemas;
 
 use App\Models\FixedAsset;
 use App\Models\FixedAssetCategory;
+use App\Models\PaymentMethod;
+use App\Models\Vendor;
 use App\Services\DepreciationService;
+use App\Support\Filament\BankAccountField;
+use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\TaxDepreciation;
 use App\Support\TenantScope;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -183,19 +188,58 @@ class FixedAssetForm
                     }
                 })
                 ->helperText(__('admin.fixed_assets.helpers.annual_rate_pct')),
+            // ── HOW IT WAS PAID FOR, AND THROUGH WHICH BANK (meeting 2026-09-02, point 15) ──────
+            // The outbound RAIL catalogue (`payment_methods`), the floor still `cash|bank` so a row
+            // written before the catalogue reads as itself — the same picker the expense form
+            // carries. Decides which account the acquisition's CREDIT leg hits, so switching it on
+            // a posted asset moves real money between accounts in the books (the hint below).
             Select::make('funded_from')
                 ->label(__('admin.fixed_assets.fields.funded_from'))
-                // Was `['cash' => 'Cash', 'bank' => 'Bank']` — hardcoded English on both panels,
-                // found while giving this column an audit vocabulary. The trail and the form now
-                // read the same words, in the reader's language.
-                ->options(fn (): array => __('admin.enums.cash_or_bank'))
-                ->default('cash')
+                ->options(fn (): array => PaymentMethod::optionsFor('fixed_assets.funded_from', 'admin.enums.cash_or_bank'))
+                // The default comes from the same list as the options (SW-116).
+                ->default(fn () => PaymentMethod::defaultFor('fixed_assets.funded_from', 'cash'))
                 ->required()
                 ->native(false)
-                // Decides which account the acquisition's CREDIT leg hits, so switching it on a
-                // posted asset moves real money between cash and bank in the books. Same reasoning
-                // as the acquisition date above.
+                // `->live()` so the bank-account field beside it picks up its requirement as soon
+                // as the rail changes; the refusal itself is evaluated at validation either way.
+                ->live()
                 ->helperText(__('admin.fixed_assets.posted_field_hint')),
+            // Which bank account the purchase money left. `for()` takes the document class because
+            // the document declares BOTH the purpose its money belongs to and the column naming its
+            // rail (`funded_from` here), so the picker defaults to the same account
+            // `RecordsBankAccount` would fill in and requires one on exactly the rails the catalogue
+            // says carry bank money. Without it a bank-funded asset credited the generic `bank`
+            // ROLE — the unattributed state a reconciliation cannot match. It keeps the field's
+            // own helper (whether this rail needs one); the re-post consequence is stated on the
+            // rail beside it and announced in figures on save.
+            BankAccountField::for(FixedAsset::class),
+            // WHO sold it — an existing supplier, or a NEW NAME through the picker's own create
+            // door, which registers a real `vendors` row (the counterparty the next slice's
+            // supplier bill needs) rather than storing a typed string nothing else can join on.
+            // Optional: an asset built in-house or bought before the register has no supplier.
+            EntitySelect::make('vendor_id')
+                ->label(__('admin.fixed_assets.fields.vendor'))
+                ->entity(Vendor::class)
+                // The relationship is what makes `createOptionForm()` work — see `LeaseForm`'s
+                // tenant picker for the 500 a select with neither relationship nor
+                // `createOptionUsing()` throws the moment the button is pressed.
+                ->relationship('vendor', 'name')
+                ->createOptionForm([
+                    TextInput::make('name')->label(__('admin.tables.vendor.name'))->required()->maxLength(200),
+                    Select::make('type')
+                        ->label(__('admin.tables.vendor.type'))
+                        ->options(fn () => __('admin.enums.vendor_type'))
+                        ->required()
+                        ->default('supplier')
+                        ->native(false),
+                    TextInput::make('phone')->label(__('admin.fields.phone'))->tel()->maxLength(50),
+                    TextInput::make('email')->label(__('admin.fields.email'))->email()->maxLength(255),
+                ])
+                // The "+" is a door onto the VENDOR register and carries that register's own right — the create-option action has no gate of its own (measured: `accounting` holds `fixed_assets.create` and not `vendors.create`, and minted a supplier through it). `authorize()` is the refusal at dispatch through the `AuthorizedAction` binding; `visible()` is the button.
+                ->createOptionAction(fn (Action $action): Action => $action
+                    ->authorize(fn (): bool => (bool) auth()->user()?->can('vendors.create'))
+                    ->visible(fn (): bool => (bool) auth()->user()?->can('vendors.create')))
+                ->helperText(__('admin.fixed_assets.helpers.vendor')),
             Textarea::make('notes')
                 ->label(__('admin.fixed_assets.fields.notes'))
                 ->rows(2)

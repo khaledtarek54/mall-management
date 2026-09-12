@@ -458,6 +458,7 @@ return [
     'fixed_assets' => [
         'errors' => [
             'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
+            'unknown_vendor_code' => 'No supplier carries the code :code. Register the supplier first, or leave the cell blank.',
             'disposed_immutable' => 'A disposed asset is final — its cost, dates and property cannot change. The write-off has already posted, and restating it would rewrite the gain or loss on a sale that has happened. Correct it with a journal entry instead; the name, tag and notes stay editable.',
             'useful_life_required' => 'State a useful life, or pick a class that proposes one.',
             'recost_below_accumulated' => 'The new depreciable base (:base) is below the :accumulated already depreciated. Lowering it would push the net book value negative and halt depreciation. Dispose the asset or create a corrected one instead.',
@@ -469,7 +470,7 @@ return [
             'tax_pool' => 'Tax depreciation pool',
             'name' => 'Name', 'tag' => 'Asset tag', 'category' => 'Category', 'property' => 'Property',
             'acquisition_date' => 'Acquired', 'acquisition_cost' => 'Cost', 'salvage_value' => 'Salvage',
-            'useful_life' => 'Useful life (months)', 'annual_rate_pct' => 'Rate a year', 'funded_from' => 'Funded from', 'status' => 'Status',
+            'useful_life' => 'Useful life (months)', 'annual_rate_pct' => 'Rate a year', 'funded_from' => 'Paid by', 'vendor' => 'Supplier', 'status' => 'Status',
             'opening_accumulated' => 'Depreciation already taken (at cut-over)',
             'monthly' => 'Monthly deprec.', 'accumulated' => 'Accum. deprec.', 'net_book_value' => 'Net book value',
             'period' => 'Month', 'amount' => 'Amount', 'notes' => 'Notes', 'posted_by' => 'Posted by',
@@ -484,6 +485,7 @@ return [
             'tag_typed' => 'Pick a class, or type the number',
             'salvage_value' => 'The value the asset is never depreciated below. Proposed by its class; 0 depreciates to nothing.',
             'annual_rate_pct' => 'The same life as a percentage a year (12 ÷ months). Type either; the other follows.',
+            'vendor' => 'Who it was bought from. A new name is registered as a supplier, not typed here.',
         ],
         'filters' => [
             'fully_depreciated' => 'Fully depreciated',

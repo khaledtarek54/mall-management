@@ -41,6 +41,7 @@ class MoneyFormPolicy
             'acquisition_date' => 'The entry date of a document §15.2 keeps correctable; the field carries the re-post hint and the save announces the figures.',
             'acquisition_cost' => 'A re-cost is a SUPPORTED operation (assertRecostValid, F-86); freezing it was tried 2026-08-28 and reverted the same day.',
             'funded_from' => 'The credit leg of a correctable acquisition; hinted on the field, announced on the save.',
+            'bank_account_id' => 'Which bank that credit left — the same correctable decision one step finer; hinted on the field, announced on the save.',
         ],
 
         // §17.7 D-B — a recorded decision, restated so it is chosen rather than inherited: Voyager

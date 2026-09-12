@@ -624,6 +624,7 @@ class ValueSets
         'vendor_documents.type' => [VendorDocumentType::class, 'codes'],
         'violations.category' => [ViolationCategory::class, 'codes'],
         'fixed_assets.category' => [FixedAssetCategory::class, 'codes'],
+        'fixed_assets.funded_from' => [PaymentMethod::class, 'outboundCodes'],
     ];
 
     /**

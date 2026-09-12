@@ -955,6 +955,11 @@ header's map is defined and rendered **nowhere**.
   model deliberately permits it (§15.2) and a form stricter than its model is the deposit divergence
   in the other direction — but each now states the consequence, because DERIVED's own definition ends
   *"the operator must be told"* and the toast tells them at the wrong end of the decision.
+  **Since 2026-09-12 `bank_account_id` sits beside `funded_from` on the same terms** (DERIVED, open
+  while derived, `MoneyFormPolicy`): the asset is the ninth document on `RecordsBankAccount` and the
+  credit leg lands in the named bank's own leaf. `vendor_id` is NEUTRAL — the supplier is a reference
+  until the slice that raises a bill for the purchase, which will be the GL source, not the column.
+  Both are frozen with the cost on a disposed asset.
 - **`MarketingSpend` was edited from a relation-manager modal, which announced nothing.**
   `AnnouncesLedgerRestatement` hooks `getSavedNotification()`, an `EditRecord` method, so it reaches
   the nine money Edit **pages** and no modal. `App\Support\Filament\LedgerRestatement` is the wording

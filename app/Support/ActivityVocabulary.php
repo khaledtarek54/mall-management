@@ -139,6 +139,7 @@ class ActivityVocabulary
         'vendor_document.type' => VendorDocumentType::class,
         'violation.category' => ViolationCategory::class,
         'fixed_asset.category' => FixedAssetCategory::class,
+        'fixed_asset.funded_from' => PaymentMethod::class,
     ];
 
     /**
@@ -236,7 +237,6 @@ class ActivityVocabulary
         'fixed_asset.method' => 'admin.enums.depreciation_method',
         'fixed_asset.tax_pool' => 'admin.tax_depreciation.pools',
         'fixed_asset_category.default_tax_pool' => 'admin.tax_depreciation.pools',
-        'fixed_asset.funded_from' => 'admin.enums.cash_or_bank',
         'lease.proration_method' => 'admin.proration_methods',
         'lease.rent_pricing_basis' => 'admin.enums.rent_pricing_basis',
         'lease.billing_frequency' => 'admin.billing_frequency',

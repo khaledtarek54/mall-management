@@ -24,7 +24,8 @@ book value and the P&L carries the monthly depreciation charge.
 | **Depreciation method** | **Straight-line** | (cost − salvage) ÷ useful-life-months; the standard default. Declining-balance is a future option. |
 | **Schedule model** | **Entry ledger** (one `depreciation_entry` per asset per month; accumulated DERIVED) | Auditable + reconcilable — mirrors the GL / inventory "derived truth"; the monthly run is idempotent via a unique (asset, month). |
 | **Scope** | **Per-property** (`asset_id`) | Each mall's fixed assets belong to it; scoped like units/leases/inventory. |
-| **Acquisition funding** | `funded_from` (cash \| bank) | The credit side of the acquisition GL entry (Phase 2) — most fixed assets are paid, so this avoids inflating Accounts Payable. |
+| **Acquisition funding** | `funded_from` — an OUTBOUND payment rail (`payment_methods`; `cash \| bank` the floor) + `bank_account_id` (`RecordsBankAccount`) | The credit side of the acquisition GL entry: the asset's own bank account, else the rail's account, else the role (`MoneyAccount`). Most fixed assets are paid, so this avoids inflating Accounts Payable; the supplier BILL that capitalises a purchase (Dr asset / Cr AP — SAP F-90, Odoo's asset-from-bill) is the next slice. |
+| **The supplier is a ROW** (2026-09-12, point 15) | `vendor_id` → `vendors`, quick-create from the picker | The market acquires an asset THROUGH the supplier; a typed name nothing can join on is not a counterparty. The "+" carries `vendors.create` — the register's own right. |
 | **The asset CLASS is a catalogue row** (2026-09-12) | `fixed_asset_categories` — the seventh `IsCodeCatalogue` | SAP's asset class drives the number range, the depreciation key and the memo value; Yardi Fixed Assets and Odoo carry the same defaults on the category. It was free text with suggestions; the operator could neither add a class nor give one a life. |
 | **First-month proration** | `accounting.depreciation_proration` — `full_month` (default) \| `days` | SAP's period control, Odoo's "prorata": the two answers the market offers. Company-level like SAP's depreciation key — two malls of one operator do not keep the register on two conventions. Posting stays MONTHLY either way; a daily journal entry is what no benchmark system does. |
 
@@ -64,9 +65,12 @@ importing means here, and two things follow:
 Identity is **(property, tag)**: the tag is the label stuck on the machine and is unique within a
 mall, not globally, because two malls each number their chillers from 1. Property-scoped through
 `ResolvesVisibleAssetByCode` — an import bypasses the Create/Edit pages where `assertAssetInScope()`
-runs, and an out-of-scope row is skipped rather than written. `method` and `funded_from` are not
-importable: depreciation is straight-line only, and `funded_from` picks the credit side of an entry
-this importer never posts.
+runs, and an out-of-scope row is skipped rather than written. `method`, `funded_from` and
+`bank_account_id` are not importable: depreciation is straight-line only, and the rail and the bank
+pick the credit side of an entry this importer never posts. **`vendor_code` IS** (2026-09-12): the
+supplier's own code resolves an EXISTING vendor and an unknown one is refused in words
+(`RowImportFailedException`) — an importer minting a counterparty from a spreadsheet cell is the
+free-text door the form deliberately does not offer; a mapped blank cell CLEARS on a re-import.
 
 **Since 2026-09-12 the tag may be BLANK** — a row with no tag is a NEW asset numbered by its class,
 so it must name one (`tag` is `required_without:category`, and `useful_life_months` likewise:
@@ -93,7 +97,9 @@ every row (there is no identity to match on) — tag the file, or import once.
 | `useful_life_months` | straight-line period; the form also reads and writes it as an ANNUAL RATE % (`annualRatePct()` ↔ `monthsForAnnualRate()` — Law 91 states rates), months are the stored truth |
 | `tax_pool` | Law 91 pool, proposed by the class, floored to the statutory default on create |
 | `method` | `straight_line` (only method today) |
-| `funded_from` | `cash` \| `bank` — acquisition credit (Phase 2 GL) |
+| `funded_from` | the outbound RAIL the purchase moved on — a `payment_methods` code, `cash \| bank` the floor; the acquisition credit |
+| `bank_account_id` | WHICH bank account it left (`RecordsBankAccount` — asked · defaulted from the property · required where the rail carries bank money); null resolves to the rail, then the role |
+| `vendor_id` | the supplier, a `vendors` row (`withTrashed()`); a reference on the register until the supplier-bill slice |
 | `status` · `disposed_on` | `active` / `disposed` |
 
 ### `fixed_asset_categories` — the asset CLASS (portfolio-shared catalogue, 2026-09-12)
@@ -187,6 +193,20 @@ covers the disposal, the acquisition date and `--month` on the backfill command.
    importer, seeder) gets the same proposal. A figure stated — including an explicit zero salvage —
    is never overwritten, and nothing re-reads the class once the asset exists. A create with no life
    from either is refused in words (`admin.fixed_assets.errors.useful_life_required`).
+7c. **The credit leg names the bank, and the rail is a row** (point 15, 2026-09-12). `funded_from` is
+   `ValueSets`-widened to the outbound rails (`PaymentMethod::outboundCodes()`, floor `cash|bank` so
+   every row already written stays valid), and the asset carries `RecordsBankAccount`: on create a
+   bank rail defaults `bank_account_id` from the property (Yardi's shape — the operator confirms),
+   a cash rail names none, another mall's account is refused, and the form requires one exactly
+   where the expense form does. Two things the shared field learned here: **the requirement stands
+   down on a row that never named one** (every pre-register asset is `bank` / null, and a name-only
+   save was refused — then answering it was a DERIVED re-post a closed period refused too) and is
+   re-asked only where the rail MOVES or the row already names a bank; and **a bank the rail does not
+   carry is not recorded** (the field fills the property's account from mount beside a rail
+   defaulting to `cash`, and `MoneyAccount` lets a named account win — a purchase left on both
+   defaults credited the BANK). On a DISPOSED asset both are frozen with the cost. `vendor_id` is
+   NEUTRAL to the books — a reference until the supplier-bill slice — and a supplier or a rail an
+   asset names cannot be deleted (`Vendor::fixedAssets()`, `PaymentMethod::fixedAssets()`).
 7. **Posting respects property authority** — the scheduled `accounting:post-depreciation`
    run is portfolio-wide, but the admin **"Post this month"** button passes the operator's
    visible-property set (`TenantScope::visibleAssetIds()`), so a single-property accounting
@@ -247,7 +267,7 @@ the GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson f
 
 | Event | Source | Entry |
 |-------|--------|-------|
-| **Acquisition** | `FixedAsset` | Dr Furniture & Equipment `12101001` / Cr **Cash `11101001` \| Bank `11102001`** (per `funded_from`) |
+| **Acquisition** | `FixedAsset` | Dr Furniture & Equipment `12101001` / Cr **the asset's bank account's own leaf**, else the rail's account, else **Cash `11101001` \| Bank `11102001`** by role (`MoneyAccount::for(bank_account_id, funded_from, …)`) |
 | **Monthly depreciation** | `DepreciationEntry` | Dr Depreciation Expense `51107001` / Cr Accumulated Depreciation `12201001` (contra-asset) |
 | **Disposal write-off** | `FixedAssetDisposal` | Dr Accumulated Depreciation (accumulated) + Dr Cash\|Bank (proceeds) + Dr **Loss `52102001`** / Cr Furniture & Equipment (cost) + Cr **Gain `42102001`** |
 
@@ -281,8 +301,9 @@ the GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson f
 |-------|-------|--------|
 | **1a — Depreciation engine** | register + `DepreciationEntry` + `DepreciationService` (straight-line, derived accumulated/NBV, clamp) + `accounting:post-depreciation` + schedule + tests | ✅ shipped |
 | **1b — Admin surfaces** | Filament `FixedAssetResource` (register + schedule columns: cost / accumulated / NBV / monthly) property-scoped, `fixed_assets.*` RBAC (accounting role), `fixed_assets` module flag, read-only depreciation-history relation manager, dispose action, "post this month" list action | ✅ shipped |
-| **2 — GL posting** | acquisition → Dr Furniture & Equipment (12101001) / Cr Cash\|Bank (per `funded_from`); depreciation entry → Dr Depreciation Expense (51107001) / Cr Accumulated Depreciation (12201001). Journalizers + mappings + sweep + a tie-out-safe check. | ✅ shipped |
+| **2 — GL posting** | acquisition → Dr Furniture & Equipment (12101001) / Cr Cash\|Bank (per `funded_from`; since 2026-09-12 the asset's own bank account first — see phase 4); depreciation entry → Dr Depreciation Expense (51107001) / Cr Accumulated Depreciation (12201001). Journalizers + mappings + sweep + a tie-out-safe check. | ✅ shipped |
 | **3 — The class, the number, the rate, the first month** (meeting 2026-09-02, points 11 · 13 · 14) | `fixed_asset_categories` catalogue + screen; tag allocated from the class per property; class defaults prefilled on the form and by the model; useful life read as an annual rate; `accounting.depreciation_proration` (`full_month` \| `days`); importer widened. **Deploy note**: the migration rows every value the register already holds (grouped case-insensitively, the register rewritten to the row's spelling) and deliberately SKIPS the shipped codes so `atriom:install --force`'s seeder creates those with their life, pool and prefix — a row it had created for `HVAC` on a box already holding HVAC assets shipped the class lifeless, on exactly the installs that have assets. | ✅ shipped |
+| **4 — The rail, the bank and the supplier** (meeting 2026-09-02, point 15, slice 1) | `funded_from` reads the outbound rail catalogue; the asset is the ninth document on `RecordsBankAccount` (the credit leg lands in the named bank's own chart account — a bank-funded asset had credited the generic `bank` ROLE, the unattributed state SW-228 closed for receipts); `vendor_id` with a quick-create gated on `vendors.create`; the importer takes `vendor_code`. **Slice 2, not built**: `funded_from = payable` raising a draft supplier bill (Dr asset / Cr AP). | ✅ shipped |
 | **2b — Disposal write-off** | `FixedAssetDisposal` source + `DisposeFixedAssetService` + journalizer: Dr Accumulated Depreciation + Dr Cash\|Bank (proceeds) + gain/loss / Cr Furniture & Equipment, so the balance sheet clears the disposed asset. New gain/loss-on-disposal accounts + mappings; dispose-with-proceeds form; parent-lifecycle cascade covers it. | ✅ shipped |
 
 ---
@@ -313,6 +334,15 @@ prefill, a life under a year, a cleared tag refused), the catalogue screen, the 
 allocated / re-import keeping the life / refusals in words), the migration's backfill leaving the
 shipped codes to the seeder and rewriting the register, and the tax page's book column agreeing
 with the ledger. Seventeen cases; thirty mutations, each killing its own tooth.
+
+`tests/Feature/Regression/AFixedAssetNamesItsRailItsBankAndItsSupplierTest.php` — point 15: the
+credit leg on the named bank's own leaf (the role only when none is named), the outbound catalogue
+accepted and an inbound-only rail refused, another mall's account refused on create and on a
+re-home, the disposed freeze on the credit leg, a supplier and a rail undeletable while named, the
+form (rails offered, bank asked/defaulted/required, a legacy row still editable, the re-rail re-asked,
+a named bank never cleared, a cash purchase left on the form's defaults booking to cash, the "+"
+refused to `accounting` and creating a real supplier for `manager`), the importer (supplier by code,
+blank clears, unknown refused in words, no rail column). Ten cases; twenty-one mutations.
 
 `tests/Feature/Services/DepreciationServiceTest.php` — monthly amount (net of salvage),
 one entry per asset per month, derived accumulated/NBV, idempotent re-run, no charge
@@ -407,8 +437,8 @@ tables at once. All four verbs moved to their record pages; reachability was mea
 (each gates on the `{module}.edit` the record page already requires, so no role loses the act).
 
 **And the form said nothing about what an edit does to the books.** `acquisition_date` IS the
-acquisition entry's `entry_date`, and `funded_from` decides which account its credit leg hits. Both
-stay editable — the model deliberately permits it (a re-cost is a supported operation guarded by
+acquisition entry's `entry_date`, and `funded_from` (with `bank_account_id` beside it since
+2026-09-12) decides which account its credit leg hits. Both stay editable — the model deliberately permits it (a re-cost is a supported operation guarded by
 `DepreciationService::assertRecostValid()`, and a form stricter than its model is its own defect) —
 but each now states the consequence, because `ChangeImpact`'s DERIVED verdict ends *"the operator
 must be told"* and `AnnouncesLedgerRestatement` tells them after the save, at the wrong end of the

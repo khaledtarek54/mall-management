@@ -87,8 +87,11 @@ it('leaves a currency verbatim, and says why', function () {
 
 it('keeps the fixed-asset funding field in the reader\'s language too', function () {
     // Found while giving that column a vocabulary: the FORM rendered
-    // `['cash' => 'Cash', 'bank' => 'Bank']` — hardcoded English on the Arabic panel. The trail and
-    // the form now read the same group.
+    // `['cash' => 'Cash', 'bank' => 'Bank']` — hardcoded English on the Arabic panel. Since
+    // 2026-09-12 the column is the outbound RAIL catalogue (`payment_methods`, point 15): on an
+    // install with no rails seeded the form offers the floor, labelled in the reader's language,
+    // and the TRAIL labels the same value through the catalogue's own fallback group — which had
+    // no entry for the legacy literal `bank` and printed the raw code until it was given one.
     App::setLocale('ar');
 
     $options = FixedAssetForm::configure(app(Schema::class))->getComponents();
@@ -97,5 +100,7 @@ it('keeps the fixed-asset funding field in the reader\'s language too', function
         ->first(fn ($component) => method_exists($component, 'getName') && $component->getName() === 'funded_from');
 
     expect($funded)->not->toBeNull('The funded_from field has moved — this test no longer proves anything.')
-        ->and($funded->getOptions())->toBe(['cash' => 'نقدًا', 'bank' => 'بنك']);
+        ->and($funded->getOptions())->toBe(['cash' => 'نقدًا', 'bank' => 'بنك'])
+        ->and(app(ActivityVocabulary::class)->value('fixed_asset', null, 'funded_from', 'bank'))->toBe('بنك')
+        ->and(app(ActivityVocabulary::class)->value('fixed_asset', null, 'funded_from', 'cash'))->toBe('نقدًا');
 });

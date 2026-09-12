@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Fixed-asset acquisition → GL (module 23, Phase 2). Capitalises the asset:
  *
- *   Dr Furniture & Equipment (acquisition_cost)   / Cr Cash | Bank (per funded_from)
+ *   Dr Furniture & Equipment (acquisition_cost)   / Cr the asset's bank account | the rail's account | Cash or Bank by role (per bank_account_id, then funded_from)
  *
  * Credits CASH or BANK directly — NOT Accounts Payable — because most fixed assets
  * are paid on acquisition and the reconcile harness ties AP out to vendor-bill
@@ -60,7 +60,11 @@ class FixedAssetAcquisitionJournalizer implements Journalizer
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('furniture_equipment', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
-                ['ledger_account_id' => MoneyAccount::for(null, $asset->funded_from, $assetId, $this->accounts), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
+                // The credit leg: the asset's OWN bank account when it names one (point 15 —
+                // `RecordsBankAccount`), else the rail's account, else the posting role — the one
+                // ladder every bank-rail document resolves through, so a mall banking in two places
+                // can reconcile the purchase against the statement it actually appeared on.
+                ['ledger_account_id' => MoneyAccount::for($asset->bank_account_id, $asset->funded_from, $assetId, $this->accounts), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
             ],
         ];
     }

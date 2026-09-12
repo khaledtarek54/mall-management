@@ -208,7 +208,7 @@ These four decisions steer the FRs below:
 | 12 | "Tax depreciation" → "Depreciation" | Two bases by law; only the tax one has a screen | **Do not rename**; show the BOOK rate, add the book schedule | S | |
 | 13 | Salvage value default 1 | Default 0; nothing hides at 0 | ✅ **Shipped 2026-09-12** — the class's memo value, 1.00 on every shipped class, proposed on pick and by the model; a stated figure wins | XS | ✅ built |
 | 14 | Useful life per category; rate % not months; daily | Months per asset; full month, no proration | ✅ **Shipped 2026-09-12** — class default life; the form reads/writes an annual rate % beside the months (months stored); `accounting.depreciation_proration` (`full_month` ships · `days` — the client's ask is SET on staging); posting stays monthly | S | ✅ built |
-| 15 | "Funded from" → payment method; vendor existing or new | cash/bank literal; no bank account; no vendor | **Build** rail + bank account + vendor; AP capitalisation later | S (+M) | |
+| 15 | "Funded from" → payment method; vendor existing or new | cash/bank literal; no bank account; no vendor | ✅ **Slice 1 shipped 2026-09-12** — *Paid by* is the outbound rail catalogue + the bank account (the ninth `RecordsBankAccount` document, credit leg in the bank's own chart account); *Supplier* is a vendor row with a "+" gated on `vendors.create`; importer takes the supplier code ([modules/23](../modules/23-fixed-assets.md)). Slice 2 (a supplier BILL that capitalises the asset — Dr asset / Cr AP) not built | S (+M) | ✅ slice 1 built |
 | 16 | Cash box / bank can never be credit | No guard | **Build** for cash (SAP's rule); warn for bank | M | |
 | 17 | TB daily depreciation; 60 months shows 25% not 20% | 25% = Law 91 tax pool, correct; 20% is the unshown book rate | **Not a bug** — the book rate now shows on the register (the *Annual rate %* column) and the form, beside the tax pool; daily posting declined (14) | — | ✅ closed by 14 |
 | 18 | Transfer an asset between places | `asset_id` editable → rewrites history | **Build** a dated Transfer act | M | |
@@ -441,7 +441,7 @@ same helper. Effort **M**.
 
 ---
 
-### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 17 · 18) — the accountant's slice — 11 · 13 · 14 ✅ shipped 2026-09-12
+### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 17 · 18) — the accountant's slice — 11 · 13 · 14 · 15 (slice 1) ✅ shipped 2026-09-12
 
 **#11 — *"Category fixed asset ton fl awl, raqm l 2asl shelhaaaa w htt3ml auto mn l category w mwgod
 fl database. w nzwd description le fixed assets bel mola7zat."***
@@ -551,6 +551,21 @@ document — the `MoneyDocumentDoors` gate then covers its form), and a `vendor_
 create-option is the *"new name"* door — a real vendor row, never free text, because AP needs a
 counterparty. Slice 2 (**M**, later): `funded_from = payable` raises a **draft vendor bill** (Dr asset /
 Cr AP), the shape the market uses and the one `RecurringExpense` already follows for retainers.
+
+**Slice 1 shipped 2026-09-12** as recommended — with four things the review found and the build
+fixed. *"The gate then covers its form"* was FALSE as written: `MoneyDocumentDoors` grepped each
+model for the literal line `use RecordsBankAccount;`, so a trait on a combined `use` line was
+invisible — `PostDatedCheque` had been since 2026-09-02, and the asset would have joined it; it is
+derived by reflection now (the asset is the NINTH document on the concern, not the eighth). The
+shared bank field required an account on EDIT wherever the rail carries bank money, which locked
+every pre-register `bank`/null asset out of a name-only save (and answering it was a re-post a
+closed period refused) — the requirement stands down on such a row and is re-asked only where the
+rail moves or a bank is already named. The same field filled the property's account from mount
+beside a rail defaulting to `cash`, and `MoneyAccount` lets a named account win, so a purchase left
+on the form's defaults credited the BANK (the expense form too) — a bank the rail does not carry is
+not recorded. And the supplier "+" carried no gate: `accounting` holds `fixed_assets.create` and not
+`vendors.create` and minted suppliers through it — every record-creating "+" in the panel now carries
+its register's own right. Not built, deliberately: slice 2, and a `description` third field.
 
 **#16 — *"Sndo2 3am / bank menf3sh ykon da2n, lazm ykon fe amount fl 7sab."*** *(treasury, listed with
 the assets because it came up on "funded from")*

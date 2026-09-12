@@ -46,6 +46,15 @@ class FixedAssetsTable
                     ->formatStateUsing(fn (?string $state): string => FixedAssetCategory::labelFor($state))
                     ->placeholder('—')
                     ->toggleable(),
+                // The supplier (point 15) — a relation path, so Filament eager-loads and sorts it
+                // through the join; a retired supplier still names the asset (`withTrashed()` on
+                // the relation). Hidden by default: the register is read for values, and the
+                // column is there for the day somebody asks "what did we buy from them".
+                TextColumn::make('vendor.name')
+                    ->label(__('admin.fixed_assets.fields.vendor'))
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('acquisition_date')
                     ->label(__('admin.fixed_assets.fields.acquisition_date'))
                     ->date('d/m/Y')

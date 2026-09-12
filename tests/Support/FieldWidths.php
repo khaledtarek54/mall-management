@@ -191,10 +191,21 @@ class FieldWidths
             fn ($t) => ! is_array($t) || ! in_array($t[0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true),
         ));
 
+        // A field inside a picker's `createOptionForm([...])` writes the RELATED model — the
+        // supplier the fixed-asset form can mint, the tenant the lease form can — so read against
+        // the host record it reports a divergence on a column that never touches the host's table
+        // (measured: `FixedAsset.name: form 200 < importer 255` on the vendor modal's name box).
+        // Their spans are skipped; the related resource's own form is where those widths are read.
+        $inModal = self::createOptionFormSpans($tokens);
+
         $out = [];
 
         for ($i = 0; $i < count($tokens); $i++) {
             $token = $tokens[$i];
+
+            if (isset($inModal[$i])) {
+                continue;
+            }
 
             if (! is_array($token) || $token[0] !== T_STRING || ! in_array($token[1], $components, true)) {
                 continue;
@@ -239,6 +250,44 @@ class FieldWidths
         }
 
         return $out;
+    }
+
+    /**
+     * The token indices lying inside every `createOptionForm( … )` call — the modal a picker opens
+     * to create the RELATED record.
+     *
+     * @param  list<array|string>  $tokens  comment- and whitespace-free
+     * @return array<int, true>
+     */
+    private static function createOptionFormSpans(array $tokens): array
+    {
+        $spans = [];
+        $count = count($tokens);
+
+        for ($i = 0; $i < $count; $i++) {
+            $t = $tokens[$i];
+
+            if (! is_array($t) || $t[0] !== T_STRING || $t[1] !== 'createOptionForm' || ($tokens[$i + 1] ?? null) !== '(') {
+                continue;
+            }
+
+            $depth = 0;
+            for ($j = $i + 1; $j < $count; $j++) {
+                if ($tokens[$j] === '(' || $tokens[$j] === '[') {
+                    $depth++;
+                } elseif ($tokens[$j] === ')' || $tokens[$j] === ']') {
+                    $depth--;
+                }
+
+                $spans[$j] = true;
+
+                if ($depth === 0) {
+                    break;
+                }
+            }
+        }
+
+        return $spans;
     }
 
     /** @return list<string> the form components this sweep reads */

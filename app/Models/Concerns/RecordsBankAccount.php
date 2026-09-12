@@ -161,7 +161,7 @@ trait RecordsBankAccount
     /**
      * The property this document's money belongs to, for both the default and the guard.
      *
-     * FOUR of the seven carry their own `asset_id`; `payments` and `vendor_bill_payments` do not — a
+     * Every document but two carries its own `asset_id`; `payments` and `vendor_bill_payments` do not — a
      * receipt's books dimension is derived from the invoices it settles, and a supplier payment's
      * from its bill. For those the mall the operator is working in is the honest answer: they are
      * picking from a list scoped to it.
@@ -196,7 +196,7 @@ trait RecordsBankAccount
      * The column naming the rail this document's money moved on.
      *
      * `method` on the inbound documents and the two outbound ones that call it that; `paid_from` on
-     * the expense-shaped ones. One accessor rather than seven call sites reading the right string,
+     * the expense-shaped ones, `funded_from` on a fixed asset. One accessor rather than nine call sites reading the right string,
      * because the requirement, the default and the field all have to ask the same column.
      */
     public static function bankAccountRailColumn(): string

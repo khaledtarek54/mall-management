@@ -97,3 +97,27 @@ it('reads a shared width constant rather than skipping it', function () {
     expect(FieldWidths::maxRuleOf("::make('phone')->rules(['nullable', 'max:'.Tenant::FIELD_MAX['phone']])"))
         ->toBe(Tenant::FIELD_MAX['phone']);
 });
+
+it('does not read a picker\'s create-option modal against the host record', function () {
+    // The supplier "+" on the fixed-asset form opens a modal whose `name` box is a VENDOR column;
+    // read against `FixedAsset` it reported `FixedAsset.name: form 200 < importer 255` — a
+    // divergence on a column that never touches the host's table (2026-09-12).
+    $code = <<<'PHP'
+    <?php
+    $x = [
+        TextInput::make('name')->maxLength(255),
+        EntitySelect::make('vendor_id')
+            ->relationship('vendor', 'name')
+            ->createOptionForm([
+                TextInput::make('name')->maxLength(200),
+                TextInput::make('phone')->maxLength(50),
+            ])
+            ->helperText('x'),
+        TextInput::make('notes')->maxLength(2000),
+    ];
+    PHP;
+
+    $names = collect(FieldWidths::chains($code, ['TextInput']))->pluck('name')->all();
+
+    expect($names)->toBe(['name', 'notes']);
+});

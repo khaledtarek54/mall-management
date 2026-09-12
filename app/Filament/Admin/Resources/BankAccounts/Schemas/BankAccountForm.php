@@ -9,6 +9,7 @@ use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -112,6 +113,10 @@ class BankAccountForm
                             $data['name'],
                             TenantScope::currentAssetId(),
                         )?->getKey())
+                        // Minting a CHART account is the chart's own right (2026-09-12): the create-option action carries no gate of its own, and a role granted `bank_accounts.create` without `ledger_accounts.create` would write the chart through it.
+                        ->createOptionAction(fn (Action $action): Action => $action
+                            ->authorize(fn (): bool => (bool) auth()->user()?->can('ledger_accounts.create'))
+                            ->visible(fn (): bool => (bool) auth()->user()?->can('ledger_accounts.create')))
                         ->helperText(__('admin.helpers.bank_ledger_account'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.bank_ledger_account')),
 

@@ -429,8 +429,16 @@ months, and the first month's proration a company setting with SAP's two answers
 M-11/13/14 records what the client sets. **Two defects the review found in the build**, both
 before deploy: the migration would have shipped the classes lifeless on any box already holding
 assets (the staging register), and the derived rate field refused every life under a year
-([modules/23](modules/23-fixed-assets.md)). Next in the memo's order: 15 (funded-from as a rail
-+ a vendor), then 18 (the transfer act).
+([modules/23](modules/23-fixed-assets.md)).
+**Point 15 (slice 1) shipped 2026-09-12** — *Paid by* is the outbound rail catalogue with the bank
+account beside it (the ninth `RecordsBankAccount` document; the acquisition's credit leg lands in
+that bank's own chart account instead of the generic role), and the supplier is a vendor row with a
+"+" that carries `vendors.create`. Three things the review found and the build fixed reach beyond
+this screen: the doors registry could not see a trait declared on a combined `use` line (the cheque
+register had been invisible to it since 2026-09-02), the shared bank field locked every
+pre-register document out of a name-only edit and recorded a bank on a cash rail, and every
+record-creating "+" in the panel was ungated. Slice 2 — a supplier BILL that capitalises the
+purchase — is not built. Next in the memo's order: 18 (the transfer act), then 16.
 
 ### 9.1 · The accountant's sitting
 

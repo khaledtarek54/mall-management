@@ -49,15 +49,15 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * ## Direction
  *
- * One catalogue serves SEVEN columns. `for_inbound` covers `payments.method`,
+ * One catalogue serves EIGHT columns. `for_inbound` covers `payments.method`,
  * `deposit_transactions.method` and `employee_advance_repayments.method` (the employee is paying the
  * operator BACK, so that one debits cash/bank); `for_outbound` covers `vendor_bill_payments.method`,
- * `expenses.paid_from`, `employee_advances.paid_from` (granting an advance PAYS the employee) and
- * `Disbursement`. Cash and bank transfer are both; a collection network is
+ * `expenses.paid_from`, `employee_advances.paid_from` (granting an advance PAYS the employee),
+ * `Disbursement` and `fixed_assets.funded_from` (a purchase — 2026-09-12). Cash and bank transfer are both; a collection network is
  * inbound only. Without this, unifying the registries would offer nonsense on one side.
  */
 #[DeletableWhenUnused(
-    blockedBy: ['payments', 'vendorBillPayments', 'depositTransactions', 'expenses', 'disbursements', 'employeeAdvanceRepayments', 'employeeAdvances'],
+    blockedBy: ['payments', 'vendorBillPayments', 'depositTransactions', 'expenses', 'disbursements', 'employeeAdvanceRepayments', 'employeeAdvances', 'fixedAssets'],
     instead: 'Deactivate it. A rail that carried money stays in the catalogue, because every document that names it reads its label — deleting the row would leave those documents naming a code nothing can explain.',
 )]
 // Shared, not property-owned: a payment rail is operator-level infrastructure. Eltizam banks the
@@ -138,7 +138,7 @@ class PaymentMethod extends Model
      * deliberately un-ticking both — and the result is silent in the worst way. {@see inboundCodes()}
      * and {@see outboundCodes()} each filter on their own flag, {@see optionsFor()} picks one of them
      * per column, and `ValueSets` widens a column from the same two readers: so the rail is offered
-     * on NONE of the seven money columns, the saving listener would refuse the code even if a
+     * on NONE of the eight money columns, the saving listener would refuse the code even if a
      * crafted payload sent it, and the register beside it goes on rendering **Active** — the one
      * word that says the opposite.
      *
@@ -338,7 +338,7 @@ class PaymentMethod extends Model
      * compares `allowed()` with `forTable()`, and both were right about the column; it was the
      * PICKER that was reading somebody else's set.
      *
-     * `$fallbackGroup` stays per call site, because one catalogue serves seven columns that each had
+     * `$fallbackGroup` stays per call site, because one catalogue serves eight columns that each had
      * their own lang group — a vendor-bill payment reads `admin.enums.vendor_bill_payment_method`,
      * an expense reads `admin.enums.expense_paid_from`. Only reached on an unseeded database.
      *
@@ -454,6 +454,12 @@ class PaymentMethod extends Model
     public function employeeAdvances(): HasMany
     {
         return $this->hasMany(EmployeeAdvance::class, 'paid_from', 'code');
+    }
+
+    /** The fixed assets bought on this rail (`funded_from`, 2026-09-12). */
+    public function fixedAssets(): HasMany
+    {
+        return $this->hasMany(FixedAsset::class, 'funded_from', 'code');
     }
 
     public function getActivitylogOptions(): LogOptions

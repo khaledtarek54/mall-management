@@ -346,6 +346,11 @@ return [
         'method' => [
             'card' => 'Card',
             'bank_transfer' => 'Bank Transfer',
+            // The legacy floor literal five columns still accept (`expenses.paid_from`,
+            // `payrolls.paid_from`, `fixed_assets.funded_from`, …) — it has no catalogue row, so
+            // `PaymentMethod::labelFor('bank')` falls to this group and printed the raw code in
+            // the audit trail until it was added (2026-09-12).
+            'bank' => 'Bank',
             'instapay' => 'InstaPay',
             'wallet' => 'Wallet',
             'cash' => 'Cash',

@@ -343,6 +343,7 @@ return [
         'method' => [
             'card' => 'بطاقة',
             'bank_transfer' => 'تحويل بنكي',
+            'bank' => 'بنك',
             'instapay' => 'إنستاباي',
             'wallet' => 'محفظة',
             'cash' => 'نقدًا',

@@ -473,7 +473,8 @@ class ChangeImpact
             self::DERIVED => [
                 'acquisition_cost' => 'the capitalised cost, and the basis every depreciation entry already posted was computed from — retyping it leaves the schedule and the asset disagreeing',
                 'acquisition_date' => 'it IS the entry date, and it starts the depreciation clock',
-                'funded_from' => 'chooses the credit — cash, bank or payable',
+                'funded_from' => 'chooses the credit — the outbound rail the purchase moved on (point 15: a `payment_methods` code, `cash|bank` the floor)',
+                'bank_account_id' => 'chooses WHICH bank the credit left — the same decision as funded_from, one step finer, so it is classified on the same terms. Null is the normal state and resolves exactly as before (the rail, then the role). A re-home that keeps the old mall\'s account is refused by `RecordsBankAccount` itself, and the form pins the property anyway',
                 'asset_id' => 'the books dimension',
                 'is_opening_balance' => 'flipping it decides whether the asset posts an acquisition AT ALL. An asset loaded at cut-over was bought before this system existed and its cost is already inside the accountant\'s opening journal entry, so the journalizer returns null. Setting it on a posted asset must void that entry; clearing it must post one. DERIVED rather than REFUSED for the same reason as `invoices.is_opening_balance`: correcting a mis-flagged migration row is legitimate work during a cutover, and the re-derive is exactly the right outcome.',
             ],
@@ -485,6 +486,11 @@ class ChangeImpact
             ],
             self::NEUTRAL => [
                 'tag', 'category', 'status', 'disposed_on', 'notes',
+                // WHO sold it — a reference on the register (point 15, slice 1). It reaches no
+                // journalizer payload: the acquisition credits the rail's account, never AP. The
+                // slice that raises a supplier BILL for the purchase (Dr asset / Cr AP) will make
+                // the bill the GL source, not this column.
+                'vendor_id',
                 // NOT prospective, though it looks like `method` and `useful_life_months` above.
                 // Those change future depreciation ENTRIES. `tax_pool` drives the Egyptian
                 // income-tax schedule (Law 91/2005 Art. 25) in `TaxDepreciationService`, and that

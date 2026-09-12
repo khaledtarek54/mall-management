@@ -817,7 +817,7 @@ column that document itself names — because that is the observable signal a sc
 money movement rather than listing it (a `TextColumn` or a `SelectFilter` reads the same column and
 records nothing). A registry of doors would go stale the moment somebody adds a screen, which is the
 failure being caught, so it must not rest on the same person remembering. Attribution is by whether
-the file NAMES one of the seven documents — not an exemption list — so the petty-cash screens that
+the file NAMES one of the documents on the concern (seven that day, nine since 2026-09-12 — derived by reflection, because the literal `use RecordsBankAccount;` it first grepped for missed a trait declared on a combined `use` line) — not an exemption list — so the petty-cash screens that
 legitimately collect a rail and have no bank account (`Custody`, employee advances, marketing spend)
 are correct *by being what they are*, and a new one is too. Eight doors found; both teeth
 mutation-proved.

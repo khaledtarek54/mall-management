@@ -7,9 +7,10 @@ use App\Models\PaymentMethod;
 use App\Support\MoneyAccount;
 use App\Support\TenantScope;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Database\Eloquent\Model;
 
 /**
- * "Which bank account did this money move through?" — one field, seven money forms.
+ * "Which bank account did this money move through?" — one field, eight money forms.
  *
  * The register has existed since 2026-08-11 and nothing on a money document pointed at it, so every
  * posting resolved the generic `bank` role. A mall banking in two places therefore put both banks'
@@ -78,10 +79,41 @@ final class BankAccountField
             // whether or not the rail select is `->live()`; live only decides how soon the asterisk
             // appears. `$get` on the rail rather than on the record, because an operator changing
             // the rail mid-edit is exactly when this has to change with them.
-            ->required(fn (Get $get): bool => self::isRequired($get($rail)))
-            ->helperText(fn (Get $get): string => self::isRequired($get($rail))
+            ->required(fn (Get $get, ?Model $record): bool => self::isRequired($get($rail)) && self::stillAsked($record, $rail, $get($rail)))
+            // A bank the rail does not carry is not recorded (2026-09-12). The default above fills
+            // the property's account in from mount while the rail beside it defaults to `cash`, and
+            // `MoneyAccount` lets a NAMED account win over the rail — so a purchase left on both
+            // defaults booked its credit to the BANK (measured through the real create page, on the
+            // expense form and the fixed-asset form alike). Dehydrating null where the rail asks no
+            // bank keeps the field visible (the docblock's reason for never hiding it) while the
+            // books follow the rail the operator actually picked.
+            ->dehydrateStateUsing(fn (mixed $state, Get $get): mixed => PaymentMethod::requiresBankAccount(is_string($get($rail)) ? $get($rail) : null) ? $state : null)
+            ->helperText(fn (Get $get, ?Model $record): string => self::isRequired($get($rail)) && self::stillAsked($record, $rail, $get($rail))
                 ? __('admin.helpers.bank_account_required_on_document')
                 : __('admin.helpers.bank_account_on_document'));
+    }
+
+    /**
+     * Whether the question is still open on THIS row — the half of the requirement the model's
+     * own docblock already states: *"an existing document keeps whatever it has, including null."*
+     *
+     * On CREATE, always. On EDIT the requirement stands only where the operator is CHANGING the
+     * rail (a purchase re-stated as a transfer must say which bank) or the row already NAMES an
+     * account (clearing it is a restatement to the generic role, never a correction). A row
+     * written before the register existed — every pre-register asset and expense on a real
+     * install is `bank` / null — is left alone: measured, a name-only save of one was refused
+     * with *"The bank account field is required"*, and picking an account to satisfy it was a
+     * DERIVED re-post of a January acquisition that `SealedPeriod` then refused as well. Both doors
+     * shut, on a field the operator never touched (the review caught it, 2026-09-12).
+     */
+    private static function stillAsked(?Model $record, string $rail, mixed $submittedRail): bool
+    {
+        if ($record === null || ! $record->exists) {
+            return true;
+        }
+
+        return $record->bank_account_id !== null
+            || (string) $record->getOriginal($rail) !== (string) $submittedRail;
     }
 
     /**
