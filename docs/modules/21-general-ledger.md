@@ -538,6 +538,14 @@ All under the **Accounting** navigation group (`admin.groups.accounting`), gated
 - **`GeneralLedger` page** — دفتر الأستاذ. Per-account running statement (كشف حساب) — **or every
   account with movement in the period since 2026-09-12** (see *The general ledger reads every
   account, and prints* below), and a PDF for either reading.
+- **The journal register's *Source document* column names the source through
+  `App\Support\SourceDocumentLabel`** (2026-09-12): the document's own number, else its KIND in the
+  reader's language from `ActivityVocabulary`'s subjects and its id (*"Depreciation Entry #141"*,
+  «قيد إهلاك #141»). Seven of the twenty-five posting sources carry no number, reference or
+  `label()`, and the column had printed their MORPH ALIAS — `depreciation_entry` on every
+  depreciation row — a raw storage key on the register an auditor reads end to end. The one source
+  that is not audited (`tenant_credit_application`) is named by its alias in the same vocabulary.
+  (`AJournalEntryNamesItsSourceInTheReadersLanguageTest`, three mutations.)
 
 Income statement & balance sheet pages land in **Phase 2**.
 

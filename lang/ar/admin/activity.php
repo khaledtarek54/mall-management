@@ -81,6 +81,7 @@ return [
             'ledger_account' => 'حساب أستاذ',
             'deposit_transaction' => 'حركة تأمين',
             'fixed_asset' => 'أصل ثابت',
+            'tenant_credit_application' => 'تطبيق رصيد مستأجر',
             'fixed_asset_disposal' => 'استبعاد أصل',
             'fixed_asset_transfer' => 'تحويل أصل',
             'fixed_asset_transfer_leg' => 'تحويل أصل (طرف)',

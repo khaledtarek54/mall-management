@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\JournalEntries\Tables;
 
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
+use App\Support\SourceDocumentLabel;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -56,17 +57,12 @@ class JournalEntriesTable
                             ]);
                         }
 
-                        $source = $record->source;
-
-                        // getAttribute rather than ->number: `source` is a morphTo, so it is a bare
-                        // Model to static analysis and every source names itself differently —
-                        // invoices and bills carry a `number`, receipts a `reference`, and a source
-                        // with neither (a transfer leg, point 18) names itself through `label()`
-                        // — the audit trail's own convention — rather than printing its morph alias.
-                        return $source?->getAttribute('number')
-                            ?? $source?->getAttribute('reference')
-                            ?? ($source !== null && method_exists($source, 'label') ? $source->label() : null)
-                            ?? ($record->source_type ? class_basename($record->source_type) : null);
+                        // Every source names itself differently — invoices and bills carry a
+                        // `number`, receipts a `reference`, a transfer leg a `label()` — and SEVEN of
+                        // the twenty-five carry none of the three, so this column printed their morph
+                        // alias (`depreciation_entry`, on every depreciation row). One resolver,
+                        // ending in the record's KIND in the reader's language and its id.
+                        return SourceDocumentLabel::for($record->source, $record->source_type);
                     })
                     ->url(function ($record): ?string {
                         $source = $record->source;

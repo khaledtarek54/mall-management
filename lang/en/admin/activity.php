@@ -81,6 +81,9 @@ return [
             'ledger_account' => 'Ledger Account',
             'deposit_transaction' => 'Deposit Transaction',
             'fixed_asset' => 'Fixed Asset',
+            // Not audited (a child of the tenant credit it applies), named here by its morph alias so
+            // the journal register can say what kind of document it was.
+            'tenant_credit_application' => 'Tenant credit applied',
             'fixed_asset_disposal' => 'Asset Disposal',
             'fixed_asset_transfer' => 'Asset Transfer',
             'fixed_asset_transfer_leg' => 'Asset Transfer (leg)',
