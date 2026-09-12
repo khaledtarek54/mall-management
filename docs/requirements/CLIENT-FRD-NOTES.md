@@ -213,7 +213,7 @@ These four decisions steer the FRs below:
 | 17 | TB daily depreciation; 60 months shows 25% not 20% | 25% = Law 91 tax pool, correct; 20% is the unshown book rate | **Not a bug** — the book rate now shows on the register (the *Annual rate %* column) and the form, beside the tax pool; daily posting declined (14) | — | ✅ closed by 14 |
 | 18 | Transfer an asset between places | `asset_id` editable → rewrites history | ✅ **Shipped 2026-09-12** — *Transfer* act on the asset's page (destination · date · reason), two GL legs on the transfer date (OUT of the old property, IN to the new, NBV through `inter_property_clearing`), history stays where it was, depreciation follows from the transfer month, a *Transfers* tab; `asset_id` REFUSED once depreciating ([modules/23 §2.11](../modules/23-fixed-assets.md)) | M | ✅ built |
 | 19 | Trial balance as a collapsible tree | Flat list | ✅ **Shipped 2026-09-12** — `LedgerTree`: every summary account a row with the sums of the leaves beneath it, opens **folded to the roots** (the client's ask), a click on the code unfolds a branch, *Unfold all* / *Fold all*; the PDF prints the fold on screen, the CSV carries the whole tree with a level column; every fold foots to the same totals ([modules/21](../modules/21-general-ledger.md#the-trial-balance-reads-as-the-charts-tree-2026-09-12)) | M | ✅ built |
-| 20 | Gross and net area per unit | One area | **Build** net area as an informational second measure | S | |
+| 20 | Gross and net area per unit | One area | ✅ **Shipped 2026-09-12** — `units.net_area_sqm` beside the gross (the existing column, relabelled *Gross area*, stays the only figure money reads); load factor under it on the register and the property tab; on the lease agreement and the rent roll; net ≤ gross on every door and the model; the Remeasure survey carries both ([modules/01](../modules/01-properties-units.md#a-unit-carries-its-net-area-beside-its-gross-2026-09-12-meeting-point-20)) | S | ✅ built |
 | 21 | The management contract is between the unit owner and Jawad | Terms stored, fee charged by nothing (gap B1) | **Decision, not code** — it answers half of B1 | (M once ruled) | |
 | 22 | Possession date: better description if blank → today | Helper exists; nothing computes it | **Ask** what "calculated from today" means; wording only | XS | |
 | 23 | Late fees → notify Eltizam to cut electricity/water; anything else? | Tenant + owner notified; no operations step | **Build** a collections stage that raises an operations request | M | |
@@ -677,6 +677,17 @@ factor between them; charges are on rentable *(cited, [09](../benchmarks/yardi/0
 relabelled *Gross (chargeable) area* and stays the only one any money rule reads; the load factor is
 derived. Printed on the unit register, the lease agreement and the rent roll. **Ask** them to confirm
 rent is priced on the gross figure in their contracts (my assumption). Effort **S**.
+
+**✅ Shipped 2026-09-12.** Exactly that: `area_sqm` is the gross and every money rule stays on it;
+`net_area_sqm` is informational, nullable (blank = not measured, never zero), never above the gross
+(`Unit::netAreaExceedsGross()` — one predicate for the form, the Remeasure modal, the importer and
+the model), editable on Edit where the gross is dated and locked, carried with a re-survey in one
+save, and printed with the load factor on the register and the property tab, on the lease agreement
+(total only when every let unit states one) and on the rent roll (CSV column last). No setting —
+the market charges on the rentable area and offers no switch. **The open question stands**: confirm
+that rent in their contracts is priced on the GROSS; if it is the net, the figures are swapped by
+data (re-survey), not by code. Detail in
+[modules/01](../modules/01-properties-units.md#a-unit-carries-its-net-area-beside-its-gross-2026-09-12-meeting-point-20).
 
 **#21 — *"3a2d edara da bekon ben unit owner and Jawad."***
 

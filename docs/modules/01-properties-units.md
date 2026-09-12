@@ -59,7 +59,8 @@ The Properties & Units module is the spatial foundation of the mall-management E
 | code | varchar | NOT NULL | Unit code (e.g., "A-01"); unique per asset |
 | floor_id | FK floors | nullable | The floor this unit stands on, SELECTED from the property's register (`Asset → Floors`). Replaced a free-text `floor` column and a short-lived `floor_level` ordinal on 2026-08-10 — free text left "G" and "Ground" as two floors to anything that grouped, and an ordinal per unit asked 200 rows to repeat one number. |
 | category | enum | default='retail' | One of: `retail`, `food_beverage`, `wellness`, `service`, `kiosk`, `office`, `storage` |
-| area_sqm | decimal(10,2) | NOT NULL | Unit area (m²). **DERIVED — the denominated truth is `unit_areas`.** This is the CURRENT measurement, the same relationship `leases.base_rent_monthly` has to its dated charge rows. Read-only on the Edit form; moved only by `RemeasureUnitService` through the **Remeasure** action, and `Unit::saving` refuses any other write that the dated rows do not already support. |
+| area_sqm | decimal(10,2) | NOT NULL | The GROSS unit area (m²) — the chargeable figure: rent per m², the recovery share and every occupancy number read it, and it is the only measure any money rule reads. **DERIVED — the denominated truth is `unit_areas`.** This is the CURRENT measurement, the same relationship `leases.base_rent_monthly` has to its dated charge rows. Read-only on the Edit form; moved only by `RemeasureUnitService` through the **Remeasure** action, and `Unit::saving` refuses any other write that the dated rows do not already support. Labelled *Gross area* since 2026-09-12. |
+| net_area_sqm | decimal(10,2) | nullable | The NET area (m²) — the part inside the demise, once shared corridors, columns and service space are taken out (2026-09-12, meeting point 20). INFORMATIONAL: printed beside the gross with the load factor (gross ÷ net) under it, never billed on. Blank is NOT MEASURED, never zero. A stated net never exceeds the gross (`Unit::netAreaExceedsGross()`, the one predicate every door and the model read). Undated — nothing apportions on it, so it is editable on Edit where the gross is not, and it rides with a re-survey. See *A unit carries its net area beside its gross* below. |
 | status | enum | default='vacant' | One of: `vacant`, `reserved`, `occupied`, `maintenance` (see occupancy projection) |
 | description | text | nullable | Long-form notes |
 | created_at, updated_at | timestamp | - | Timestamps |
@@ -276,6 +277,60 @@ instead, on the property's Units tab, and flagged while it does not fit — the 
 ceiling of zero would refuse every unit on an unmeasured property. The rule lives on the form,
 service and importer rather than on the model, so seeders and fixtures can still stage data.
 (`AUnitFitsInsideItsPropertyTest`.)
+
+### A unit carries its net area beside its gross (2026-09-12, meeting point 20)
+
+**The ask**: *"gross w net le msa7a le unit"*. Atriom held ONE area per unit — the figure every money
+rule reads — and no place for the inside-the-demise measurement a retailer signs for. The market's
+shape: a space carries a **rentable** and a **usable** area with the **load factor** between them,
+and charges run on the rentable one (`docs/benchmarks/yardi/01` §2.3).
+
+**The rule.** `units.area_sqm` IS the gross — relabelled *Gross area* on the register, the form,
+the property's Units tab, the importer and the exporter — and stays the only measure any money rule
+reads (rent per m², `deriveBaseRentFromRate()`, `areaSqmForPeriod()` and the recovery share,
+occupancy). `units.net_area_sqm` is the part inside the demise: **informational**, printed beside
+the gross on the register and the property tab with the load factor (gross ÷ net) under it, on the
+lease agreement's premises table (the column appears when a let unit states one; the TOTAL prints
+only when every let unit does — a total over a mix of measured and unmeasured shops reads as a
+smaller premises than the parties agreed), and on the rent roll (row, toggleable column, CSV column
+LAST so a sheet built on the old columns does not shift). `Lease::totalNetAreaSqm()` is the
+premises' reading, null unless every held unit states one.
+
+**Blank is NOT MEASURED, never zero** — a load factor against a missing figure is unknown, not 1.0
+(`Unit::loadFactor()` answers null), the reading `Asset::leasableEfficiencyPct()` gives the
+property's pair. A stated net must be positive and **never exceeds the gross**:
+`Unit::netAreaExceedsGross()` is the ONE predicate, read by `Unit::saving` (whichever of the two
+moves) and by the three doors so the refusal arrives as a field message in the reader's words —
+the unit form (create AND edit: the net is undated, so nothing apportions on it and a change has no
+past period to protect, which is why it is editable where the gross is not), the **Remeasure**
+modal, and the importer (`beforeSave()` throws a `RowImportFailedException`, because a model
+refusal under an importer is a message-less failed row; a MAPPED blank net cell clears, the
+`floor` column's rule; the old *Area* header still maps onto the gross through `->guess()`).
+
+**A survey carries both.** `RemeasureUnitService::record()` takes `net_area_sqm` beside the gross
+(key present → written, null clears; absent → left alone) and writes the pair in ONE save, because
+the model re-asks it on every write and a gross shrunk below the standing net would be refused
+before the net that re-states it had landed. A survey that CONFIRMS the gross and corrects the net
+is a change — the modal's *nothing to record* refusal stands down when the net moved, and the
+service's no-change branch still writes it. **The net is undated and lands TODAY**, so on a survey
+dated ahead it is judged against today's gross, not the survey's (the modal compares the same way
+the model does), and the helper says so. `EditUnit::derivedStatePaths()` refills it after the act
+— the review found the form holding the OLD net after a survey that moved it, so the next Save
+wrote it back under a success toast.
+
+**No setting.** Which area is charged on is not a knob anywhere in the market — the gross is the
+chargeable one by convention — so the client's open question (*is rent priced on the gross in
+their contracts?*) is answered by the shipped shape and confirmed or corrected by DATA, never by a
+switch. The mobile API deliberately does not expose the net (`LeaseResource` /
+`UnitOwnershipResource` carry `areaSqm` only); `docs/api/MOBILE-API.md` says so.
+
+**Still open, found while building this**: nothing promotes a FUTURE-dated `unit_areas` row into
+`units.area_sqm` when its day arrives — no sweep reads the register forward and the column is not in
+`ProjectedState`. A survey dated ahead records its row and the headline never follows. Pre-existing;
+recorded here rather than folded into point 20.
+
+(`AUnitCarriesItsNetAreaBesideTheGrossTest` — six cases, twenty-seven mutations each killing its
+own tooth; `Tests\Support\UnitImports` is the row driver, extracted on its second call site.)
 
 ### Occupancy is DERIVED, so the form offers only what a person may state
 
@@ -585,7 +640,8 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
   - code (text, required, max 20, placeholder A-01)
   - floor_id (Select, scoped to the property's own floors, ordered by level)
   - category (select enum; required)
-  - area_sqm (numeric, required, suffix m²)
+  - area_sqm (numeric, required, suffix m²) — *Gross area*; locked on Edit (dated)
+  - net_area_sqm (numeric, optional, suffix m², ≤ the gross) — *Net area*; editable on Edit (informational, undated)
   - status (select enum: vacant/reserved/occupied/maintenance; default vacant, required)
   - description (textarea, 2 rows, full-width)
 
@@ -593,7 +649,8 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 - code (badge, searchable, sortable)
 - floor.code (toggleable)
 - category (badge, enum label)
-- area_sqm (formatted "X m²", sortable)
+- area_sqm (formatted "X m²", sortable) — *Gross area*
+- net_area_sqm (formatted "X m²", sortable, toggleable; load factor gross ÷ net as the description; — when unmeasured)
 - activeLease.tenant.name (searchable; show current tenant or —)
 - activeLease.base_rent_monthly (money EGP; show rent or —)
 - activeLease.expiry_date (date d/m/Y; warning color if expiring within 90 days)

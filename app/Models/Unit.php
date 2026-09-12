@@ -37,6 +37,7 @@ class Unit extends Model
         'floor_id',
         'category',
         'area_sqm',
+        'net_area_sqm',
         'status',
         'description',
     ];
@@ -44,6 +45,7 @@ class Unit extends Model
     protected $casts = [
         'metadata' => 'array',
         'area_sqm' => 'decimal:2',
+        'net_area_sqm' => 'decimal:2',
     ];
 
     /**
@@ -289,6 +291,30 @@ class Unit extends Model
             }
         });
 
+        // ── The NET area is the part inside the demise, so it never exceeds the GROSS ──────────
+        //
+        // `area_sqm` is the gross, chargeable figure; `net_area_sqm` (point 20) is informational
+        // and nullable — blank is NOT MEASURED, not zero. Whichever of the two moves, the pair is
+        // re-asked: a re-survey that shrinks the gross below a stated net is refused with the way
+        // out (re-state the net with it — the Remeasure modal asks for both), because a load
+        // factor below 1.0 on the register would be a figure nobody could act on. Three doors write
+        // one or both — the unit form, the Remeasure act, the importer — and this hook stands
+        // behind all three.
+        static::saving(function (self $unit) {
+            if (! $unit->isDirty(['area_sqm', 'net_area_sqm'])) {
+                return;
+            }
+
+            // Blank is not measured; a stated figure has to measure something.
+            if ($unit->net_area_sqm !== null && (float) $unit->net_area_sqm <= 0) {
+                throw new \DomainException(__('admin.errors.unit_area_not_positive'));
+            }
+
+            if (self::netAreaExceedsGross($unit->net_area_sqm, $unit->area_sqm)) {
+                throw new \DomainException(self::netAreaRefusal($unit->net_area_sqm, $unit->area_sqm));
+            }
+        });
+
         // ── `area_sqm` is DERIVED from the dated rows, and may only move to what they say ───────
         //
         // Area versioning exists so that remeasuring a shop stops rewriting what was already
@@ -336,6 +362,44 @@ class Unit extends Model
                 'reason' => 'Opening measurement',
             ]);
         });
+    }
+
+    /**
+     * The ONE predicate for the gross/net pair, read by the model hook, the unit form, the
+     * Remeasure modal and the importer: a stated net area may not exceed the gross. Silent when
+     * either figure is blank — a net nobody measured constrains nothing.
+     */
+    public static function netAreaExceedsGross(mixed $net, mixed $gross): bool
+    {
+        if (blank($net) || blank($gross)) {
+            return false;
+        }
+
+        return round((float) $net, 2) > round((float) $gross, 2);
+    }
+
+    public static function netAreaRefusal(mixed $net, mixed $gross): string
+    {
+        return __('admin.refusals.unit_net_area_exceeds_gross', [
+            'net' => number_format((float) $net, 2),
+            'gross' => number_format((float) $gross, 2),
+        ]);
+    }
+
+    /**
+     * Gross ÷ net — the load factor the market reads a space by (1.18 = 18% of the gross is shared
+     * corridor, column and service space). Null when the net is not measured: a factor against a
+     * missing figure is unknown, not 1.0.
+     */
+    public function loadFactor(): ?float
+    {
+        $net = (float) ($this->net_area_sqm ?? 0);
+
+        if ($net <= 0) {
+            return null;
+        }
+
+        return round((float) $this->area_sqm / $net, 2);
     }
 
     /**

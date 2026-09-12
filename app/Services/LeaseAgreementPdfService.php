@@ -60,6 +60,13 @@ class LeaseAgreementPdfService
             'units' => $units,
             'asset' => $asset,
             'totalAreaSqm' => round((float) $units->sum('area_sqm'), 2),
+            // The net area beside the gross (point 20) — printed only when every let unit states
+            // one, because a total over a mix of measured and unmeasured shops reads as a smaller
+            // premises than the parties agreed. The gross stays the chargeable figure.
+            'totalNetAreaSqm' => $units->isNotEmpty() && $units->every(fn ($u) => filled($u->net_area_sqm))
+                ? round((float) $units->sum('net_area_sqm'), 2)
+                : null,
+            'showNetArea' => $units->contains(fn ($u) => filled($u->net_area_sqm)),
 
             // WHAT WILL ACTUALLY BE BILLED — see the class docblock. Only the rows that are live:
             // an ended charge is history, and printing it as a term would misstate the agreement.

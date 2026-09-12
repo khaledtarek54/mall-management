@@ -118,9 +118,28 @@ class UnitForm
                         ->disabled(fn (?Unit $record) => $record !== null)
                         ->dehydrated(fn (?Unit $record) => $record === null)
                         ->helperText(fn (?Unit $record) => $record === null
-                            ? null
+                            ? __('admin.helpers.unit_gross_area')
                             : __('admin.helpers.unit_area_locked'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.unit_area_locked')),
+                    // THE NET AREA — the part inside the demise (point 20). Informational: rent per
+                    // m², the recovery share and the occupancy figures all stay on the gross above,
+                    // so it is editable on Edit where the gross is not (nothing apportions on it,
+                    // so a change has no past period to protect). Blank means not measured. It may
+                    // not exceed the gross — `Unit::netAreaExceedsGross()` is the one predicate,
+                    // read here, by the Remeasure modal, the importer and the model's own hook.
+                    TextInput::make('net_area_sqm')
+                        ->label(__('admin.tables.unit.net_area'))
+                        ->numeric()
+                        ->minValue(0.01)
+                        ->suffix('m²')
+                        ->rules([
+                            fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                                if (Unit::netAreaExceedsGross($value, $get('area_sqm'))) {
+                                    $fail(Unit::netAreaRefusal($value, $get('area_sqm')));
+                                }
+                            },
+                        ])
+                        ->helperText(__('admin.helpers.unit_net_area')),
                     // A UNIT'S OCCUPANCY IS DERIVED, SO ONLY TWO OF ITS FOUR STATES ARE YOURS TO
                     // STATE. `occupied` and `reserved` are what `Unit::recomputeStatus()` writes
                     // from the leases holding the unit, and `EditUnit::afterSave()` re-projects on

@@ -294,6 +294,9 @@ class DemoSeeder extends Seeder
                     'floor_id' => $this->floorFor($plazaAnnex, 'Ground')->id,
                     'category' => $n <= 4 ? 'retail' : 'food_beverage',
                     'area_sqm' => 80 + ($n * 5),
+                    // The net area beside the gross (point 20) — the part inside the demise; a
+                    // mall shop typically loses ~15% to shared corridor, column and service space.
+                    'net_area_sqm' => round((80 + ($n * 5)) * 0.85, 2),
                     'status' => 'vacant',
                 ],
             );
@@ -315,6 +318,7 @@ class DemoSeeder extends Seeder
                 'floor_id' => $this->floorFor($atriomWalk, $unitData['floor'])->id,
                 'category' => $unitData['category'],
                 'area_sqm' => $unitData['area'],
+                'net_area_sqm' => round($unitData['area'] * 0.85, 2),
                 'status' => 'vacant', // will flip if leased
             ]);
 

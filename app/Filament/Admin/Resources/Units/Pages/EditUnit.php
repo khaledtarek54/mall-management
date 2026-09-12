@@ -21,10 +21,17 @@ class EditUnit extends EditRecord
      * button that changes it. `RemeasureUnitService` re-reads the unit into a new instance, so
      * without the re-read the operator records a re-survey, is told it worked, and goes on reading
      * the old area.
+     *
+     * `net_area_sqm` rides with the survey since point 20 (2026-09-12) and MUST be refilled too —
+     * and this one is worse than stale, because the field is EDITABLE: found by the review, a
+     * survey that shrank the gross to 80 and re-stated the net at 70 left the form reading 85, so
+     * the next Save was refused on a field nobody touched; a survey that GREW the gross and moved
+     * the net up left the old net on the form, and a plain Save wrote it back under a success
+     * toast — the survey's net silently reverted.
      */
     protected function derivedStatePaths(): array
     {
-        return ['area_sqm'];
+        return ['area_sqm', 'net_area_sqm'];
     }
 
     protected static string $resource = UnitResource::class;

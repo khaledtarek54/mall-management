@@ -292,6 +292,7 @@ class NileGateSeeder extends Seeder
                 'floor_id' => $this->floor($row['floor'])->id,
                 'category' => $row['category'],
                 'area_sqm' => $row['area'],
+                'net_area_sqm' => round($row['area'] * 0.85, 2),
                 'status' => 'vacant',
             ]);
         }

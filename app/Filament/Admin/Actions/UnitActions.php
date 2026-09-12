@@ -83,10 +83,43 @@ class UnitActions
                                     ? $record->areaOn(CarbonImmutable::parse($on))
                                     : (float) $record->area_sqm;
 
-                                if ($current !== null && round((float) $value, 2) === round((float) $current, 2)) {
+                                // …unless the NET moved (point 20): a survey that confirms the
+                                // gross and corrects the net is a change, and the service writes it
+                                // on its no-change branch. Without this carve-out the only door for
+                                // a net-only correction was the Edit form, and nothing said so.
+                                $netMoved = round((float) ($get('net_area_sqm') ?? 0), 2) !== round((float) ($record->net_area_sqm ?? 0), 2);
+
+                                if ($current !== null && ! $netMoved && round((float) $value, 2) === round((float) $current, 2)) {
                                     $fail(__('admin.refusals.remeasure_no_change', [
                                         'area' => number_format((float) $current, 2),
                                     ]));
+                                }
+                            },
+                        ]),
+                    // The net area travels with the survey (point 20): a gross re-measured below
+                    // the stated net would be refused by the model, so the modal asks for both,
+                    // defaulting to what the unit carries so an unchanged net simply carries over.
+                    // The net is UNDATED and lands today, so it is judged against the gross in
+                    // force on the day it lands: the survey's own for a survey effective today or
+                    // earlier, TODAY's for one dated ahead — the same comparison the model makes
+                    // on the save, so the refusal arrives here as a field message and not as a
+                    // toast quoting a figure the operator did not type (found by the review).
+                    TextInput::make('net_area_sqm')
+                        ->label(__('admin.tables.unit.net_area'))
+                        ->numeric()
+                        ->minValue(0.01)
+                        ->suffix('m²')
+                        ->default(fn (Unit $record) => $record->net_area_sqm)
+                        ->helperText(__('admin.helpers.remeasure_net_area'))
+                        ->rules([
+                            fn (Unit $record, Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record, $get): void {
+                                $on = $get('effective_from');
+                                $gross = filled($on) && CarbonImmutable::parse($on)->startOfDay()->isFuture()
+                                    ? $record->areaOn()
+                                    : $get('area_sqm');
+
+                                if (Unit::netAreaExceedsGross($value, $gross)) {
+                                    $fail(Unit::netAreaRefusal($value, $gross));
                                 }
                             },
                         ]),
@@ -110,6 +143,7 @@ class UnitActions
                         app(RemeasureUnitService::class)->record($record, (float) $data['area_sqm'], [
                             'effective_from' => $data['effective_from'] ?? null,
                             'reason' => $data['reason'] ?? null,
+                            'net_area_sqm' => filled($data['net_area_sqm'] ?? null) ? (float) $data['net_area_sqm'] : null,
                         ]);
                     } catch (\DomainException $e) {
                         // e.g. a date at or before the row it would close — a toast, not a 500.

@@ -4,21 +4,18 @@ use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Filament\Exports\UnitExporter;
 use App\Filament\Imports\UnitImporter;
 use App\Http\Middleware\SetLocale;
-use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\Unit;
 use App\Support\ReportCsv;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Exports\Models\Export;
-use Filament\Actions\Imports\Models\Import;
 use Filament\Actions\Testing\TestAction;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\App;
-use Illuminate\Validation\ValidationException;
 use League\Csv\Reader;
 use League\Csv\Writer;
 use Livewire\Livewire;
 use Tests\Support\ExportCells;
+use Tests\Support\UnitImports;
 
 /**
  * The units CSV printed a JSON dump of the Floor row where the floor should have been.
@@ -147,7 +144,6 @@ it('produces a units CSV whose floor column is a code and not a record', functio
 /**
  * THE ROUND TRIP, which is what `floor.code` is chosen for — and the door at the other end was
  * broken.
- *
  * `units.floor` was dropped by `2026_08_10_160000_create_floors_and_move_units_onto_them`, and
  * `UnitImporter`'s column was never moved onto the register that replaced it: no
  * `fillRecordUsing`, no `relationship()`, so `ImportColumn::fillRecord()` fell through to
@@ -162,52 +158,15 @@ it('produces a units CSV whose floor column is a code and not a record', functio
  * the broken one. Fixing one door and leaving the other is how a file that exports cleanly fails
  * every row going back in.
  *
- * Driven through `Importer::__invoke()` — the per-row seam `ImportCsv` calls, which remaps, casts,
- * VALIDATES, resolves the record and saves. Setting `floor_id` by hand would be a fixture writing
- * a column no door writes, and green over dead code.
+ * Rows are driven through `Tests\Support\UnitImports::row()` — `Importer::__invoke()`, the per-row
+ * seam `ImportCsv` calls, which remaps, casts, VALIDATES, resolves the record and saves. Setting
+ * `floor_id` by hand would be a fixture writing a column no door writes, and green over dead code.
+ * Extracted there on its second call site (the net-area test, 2026-09-12).
  */
-function importUnitRow(Asset $asset, array $row): Unit|string
-{
-    // Keyed by LABEL, not name-to-name. An identity map makes the CSV header identical to the
-    // column name, so the test would pass whether Filament keys validation data by column name or
-    // by CSV header — the very thing the DataAwareRule depends on. `remapData()` leaves BOTH key
-    // sets on `$this->data`, which is what makes `$this->data['asset_code']` reachable from a rule
-    // whose column was mapped from a header called "Code".
-    $map = [];
-
-    foreach (UnitImporter::getColumns() as $column) {
-        $map[$column->getName()] = (string) $column->getLabel();
-    }
-
-    $unitCode = $row['code'];
-    $row = collect($row)->mapWithKeys(fn ($value, $name) => [$map[$name] ?? $name => $value])->all();
-
-    $import = Import::create([
-        'completed_at' => now(),
-        'file_name' => 'units.csv',
-        'file_path' => 'units.csv',
-        'importer' => UnitImporter::class,
-        'processed_rows' => 0,
-        'total_rows' => 1,
-        'successful_rows' => 0,
-        'user_id' => auth()->id(),
-    ]);
-
-    $importer = new UnitImporter($import, $map, []);
-
-    try {
-        $importer($row);
-    } catch (ValidationException $e) {
-        return implode(' ', Arr::flatten($e->errors()));
-    }
-
-    return Unit::where('asset_id', $asset->id)->where('code', $unitCode)->sole();
-}
-
 it('re-imports the floor code it exported, onto the floor register', function () {
     $exported = ExportCells::row(UnitExporter::class, $this->unit->refresh())['floor.code'];
 
-    $imported = importUnitRow($this->asset, [
+    $imported = UnitImports::row($this->asset, [
         'asset_code' => $this->asset->code,
         'code' => 'B-2',
         'floor' => $exported,
@@ -220,7 +179,7 @@ it('re-imports the floor code it exported, onto the floor register', function ()
 });
 
 it('refuses a floor the property does not have, in words rather than as SQL', function () {
-    $refusal = importUnitRow($this->asset, [
+    $refusal = UnitImports::row($this->asset, [
         'asset_code' => $this->asset->code,
         'code' => 'B-3',
         'floor' => 'B7',
@@ -235,7 +194,7 @@ it('refuses a floor the property does not have, in words rather than as SQL', fu
 });
 
 it('imports a unit with no floor at all, which is the blank cell that also used to fail', function () {
-    $imported = importUnitRow($this->asset, [
+    $imported = UnitImports::row($this->asset, [
         'asset_code' => $this->asset->code,
         'code' => 'B-4',
         'floor' => '',

@@ -162,6 +162,9 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
             __('admin.rent_roll.marketing'), __('admin.rent_roll.total_monthly'),
             __('admin.fields.escalation_rate'), __('admin.rent_roll.next_step'),
             __('admin.rent_roll.next_option'), __('admin.fields.security_deposit'),
+            // The net area (point 20) LAST, so a sheet built on the columns this file always had
+            // does not shift.
+            __('admin.tables.unit.net_area'),
         ];
 
         $rows = $this->rows()->map(fn (array $r): array => [
@@ -174,6 +177,7 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
             $r['next_step_date'] ? $r['next_step_date']->toDateString().' → '.$r['next_step_amount'] : '',
             $r['next_option_date']?->toDateString(),
             $r['security_deposit'],
+            $r['net_area_sqm'],
         ])->all();
 
         return [
@@ -213,6 +217,14 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
                     ->numeric(2)
                     ->alignEnd()
                     ->suffix(' m²'),
+                // The net area beside the gross (point 20); blank where a held unit is unmeasured.
+                TextColumn::make('net_area_sqm')
+                    ->label(__('admin.tables.unit.net_area'))
+                    ->numeric(2)
+                    ->alignEnd()
+                    ->suffix(' m²')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('expiry_date')
                     ->label(__('admin.fields.expiry_date'))
                     ->date('d/m/Y')

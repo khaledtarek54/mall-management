@@ -380,6 +380,11 @@ from the unit (a bay is not lettable *area*), which is why it is its own field r
   "hasPercentageRent": true, "percentageRentRate": 5.00,
   "unit": { "id": 4, "code": "A-01", "floor": "G", "category": "retail",
     "areaSqm": 120.00, "asset": { "id": 1, "name": "Atriom Walk", "code": "AW" } } } ] }
+
+> `areaSqm` is the unit's GROSS (chargeable) area. The NET area the panel carries beside it since
+> 2026-09-12 (`units.net_area_sqm`, informational) is deliberately NOT exposed here — nothing a
+> tenant is billed on reads it, and adding a key rewrites the generated contract for a figure the
+> app has no screen for. Ask before adding it.
 ```
 
 ---

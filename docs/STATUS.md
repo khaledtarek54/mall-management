@@ -473,7 +473,16 @@ leaves' at every fold. No setting — the fold is a control, not configuration, 
 default is the market's shape. The balance sheet and P&L keep their group subtotals for now and take
 the tree later on the same helper
 ([modules/21](modules/21-general-ledger.md#the-trial-balance-reads-as-the-charts-tree-2026-09-12)).
-Next in the memo's order: 20 (gross and net area per unit), then 23.
+**Point 20 shipped 2026-09-12** — every unit carries a NET area beside its GROSS one: the gross
+(the column you always had, now labelled *Gross area*) stays the only figure rent per m², the
+recovery share and occupancy read; the net is the part inside the demise, informational, with the
+load factor under it on the register and the property tab, on the lease agreement and on the rent
+roll. Blank means not measured; a stated net never exceeds the gross, on every screen, the importer
+and the re-survey alike. No setting — which area is charged on is not a knob anywhere in the market.
+**Your confirmation is still wanted**: rent in your contracts is priced on the gross (my assumption,
+and the shipped shape); if it is the net, the figures are corrected by a re-survey, not by code
+([modules/01](modules/01-properties-units.md#a-unit-carries-its-net-area-beside-its-gross-2026-09-12-meeting-point-20)).
+Next in the memo's order: 23 (late fees → an operations request to cut services).
 
 ### 9.1 · The accountant's sitting
 

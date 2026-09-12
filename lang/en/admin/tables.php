@@ -91,7 +91,11 @@ return [
             'code' => 'Unit',
             'asset' => 'Property',
             'category' => 'Category',
-            'area' => 'Area',
+            // The GROSS area — the chargeable figure rent per m² and the recovery share read
+            // (relabelled from "Area" on 2026-09-12 when the net area joined it, point 20).
+            'area' => 'Gross area',
+            'net_area' => 'Net area',
+            'load_factor' => 'Load factor :factor',
             'area_zone' => 'Zone',
             'area_zone_hint' => 'The facility zone this unit sits in — only this property\'s active zones are offered.',
             'no_area_zone' => 'No zone',

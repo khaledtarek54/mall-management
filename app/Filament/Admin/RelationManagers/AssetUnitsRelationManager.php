@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Actions\OpenRecordAction;
 use App\Filament\Admin\Resources\Units\UnitResource;
+use App\Models\Unit;
 use App\Support\BadgeColors;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -87,6 +88,17 @@ class AssetUnitsRelationManager extends RelationManager
                     ->label(__('admin.tables.unit.area'))
                     ->formatStateUsing(fn ($state) => number_format((float) $state, 0).' m²')
                     ->sortable(),
+                // The net area beside the gross (point 20), the load factor under it — blank where
+                // nobody measured it, the same reading the register gives.
+                TextColumn::make('net_area_sqm')
+                    ->label(__('admin.tables.unit.net_area'))
+                    ->formatStateUsing(fn ($state) => number_format((float) $state, 0).' m²')
+                    ->description(fn (Unit $record): ?string => $record->loadFactor() !== null
+                        ? __('admin.tables.unit.load_factor', ['factor' => number_format($record->loadFactor(), 2)])
+                        : null)
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('activeLease.tenant.name')
                     ->label(__('admin.tables.unit.tenant'))
                     ->placeholder('—')

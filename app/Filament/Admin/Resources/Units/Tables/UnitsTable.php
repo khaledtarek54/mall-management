@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Units\Tables;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Exports\UnitExporter;
 use App\Models\Asset;
+use App\Models\Unit;
 use App\Support\BadgeColors;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
@@ -62,6 +63,20 @@ class UnitsTable
                     ->numeric(decimalPlaces: 0)
                     ->sortable()
                     ->alignRight(),
+                // The net area beside the gross (point 20) — the part inside the demise, with the
+                // load factor (gross ÷ net) under it. Blank where nobody measured it: a factor
+                // against a missing figure is unknown, not 1.0. Informational — every money rule
+                // stays on the gross column to its left.
+                TextColumn::make('net_area_sqm')
+                    ->label(__('admin.tables.unit.net_area'))
+                    ->numeric(decimalPlaces: 0)
+                    ->description(fn (Unit $record): ?string => $record->loadFactor() !== null
+                        ? __('admin.tables.unit.load_factor', ['factor' => number_format($record->loadFactor(), 2)])
+                        : null)
+                    ->placeholder('—')
+                    ->sortable()
+                    ->alignRight()
+                    ->toggleable(),
                 TextColumn::make('area.name')
                     ->label(__('admin.tables.unit.area_zone'))
                     ->badge()

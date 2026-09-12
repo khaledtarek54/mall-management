@@ -78,6 +78,11 @@
                 <th>{{ __('admin.resources.unit.singular') }}</th>
                 <th>{{ __('admin.pdf.floor') }}</th>
                 <th class="num">{{ __('admin.tables.unit.area') }}</th>
+                {{-- The net area beside the gross (point 20) — the column appears only when a let
+                     unit states one; the gross stays the figure the rent is priced on. --}}
+                @if ($showNetArea ?? false)
+                    <th class="num">{{ __('admin.tables.unit.net_area') }}</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -86,6 +91,9 @@
                     <td>{{ Bidi::isolate($unit->code) }}</td>
                     <td>{{ Bidi::isolate($unit->floor?->name ?? '—') }}</td>
                     <td class="num">{{ number_format((float) $unit->area_sqm, 2) }}</td>
+                    @if ($showNetArea ?? false)
+                        <td class="num">{{ filled($unit->net_area_sqm) ? number_format((float) $unit->net_area_sqm, 2) : '—' }}</td>
+                    @endif
                 </tr>
             @endforeach
         </tbody>
@@ -93,6 +101,9 @@
             <tr class="subtotal">
                 <td colspan="2">{{ __('admin.reports.totals') }}</td>
                 <td class="num">{{ number_format($totalAreaSqm, 2) }}</td>
+                @if ($showNetArea ?? false)
+                    <td class="num">{{ $totalNetAreaSqm !== null ? number_format($totalNetAreaSqm, 2) : '—' }}</td>
+                @endif
             </tr>
         </tfoot>
     </table>

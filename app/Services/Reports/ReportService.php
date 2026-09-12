@@ -494,6 +494,9 @@ class ReportService
                 'unit' => $lease->unit?->code,
                 'units' => $lease->units->pluck('code')->implode(', ') ?: $lease->unit?->code,
                 'area_sqm' => $area,
+                // The net area beside the gross (point 20) — informational; the per-m² rate below
+                // stays on the gross, which is what the rent was priced on.
+                'net_area_sqm' => $lease->totalNetAreaSqm(),
                 'commencement_date' => $lease->commencement_date,
                 'expiry_date' => $lease->expiry_date,
                 'months_remaining' => filled($lease->expiry_date)

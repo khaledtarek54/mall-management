@@ -89,7 +89,7 @@ final class AssistantFields
             'columns' => ['reference', 'status', 'commencement_date', 'expiry_date', 'base_rent_monthly'],
         ],
         Unit::class => [
-            'columns' => ['code', 'status', 'area_sqm'],
+            'columns' => ['code', 'status', 'area_sqm', 'net_area_sqm'],
         ],
         Invoice::class => [
             'columns' => ['number', 'status', 'issue_date', 'due_date', 'total', 'paid_amount', 'balance'],

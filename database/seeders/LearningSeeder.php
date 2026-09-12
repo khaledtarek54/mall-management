@@ -203,6 +203,9 @@ class LearningSeeder extends Seeder
                     'floor_id' => $this->floor($asset, $row['floor'])->id,
                     'category' => $row['category'],
                     'area_sqm' => $row['area'],
+                    // The net area beside the gross (point 20): ~15% of a shop is shared corridor,
+                    // column and service space, so the register opens with both figures filled.
+                    'net_area_sqm' => round($row['area'] * 0.85, 2),
                     'status' => 'vacant',
                 ],
             );

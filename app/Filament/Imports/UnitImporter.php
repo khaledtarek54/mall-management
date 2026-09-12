@@ -11,6 +11,7 @@ use App\Support\Filament\CustomFieldsTable;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
 use Closure;
+use Filament\Actions\Imports\Exceptions\RowImportFailedException;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -185,6 +186,9 @@ class UnitImporter extends Importer
 
             ImportColumn::make('area_sqm')
                 ->label(__('admin.tables.unit.area'))
+                // The column read *Area* until 2026-09-12, when the net area joined it and the
+                // label became *Gross area*; a template exported under the old header still maps.
+                ->guess(['Area', 'المساحة'])
                 ->numeric()
                 // `min:0` accepted a zero-area unit, which the form has always refused — a second
                 // door carrying a weaker bound than the first. The ceiling is the third door onto
@@ -221,6 +225,19 @@ class UnitImporter extends Importer
                     }
                 }]),
 
+            // The NET area (point 20) — informational, so it carries no ceiling of its own beyond
+            // the gross it sits inside; a stated net above the row's gross is refused in words
+            // BELOW, in `beforeSave()`, because the pair may straddle the file (a file whose gross
+            // column is UNMAPPED leaves the unit's own gross on a re-import — a MAPPED blank cell
+            // is null, which `Unit::updating` refuses for the gross as it always has) and a rule
+            // on one cell cannot see the other half where it lives. A mapped blank NET cell
+            // CLEARS — the `floor` column's rule, so the column is settable back through the door
+            // that set it.
+            ImportColumn::make('net_area_sqm')
+                ->label(__('admin.tables.unit.net_area'))
+                ->numeric()
+                ->rules(['nullable', 'numeric', 'min:0.01']),
+
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))
                 // 'occupied'/'reserved' are projections of a lease, not importable values — only
@@ -253,6 +270,23 @@ class UnitImporter extends Importer
 
         // Out-of-scope / unknown asset: the asset_code rule fails the row; return a bare record.
         return new Unit;
+    }
+
+    /**
+     * The gross/net pair, asked of the ROW as it will be saved — the file's gross where that
+     * column is mapped, else the gross the unit already carries. `Unit::saving` refuses the same
+     * thing, but a model refusal under an importer is a failed row with no sentence: only a
+     * `RowImportFailedException` reaches the failed-rows file in words (the `FixedAssetImporter`
+     * idiom).
+     */
+    protected function beforeSave(): void
+    {
+        /** @var Unit $unit */
+        $unit = $this->record;
+
+        if (Unit::netAreaExceedsGross($unit->net_area_sqm, $unit->area_sqm)) {
+            throw new RowImportFailedException(Unit::netAreaRefusal($unit->net_area_sqm, $unit->area_sqm));
+        }
     }
 
     public static function getCompletedNotificationBody(Import $import): string

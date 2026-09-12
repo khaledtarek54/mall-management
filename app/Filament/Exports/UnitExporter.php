@@ -50,6 +50,10 @@ class UnitExporter extends Exporter
             ExportColumn::make('activeLease.base_rent_monthly')->label(__('admin.tables.unit.rent')),
             ExportColumn::make('activeLease.expiry_date')->label(__('admin.widgets.top_tenants.lease_ends')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
+            // The net area (point 20) — AFTER the columns the file always had, so a template built
+            // on their positions does not shift; the importer maps by LABEL, and this label is the
+            // importer's own, so the round trip needs no position at all.
+            ExportColumn::make('net_area_sqm')->label(__('admin.tables.unit.net_area')),
 
             // The operator's own fields (D-7), LAST so the shipped column positions a
             // colleague's import template depends on never move.

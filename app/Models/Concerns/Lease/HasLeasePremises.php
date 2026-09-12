@@ -364,6 +364,27 @@ trait HasLeasePremises
     }
 
     /**
+     * The premises' NET area today — the part inside the demise, summed over the units this lease
+     * holds (point 20). Informational: nothing prices or apportions on it, which is why it is
+     * undated where `totalAreaSqmOn()` is not. Null unless EVERY held unit states one — a total
+     * over a mix of measured and unmeasured shops would read as a smaller premises than it is.
+     */
+    public function totalNetAreaSqm(): ?float
+    {
+        $units = $this->unitsOn(CarbonImmutable::now());
+
+        if ($units->isEmpty()) {
+            $units = collect([$this->unit])->filter();
+        }
+
+        if ($units->isEmpty() || $units->contains(fn (Unit $unit): bool => blank($unit->net_area_sqm))) {
+            return null;
+        }
+
+        return round((float) $units->sum(fn (Unit $unit): float => (float) $unit->net_area_sqm), 2);
+    }
+
+    /**
      * The lease's **time-weighted** area across a period — the basis a recovery reconciliation
      * must apportion on.
      *

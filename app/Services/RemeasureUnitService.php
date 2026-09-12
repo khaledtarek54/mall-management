@@ -28,7 +28,13 @@ use Illuminate\Support\Facades\DB;
 class RemeasureUnitService
 {
     /**
-     * @param  array{effective_from?: string|\DateTimeInterface|null, reason?: string|null}  $data
+     * `net_area_sqm` (point 20) rides with the survey when the key is PRESENT — null clears a net
+     * the survey no longer states, an absent key leaves whatever the unit carries. It is not dated:
+     * nothing apportions on it. The gross/net pair is asked ONCE, by `Unit::saving`, on the single
+     * save below — a gross shrunk below a standing net is refused there in the reader's words and
+     * the transaction rolls the dated row back with it; a second check here would be a copy.
+     *
+     * @param  array{effective_from?: string|\DateTimeInterface|null, reason?: string|null, net_area_sqm?: float|null}  $data
      */
     public function record(Unit $unit, float $newArea, array $data = []): UnitArea
     {
@@ -58,7 +64,10 @@ class RemeasureUnitService
 
             if ($current && round((float) $current->area_sqm, 2) === round($newArea, 2)) {
                 // Nothing changed. Opening an identical row would put a second answer on the same
-                // day for no reason, and make the register harder to read for nothing.
+                // day for no reason, and make the register harder to read for nothing. The net
+                // still lands: a survey that confirms the gross and corrects the net is a change.
+                $this->writeHeadline($locked, null, $data);
+
                 return $current;
             }
 
@@ -85,11 +94,43 @@ class RemeasureUnitService
             // The headline column follows only when the new measurement is in force TODAY. A
             // remeasurement dated in the future must not make the current area read as something
             // the unit does not yet measure.
-            if (! $from->isFuture()) {
-                $locked->forceFill(['area_sqm' => round($newArea, 2)])->save();
-            }
+            $this->writeHeadline($locked, $from->isFuture() ? null : round($newArea, 2), $data);
 
             return $row;
         });
+    }
+
+    /**
+     * The unit's headline columns, in ONE save: the gross where the survey is in force today, and
+     * the net where the survey stated one (the key present; null clears). One save, not two,
+     * because the model re-asks the pair on every write — a gross shrunk below the standing net
+     * would be refused before the net that re-states it had landed. The net is undated, so it
+     * lands TODAY whatever the survey's effective date, and is judged against the gross in force
+     * today — for a survey dated ahead that is the standing gross, not the survey's, and the
+     * Remeasure modal compares the same way so the refusal reaches the operator as a field
+     * message. (A future-dated survey's GROSS is never promoted into `area_sqm` by anything — no
+     * sweep reads `unit_areas` forward; recorded as open in modules/01.)
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function writeHeadline(Unit $locked, ?float $gross, array $data): void
+    {
+        $attributes = $gross === null ? [] : ['area_sqm' => $gross];
+
+        if (array_key_exists('net_area_sqm', $data)) {
+            $net = $data['net_area_sqm'] === null ? null : round((float) $data['net_area_sqm'], 2);
+
+            if ($net !== null && $net <= 0) {
+                throw new DomainException(__('admin.errors.unit_area_not_positive'));
+            }
+
+            if (round((float) ($locked->net_area_sqm ?? 0), 2) !== (float) ($net ?? 0)) {
+                $attributes['net_area_sqm'] = $net;
+            }
+        }
+
+        if ($attributes !== []) {
+            $locked->forceFill($attributes)->save();
+        }
     }
 }
