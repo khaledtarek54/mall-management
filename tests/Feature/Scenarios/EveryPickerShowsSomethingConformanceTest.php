@@ -36,6 +36,9 @@ const DEPENDS_ON_A_PARENT = [
     'CreateCreditNote → invoice_id',
     'CreatePayment → invoice_id',
     'CreatePostDatedCheque → invoice_id',
+    // Narrowed to the TENANT picked above it (2026-09-11) — the invoice picker's own rule, on
+    // the second column the same form fills from the same parent.
+    'CreatePostDatedCheque → lease_id',
     'CreateVendorBill → vendor_contract_id',
     'CreateVendorBill → purchase_request_id',
     'CreateRecurringExpense → vendor_contract_id',
