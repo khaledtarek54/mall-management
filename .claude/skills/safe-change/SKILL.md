@@ -30,6 +30,17 @@ step 1, and it is your call.
 **Never invent behaviour.** Write the standard down in the commit message and the module doc —
 *"Yardi does X, so we do X"*. **Being STRICTER than Yardi is also a deviation: say so and say why.**
 
+**The standard is named in the DOCUMENTS, never on the SCREEN** (Khaled, 2026-09-12 — restated
+the same day on point 16). Yardi, SAP, Odoo, MRI and the rest appear in the commit message, the
+module doc, `docs/benchmarks/`, CLAUDE.md, a docblock, a registry's reason string — everything
+written for whoever changes the code. They NEVER appear on anything an operator or a client reads:
+a settings helper text, a section description, a refusal, a notification, a label, a tooltip, a
+seeded value, a Blade template, the handbook, or a page the in-panel assistant quotes. A helper
+text describes what the SETTING DOES — *"Off: recorded, with a warning. On: refused."* — not whose
+default it is. `TheDashboardNamesNoOtherSystemConformanceTest` sweeps every rendered surface and
+is red the moment a name lands; run it with the gates in step 5. Twice in one day a helper text
+shipped saying *"Yardi's default"* — write the sentence about the field, and the name never comes up.
+
 ## 2. Find the real seam before touching anything
 
 Read `docs/modules/NN-*.md` → *Business rules*, *Extension points*, *Gotchas*. Then **grep for the
@@ -102,7 +113,9 @@ NOT a toggle. Configurability follows the standard in both directions.
 - A refusal is **the app talking to a person**: translated EN **and** AR, naming the CAUSE and the
   way out. Never a raw column name, never a bare status string.
 - The button's `visible()` and the service's guard read **the same predicate**.
-- Field help where a bound would otherwise surprise someone (18-word budget).
+- Field help where a bound would otherwise surprise someone (18-word budget) — and it describes
+  the FIELD, never the benchmark system the rule came from (step 1's last paragraph: no Yardi, no
+  SAP, on anything rendered; `TheDashboardNamesNoOtherSystemConformanceTest` is the gate).
 - Check the screen in **both languages**; a raw `admin.*` key on screen is a shipped defect.
 
 ## 5. Prove it — a green test is not proof
