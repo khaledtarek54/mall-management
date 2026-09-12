@@ -535,7 +535,9 @@ All under the **Accounting** navigation group (`admin.groups.accounting`), gated
   balance brought forward* below). Filter by property + period. **Read as the chart's tree since
   2026-09-12** — opens folded to the roots, a summary row's code unfolds its branch, *Unfold all* /
   *Fold all* in the header (see *The trial balance reads as the chart's tree* below).
-- **`GeneralLedger` page** — دفتر الأستاذ. Per-account running statement (كشف حساب).
+- **`GeneralLedger` page** — دفتر الأستاذ. Per-account running statement (كشف حساب) — **or every
+  account with movement in the period since 2026-09-12** (see *The general ledger reads every
+  account, and prints* below), and a PDF for either reading.
 
 Income statement & balance sheet pages land in **Phase 2**.
 
@@ -1025,6 +1027,66 @@ and the PDF service hands those records to the template, resolved inside the doc
 the resolver, each killing its own tooth. Its first PDF assertion was `toContain('group-heading')`,
 which the shared layout's STYLESHEET satisfies on every statement — green with the heading row
 deleted; it asserts the row markup now.)
+
+### The general ledger reads every account, and prints (2026-09-12, the reports audit)
+
+The GL page answered ONE account at a time and was the one ledger report with no printed form — the
+four statements and the trial balance print, and the detail behind them, what a month-end review is
+read from and what an auditor asks for, could only be exported one account at a time: ~40 exports
+for a period. The reference systems print the general ledger as one report over an account range.
+
+**`LedgerReportService::generalLedger($assetIds, $from, $to)`** is that reading: every account with
+a line dated on or before the window's end (scoped), in chart order, **each through the SAME
+`accountLedger()`** — so a figure on the full ledger is the figure on that account's own statement
+and the running balance is one arithmetic. An account is then dropped only if it opened at zero AND
+moved nowhere in the window: **an account with a standing balance and no movement still prints**
+(its opening is its closing, and a ledger that silently left it out would not foot to the trial
+balance beside it). Correctness rests on `accountLedger()`'s own property scope; the candidate
+query's scope only narrows the work.
+
+**On the page, "Every account" is a toggle beside the picker** (`GeneralLedger::$allAccounts`, a
+public bool, so it is a saved-view parameter — "GL, every account, monthly" can be scheduled — and
+a remembered shape). With it on, the picker is disabled rather than cleared, every account's rows
+sit under its heading through the table's own grouping, and each is bracketed by its opening AND
+its closing row (on one account the closing stays in the subheading, as it always was). **Three
+things it had to get right, each a tooth in `TheGeneralLedgerReadsEveryAccountTest`**: the group is
+DECLARED unconditionally and APPLIED through `$tableGrouping` in the request that flips the toggle
+— Filament builds the table at boot with the properties as hydrated and reads `defaultGroup()` once
+at mount, so a group declared only while the toggle is on did not exist on the request that turned
+it on (measured: it rendered grouped on a dev database only because the toggle had been REMEMBERED
+before mount); **the URL beats the memory** — a statement row's drill-down names its account and
+must open THAT account, not forty with the one clicked somewhere among them, so a link carrying
+`accountId` switches the toggle off; and the page's generic `updated()` hook is CHAINED onto
+`KeepsFilterAnswered`'s rather than shadowing it, or every ledger report's year would have been
+clearable to a 500 again, silently.
+
+**The CSV** (`ReportCsvExporter::generalLedgerAll()`) prepends the account code and name to the
+single-account file's six columns — composed from `generalLedger()` per account, so a template
+built on that file reads the whole ledger by dropping two columns. **The PDF**
+(`LedgerReportPdfService::generalLedger()`, template `accounting.pdf.general-ledger`) prints one
+account or every account — heading · opening · lines with running balance · closing, per account —
+with narratives resolved inside the document's locale through `JournalNarrative::resolve()`, the
+seam the screen and the CSV read (EG-36); every bare figure is `Bidi::isolate()`d, because an
+Arabic page printed `-338,003.70` as `338,003.70-` on exactly the abnormal-side balances an auditor
+reads first (found by review, by extracting the text).
+
+**The review found a blocker and five real things, all fixed and each a tooth.** The saved view /
+hub link writes `allAccounts=1` and `mount()` read only `accountId` — while `ReportPreferences::restore()`
+deliberately leaves a key the URL names alone — so the headline saved view opened with the toggle OFF
+on a "choose an account" empty state; `mount()` reads it now, and a link naming an account AND the
+toggle is honoured as saved. A view saved BEFORE the toggle existed carries no key, and on the
+delivery path the value came from whatever the owner last browsed — a "cash, monthly" view emailed
+the whole ledger to the external accountant after one browse of every account — so
+`2026_09_13_200000` states `allAccounts => false` on every older GL view. The toggle and the picker
+`resetPage()` (forty accounts on page 3, then one account of two pages, rendered *"no movements"*
+about an account with sixty lines). The unallocated notice is **as-at** (`[null, periodEnd]`, the
+trial balance's window, since the opening is an as-at figure) and on one account counts that
+account alone on the PDF as the screen already did. And `SourceDocumentUrl::forSource()` — a model
+load per distinct document — ran for every row of every account before the slice (measured: 677 of
+758 queries per render, 1,837 rows built to show 50, on every pagination click); it resolves for
+the page's own rows now. Twenty-one mutations, each killing its own tooth; the candidate query's
+property scope is documented as redundant with `accountLedger()`'s own (a mutation removing it
+stays green by design).
 
 ### A narrative is a KEY, resolved when the entry is read (EG-36, 2026-08-22)
 

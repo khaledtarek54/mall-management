@@ -2,8 +2,10 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\LedgerAccount;
 use App\Services\Reports\StatementSpread;
 use App\Support\IssuingEntity;
+use App\Support\JournalNarrative;
 use App\Support\LedgerTree;
 use App\Support\Pdf\DocumentLocale;
 use App\Support\Pdf\PdfDocument;
@@ -106,6 +108,62 @@ class LedgerReportPdfService
         ], $assetIds, $period, $locale, landscape: count($spread['spans']) > 4);
     }
 
+    /**
+     * The general ledger — one account's statement (كشف حساب), or every account with movement in
+     * the window when `$account` is null (the reports audit, 2026-09-12).
+     *
+     * The GL was the one ledger report with no printed form: the four statements and the trial
+     * balance print, and the detail behind them — what an auditor asks for and what a month-end
+     * review is read from — could only be exported one account at a time. One template for both
+     * readings, so an account's page in the full ledger is its own statement's page.
+     *
+     * Narratives are resolved HERE, inside the document's locale, through the same
+     * `JournalNarrative::resolve()` the screen and the CSV read — a template that read the prose
+     * columns would print the wording frozen at post time (EG-36).
+     */
+    public function generalLedger(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null, ?LedgerAccount $account = null): string
+    {
+        return $this->render('accounting.pdf.general-ledger', function () use ($assetIds, $from, $to, $property, $period, $account): array {
+            $statements = $account === null
+                ? $this->reports->generalLedger($assetIds, $from, $to)
+                : collect([['account' => $account] + $this->reports->accountLedger($account, $assetIds, $from, $to)]);
+
+            $documentLocale = app()->getLocale();
+
+            return [
+                'statements' => $statements->map(fn (array $statement): array => [
+                    'code' => $statement['account']->code,
+                    'name' => $documentLocale === 'ar'
+                        ? ($statement['account']->name_ar ?: $statement['account']->name_en)
+                        : ($statement['account']->name_en ?: $statement['account']->name_ar),
+                    'opening' => $statement['opening'],
+                    'closing' => $statement['closing'],
+                    'lines' => $statement['lines']->map(fn ($line): array => [
+                        'entry_date' => $line->entry_date,
+                        'entry_number' => $line->entry_number,
+                        'description' => JournalNarrative::resolve(
+                            $line->description_key ?? null,
+                            isset($line->description_data) ? json_decode((string) $line->description_data, true) : null,
+                            $line->description_en,
+                            $line->description_ar,
+                            $documentLocale,
+                        ),
+                        'debit' => (float) $line->debit,
+                        'credit' => (float) $line->credit,
+                        'running_balance' => (float) $line->running_balance,
+                    ])->all(),
+                ])->all(),
+                'meta' => $this->meta($property, $period),
+            ];
+            // Six columns fit a portrait page. The notice window is open-ended for the trial
+            // balance's reason — the OPENING balance is an *as at* figure, so what this ledger is
+            // missing is every unallocated entry up to the end — and on ONE account it counts that
+            // account alone, as the screen does: a cash statement warning about a null-asset entry
+            // on repairs would say "not in the figures above" about money that never touched cash
+            // (found by review, on the copy that leaves the building).
+        }, $assetIds, $period, $locale, window: [null, $to], accountId: $account?->id);
+    }
+
     public function balanceSheet(?array $assetIds, CarbonInterface $asOf, string $property, ?string $locale = null): string
     {
         return $this->render('accounting.pdf.balance-sheet', fn (): array => [
@@ -154,7 +212,7 @@ class LedgerReportPdfService
      * @param  array{0: ?CarbonInterface, 1: ?CarbonInterface}|null  $window  the period the notice counts over; null = no notice
      * @param  bool  $excludeClosing  what THIS statement does with year-end closing entries
      */
-    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale, bool $landscape = false, ?array $window = null, bool $excludeClosing = false): string
+    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale, bool $landscape = false, ?array $window = null, bool $excludeClosing = false, ?int $accountId = null): string
     {
         // **MONEY THE STATEMENT LEAVES OUT, ON THE COPY THAT LEAVES THE BUILDING.**
         // Every ledger report scopes with `whereIn('je.asset_id', $ids)` and `whereIn` never matches
@@ -179,7 +237,7 @@ class LedgerReportPdfService
         // the method that owns the window, rather than a copy per renderer.
         $unallocated = $window === null
             ? null
-            : $this->reports->unallocated($assetIds, $window[0], $window[1] ?? null, $excludeClosing);
+            : $this->reports->unallocated($assetIds, $window[0], $window[1] ?? null, $excludeClosing, $accountId);
 
         return PdfDocument::make($view)
             ->locale(DocumentLocale::resolve($locale))

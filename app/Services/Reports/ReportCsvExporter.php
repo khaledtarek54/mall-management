@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Invoice;
+use App\Models\LedgerAccount;
 use App\Support\IncomeStatementLayout;
 use App\Support\JournalNarrative;
 use App\Support\LedgerTree;
@@ -214,6 +215,40 @@ class ReportCsvExporter
             'headers' => [
                 __('admin.reports.csv.section'), __('admin.reports.csv.account_code'),
                 __('admin.reports.csv.account'), __('admin.reports.csv.amount'),
+            ],
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * The general ledger for EVERY account in one file — each account's opening, lines and closing
+     * under its code and name, in chart order (the reports audit, 2026-09-12).
+     *
+     * Composed from `generalLedger()` per account, so a line here is byte-for-byte the line on that
+     * account's own export; the two account columns are prepended rather than the single-account
+     * shape changed, because a template built on that file's six columns must not shift.
+     *
+     * @param  Collection<int, array{account: LedgerAccount, opening: float, lines: Collection, closing: float}>  $statements
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
+    public function generalLedgerAll(Collection $statements): array
+    {
+        $rows = [];
+        $headers = [];
+
+        foreach ($statements as $statement) {
+            $one = $this->generalLedger($statement);
+            $headers = $one['headers'];
+
+            foreach ($one['rows'] as $row) {
+                $rows[] = [$statement['account']->code, $this->name(['name_en' => $statement['account']->name_en, 'name_ar' => $statement['account']->name_ar]), ...$row];
+            }
+        }
+
+        return [
+            'headers' => [
+                __('admin.reports.csv.account_code'), __('admin.reports.csv.account'),
+                ...($headers ?: $this->generalLedger(['opening' => 0.0, 'lines' => collect(), 'closing' => 0.0])['headers']),
             ],
             'rows' => $rows,
         ];

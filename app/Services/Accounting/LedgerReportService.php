@@ -224,6 +224,48 @@ class LedgerReportService
     }
 
     /**
+     * The general ledger for EVERY account — the month-end review and the auditor's request (the
+     * reports audit, 2026-09-12).
+     *
+     * `accountLedger()` answers one account, which is the كشف حساب; the GL an accountant reviews at
+     * month end and an auditor asks for is every account with movement in the period, each with its
+     * opening, its lines and its closing, in chart order — the reference systems print it as one
+     * report over an account range, and here it was one account at a time, ~40 exports for a
+     * period. Each account goes through the SAME `accountLedger()`, so a figure on this report is
+     * the figure on that account's own statement, and the running balance is one arithmetic.
+     *
+     * An account is on it when it has a line dated on or before the window's end (scoped), and it
+     * is then dropped only if it opened at zero AND moved nowhere in the window — an account with a
+     * standing balance and no movement still prints (its opening IS its closing, and a GL that
+     * silently left it out would not foot to the trial balance beside it). Postable leaves only:
+     * a summary account has no lines of its own, the trial balance is where the tree is read.
+     *
+     * Property isolation rests on `accountLedger()`'s own scope, proved by mutation with another
+     * mall posting to the SAME account; the candidate query's scope only narrows the work.
+     *
+     * @return Collection<int, array{account: LedgerAccount, opening: float, lines: Collection, closing: float}>
+     */
+    public function generalLedger(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null): Collection
+    {
+        $accountIds = DB::table('journal_lines as jl')
+            ->join('journal_entries as je', 'je.id', '=', 'jl.journal_entry_id')
+            ->whereIn('je.status', self::REPORTABLE)
+            ->whereNull('je.deleted_at')
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('je.asset_id', $assetIds))
+            ->when($to, fn ($q) => $q->whereDate('je.entry_date', '<=', $to->toDateString()))
+            ->distinct()
+            ->pluck('jl.ledger_account_id');
+
+        return LedgerAccount::query()
+            ->whereIn('id', $accountIds)
+            ->orderBy('code')
+            ->get()
+            ->map(fn (LedgerAccount $account): array => ['account' => $account] + $this->accountLedger($account, $assetIds, $from, $to))
+            ->reject(fn (array $statement): bool => $statement['lines']->isEmpty() && abs($statement['opening']) < 0.005)
+            ->values();
+    }
+
+    /**
      * One account's balance as at the END of a day, on its normal side — a SQL sum, never the
      * lines (2026-09-12, the aged-payables report).
      *

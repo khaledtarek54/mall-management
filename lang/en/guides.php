@@ -1313,11 +1313,12 @@ return [
     ],
 
     'general_ledger' => [
-        'purpose' => 'Every posting to an account, in order, with the document behind it.',
+        'purpose' => 'Every posting to an account, in order, with the document behind it — or every account with movement in the period, each with its opening and closing.',
         'steps' => [
-            'Pick the account and the date range.',
+            'Pick the account and the date range — or switch on "Every account" for the whole ledger of the period.',
             'Follow the running balance to where it changed.',
             'Open the entry to see the document that caused it.',
+            'Download the PDF to file it, or the spreadsheet to reconcile against it.',
         ],
         'affects' => [
             'Nothing. It is the detail behind the trial balance.',

@@ -451,7 +451,8 @@ report now exports to **CSV**:
   (kept out of the Filament pages so the row shape is unit-testable; a streamed response is not).
   Account names follow the locale; amounts are plain numbers (no separators/symbol) so a spreadsheet
   reads them as numbers. Methods: `trialBalance`, `incomeStatement`, `balanceSheet`, `cashFlow`,
-  `generalLedger`, `arAging`. Statements carry per-section subtotals + a final net line, so the CSV
+  `generalLedger` (one account), `generalLedgerAll` (every account, the account code and name
+  prepended to the same six columns — 2026-09-12), `arAging`. Statements carry per-section subtotals + a final net line, so the CSV
   reads exactly like the on-screen report; the trial balance carries its three debit/credit pairs
   (opening · movement · closing, nine columns since 2026-09-11), a totals row that self-checks
   each pair, and — since 2026-09-12 — the chart's WHOLE tree, every summary account a row carrying
