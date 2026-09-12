@@ -45,6 +45,11 @@
         "group": "asset"
     },
     {
+        "role": "inter_property_clearing",
+        "label": "Inter Property Clearing",
+        "group": "asset"
+    },
+    {
         "role": "inventory",
         "label": "Inventory",
         "group": "asset"

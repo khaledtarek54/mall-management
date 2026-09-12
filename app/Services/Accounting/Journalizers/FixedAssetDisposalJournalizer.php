@@ -4,6 +4,7 @@ namespace App\Services\Accounting\Journalizers;
 
 use App\Models\FixedAssetDisposal;
 use App\Services\Accounting\AccountResolver;
+use Carbon\CarbonImmutable;
 use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 
@@ -38,7 +39,8 @@ class FixedAssetDisposalJournalizer implements Journalizer
             return null;
         }
 
-        $assetId = $asset->asset_id;
+        // Where it was sold FROM — the property holding it in the disposal's month (point 18).
+        $assetId = $asset->asset_id ? $asset->propertyOn(CarbonImmutable::parse($disposal->disposed_on)) : null;
         if (! $assetId) {
             return null;
         }

@@ -169,14 +169,30 @@ trait RecordsBankAccount
      * Null on all of them — a console, queue or API path with no property context — means no answer,
      * and both callers treat that as "do nothing". A guard that cannot know must not invent, and
      * neither must a default.
+     *
+     * `protected`, the override point: a document whose money belongs to a property OTHER than
+     * the one it now sits in answers here — a fixed asset transferred between malls keeps its
+     * purchase, and the bank that paid for it, in the mall it was bought in (point 18).
      */
-    private static function bankAccountAssetOf($document): ?int
+    protected static function bankAccountAssetOf($document): ?int
     {
         $assetId = $document->asset_id
             ?? $document->bill?->asset_id
             ?? TenantScope::currentAssetId();
 
         return $assetId === null ? null : (int) $assetId;
+    }
+
+    /**
+     * The property this document's bank must belong to — the guard's own answer, read by the
+     * PICKER (`BankAccountField`) so the two cannot disagree. Measured (2026-09-12, the transfer
+     * review): the picker narrowed to the SELECTED mall while the guard asked the document, so a
+     * transferred asset's Edit page could label neither the bank it names (the buying mall's) nor
+     * accept the receiving mall's — every save refused on a field nobody touched.
+     */
+    public static function bankAccountPropertyOf($document): ?int
+    {
+        return static::bankAccountAssetOf($document);
     }
 
     /**

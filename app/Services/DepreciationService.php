@@ -47,6 +47,45 @@ class DepreciationService
         return round(min(round($this->monthlyAmount($asset) * $fraction, 2), $remaining), 2);
     }
 
+    /**
+     * The first month before `$month` that `run()` WOULD charge and has not — what a transfer must
+     * refuse on (point 18): the OUT leg carries what is posted, so a month charged AFTER the move
+     * is dimensioned to the old property and never crosses. Mirrors `run()`'s own gates month by
+     * month rather than restating them: in service, not yet charged, something left of the base,
+     * a non-zero charge. A cut-over asset (`is_opening_balance`) starts at its first posted month
+     * — the months before are the accountant's opening figure, not a gap — or nowhere at all.
+     */
+    public function firstUnchargedMonthBefore(FixedAsset $asset, CarbonImmutable $month): ?CarbonImmutable
+    {
+        $month = $month->startOfMonth();
+        $charged = $asset->depreciationEntries()->orderBy('period_month')->pluck('period_month')
+            ->map(fn ($d) => CarbonImmutable::parse($d)->startOfMonth()->toDateString());
+
+        $from = CarbonImmutable::parse($asset->acquisition_date)->startOfMonth();
+        if ($asset->is_opening_balance) {
+            if ($charged->isEmpty()) {
+                return null;
+            }
+            $from = CarbonImmutable::parse($charged->first());
+        }
+
+        // A fully-depreciated asset charges nothing anywhere: `chargeFor()` clamps to what is
+        // left, so no early return is needed for it (one was written, and mutation showed it
+        // changed nothing).
+        $remaining = round($this->depreciableBase($asset) - $this->accumulatedFor($asset), 2);
+
+        for ($m = $from; $m->lt($month); $m = $m->addMonth()) {
+            if ($charged->contains($m->toDateString())) {
+                continue;
+            }
+            if ($this->chargeFor($asset, $m, $remaining) > 0) {
+                return $m;
+            }
+        }
+
+        return null;
+    }
+
     /** Accumulated depreciation to date = SUM of this asset's entries. */
     public function accumulatedFor(FixedAsset $asset): float
     {
@@ -110,13 +149,20 @@ class DepreciationService
         // whereHas('asset') excludes fixed assets whose PROPERTY was soft-deleted — a
         // soft-delete doesn't fire the FK cascade, so without this the portfolio run
         // would keep charging (and posting GL for) a deleted mall forever.
+        // Scoped by the property that HOLDS the asset in the month being posted, not the one it
+        // sits in today (point 18): a March catch-up run scoped to the mall that held it in March
+        // must reach it after an April transfer, and the receiving mall's run must not write into
+        // the sending mall's ledger. The query widens to any asset that ever left one of these
+        // properties; `propertyOn()` decides per asset below.
         $query = FixedAsset::active()->whereHas('asset')->select('id');
         if ($assetIds !== null) {
-            $query->whereIn('asset_id', $assetIds);
+            $query->where(fn ($q) => $q
+                ->whereIn('asset_id', $assetIds)
+                ->orWhereHas('transfers', fn ($t) => $t->whereIn('from_asset_id', $assetIds)));
         }
 
-        $query->get()->each(function ($row) use ($month, &$created) {
-            DB::transaction(function () use ($row, $month, &$created) {
+        $query->get()->each(function ($row) use ($month, $assetIds, &$created) {
+            DB::transaction(function () use ($row, $month, $assetIds, &$created) {
                 /** @var FixedAsset|null $asset */
                 $asset = FixedAsset::whereKey($row->id)->lockForUpdate()->first();
                 if (! $asset || $asset->status !== 'active') {
@@ -125,6 +171,11 @@ class DepreciationService
 
                 // Not yet in service for this period.
                 if ($month->lt(CarbonImmutable::parse($asset->acquisition_date)->startOfMonth())) {
+                    return;
+                }
+
+                // Outside the caller's authority for THIS month (see the query above).
+                if ($assetIds !== null && ! in_array($asset->propertyOn($month), array_map('intval', $assetIds), true)) {
                     return;
                 }
 

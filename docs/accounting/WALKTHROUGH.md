@@ -88,12 +88,18 @@ entries) — the parents are just totalling headers.
 | 11401001 | VAT Recoverable (input) | ض.ق.م مدخلات (قابلة للخصم) |
 | 11501001 | Prepaid Expenses | مصروفات مدفوعة مقدماً |
 | 11601001 | Due from Related Parties | المستحق من أطراف ذات علاقة |
+| 11801001 | Inter-property Transfers Clearing | تسوية التحويلات بين العقارات |
 | 12101001 | Furniture & Equipment | أثاث ومعدات |
 | 12201001 | Accumulated Depreciation | مجمع إهلاك الأصول الثابتة |
 
 > **11206001 (مخصص ديون مشكوك فيها)** is a *contra* account: it lives under the receivables
 > branch and carries a **credit** balance that nets down tenant AR, the same way 12201001
 > nets down fixed assets. Booked as Dr 51109001 / Cr 11206001.
+
+> **11801001 (تسوية التحويلات بين العقارات)** is where a fixed asset's net book value crosses
+> from one mall's books to another's when it is transferred (2026-09-12): the mall it left debits
+> it, the mall it joined credits it, so each property's balance sheet says what it handed or
+> received and the portfolio's nets to zero. Nothing is typed into it by hand.
 
 ### 2.2 Liabilities — الخصوم (2)
 | Code | English | العربية |

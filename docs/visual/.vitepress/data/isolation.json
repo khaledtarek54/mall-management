@@ -300,6 +300,18 @@
         "note": "fixedAsset"
     },
     {
+        "model": "FixedAssetTransfer",
+        "label": "Fixed Asset Transfer",
+        "classification": "owned",
+        "note": "fixedAsset"
+    },
+    {
+        "model": "FixedAssetTransferLeg",
+        "label": "Fixed Asset Transfer Leg",
+        "classification": "owned",
+        "note": null
+    },
+    {
         "model": "Floor",
         "label": "Floor",
         "classification": "owned",

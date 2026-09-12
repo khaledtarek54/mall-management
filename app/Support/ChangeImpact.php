@@ -14,6 +14,7 @@ use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
+use App\Models\FixedAssetTransferLeg;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Models\MarketingSpend;
@@ -470,12 +471,22 @@ class ChangeImpact
             // dead end and turned four tests red — the exact trap CLAUDE.md states for
             // `#[NeverDeletable]`: guarding a row a service legitimately writes breaks the workflow
             // instead of protecting it. The real correction path here is already named and built.
+            // ── `asset_id` promoted to REFUSED on 2026-09-12 (point 18). It WAS derived, and the
+            // derivation re-homed the whole history: the acquisition and every posted depreciation
+            // entry voided and re-posted into the new property's dimension, restating months that
+            // may be closed, and refused outright once one was. Moving an asset is a dated ACT now
+            // (`TransferFixedAssetService`, SAP's ABUMN): two balanced entries on the transfer
+            // date, history left where it was. `FixedAsset::restatementPermittedBecause()` lets the
+            // act's own write through by its SHAPE; a wrong property at registration is still a
+            // free correction while nothing has depreciated (`isCommittedMoney()`).
+            self::REFUSED => [
+                'asset_id' => 'the books dimension of the acquisition and of every charge already posted — moving it is a transfer, a dated act with its own two entries, never an edit',
+            ],
             self::DERIVED => [
                 'acquisition_cost' => 'the capitalised cost, and the basis every depreciation entry already posted was computed from — retyping it leaves the schedule and the asset disagreeing',
                 'acquisition_date' => 'it IS the entry date, and it starts the depreciation clock',
                 'funded_from' => 'chooses the credit — the outbound rail the purchase moved on (point 15: a `payment_methods` code, `cash|bank` the floor)',
                 'bank_account_id' => 'chooses WHICH bank the credit left — the same decision as funded_from, one step finer, so it is classified on the same terms. Null is the normal state and resolves exactly as before (the rail, then the role). A re-home that keeps the old mall\'s account is refused by `RecordsBankAccount` itself, and the form pins the property anyway',
-                'asset_id' => 'the books dimension',
                 'is_opening_balance' => 'flipping it decides whether the asset posts an acquisition AT ALL. An asset loaded at cut-over was bought before this system existed and its cost is already inside the accountant\'s opening journal entry, so the journalizer returns null. Setting it on a posted asset must void that entry; clearing it must post one. DERIVED rather than REFUSED for the same reason as `invoices.is_opening_balance`: correcting a mis-flagged migration row is legitimate work during a cutover, and the re-derive is exactly the right outcome.',
             ],
             self::PROSPECTIVE => [
@@ -514,6 +525,21 @@ class ChangeImpact
                 // another asset is not a path anything offers.
                 'fixed_asset_id',
             ],
+        ],
+
+        // Point 18 (2026-09-12). Written by `TransferFixedAssetService` with its twin, from one
+        // locked read; no form. DERIVED like the disposal: the engine would re-post a changed
+        // figure, and nothing offers the change. Undone only by transferring back.
+        FixedAssetTransferLeg::class => [
+            'committed' => 'on creation — it is half of a transfer already on both properties\' books',
+            self::DERIVED => [
+                'transferred_on' => 'it IS the entry date, on both legs',
+                'cost' => 'the cost the leg moves out of one property and into the other',
+                'accumulated_depreciation' => 'what had accumulated by the transfer — the contra it moves with the cost',
+                'asset_id' => 'the property this leg is dimensioned to',
+                'direction' => 'which side of the move this is — out reverses in',
+            ],
+            self::NEUTRAL => ['fixed_asset_id', 'fixed_asset_transfer_id'],
         ],
 
         FixedAssetDisposal::class => [

@@ -269,6 +269,7 @@
 | inventory_grni | بضاعة واردة غير مفوترة / GRNI | 21701001 |
 | furniture_equipment | أثاث ومعدات / Furniture & Equipment | 12101001 |
 | accumulated_depreciation | مجمع إهلاك الأصول الثابتة / Accumulated Depreciation | 12201001 |
+| inter_property_clearing | تسوية التحويلات بين العقارات / Inter-property Transfers Clearing | 11801001 |
 | owner_distributions | توزيعات الملاك / Owner Distributions | 34101001 |
 | due_to_owner | توزيعات مستحقة للملاك / Distributions Payable to Owners | 21802001 |
 | **الإيرادات / Revenue** | | |

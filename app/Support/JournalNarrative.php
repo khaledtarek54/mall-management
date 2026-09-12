@@ -57,6 +57,8 @@ final class JournalNarrative
         'expense.posted' => ['number'],
         'fixed_asset.acquired' => ['asset'],
         'fixed_asset.disposed' => ['asset'],
+        'fixed_asset.transferred_out' => ['asset', 'property'],
+        'fixed_asset.transferred_in' => ['asset', 'property'],
         'invoice.posted' => ['number'],
         'invoice.written_off' => ['number'],
         'marketing_spend.posted' => ['category'],

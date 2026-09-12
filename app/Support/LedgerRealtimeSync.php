@@ -15,6 +15,7 @@ use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
+use App\Models\FixedAssetTransferLeg;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Models\MarketingSpend;
@@ -70,6 +71,7 @@ class LedgerRealtimeSync
         FixedAsset::class => 'acquisition_date',
         DepreciationEntry::class => 'period_month',
         FixedAssetDisposal::class => 'disposed_on',
+        FixedAssetTransferLeg::class => 'transferred_on',
         EmployeeAdvance::class => 'advance_date',
         EmployeeAdvanceRepayment::class => 'repaid_on',
         Custody::class => 'custody_date',

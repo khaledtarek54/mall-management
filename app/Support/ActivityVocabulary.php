@@ -18,6 +18,7 @@ use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetCategory;
+use App\Models\FixedAssetTransfer;
 use App\Models\Floor;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
@@ -297,6 +298,7 @@ class ActivityVocabulary
         'recurring_expense.frequency' => 'admin.recurring_expenses.frequencies',
         'expense.paid_from' => 'admin.enums.expense_paid_from',
         'fixed_asset_disposal.proceeds_account' => 'admin.enums.cash_or_bank',
+        'fixed_asset_transfer_leg.direction' => 'admin.fixed_assets.transfer_directions',
         'inventory_item.unit' => 'admin.enums.inventory_unit',
         'ledger_account.type' => 'admin.enums.ledger_account_type',
         'lease_option.type' => 'admin.lease_options.types',
@@ -419,6 +421,9 @@ class ActivityVocabulary
         'equipment.parent_id' => Equipment::class,
         'equipment_id' => Equipment::class,
         'fixed_asset_id' => FixedAsset::class,
+        'fixed_asset_transfer_id' => FixedAssetTransfer::class,
+        'from_asset_id' => Asset::class,
+        'to_asset_id' => Asset::class,
         'floor_id' => Floor::class,
         'head_user_id' => User::class,
         'inventory_item_id' => InventoryItem::class,

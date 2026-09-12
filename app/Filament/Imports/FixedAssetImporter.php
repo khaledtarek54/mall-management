@@ -225,6 +225,21 @@ class FixedAssetImporter extends Importer
         throw new RowImportFailedException(__('admin.fixed_assets.errors.useful_life_required'));
     }
 
+    /**
+     * A re-import that restates a TRANSFERRED asset's cost, date or opening figures is refused
+     * here in words (point 18) — the model refuses it as a `DomainException`, which the importer
+     * would file as a failed row with no sentence.
+     */
+    protected function beforeSave(): void
+    {
+        /** @var FixedAsset $asset */
+        $asset = $this->record;
+
+        if ($asset->exists && $asset->isDirty(FixedAsset::TRANSFER_FROZEN) && $asset->historyLockedByTransfer()) {
+            throw new RowImportFailedException(__('admin.fixed_assets.errors.transferred_history_locked'));
+        }
+    }
+
     public static function getCompletedNotificationBody(Import $import): string
     {
         return DataTransferNotice::forImport($import);

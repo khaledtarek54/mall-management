@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\FixedAssets;
 
 use App\Filament\Admin\RelationManagers\DepreciationEntriesRelationManager;
+use App\Filament\Admin\RelationManagers\FixedAssetTransfersRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\FixedAssets\Pages\CreateFixedAsset;
@@ -81,6 +82,7 @@ class FixedAssetResource extends Resource
     {
         return [
             DepreciationEntriesRelationManager::class,
+            FixedAssetTransfersRelationManager::class,
         ];
     }
 

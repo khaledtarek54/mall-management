@@ -169,6 +169,8 @@ return [
             'fixed_asset' => [
                 'acquired' => 'Fixed asset acquired — :asset',
                 'disposed' => 'Fixed asset disposed — :asset',
+                'transferred_out' => 'Fixed asset transferred to :property — :asset',
+                'transferred_in' => 'Fixed asset received from :property — :asset',
             ],
             'invoice' => [
                 'posted' => 'Invoice :number',
@@ -259,6 +261,7 @@ return [
         'deferred_rent' => 'Deferred (straight-line) rent',
         'furniture_equipment' => 'Furniture & equipment',
         'accumulated_depreciation' => 'Accumulated depreciation',
+        'inter_property_clearing' => 'Inter-property transfers clearing',
         'inventory' => 'Inventory',
 
         // Liabilities

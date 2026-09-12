@@ -44,6 +44,13 @@ class PostingRoles
         'deferred_rent' => self::GROUP_ASSET,
         'furniture_equipment' => self::GROUP_ASSET,
         'accumulated_depreciation' => self::GROUP_ASSET,
+        // What one property handed another: a fixed asset transferred between malls posts its
+        // net book value out of one property's books and into the other's on the transfer date
+        // (point 18, 2026-09-12), and each property's entry balances against this account. It
+        // nets to zero across the portfolio; per property it is the due-from / due-to between
+        // two malls of one operator. Asset-group like accumulated depreciation, and like it may
+        // carry a credit balance (on the receiving side).
+        'inter_property_clearing' => self::GROUP_ASSET,
         'inventory' => self::GROUP_ASSET,
 
         // ---- Liabilities ----

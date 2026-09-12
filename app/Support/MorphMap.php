@@ -52,6 +52,8 @@ use App\Models\FiscalYear;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetCategory;
 use App\Models\FixedAssetDisposal;
+use App\Models\FixedAssetTransfer;
+use App\Models\FixedAssetTransferLeg;
 use App\Models\Floor;
 use App\Models\Holiday;
 use App\Models\InventoryItem;
@@ -223,6 +225,8 @@ class MorphMap
         'fiscal_year' => FiscalYear::class,
         'fixed_asset' => FixedAsset::class,
         'fixed_asset_disposal' => FixedAssetDisposal::class,
+        'fixed_asset_transfer' => FixedAssetTransfer::class,
+        'fixed_asset_transfer_leg' => FixedAssetTransferLeg::class,
         'floor' => Floor::class,
         'inventory_item' => InventoryItem::class,
         'invoice' => Invoice::class,

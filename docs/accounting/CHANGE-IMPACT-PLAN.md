@@ -794,6 +794,8 @@ writing where the next person would look. Promoting them turned tests red within
   (`DepreciationService::assertRecostValid()`, gap-analysis F-86). Freezing the cost turned a
   guarded correction into a dead end: the exact trap CLAUDE.md states for `#[NeverDeletable]` —
   *guarding a row a service legitimately writes breaks the workflow instead of protecting it.*
+  *(The COST. Its `asset_id` was promoted to REFUSED on 2026-09-12 — §18 — because that one was
+  never a correction: it re-homed every posted month.)*
 - **`MarketingSpend`** — `MarketingSpendStaysDerivedTest` carries a paragraph headed *"Why a posted
   spend is deliberately NOT frozen"*, distinguishing it from the disposed asset, the settled عهدة,
   the approved payroll and the drawn-on deposit. Editing one leaves no wrong number on the books.
@@ -1200,3 +1202,72 @@ once the month closes, so within an open period this is not looser than the inte
 control, only differently shaped); and bank reconciliation continues to mark the JOURNAL LINE
 matched (`BankMatch`) rather than writing `payments.status` — which is Yardi's own shape: you
 reconcile the bank account, not the receipt's lifecycle. Five mutations (S1–S5), each red.
+
+## 18. A fixed asset moves between properties by a dated ACT — `asset_id` refused, a 25th source (point 18, 2026-09-12)
+
+Meeting 2026-09-02, point 18: *"na2l asl le fixed assets law hnwde mo3dat mn mkan le mkan"* —
+moving equipment from one mall to another. Until this the only way was to edit
+`fixed_assets.asset_id`, classified DERIVED, and the derivation was the whole of the asset's
+history: the acquisition entry and every posted `DepreciationEntry` voided and re-posted into the new
+property's dimension — restating months that may be closed, and refused by `SealedPeriod` outright
+once one was. That is not a correction of a document; it is a rewrite of a year of books to say the
+chiller had always been in Val Plaza.
+
+**The standard.** SAP's intra-company asset transfer (ABUMN) and Yardi Fixed Assets both post cost
+and accumulated depreciation OUT of the old cost centre and IN to the new on the transfer date,
+leave history where it was, and let future depreciation follow the asset. So:
+
+- **`FixedAsset.asset_id` is REFUSED** once the asset is committed (`isCommittedMoney()`: it has
+  begun depreciating, or been disposed). Before that a wrong property at registration is still the
+  free edit, and the acquisition re-derives — nothing posted rests on the old dimension.
+  `RefusesRestatementOfCommittedMoney` gained one hook, `restatementPermittedBecause($field)`,
+  so an ACT can write a refused field by its SHAPE (the `Lease::isResumingFromExpiry()` idiom):
+  only `asset_id` dirty, and the LATEST `FixedAssetTransfer` row says exactly this move — which
+  only `TransferFixedAssetService` writes, inside the same transaction. *Latest*, not *any*: after
+  a round trip a row "from A to B" exists for ever and `exists()` would reopen the free edit
+  (found by mutation).
+- **`FixedAssetTransferLeg` is the 25th GL source** — two per transfer, one per property, because
+  every statement scopes on the ENTRY's `asset_id`. OUT: Cr Furniture & Equipment (cost) · Dr
+  Accumulated Depreciation (to date) · Dr `inter_property_clearing` (the NBV; chart leaf
+  `11801001`, a posting-map row like every role). IN is the mirror. Per property the clearing
+  account states what one mall handed another; portfolio-wide it nets to zero. Act-only (no form),
+  `Reversals::NO_REVERSAL` with the reason *transfer it back*, every field DERIVED or NEUTRAL,
+  `PostingDateGuardedBy(TransferFixedAssetService)` (`assertNotFuture`, which asserts the period
+  open first).
+- **`FixedAsset::propertyOn($date)` is the ONE reading all three fixed-asset journalizers take**
+  (acquisition on `acquisition_date`, each charge on `period_month`, the disposal on
+  `disposed_on`): the earliest transfer dated in a LATER month says where the asset was, else
+  `asset_id`. A transfer is effective for its whole month (SAP's period control), so the transfer
+  month's charge belongs to the receiver and the OUT leg's accumulated figure is exactly the
+  charges posted before it. After a transfer `LedgerPoster::matches()` finds every old entry
+  unchanged — nothing voids, nothing re-posts, and a closed acquisition month stays closed.
+- **Stricter than SAP in one place, stated**: a transfer dated into a month already depreciated in
+  the old property is refused (SAP would re-dimension that month's charge; here re-dimensioning a
+  POSTED charge is the restatement the act exists to avoid) — with the way out in the refusal.
+
+**The review found five more, all money or a lockout, all built the same day** — the shape
+CLAUDE.md records most often: (1) the legs FREEZE `cost`/`accumulated_depreciation` while the four
+asset columns they were read from (`acquisition_cost` DERIVED, `acquisition_date` DERIVED,
+`is_opening_balance` DERIVED, `opening_accumulated_depreciation` PROSPECTIVE) stayed editable and
+never re-flowed — measured, a re-cost after a transfer stranded the difference on the OLD mall's
+Furniture with the portfolio trial balance still footing, so `billing:reconcile --deep` could not
+see it. `FixedAsset::TRANSFER_FROZEN` is refused on the model once a transfer row exists — a
+bespoke lock like the disposed freeze, not a registry change, because for an asset that never
+moved a re-cost is still the supported correction §15.2 records; the form disables the fields and
+the importer words the refusal. (2) The OUT leg carried what was POSTED, not what was OWED: a
+pre-transfer month charged after the move is dimensioned to the old property (correctly) and no
+leg carries it across — refused now (`firstUnchargedMonthBefore()`). (3) A disposal back-dated
+before the transfer wrote the asset off in the property it LEFT — bounded now. (4)
+`DepreciationService::run($period, $assetIds)` scoped by today's `asset_id`, so the receiving
+mall's *Post this month* wrote into the sending mall's ledger — it asks `propertyOn($month)`. (5)
+`BankAccountField` narrowed to the SWITCHER while the guard asked the DOCUMENT, so a transferred
+bank-funded asset's Edit page could label neither bank and refused every save — it narrows to the
+property the document answers for now (`RecordsBankAccount::bankAccountPropertyOf()`).
+
+The gates all bit: `ChangeImpactConformanceTest` demanded the refusal fixture for the newly
+REFUSED-declaring source (`CommittedMoneyFixtures::refusalFixtures()[FixedAsset]` — a depreciating
+asset, shared with the UI set so "committed" means one thing), `GlRegistryConformanceTest` the
+registry line and date column, `JournalNarrativeIsAKeyNotProseTest` the two narrative keys in both
+languages, `ActivityLogVocabularyConformanceTest` a `label()` on the transfer so the legs' audit
+rows name it. Fifteen cases, forty-three mutations —
+`AFixedAssetMovesByATransferActNotAnEditTest`; module 23 §2 rule 11.

@@ -53,6 +53,17 @@ trait RefusesRestatementOfCommittedMoney
      */
     abstract public function isCommittedMoney(): bool;
 
+    /**
+     * The one write of a refused field an ACT is allowed — recognised by its SHAPE, never by a flag
+     * a caller sets (`Lease::isResumingFromExpiry()` is the idiom). Default: none. A model that
+     * overrides it states which field, and what on disk proves the act is under way — a
+     * `FixedAssetTransfer` row for the property move `TransferFixedAssetService` is writing.
+     */
+    protected function restatementPermittedBecause(string $field): bool
+    {
+        return false;
+    }
+
     public static function bootRefusesRestatementOfCommittedMoney(): void
     {
         static::updating(function (self $model) {
@@ -60,7 +71,10 @@ trait RefusesRestatementOfCommittedMoney
 
             // Cheapest possible exit, and it runs on every save of every one of these documents:
             // nothing dirty is locked, so there is no reason to ask the more expensive question.
-            $dirty = array_values(array_filter($refused, fn (string $field) => $model->isDirty($field)));
+            $dirty = array_values(array_filter(
+                $refused,
+                fn (string $field) => $model->isDirty($field) && ! $model->restatementPermittedBecause($field),
+            ));
 
             if ($dirty === [] || ! $model->isCommittedMoney()) {
                 return;

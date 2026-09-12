@@ -959,10 +959,12 @@ return [
         'steps' => [
             'Register the asset with its cost, its date in service, and its useful life.',
             'Let the monthly run post depreciation.',
+            'Moving it to another property is the Transfer act on the asset\'s page — dated, with a reason; never an edit of the property.',
             'Dispose of it when it goes, recording any proceeds.',
         ],
         'affects' => [
             'Each month posts depreciation: charge the expense, build up accumulated depreciation.',
+            'A transfer moves the cost and the depreciation to date into the other property\'s books on the transfer date; what was posted before stays where it was.',
             'The register is the balance-sheet schedule — cost, accumulated depreciation and net book value come straight from it.',
             'Disposal writes off the remaining book value and books the gain or loss against the proceeds.',
         ],

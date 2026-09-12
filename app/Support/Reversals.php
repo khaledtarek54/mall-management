@@ -14,6 +14,7 @@ use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
+use App\Models\FixedAssetTransferLeg;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Models\MarketingSpend;
@@ -91,6 +92,7 @@ final class Reversals
         SlaPenalty::class => 'Applied and detached by ApplySlaPenaltyService — un-applying it IS the reversal, and it happens from the vendor bill it was charged to.',
         DepreciationEntry::class => 'Written by the monthly depreciation run. Undone by reversing the ASSET (or disposing it), never one month at a time — a gap in the schedule is worse than a wrong figure in it.',
         FixedAssetDisposal::class => 'The disposal IS the reversal of an asset leaving the books. Reversing the reversal would leave the asset in neither state.',
+        FixedAssetTransferLeg::class => 'Half of a transfer between two properties, written with its twin by TransferFixedAssetService. Undone by transferring the asset BACK — a second dated act with its own reason — never by voiding one half, which would leave the asset in both malls or neither.',
         OwnerStatementRun::class => 'Superseded by a new version through ReviseOwnerStatementRunService — the owner holds a copy of the old one, so it is corrected forward, never withdrawn.',
         StockMovement::class => 'Undone by an opposing movement (an issue reverses a receipt), which is how a stock ledger has always worked and is what keeps quantity on hand derivable.',
         StraightLineRentAdjustment::class => 'Re-derived forward by PostStraightLineRentService after a lease amendment; a single month reversed by hand would desynchronise the recognition schedule.',

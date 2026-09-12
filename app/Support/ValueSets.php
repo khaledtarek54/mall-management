@@ -19,6 +19,7 @@ use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
 use App\Models\FixedAssetCategory;
+use App\Models\FixedAssetTransferLeg;
 use App\Models\InvoiceWriteOff;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
@@ -346,6 +347,7 @@ class ValueSets
         'expenses.status' => ['recorded', 'cancelled'],
         'fiscal_years.status' => ['open', 'closed'],
         'fixed_assets.status' => ['active', 'disposed'],
+        'fixed_asset_transfer_legs.direction' => [FixedAssetTransferLeg::class, 'DIRECTIONS'],
         // Egyptian income-tax depreciation pools — Law 91/2005 Art. 25. STATUTE, not preference:
         // an operator does not get to decide that computers depreciate at 50%.
         'fixed_assets.tax_pool' => [

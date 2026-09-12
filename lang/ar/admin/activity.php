@@ -82,6 +82,8 @@ return [
             'deposit_transaction' => 'حركة تأمين',
             'fixed_asset' => 'أصل ثابت',
             'fixed_asset_disposal' => 'استبعاد أصل',
+            'fixed_asset_transfer' => 'تحويل أصل',
+            'fixed_asset_transfer_leg' => 'تحويل أصل (طرف)',
             'depreciation_entry' => 'قيد إهلاك',
             'employee' => 'موظف',
             'employee_advance' => 'سلفة موظف',
@@ -132,6 +134,7 @@ return [
             'accepted' => 'مقبول',
             'attached' => 'إضافة',
             'detached' => 'إزالة',
+            'transferred' => 'تم التحويل',
         ],
 
         // معنى الوصف المخزَّن في السجل. **الأوصاف مفاتيح لا جُمَل** — السجل يخزّن بيانات وهذا
@@ -160,7 +163,7 @@ return [
                 'reversed' => 'عكس تطبيقات إشعار دائن',
             ],
             'invoice_write_off' => ['reversed' => 'عكس إعدام دين'],
-            'fixed_asset' => ['reversed' => 'عكس اقتناء أصل ثابت'],
+            'fixed_asset' => ['reversed' => 'عكس اقتناء أصل ثابت', 'transferred' => 'تحويل أصل ثابت إلى عقار آخر'],
             'marketing_spend' => ['cancelled' => 'إلغاء إنفاق تسويقي'],
             'employee_advance' => ['reversed' => 'عكس سلفة موظف'],
             'custody' => ['reversed' => 'عكس عهدة'],

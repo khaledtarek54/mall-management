@@ -60,9 +60,12 @@ class JournalEntriesTable
 
                         // getAttribute rather than ->number: `source` is a morphTo, so it is a bare
                         // Model to static analysis and every source names itself differently —
-                        // invoices and bills carry a `number`, receipts a `reference`.
+                        // invoices and bills carry a `number`, receipts a `reference`, and a source
+                        // with neither (a transfer leg, point 18) names itself through `label()`
+                        // — the audit trail's own convention — rather than printing its morph alias.
                         return $source?->getAttribute('number')
                             ?? $source?->getAttribute('reference')
+                            ?? ($source !== null && method_exists($source, 'label') ? $source->label() : null)
                             ?? ($record->source_type ? class_basename($record->source_type) : null);
                     })
                     ->url(function ($record): ?string {

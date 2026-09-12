@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\PaymentMethod;
 use App\Support\MoneyAccount;
 use App\Support\TenantScope;
+use Closure;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Model;
 
@@ -70,7 +71,15 @@ final class BankAccountField
         $purpose = $model::bankAccountPurpose();
         $rail = $model::bankAccountRailColumn();
 
-        return self::make($name)
+        // The bank must belong to the property the DOCUMENT says its money belongs to — asked of the
+        // model, never assumed to be the selected mall: a fixed asset transferred to another mall
+        // keeps its purchase bank in the one it was bought in (point 18), and a picker narrowed to
+        // the switcher could label neither that bank nor accept another — every save refused.
+        // `instanceof`, not `exists`: on an action modal `$record` is the modal's OWNER (the lease
+        // behind *Record deposit*), which answers for nothing here.
+        return self::make($name, fn (?Model $record): ?int => $record instanceof $model && $record->exists
+            ? $model::bankAccountPropertyOf($record)
+            : TenantScope::currentAssetId())
             // A CLOSURE, and evaluated per render rather than once: `TenantScope::currentAssetId()`
             // is a request-time fact, and a default resolved when the schema class is loaded would
             // pin every form on the box to whichever property was selected first.
@@ -123,15 +132,24 @@ final class BankAccountField
      * {@see for()} is what every form uses. It stays the one builder of the component so a future
      * one cannot grow a second, differently-scoped copy.
      */
-    public static function make(string $name = 'bank_account_id'): EntitySelect
+    public static function make(string $name = 'bank_account_id', ?Closure $propertyOf = null): EntitySelect
     {
+        $propertyOf ??= fn (?Model $record): ?int => TenantScope::currentAssetId();
+
         return EntitySelect::make($name)
             ->label(__('admin.resources.bank_account.singular'))
             ->entity(BankAccount::class)
-            // The PROPERTY clause is a hard filter, and is meant to be: `EntitySelect` resolves a
-            // submitted value's LABEL through this query, so a value it cannot label is refused at
-            // validation. That is the write guard.
-            ->modifyOptionsQuery(fn ($query) => $query
+            // The PROPERTY clause below is a hard filter, and is meant to be: `EntitySelect`
+            // resolves a submitted value's LABEL through this query, so a value it cannot label is
+            // refused at validation. That is the write guard — and the property it narrows to is
+            // the one the DOCUMENT answers for ({@see for()}), the selected mall only where nothing
+            // answers. `acrossProperties()` is what lets the two differ: the registry's own scope
+            // narrows to the switcher, and a transferred asset's bank is in the mall it was bought
+            // in, so with both clauses applied the row's own value labelled nothing (measured,
+            // 2026-09-12). Stated here as that method requires: this call site owns the guard,
+            // and the guard is still exactly ONE property — never the portfolio.
+            ->acrossProperties()
+            ->modifyOptionsQuery(fn ($query, ?Model $record) => $query
                 // `withTrashed()` for the same reason `is_active` is a suggestion and not a filter,
                 // and it was the half the first fix missed: `OptionDisplay::pickable()` builds from
                 // `$model::query()`, so the SoftDeletes global scope applies — and because the LABEL
@@ -141,8 +159,11 @@ final class BankAccountField
                 // purpose: money that moved through an account moved through it.
                 ->withTrashed()
                 ->when(
-                    TenantScope::currentAssetId(),
+                    $propertyOf($record),
                     fn ($q, $id) => $q->where('asset_id', $id),
+                    // Nothing answers (no tenant selected): the visible set, which is what the
+                    // registry's own scope would have applied — never the whole portfolio.
+                    fn ($q) => $q->when(TenantScope::visibleAssetIds(), fn ($qq, $ids) => $qq->whereIn('asset_id', $ids)),
                 ))
             // `is_active` AND `deleted_at` narrow what you SEE, never what you can FIND — CLAUDE.md's
             // `->suggest()` rule, which the first cut broke by putting `is_active` in the hard

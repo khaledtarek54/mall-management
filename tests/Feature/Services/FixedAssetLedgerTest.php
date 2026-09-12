@@ -211,26 +211,43 @@ it('restores ONLY the cascade-trashed charges, not one removed independently', f
     expect(DepreciationEntry::withTrashed()->find($chargeA->id)->trashed())->toBeTrue();
 });
 
-it('re-dimensions the depreciation entries when the asset is re-homed to another property', function () {
+it('refuses to re-home a depreciating asset by editing asset_id — moving it is the transfer act (point 18)', function () {
     $propA = makeAsset(['code' => 'RHA']);
     $propB = makeAsset(['code' => 'RHB']);
     $fa = faLedgerAsset(['asset_id' => $propA->id, 'acquisition_cost' => 12000, 'useful_life_months' => 12]);
     app(DepreciationService::class)->run(now());
     $charge = DepreciationEntry::where('fixed_asset_id', $fa->id)->firstOrFail();
 
-    // Post both on property A, then age the charge outside the window.
     $this->poster->sync($fa->fresh());
     $this->poster->sync($charge->fresh());
-    DB::table('depreciation_entries')->where('id', $charge->id)->update(['updated_at' => now()->subDays(30)]);
 
-    $fa->update(['asset_id' => $propB->id]); // re-home → hook touches the charge
+    // Until 2026-09-12 this write re-dimensioned the acquisition AND every posted charge into
+    // property B — the whole history re-homed, months that may be closed restated. `asset_id`
+    // is REFUSED once the asset has begun depreciating; the way to move it is
+    // `TransferFixedAssetService`, which posts two dated legs and leaves this history in A.
+    expect(fn () => $fa->fresh()->update(['asset_id' => $propB->id]))->toThrow(DomainException::class);
 
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    // Both the acquisition and the depreciation entry now sit on property B.
     $chargeEntry = JournalEntry::where('source_type', $charge->getMorphClass())
         ->where('source_id', $charge->id)->where('status', 'posted')->latest('id')->first();
-    expect((int) $chargeEntry->asset_id)->toBe($propB->id);
+    expect((int) $chargeEntry->asset_id)->toBe($propA->id);
+    expect((int) $fa->fresh()->asset_id)->toBe($propA->id);
+});
+
+it('still re-homes an asset that has not begun depreciating — a wrong property at registration is a free correction', function () {
+    $propA = makeAsset(['code' => 'RHA']);
+    $propB = makeAsset(['code' => 'RHB']);
+    $fa = faLedgerAsset(['asset_id' => $propA->id, 'acquisition_cost' => 12000, 'useful_life_months' => 12]);
+    $this->poster->sync($fa->fresh());
+
+    $fa->fresh()->update(['asset_id' => $propB->id]);
+    $this->artisan('accounting:sync-ledger')->assertExitCode(0);
+
+    // Nothing posted rests on the old dimension, so the acquisition follows the correction.
+    $entry = JournalEntry::where('source_type', $fa->getMorphClass())
+        ->where('source_id', $fa->id)->where('status', 'posted')->latest('id')->first();
+    expect((int) $entry->asset_id)->toBe($propB->id);
 });
 
 /* ---- Disposal write-off (Phase 2b) --------------------------------------- */

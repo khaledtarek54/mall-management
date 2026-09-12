@@ -211,7 +211,7 @@ These four decisions steer the FRs below:
 | 15 | "Funded from" → payment method; vendor existing or new | cash/bank literal; no bank account; no vendor | ✅ **Slice 1 shipped 2026-09-12** — *Paid by* is the outbound rail catalogue + the bank account (the ninth `RecordsBankAccount` document, credit leg in the bank's own chart account); *Supplier* is a vendor row with a "+" gated on `vendors.create`; importer takes the supplier code ([modules/23](../modules/23-fixed-assets.md)). Slice 2 (a supplier BILL that capitalises the asset — Dr asset / Cr AP) not built | S (+M) | ✅ slice 1 built |
 | 16 | Cash box / bank can never be credit | No guard | **Build** for cash (SAP's rule); warn for bank | M | |
 | 17 | TB daily depreciation; 60 months shows 25% not 20% | 25% = Law 91 tax pool, correct; 20% is the unshown book rate | **Not a bug** — the book rate now shows on the register (the *Annual rate %* column) and the form, beside the tax pool; daily posting declined (14) | — | ✅ closed by 14 |
-| 18 | Transfer an asset between places | `asset_id` editable → rewrites history | **Build** a dated Transfer act | M | |
+| 18 | Transfer an asset between places | `asset_id` editable → rewrites history | ✅ **Shipped 2026-09-12** — *Transfer* act on the asset's page (destination · date · reason), two GL legs on the transfer date (OUT of the old property, IN to the new, NBV through `inter_property_clearing`), history stays where it was, depreciation follows from the transfer month, a *Transfers* tab; `asset_id` REFUSED once depreciating ([modules/23 §2.11](../modules/23-fixed-assets.md)) | M | ✅ built |
 | 19 | Trial balance as a collapsible tree | Flat list | **Build** a ledger tree (screen + PDF) | M | |
 | 20 | Gross and net area per unit | One area | **Build** net area as an informational second measure | S | |
 | 21 | The management contract is between the unit owner and Jawad | Terms stored, fee charged by nothing (gap B1) | **Decision, not code** — it answers half of B1 | (M once ruled) | |
@@ -441,7 +441,7 @@ same helper. Effort **M**.
 
 ---
 
-### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 17 · 18) — the accountant's slice — 11 · 13 · 14 · 15 (slice 1) ✅ shipped 2026-09-12
+### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 17 · 18) — the accountant's slice — 11 · 13 · 14 · 15 (slice 1) · 18 ✅ shipped 2026-09-12
 
 **#11 — *"Category fixed asset ton fl awl, raqm l 2asl shelhaaaa w htt3ml auto mn l category w mwgod
 fl database. w nzwd description le fixed assets bel mola7zat."***
@@ -603,6 +603,25 @@ Yardi Fixed Assets transfers between properties/entities the same way.
 transfer entries in both properties on the transfer date, future depreciation to the new property,
 and `asset_id` **REFUSED** in `ChangeImpact` once posted so the edit door closes. A move *within* a
 mall is `Equipment.location` — already there; the register should show it. Effort **M**.
+
+**✅ Shipped 2026-09-12** — exactly that shape: `TransferFixedAssetService` (reason required; the
+"All Properties" pseudo-asset, a property the actor does not hold, a disposed asset, the same
+property, a future or closed-period date, the acquisition month, a month already depreciated here,
+a date before an earlier transfer and a tag clash in the receiver all refused in words), two
+`FixedAssetTransferLeg` GL sources (the 25th source — OUT: Cr Furniture / Dr Accumulated / Dr
+`inter_property_clearing`; IN the mirror), `FixedAsset::propertyOn($date)` read by all three
+fixed-asset journalizers so nothing already posted moves, `asset_id` REFUSED once depreciating or
+disposed with the act's own write passing by shape, the *Transfer* act on the record page (it
+follows the asset to its new property) and a read-only *Transfers* tab. **No new setting** — SAP
+and Yardi configure nothing about the transfer's posting shape; the clearing account is a
+posting-map row. Stricter than SAP in one place: a transfer may not be dated into a month already
+depreciated in the old property (SAP re-dimensions that charge; here that is the restatement the
+act exists to avoid). Within-mall location stays on `Equipment.location` — not touched. The
+review added five rules the act needs (the figures the legs froze are locked once transferred;
+every month before the transfer must be posted; a disposal cannot pre-date the transfer; a
+property's scoped depreciation run posts the months it HELD the asset; the bank picker narrows to
+the property the document answers for) — [modules/23 §2.11](../modules/23-fixed-assets.md) ·
+CHANGE-IMPACT-PLAN §18.
 
 ---
 

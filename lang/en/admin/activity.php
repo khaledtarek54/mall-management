@@ -82,6 +82,8 @@ return [
             'deposit_transaction' => 'Deposit Transaction',
             'fixed_asset' => 'Fixed Asset',
             'fixed_asset_disposal' => 'Asset Disposal',
+            'fixed_asset_transfer' => 'Asset Transfer',
+            'fixed_asset_transfer_leg' => 'Asset Transfer (leg)',
             'depreciation_entry' => 'Depreciation Entry',
             'employee' => 'Employee',
             'employee_advance' => 'Employee Advance',
@@ -132,6 +134,8 @@ return [
             'accepted' => 'Accepted',
             'attached' => 'Added',
             'detached' => 'Removed',
+            // Raised by TransferFixedAssetService — an asset moved between properties (point 18).
+            'transferred' => 'Transferred',
         ],
 
         // What a row's stored `description` means. **Descriptions are KEYS, not sentences** —
@@ -162,7 +166,7 @@ return [
                 'reversed' => 'Credit note applications reversed',
             ],
             'invoice_write_off' => ['reversed' => 'Bad-debt write-off reversed'],
-            'fixed_asset' => ['reversed' => 'Fixed asset acquisition reversed'],
+            'fixed_asset' => ['reversed' => 'Fixed asset acquisition reversed', 'transferred' => 'Fixed asset transferred to another property'],
             'marketing_spend' => ['cancelled' => 'Marketing spend cancelled'],
             'employee_advance' => ['reversed' => 'Employee advance reversed'],
             'custody' => ['reversed' => 'Custody float reversed'],

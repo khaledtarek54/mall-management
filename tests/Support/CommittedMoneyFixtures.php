@@ -7,6 +7,7 @@ use App\Models\CreditNote;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use App\Models\DepositTransaction;
+use App\Models\DepreciationEntry;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
@@ -42,8 +43,10 @@ use Illuminate\Database\Eloquent\Model;
  * allocations) is committed and yet UNMOUNTABLE. Every UI fixture is therefore built under the ONE
  * asset the caller has already selected as the Filament tenant. It also covers two sources the
  * refusal set must NOT contain (its completeness tooth requires refusal fixtures for exactly the
- * REFUSED-declaring sources): `DepositTransaction` and `FixedAsset` declare no REFUSED field — their
- * guards are bespoke (`hasBeenDrawnOn()`) or deliberately absent (§15.2) — and both have Edit pages.
+ * REFUSED-declaring sources): `DepositTransaction` declares no REFUSED field — its guard is bespoke
+ * (`hasBeenDrawnOn()`) — and it has an Edit page. (`FixedAsset` was the other such source until
+ * 2026-09-12, when point 18 promoted `asset_id` to REFUSED; its cost stays correctable under §15.2,
+ * and it is now in BOTH sets, committed the same way — one posted depreciation charge.)
  */
 class CommittedMoneyFixtures
 {
@@ -267,7 +270,41 @@ class CommittedMoneyFixtures
                     'moved_on' => now()->toDateString(),
                 ]);
             },
+
+            // A fixed asset is committed once it has begun depreciating (point 18, 2026-09-12): the
+            // acquisition AND a posted charge both rest on its property dimension, so `asset_id`
+            // is REFUSED there — moving it is the transfer ACT. Nothing else on the model is
+            // refused (§15.2 keeps the cost correctable), so the entry moved out of `uiFixtures()`'s
+            // "declares no REFUSED field" pair the day the field was promoted.
+            FixedAsset::class => fn () => self::depreciatingFixedAsset(makeAsset()),
         ];
+    }
+
+    /**
+     * A fixed asset with one posted depreciation charge — the state `isCommittedMoney()` answers
+     * true for. Shared by both fixture sets so "committed" means one thing for this source.
+     */
+    public static function depreciatingFixedAsset(Asset $asset): FixedAsset
+    {
+        $fixedAsset = FixedAsset::create([
+            'asset_id' => $asset->id,
+            'name' => 'Chiller '.uniqid(),
+            'tag' => 'FA-'.substr(uniqid(), -6),
+            'acquisition_date' => now()->subMonths(2)->startOfMonth()->toDateString(),
+            'acquisition_cost' => 50000,
+            'salvage_value' => 0,
+            'useful_life_months' => 60,
+            'funded_from' => 'cash',
+            'status' => 'active',
+        ]);
+
+        DepreciationEntry::create([
+            'fixed_asset_id' => $fixedAsset->id,
+            'period_month' => now()->subMonth()->startOfMonth()->toDateString(),
+            'amount' => round(50000 / 60, 2),
+        ]);
+
+        return $fixedAsset;
     }
 
     /**
@@ -279,7 +316,8 @@ class CommittedMoneyFixtures
      * page scopes through settled invoices); the deposit receipt is UNDRAWN, which is the state the
      * model deliberately leaves correctable, so its open fields are judged against the registry
      * rather than against the drawn-on freeze that `AnActOnAPostedDocumentIsWhereItCanBeSeenTest`
-     * already proves; the fixed asset is ACTIVE, the state §15.2 keeps editable by design.
+     * already proves; the fixed asset is ACTIVE and DEPRECIATING — the state §15.2 keeps the cost
+     * editable by design, and the state in which its property is REFUSED (point 18).
      *
      * @return array<class-string, callable(): Model>
      */
@@ -335,17 +373,7 @@ class CommittedMoneyFixtures
 
             DepositTransaction::class => fn () => depositMovement($lease(), 'receipt', 100000),
 
-            FixedAsset::class => fn () => FixedAsset::create([
-                'asset_id' => $asset->id,
-                'name' => 'Chiller '.uniqid(),
-                'tag' => 'FA-'.substr(uniqid(), -6),
-                'acquisition_date' => now()->toDateString(),
-                'acquisition_cost' => 50000,
-                'salvage_value' => 0,
-                'useful_life_months' => 60,
-                'funded_from' => 'cash',
-                'status' => 'active',
-            ]),
+            FixedAsset::class => fn () => self::depreciatingFixedAsset($asset),
 
             Custody::class => function () use ($asset) {
                 $employee = Employee::create([

@@ -181,7 +181,8 @@
             "instead": null
         },
         "change_impact": {
-            "derived": 6,
+            "refused": 1,
+            "derived": 5,
             "prospective": 4,
             "descriptive": 1,
             "neutral": 7
@@ -201,6 +202,22 @@
         "change_impact": {
             "derived": 3,
             "neutral": 3
+        }
+    },
+    {
+        "model": "FixedAssetTransferLeg",
+        "label": "Fixed Asset Transfer Leg",
+        "journalizer": "FixedAssetTransferLegJournalizer",
+        "date_column": "transferred_on",
+        "posting_date_guard": "TransferFixedAssetService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "transfer the asset back — a second act, dated, with its own reason"
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 2
         }
     },
     {

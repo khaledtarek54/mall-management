@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Support\PostingDate;
+use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,6 +50,19 @@ class DisposeFixedAssetService
             // Lock + re-check inside the transaction (no double-dispose under a race).
             $locked = FixedAsset::whereKey($asset->getKey())->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === 'active', 422);
+
+            // A disposal is dimensioned to `propertyOn(disposed_on)` (point 18), so one dated
+            // BEFORE the latest transfer would write off the asset in the property it LEFT —
+            // Furniture credited there with nothing left to net, while the receiving property
+            // keeps the asset at cost for ever (the review measured it, 2026-09-12). History is
+            // chronological: the transfer service already refuses a transfer before an earlier
+            // one, and the disposal takes the same bound.
+            $lastTransfer = $locked->transfers()->reorder()->orderByDesc('transferred_on')->orderByDesc('id')->first();
+            if ($lastTransfer !== null && $lastTransfer->transferred_on->gt(CarbonImmutable::parse($disposedOn))) {
+                throw new DomainException(__('admin.fixed_assets.errors.disposed_before_transfer', [
+                    'date' => $lastTransfer->transferred_on->locale(app()->getLocale())->isoFormat('D MMMM YYYY'),
+                ]));
+            }
 
             $locked->update([
                 'status' => 'disposed',

@@ -1289,9 +1289,10 @@ matching the existing VendorBill/Expense `$locked` convention (UI `->disabled()`
   finalized isn't blocked. `subtotal`/`total`/`items` are intentionally left to the UI lock only
   (LateFeeService/CAM rewrite them on issued invoices via `saveQuietly`).
 - **Intentionally not locked:** MarketingSpend (edits fully reconcile via its budget + GL
-  cascade — locking would remove a valid correction) and FixedAsset (terminal immutability is
-  already enforced by `EditFixedAsset`'s `abort_unless(active)` + hidden edit action for
-  disposed). Also left open as metadata: invoice `period_start`/`period_end`/`due_date`,
+  cascade — locking would remove a valid correction) and FixedAsset's COST (terminal immutability
+  is already enforced by `EditFixedAsset`'s `abort_unless(active)` + hidden edit action for
+  disposed; its `asset_id` IS locked since 2026-09-12 — moving an asset is the transfer act,
+  [modules/23 §2.11](23-fixed-assets.md)). Also left open as metadata: invoice `period_start`/`period_end`/`due_date`,
   payment gateway/cheque fields, credit-note `reason` (none change a booked amount).
 
 **Known limitation — cross-property payments in per-property reports:** reports scope by
@@ -1637,7 +1638,7 @@ stops returning a payload and the sweep posts a reversing entry:
 
 Generated from `LedgerPoster::JOURNALIZERS` — the single registry all four dispatch paths
 derive from (real-time hook · `accounting:sync-ledger` sweep · close gate · `billing:reconcile`
-drift check). **24 sources.** The `entry_date` column is what the sweep windows on, and what
+drift check). **25 sources.** The `entry_date` column is what the sweep windows on, and what
 the posting-date guard checks against a closed period.
 
 | Source model | Journalizer | `entry_date` from | Posting-date guard |
@@ -1656,6 +1657,7 @@ the posting-date guard checks against a closed period.
 | `FixedAsset` | `FixedAssetAcquisitionJournalizer` | `acquisition_date` | on the model (`GuardsPostingDate`) |
 | `DepreciationEntry` | `DepreciationEntryJournalizer` | `period_month` | _system — period_month is set by DepreciationService::run from the month being posted; the operator-reachable inputs are the scheduler and the admin button (both now()) and PostDepreciationCommand --month, which is guarded there._ |
 | `FixedAssetDisposal` | `FixedAssetDisposalJournalizer` | `disposed_on` | `DisposeFixedAssetService` |
+| `FixedAssetTransferLeg` | `FixedAssetTransferLegJournalizer` | `transferred_on` | `TransferFixedAssetService` |
 | `EmployeeAdvance` | `EmployeeAdvanceJournalizer` | `advance_date` | `GrantEmployeeAdvanceService` |
 | `EmployeeAdvanceRepayment` | `EmployeeAdvanceRepaymentJournalizer` | `repaid_on` | `RecordAdvanceRepaymentService` |
 | `Custody` | `CustodyJournalizer` | `custody_date` | `GrantCustodyService` |

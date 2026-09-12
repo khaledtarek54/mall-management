@@ -185,6 +185,8 @@ final class ActivityLogging
         'FailureCode' => ['code', 'is_active', 'name_ar', 'name_en', 'sort_order', 'trade_id', 'type'],
         'FixedAsset' => ['acquisition_cost', 'asset_id', 'name', 'salvage_value', 'status', 'tag', 'useful_life_months'],
         'FixedAssetDisposal' => ['disposed_on', 'fixed_asset_id', 'proceeds', 'proceeds_account'],
+        'FixedAssetTransfer' => ['accumulated_depreciation', 'cost', 'created_by_user_id', 'fixed_asset_id', 'from_asset_id', 'reason', 'to_asset_id', 'transferred_on'],
+        'FixedAssetTransferLeg' => ['accumulated_depreciation', 'asset_id', 'cost', 'direction', 'fixed_asset_id', 'fixed_asset_transfer_id', 'transferred_on'],
         'Floor' => ['asset_id', 'code', 'level', 'name'],
         'Holiday' => ['asset_id', 'closes_at', 'date', 'is_active', 'kind', 'name_ar', 'name_en', 'opens_at'],
         'InventoryItem' => ['category', 'is_active', 'name', 'reorder_level', 'sku', 'unit', 'unit_cost'],

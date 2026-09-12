@@ -254,6 +254,11 @@
                     "opensModal": true
                 },
                 {
+                    "name": "transfer",
+                    "label": "Transfer to another property",
+                    "opensModal": false
+                },
+                {
                     "name": "reverse_document",
                     "label": "Reverse acquisition",
                     "opensModal": true

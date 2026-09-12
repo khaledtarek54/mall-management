@@ -4,6 +4,7 @@ namespace App\Services\Accounting\Journalizers;
 
 use App\Models\DepreciationEntry;
 use App\Services\Accounting\AccountResolver;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -36,8 +37,13 @@ class DepreciationEntryJournalizer implements Journalizer
             return null;
         }
 
-        // Excludes a soft-deleted parent (SoftDeletes global scope) → null → voids.
-        $assetId = $entry->fixedAsset?->asset_id;
+        // Excludes a soft-deleted parent (SoftDeletes global scope) → null → voids. The property is
+        // the one that HELD the asset in this charge's month (`propertyOn`, point 18): a charge
+        // posted before a transfer stays in the mall it was charged to, the months after follow
+        // the asset — and a legacy re-home (never a transfer) still re-dimensions every month, as
+        // it always did.
+        $asset = $entry->fixedAsset;
+        $assetId = $asset?->asset_id ? $asset->propertyOn(CarbonImmutable::parse($entry->period_month)) : null;
         if (! $assetId) {
             return null;
         }

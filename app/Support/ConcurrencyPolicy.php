@@ -284,6 +284,7 @@ final class ConcurrencyPolicy
         'app/Services/Accounting/YearEndCloseService.php' => 1,
         'app/Services/DepreciationService.php' => 1,
         'app/Services/DisposeFixedAssetService.php' => 1,
+        'app/Services/TransferFixedAssetService.php' => 1,
 
         // ── Recoveries and variable rent ─────────────────────────────────────────────────────
         'app/Services/BillBouncedChequeFeeService.php' => 1,

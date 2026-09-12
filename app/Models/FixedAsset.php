@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RecordsBankAccount;
+use App\Models\Concerns\RefusesRestatementOfCommittedMoney;
 use App\Services\DepreciationService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
@@ -12,6 +13,8 @@ use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\PostingDate;
 use App\Support\TaxDepreciation;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,7 +36,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: FixedAsset::class)]
 class FixedAsset extends Model
 {
-    use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, RecordsBankAccount, SoftDeletes;
+    use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, RecordsBankAccount, RefusesRestatementOfCommittedMoney, SoftDeletes;
 
     /**
      * The register rows that are still ON THE BALANCE SHEET.
@@ -138,6 +141,130 @@ class FixedAsset extends Model
     public static function bankAccountRailColumn(): string
     {
         return 'funded_from';
+    }
+
+    /**
+     * The property this asset's PURCHASE money belongs to — for `RecordsBankAccount`'s default and
+     * its cross-property guard. Not `asset_id`: after a transfer (point 18) the asset lives in
+     * another mall while its acquisition entry, and the bank that paid for it, stay in the one it
+     * was bought in. Read off the same history the journalizer reads, so the guard and the posting
+     * cannot disagree about which mall the bank has to belong to.
+     */
+    protected static function bankAccountAssetOf($document): ?int
+    {
+        /** @var self $document */
+        if ($document->acquisition_date === null) {
+            return $document->asset_id === null ? null : (int) $document->asset_id;
+        }
+
+        return $document->propertyOn(CarbonImmutable::parse($document->acquisition_date));
+    }
+
+    /** @return HasMany<FixedAssetTransfer, $this> */
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(FixedAssetTransfer::class)->orderBy('transferred_on')->orderBy('id');
+    }
+
+    /** The GL sources a transfer writes — one OUT, one IN per act. @return HasMany<FixedAssetTransferLeg, $this> */
+    public function transferLegs(): HasMany
+    {
+        return $this->hasMany(FixedAssetTransferLeg::class);
+    }
+
+    /**
+     * Which property held this asset in the MONTH of a date (meeting 2026-09-02, point 18).
+     *
+     * The ONE reading every journalizer takes: the acquisition is dimensioned to the property the
+     * asset was bought in, each depreciation charge to the property that held it that month, the
+     * disposal to where it was sold from. A transfer is effective for the WHOLE of its month
+     * (SAP's period control on a transfer — the transfer month's charge belongs to the receiving
+     * cost centre), which is also what lets the OUT leg's accumulated figure be exactly the charges
+     * posted for the months before it. With no transfer on record the answer is `asset_id`, so
+     * nothing an install already holds reads any differently.
+     */
+    public function propertyOn(CarbonInterface $date): int
+    {
+        $month = CarbonImmutable::instance($date)->startOfMonth();
+
+        $next = $this->transfers()
+            ->where('transferred_on', '>=', $month->addMonth()->toDateString())
+            ->first();
+
+        return (int) ($next?->from_asset_id ?? $this->asset_id);
+    }
+
+    /**
+     * Accumulated depreciation from the charges posted for the months BEFORE one — what a
+     * transfer dated in that month moves out with the asset. The opening figure counts: it is
+     * write-off taken before this system existed, and it left with the asset.
+     */
+    public function accumulatedDepreciationBefore(CarbonInterface $month): float
+    {
+        return round(
+            (float) $this->opening_accumulated_depreciation
+            + (float) $this->depreciationEntries()
+                ->whereDate('period_month', '<', CarbonImmutable::instance($month)->startOfMonth()->toDateString())
+                ->sum('amount'),
+            2,
+        );
+    }
+
+    /**
+     * The figures a transfer's legs FROZE off this row (point 18): the cost the OUT leg credited
+     * and the IN leg debited, the date the acquisition was dimensioned on, and the opening
+     * write-off the OUT leg carried. A transfer row on disk locks all four — a re-cost after a
+     * transfer would leave the old mall's Furniture carrying the difference for an asset it no
+     * longer holds, with the trial balance still footing (the review measured all four, 2026-09-12).
+     * The way through is the act's own: transfer it back, correct, transfer again.
+     */
+    public const TRANSFER_FROZEN = ['acquisition_cost', 'acquisition_date', 'is_opening_balance', 'opening_accumulated_depreciation'];
+
+    /** Has this asset ever been transferred? Then {@see TRANSFER_FROZEN} is locked — the form and the guard read this. */
+    public function historyLockedByTransfer(): bool
+    {
+        return $this->exists && $this->transfers()->exists();
+    }
+
+    /**
+     * Committed once it has begun depreciating, or been disposed — the schedule and the books both
+     * rest on it (`ChangeImpact::POLICY`). Before that a wrong property at registration is an
+     * ordinary correction: the acquisition entry re-derives and nothing else has been posted.
+     */
+    public function isCommittedMoney(): bool
+    {
+        return $this->status === 'disposed' || $this->depreciationEntries()->exists();
+    }
+
+    /**
+     * The one write of `asset_id` a committed asset accepts: the transfer act's own.
+     *
+     * A carve-out by SHAPE (the `isResumingFromExpiry()` idiom), not a flag a caller sets: the
+     * only thing dirty is the property, and a `FixedAssetTransfer` row already records this asset
+     * moving from the property it holds to the one being written — which only
+     * `TransferFixedAssetService` writes, inside the same transaction, before it touches the row.
+     * A crafted payload cannot produce that row, so the free edit of `asset_id` — the re-home that
+     * restated every posted month — stays shut.
+     */
+    protected function restatementPermittedBecause(string $field): bool
+    {
+        if ($field !== 'asset_id') {
+            return false;
+        }
+
+        $dirty = array_diff(array_keys($this->getDirty()), ['asset_id', 'updated_at']);
+
+        if ($dirty !== []) {
+            return false;
+        }
+
+        // The LATEST transfer, not any: after a round trip (A→B, then B→A) a row "from A to B"
+        // exists for ever, and asking `exists()` would let a free A→B edit through again.
+        $latest = $this->transfers()->reorder()->orderByDesc('id')->first();
+
+        return $latest !== null
+            && (int) $latest->from_asset_id === (int) $this->getOriginal('asset_id')
+            && (int) $latest->to_asset_id === (int) $this->asset_id;
     }
 
     /**
@@ -294,7 +421,10 @@ class FixedAsset extends Model
     /** The child ledger sources whose GL follows this asset's lifecycle (Phase 2/2b). */
     protected function ledgerChildRelations(): array
     {
-        return [$this->depreciationEntries(), $this->disposal()];
+        // The transfer act's rows ride along (point 18): a leg is a GL source of its own whose
+        // journalizer voids it for a trashed asset, and the transfer row is the leg's parent —
+        // both must leave and come back with the asset, stamped with its own deleted_at.
+        return [$this->depreciationEntries(), $this->disposal(), $this->transferLegs(), $this->hasMany(FixedAssetTransfer::class)];
     }
 
     public function scopeActive(Builder $query): Builder
@@ -400,6 +530,16 @@ class FixedAsset extends Model
                 }
             }
 
+            // ── Once transferred, what the legs froze is locked (point 18, 2026-09-12) ─────────
+            // The legs carry `cost` and `accumulated_depreciation` as the act's own figures; the
+            // four columns they were read from stay DERIVED/PROSPECTIVE for an asset that never
+            // moved (a re-cost is a supported correction), and lock the moment a transfer row
+            // exists — else the old mall's books carry the difference for an asset it no longer
+            // holds, invisibly, because the portfolio trial balance still foots.
+            if ($fixedAsset->exists && $fixedAsset->isDirty(self::TRANSFER_FROZEN) && $fixedAsset->historyLockedByTransfer()) {
+                throw new \DomainException(__('admin.fixed_assets.errors.transferred_history_locked'));
+            }
+
             // ── A re-cost may never fall below what has already been charged ───────────────────
             // `DepreciationService::assertRecostValid()` states the reason: accumulated of 60,000
             // against a new base of 30,000 leaves the ledger carrying −30,000 of net fixed assets.
@@ -481,9 +621,12 @@ class FixedAsset extends Model
         });
 
         // A change to a field the child sources DERIVE from must re-flow to their GL:
-        // asset_id (both re-dimension) and acquisition_cost (the disposal's Furniture
-        // credit). Bump the children so the sweep re-derives them — else a re-costed or
-        // re-homed asset strands its child entries (they key on their own updated_at).
+        // acquisition_cost (the disposal's Furniture credit) and asset_id — which since point
+        // 18 (2026-09-12) re-dimensions a child ONLY on the free re-home of an UNCOMMITTED
+        // asset; after a transfer `propertyOn()` answers each posted month its old property and
+        // the re-read is a no-op, which is exactly the check worth running. Bump the children
+        // so the sweep re-derives them — else a re-costed or re-homed asset strands its child
+        // entries (they key on their own updated_at).
         static::updated(function (self $fixedAsset) {
             if ($fixedAsset->wasChanged('asset_id') || $fixedAsset->wasChanged('acquisition_cost')) {
                 foreach ($fixedAsset->ledgerChildRelations() as $relation) {

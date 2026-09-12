@@ -438,7 +438,15 @@ this screen: the doors registry could not see a trait declared on a combined `us
 register had been invisible to it since 2026-09-02), the shared bank field locked every
 pre-register document out of a name-only edit and recorded a bank on a cash rail, and every
 record-creating "+" in the panel was ungated. Slice 2 — a supplier BILL that capitalises the
-purchase — is not built. Next in the memo's order: 18 (the transfer act), then 16.
+purchase — is not built.
+**Point 18 shipped 2026-09-12** — moving a chiller from one mall to another is a dated *Transfer*
+act with a reason (SAP's ABUMN, Yardi's asset transfer): cost and accumulated depreciation leave
+the old property's books and join the new one's on the transfer date through two balanced legs
+(the NBV crossing an inter-property clearing account that nets to zero portfolio-wide), history
+stays where it was, depreciation follows the asset from that month, and the register's *Transfers*
+tab answers *where did it go*. The free edit of the property — which re-homed every posted month —
+is refused once the asset has begun depreciating. No setting: neither system configures the
+transfer's shape. Next in the memo's order: 16 (a cash box never in credit), then 19, 20, 23.
 
 ### 9.1 · The accountant's sitting
 

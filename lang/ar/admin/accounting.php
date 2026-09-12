@@ -169,6 +169,8 @@ return [
             'fixed_asset' => [
                 'acquired' => 'اقتناء أصل ثابت — :asset',
                 'disposed' => 'استبعاد أصل ثابت — :asset',
+                'transferred_out' => 'تحويل أصل ثابت إلى :property — :asset',
+                'transferred_in' => 'استلام أصل ثابت من :property — :asset',
             ],
             'invoice' => [
                 'posted' => 'فاتورة :number',
@@ -257,6 +259,7 @@ return [
         'deferred_rent' => 'الإيجار المؤجل (القسط الثابت)',
         'furniture_equipment' => 'الأثاث والمعدات',
         'accumulated_depreciation' => 'مجمع الإهلاك',
+        'inter_property_clearing' => 'تسوية التحويلات بين العقارات',
         'inventory' => 'المخزون',
 
         // الالتزامات

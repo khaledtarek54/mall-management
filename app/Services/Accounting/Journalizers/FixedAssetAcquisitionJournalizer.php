@@ -5,6 +5,7 @@ namespace App\Services\Accounting\Journalizers;
 use App\Models\FixedAsset;
 use App\Services\Accounting\AccountResolver;
 use App\Support\MoneyAccount;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -44,7 +45,11 @@ class FixedAssetAcquisitionJournalizer implements Journalizer
             return null; // a zero-cost asset has no GL effect
         }
 
-        $assetId = $asset->asset_id;
+        // The property the asset was BOUGHT in — not where it is now. After a transfer (point 18)
+        // the asset lives in another mall while the purchase stays in this one's books; reading
+        // `asset_id` here would void and re-post the acquisition into the new mall, which is the
+        // whole-history re-home the transfer act exists to replace.
+        $assetId = $asset->asset_id ? $asset->propertyOn(CarbonImmutable::parse($asset->acquisition_date)) : null;
         if (! $assetId) {
             return null;
         }

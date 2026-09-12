@@ -116,14 +116,20 @@ class FixedAssetForm
                 // restatement AFTER the save, which is the wrong end of the decision. Not disabled,
                 // because the model deliberately permits it (a re-cost is a supported operation, see
                 // `DepreciationService::assertRecostValid`) and a form stricter than its model is
-                // the divergence `DepositTransactionForm` had in the other direction.
-                ->helperText(__('admin.fixed_assets.posted_field_hint')),
+                // the divergence `DepositTransactionForm` had in the other direction. Locked once
+                // TRANSFERRED (point 18): the legs froze it, and the model refuses the write —
+                // a guarded field must LOOK guarded (SW-238).
+                ->disabled(fn (?FixedAsset $record): bool => $record?->historyLockedByTransfer() ?? false)
+                ->helperText(fn (?FixedAsset $record): string => ($record?->historyLockedByTransfer() ?? false)
+                    ? __('admin.fixed_assets.transferred_field_hint')
+                    : __('admin.fixed_assets.posted_field_hint')),
             TextInput::make('acquisition_cost')
                 ->label(__('admin.fixed_assets.fields.acquisition_cost'))
                 ->numeric()
                 ->minValue(0)
                 ->required()
                 ->prefix('EGP')
+                ->disabled(fn (?FixedAsset $record): bool => $record?->historyLockedByTransfer() ?? false)
                 // On EDIT, the base (cost − salvage) can't drop below what has already been
                 // depreciated — else NBV goes negative and depreciation stops forever (F-86).
                 // Inline so the operator sees it before submit; EditFixedAsset re-checks server

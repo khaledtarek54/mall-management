@@ -14,6 +14,7 @@ use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
+use App\Models\FixedAssetTransferLeg;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Models\JournalEntry;
@@ -41,6 +42,7 @@ use App\Services\Accounting\Journalizers\EmployeeAdvanceRepaymentJournalizer;
 use App\Services\Accounting\Journalizers\ExpenseJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetAcquisitionJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetDisposalJournalizer;
+use App\Services\Accounting\Journalizers\FixedAssetTransferLegJournalizer;
 use App\Services\Accounting\Journalizers\InventoryMovementJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceWriteOffJournalizer;
@@ -108,6 +110,7 @@ class LedgerPoster
         FixedAsset::class => FixedAssetAcquisitionJournalizer::class,
         DepreciationEntry::class => DepreciationEntryJournalizer::class,
         FixedAssetDisposal::class => FixedAssetDisposalJournalizer::class,
+        FixedAssetTransferLeg::class => FixedAssetTransferLegJournalizer::class,
         EmployeeAdvance::class => EmployeeAdvanceJournalizer::class,
         EmployeeAdvanceRepayment::class => EmployeeAdvanceRepaymentJournalizer::class,
         Custody::class => CustodyJournalizer::class,

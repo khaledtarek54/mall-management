@@ -67,6 +67,14 @@ class ChartOfAccountsSeeder extends Seeder
         ['116', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', false],
         ['11601', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', false],
         ['11601001', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', true],
+        // A fixed asset moved between two malls of ONE operator (point 18, 2026-09-12): the
+        // property it left credits its cost out and debits the net book value here; the property
+        // it joined does the mirror. Portfolio-wide the account nets to zero; per property it is
+        // what one mall handed another. Its own group, not 116 — another property of the same
+        // operator is not a related PARTY.
+        ['118', 'Inter-property Transfers', 'التحويلات بين العقارات', 'asset', false],
+        ['11801', 'Inter-property Transfers', 'التحويلات بين العقارات', 'asset', false],
+        ['11801001', 'Inter-property Transfers Clearing', 'تسوية التحويلات بين العقارات', 'asset', true],
         ['12', 'Non-current Assets', 'الأصول غير المتداولة', 'asset', false],
         ['121', 'Fixed Assets', 'الأصول الثابتة', 'asset', false],
         ['12101', 'Furniture & Equipment', 'أثاث ومعدات', 'asset', false],

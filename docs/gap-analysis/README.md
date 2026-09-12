@@ -449,8 +449,11 @@ recorded so nobody re-audits a closed layer.
 > asset CLASS is a catalogue row now (`fixed_asset_categories`: prefix, proposed life, memo value,
 > tax pool — SAP's asset class, Odoo's asset model), the tag is numbered from it per property, and
 > the first month's proration is a company setting with SAP's two answers (`full_month` ·
-> `days`), posting still monthly ([modules/23](../modules/23-fixed-assets.md)). Nothing else in the
-> layer moved.
+> `days`), posting still monthly ([modules/23](../modules/23-fixed-assets.md)). **And the same day,
+> the second SAP shape on the same ask (point 18)**: moving an asset between properties is SAP's
+> ABUMN — a dated transfer act posting cost and accumulated depreciation OUT of the old property and
+> IN to the new through an inter-property clearing account, history left in place, `asset_id` refused
+> as a free edit once the asset depreciates. Nothing else in the layer moved.
 
 > **Two of the three named gaps have since SHIPPED, and this section had not been updated
 > (2026-08-20).** `PayrollSettings::employer_social_insurance_rate` books the employer's own

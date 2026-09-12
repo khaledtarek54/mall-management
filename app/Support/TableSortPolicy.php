@@ -71,6 +71,7 @@ final class TableSortPolicy
         'Admin/RelationManagers/CustodyTransactionsRelationManager' => self::LEDGER,
         'Admin/RelationManagers/DepartmentMembersRelationManager' => self::LEDGER,
         'Admin/RelationManagers/DepreciationEntriesRelationManager' => self::LEDGER,
+        'Admin/RelationManagers/FixedAssetTransfersRelationManager' => self::LEDGER,
         'Admin/RelationManagers/EmployeeAdvancesRelationManager' => self::LEDGER,
         'Admin/RelationManagers/EmployeePayslipsRelationManager' => self::LEDGER,
         'Admin/RelationManagers/LeaseCamTermsRelationManager' => self::LEDGER,

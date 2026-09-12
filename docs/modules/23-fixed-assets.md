@@ -129,6 +129,31 @@ Screen: `/admin/fixed-asset-categories` (Setup group), `fixed_asset_categories.{
 | `proceeds` · `proceeds_account` | sale proceeds (0 = scrapped) + where they landed (`cash`\|`bank`) |
 | `notes` · `created_by_user_id` | audit |
 
+### `fixed_asset_transfers` — the move between properties (the ACT, 2026-09-12, point 18)
+| Column | Meaning |
+|--------|---------|
+| `fixed_asset_id` | the asset (FK, cascade) |
+| `from_asset_id` · `to_asset_id` | the property it left and the one it joined |
+| `transferred_on` | effective for the WHOLE month (both legs' entry date) |
+| `cost` · `accumulated_depreciation` | what the act moved — frozen on the row, never re-derived |
+| `reason` · `created_by_user_id` | required, and stamped into the audit trail as data |
+
+One row per transfer, written by `TransferFixedAssetService` only (no form onto this table);
+`#[NeverDeletable]` — the way back is a second transfer. `FixedAsset::transfers()` is the history
+the register answers *"where was it in March?"* from (`propertyOn($date)`).
+
+### `fixed_asset_transfer_legs` — the transfer's two GL sources
+| Column | Meaning |
+|--------|---------|
+| `fixed_asset_transfer_id` · `fixed_asset_id` | the act, the asset |
+| `asset_id` | the property THIS leg's entry is dimensioned to |
+| `direction` | `out` (the property it left) · `in` (the property it joined) — `ValueSets` |
+| `transferred_on` · `cost` · `accumulated_depreciation` | the act's figures, copied so each leg posts alone |
+
+Two sources rather than one entry with mixed lines, because every financial statement scopes on
+the ENTRY's `asset_id` (only the CAM pool reads line-level) — a single entry would put one mall's
+half of the move into the other mall's balance sheet.
+
 ---
 
 ## 2. Business rules
@@ -240,7 +265,101 @@ covers the disposal, the acquisition date and `--month` on the backfill command.
 10. **A disposed asset is terminal (immutable)** — once written off it can't be edited (the edit
    action is hidden + the edit page aborts 403) nor re-disposed. Editing a disposed asset's cost
    would strand its Furniture balance; as a model-level backstop, a change to `acquisition_cost`
-   (or `asset_id`) re-flows to the child sources' GL via the parent-lifecycle cascade.
+   (or `asset_id`, on the one uncommitted re-home still allowed — rule 11) re-flows to the child
+   sources' GL via the parent-lifecycle cascade.
+11. **Moving an asset to another property is a dated ACT with a reason, never an edit of
+   `asset_id`** (meeting 2026-09-02, point 18 — *"na2l asl … mn mkan le mkan"*; shipped
+   2026-09-12). Until then the only way to move a chiller from one mall to another was to edit the
+   property on the form, and that re-homed the WHOLE history: the acquisition entry and every
+   posted depreciation charge were voided and re-posted into the new mall's dimension — months
+   that may be closed restated, and refused outright once one was. **The standard**: SAP's
+   intra-company transfer (ABUMN) and Yardi Fixed Assets both post cost and accumulated
+   depreciation OUT of the old books and IN to the new on the transfer date, leave history where
+   it was, and let future depreciation follow the asset. So:
+   - `TransferFixedAssetService::transfer($asset, [to_asset_id, transferred_on, reason])` — under
+     a lock on the asset, in one transaction: the `FixedAssetTransfer` row, its two legs, an
+     activity row (`fixed_asset` · `transferred` · `fixed_asset.transferred`, the reason as DATA —
+     the `ReversalReason` rule), then the asset's `asset_id`.
+   - **The OUT leg** (in the property it left): Cr Furniture & Equipment (cost) · Dr Accumulated
+     Depreciation (accumulated to date) · Dr **Inter-property Transfers Clearing** (the net book
+     value — posting role `inter_property_clearing`, shipped as `11801001`). **The IN leg** is the
+     mirror in the receiving property. Per property the clearing account states what one mall
+     handed another; portfolio-wide it nets to zero (the trial balance's proof).
+   - **A transfer is effective for the whole of its month** (SAP's period control): the transfer
+     month's charge belongs to the receiving property, and the OUT leg's accumulated figure is
+     exactly the charges posted for the months before it (+ `opening_accumulated_depreciation`,
+     which left with the asset).
+   - **`FixedAsset::propertyOn($date)` is the ONE reading every journalizer takes** — the
+     acquisition on `acquisition_date`, each charge on its `period_month`, the disposal on
+     `disposed_on` — answered from the transfer rows: the earliest transfer dated in a LATER month
+     says where the asset was. With no transfer the answer is `asset_id`, so nothing an install
+     already holds reads any differently. That is what keeps history where it was: after a
+     transfer the sweep re-reads the old entries and finds them unchanged.
+   - **`asset_id` is REFUSED once the asset has begun depreciating or been disposed**
+     (`ChangeImpact::POLICY`, enforced by `RefusesRestatementOfCommittedMoney`;
+     `FixedAsset::isCommittedMoney()`). Before that — a wrong property at registration — the
+     free edit is still a correction: nothing posted rests on the old dimension and the
+     acquisition re-derives. The act's own write of `asset_id` passes by its SHAPE
+     (`restatementPermittedBecause()`: only `asset_id` dirty, and the LATEST transfer row says
+     exactly this move — *latest*, because after a round trip a row "from A to B" exists for
+     ever and `exists()` would reopen the free edit).
+   - **The purchase bank stays in the property the asset was bought in**:
+     `RecordsBankAccount`'s guard asks `FixedAsset::bankAccountAssetOf()`, which reads
+     `propertyOn(acquisition_date)` — read off `asset_id` it would refuse the transfer's own save
+     for naming another mall's bank.
+   - **Refused, each in the reader's words** (`admin.fixed_assets.errors.transfer_*`): no
+     reason · a disposed asset · the property it is already in · the "All Properties"
+     pseudo-asset or a property the actor does not hold (`AssignedAssets::idsForCurrentUser()`,
+     the same reach as the user form's grant picker — re-checked in the SERVICE, the picker is
+     not the guard) · a future date or a closed period (`PostingDate::assertNotFuture`) · a date
+     in or before the acquisition month (that is a correction, not a transfer) · a date in or
+     before a month already depreciated HERE (that month's charge belongs to the receiver — date
+     it from the next month) · a date before an earlier transfer (history is chronological) · a
+     tag the receiving property already uses (tags are unique per property; re-tag the other
+     asset first).
+   - **Doors**: the *Transfer* act on the asset's own page (`transfer` in `FixedAssetActions::all()` — the
+     destination picker is `EntitySelect ->acrossProperties()`, the one deliberate exception to
+     "no screen offers a property other than the selected one", narrowed to what the actor holds
+     and hidden when that set is empty; after the act the page follows the asset to its new
+     property, because this page is scoped to the one it left) and the read-only **Transfers**
+     tab (`FixedAssetTransfersRelationManager`) that answers *"where did that chiller go"*. The
+     importer cannot re-home (it resolves an existing row by `(asset_code, tag)`, so another
+     property is another asset), and the form's property field is pinned.
+   - **The review found five more rules the act needs, all built the same day**: (a) **what the
+     legs froze is LOCKED** — `FixedAsset::TRANSFER_FROZEN` (`acquisition_cost`,
+     `acquisition_date`, `is_opening_balance`, `opening_accumulated_depreciation`) is refused on
+     the model once a transfer row exists (`historyLockedByTransfer()`; the form disables the two
+     on-form columns and says why, the importer words it), because a re-cost after a transfer
+     left the old mall's Furniture carrying the difference for an asset it no longer holds while
+     the portfolio trial balance still footed — the correction is transfer back, edit, transfer
+     again; (b) **every month before the transfer must be POSTED** (`transfer_month_uncharged`,
+     `DepreciationService::firstUnchargedMonthBefore()` — `run()`'s own gates walked month by
+     month; a cut-over asset starts at its first posted month, its earlier months being the
+     accountant's opening figure), because the OUT leg carries what is posted and a catch-up after
+     the move would dimension that month to the old property with no leg to carry it across; (c)
+     **a disposal cannot be dated before the latest transfer** (`disposed_before_transfer`,
+     `DisposeFixedAssetService`) — it would write the asset off in the property it LEFT; (d)
+     **a property's scoped depreciation run posts the months it HELD the asset**
+     (`DepreciationService::run()` asks `propertyOn($month)`, not today's `asset_id`), so the
+     receiving mall's *Post this month* cannot write into the sending mall's ledger — belt-and-
+     braces beside (b); and (e) **the bank picker narrows to the property the DOCUMENT answers for**
+     (`BankAccountField` asks `RecordsBankAccount::bankAccountPropertyOf()`, `acrossProperties()`
+     with its own one-property guard): narrowed to the switcher, a transferred asset's Edit page
+     could label neither the buying mall's bank it names nor accept the receiving mall's, and every
+     save was refused on a field nobody touched.
+   - **Stated deviations and limits**: none from SAP/Yardi on the shape. Stricter than both in one
+     place — a transfer may not be dated into a month already depreciated in the old property,
+     where SAP would re-dimension that month's charge; here re-dimensioning a POSTED charge is
+     exactly the restatement the act exists to avoid, so the month is refused with the way out.
+     Since the scheduler posts the CURRENT month on the 28th, a move recorded from the 28th onward
+     is dated from the 1st of the next month. The clearing account nets to zero portfolio-wide
+     only while every property maps `inter_property_clearing` to the same chart account (the
+     posting map is per property — the shipped mapping is portfolio-wide). And the asset belongs
+     to ONE property: after a transfer the sending mall's register no longer lists it and its Edit
+     page there 404s — the sending mall reads the OUT journal entry (named through the leg's
+     `label()`) and the activity trail; the Transfers tab lives with the asset. **No new
+     setting** (skill §3b): neither system configures the transfer's posting shape, and the
+     clearing account is a posting-map row like every other role.
 
 ---
 
@@ -284,10 +403,13 @@ the GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson f
 - **Parent-lifecycle cascade (self-healing under the WINDOWED sweep):** each depreciation charge
   and the disposal are their OWN ledger sources, but the sweep discovers sources by their own
   `updated_at`. So `FixedAsset::booted()` cascades the parent's lifecycle to **both** child
-  sources (`ledgerChildRelations()`) — soft-delete soft-deletes them (their entries void),
-  restore restores only the exact rows it trashed (matched on `deleted_at`), and a property
-  re-home touches them (re-dimensions their entries) — bumping their `updated_at` so the daily
-  sweep re-visits them. Without this they would strand (phantom GL / wrong property) until a
+  sources (`ledgerChildRelations()` — the charges, the disposal, and since point 18 the transfer
+  legs and their parent rows) — soft-delete soft-deletes them (their entries void), restore
+  restores only the exact rows it trashed (matched on `deleted_at`), and a property change
+  touches them so the sweep re-reads them — which re-dimensions them only on the free re-home of
+  an UNCOMMITTED asset; after a transfer `propertyOn()` answers each posted month its old
+  property and the re-read is a no-op — bumping their `updated_at` so the daily sweep re-visits
+  them. Without this they would strand (phantom GL / wrong property) until a
   manual `--all` backfill. **Caveat:** `forceDelete()` (out-of-band only — no admin/console path
   exposes it) physically removes the child rows via the FK cascade and orphans their posted
   entries; use soft-delete to correct a mistaken asset. This is a general property of
@@ -304,6 +426,7 @@ the GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson f
 | **2 — GL posting** | acquisition → Dr Furniture & Equipment (12101001) / Cr Cash\|Bank (per `funded_from`; since 2026-09-12 the asset's own bank account first — see phase 4); depreciation entry → Dr Depreciation Expense (51107001) / Cr Accumulated Depreciation (12201001). Journalizers + mappings + sweep + a tie-out-safe check. | ✅ shipped |
 | **3 — The class, the number, the rate, the first month** (meeting 2026-09-02, points 11 · 13 · 14) | `fixed_asset_categories` catalogue + screen; tag allocated from the class per property; class defaults prefilled on the form and by the model; useful life read as an annual rate; `accounting.depreciation_proration` (`full_month` \| `days`); importer widened. **Deploy note**: the migration rows every value the register already holds (grouped case-insensitively, the register rewritten to the row's spelling) and deliberately SKIPS the shipped codes so `atriom:install --force`'s seeder creates those with their life, pool and prefix — a row it had created for `HVAC` on a box already holding HVAC assets shipped the class lifeless, on exactly the installs that have assets. | ✅ shipped |
 | **4 — The rail, the bank and the supplier** (meeting 2026-09-02, point 15, slice 1) | `funded_from` reads the outbound rail catalogue; the asset is the ninth document on `RecordsBankAccount` (the credit leg lands in the named bank's own chart account — a bank-funded asset had credited the generic `bank` ROLE, the unattributed state SW-228 closed for receipts); `vendor_id` with a quick-create gated on `vendors.create`; the importer takes `vendor_code`. **Slice 2, not built**: `funded_from = payable` raising a draft supplier bill (Dr asset / Cr AP). | ✅ shipped |
+| **5 — Transfer between properties** (meeting 2026-09-02, point 18) | `fixed_asset_transfers` + `fixed_asset_transfer_legs` (two GL sources, `inter_property_clearing` role + chart leaf `11801001`), `TransferFixedAssetService`, `FixedAsset::propertyOn()` read by all three journalizers, `asset_id` REFUSED once depreciating (the act's own write passes by shape), the *Transfer* act on the record page + the *Transfers* tab. **Deploy note**: `atriom:install --force` seeds the new chart leaf and posting-map row; nothing already posted moves. | ✅ shipped |
 | **2b — Disposal write-off** | `FixedAssetDisposal` source + `DisposeFixedAssetService` + journalizer: Dr Accumulated Depreciation + Dr Cash\|Bank (proceeds) + gain/loss / Cr Furniture & Equipment, so the balance sheet clears the disposed asset. New gain/loss-on-disposal accounts + mappings; dispose-with-proceeds form; parent-lifecycle cascade covers it. | ✅ shipped |
 
 ---
@@ -344,6 +467,26 @@ a named bank never cleared, a cash purchase left on the form's defaults booking 
 refused to `accounting` and creating a real supplier for `manager`), the importer (supplier by code,
 blank clears, unknown refused in words, no rail column). Ten cases; twenty-one mutations.
 
+`tests/Feature/Regression/AFixedAssetMovesByATransferActNotAnEditTest.php` — point 18: one
+balanced leg per property carrying cost and accumulated depreciation (Cr Furniture / Dr Accumulated
+/ Dr Clearing out, the mirror in; the trial balance per property and netting to zero portfolio-
+wide; a second sweep moves nothing), history left where it was (the SAME acquisition and charge
+entries, still posted, still in the old property) with the transfer month's charge landing in the
+new one and `propertyOn()` month by month, the opening write-off travelling with the asset, the
+reason as data on the trail and both legs worded EN/AR naming the counterparty, the free edit
+refused on a depreciating and on a disposed asset and still allowed on an uncommitted one, the
+carve-out reading the LATEST transfer (a round trip does not reopen the edit) and refusing money
+riding along, the purchase bank staying in the buying property so the bank guard does not block
+the move, every refusal beside its control (reason · disposed · same property · pseudo-property ·
+future · closed period · acquisition month · charged month · out of order · not held · tag clash),
+the act on the Edit page redirecting to the asset under its new tenant and hidden for a manager
+with nowhere to move it, and the Transfers tab (registered on the resource); from the review —
+a bank-funded asset's page still saving a rename under the receiving mall, the four frozen figures
+refused (model, form disabled, importer worded) with housekeeping and the life still open, the
+uncharged-month refusal with its two non-gaps (fully depreciated, cut-over), a disposal dated
+before the transfer refused, and a property's scoped run posting the months it held the asset.
+Fifteen cases; forty-three mutations, each killing its own tooth.
+
 `tests/Feature/Services/DepreciationServiceTest.php` — monthly amount (net of salvage),
 one entry per asset per month, derived accumulated/NBV, idempotent re-run, no charge
 before acquisition, stops-at-base (never over-depreciates), disposed skipped, NOT-NULL
@@ -362,8 +505,10 @@ depreciation charge (Dr Depreciation Expense / Cr Accumulated Depreciation, zero
 void-on-delete (acquisition + charges net to zero), the **GL↔AR/AP tie-out stays balanced**
 after posting fixed-asset entries (the GRNI-class regression), and the parent-lifecycle
 cascade exercised through the **actual windowed `accounting:sync-ledger` run**: an aged
-depreciation charge voids after soft-delete, charges restore on restore, and the entries
-re-dimension after a property re-home (the review-caught windowed-discovery regression).
+depreciation charge voids after soft-delete, charges restore on restore, the free re-home of a
+DEPRECIATING asset is refused with its entries left in the old property (point 18 — until then
+this case pinned the re-dimensioning the transfer act replaced), and an UNCOMMITTED asset's
+acquisition still follows a correction of its property.
 Disposal write-off: loss case (proceeds < NBV), gain case (sold above NBV, proceeds to
 bank), fully-depreciated scrap (no gain/loss), the whole footprint nets Furniture +
 Accumulated to zero after acquire→depreciate→dispose, the disposal entry voids through the
