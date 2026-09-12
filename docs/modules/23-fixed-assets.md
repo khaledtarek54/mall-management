@@ -95,7 +95,7 @@ every row (there is no identity to match on) — tag the file, or import once.
 | `category` | the CLASS — a `fixed_asset_categories.code` (see below); nullable for a legacy row, required for a new one |
 | `acquisition_date` · `acquisition_cost` · `salvage_value` | cost basis; a blank salvage on create takes the class's memo value (1.00 shipped — SAP's rule) |
 | `useful_life_months` | straight-line period; the form also reads and writes it as an ANNUAL RATE % (`annualRatePct()` ↔ `monthsForAnnualRate()` — Law 91 states rates), months are the stored truth |
-| `tax_pool` | Law 91 pool, proposed by the class, floored to the statutory default on create |
+| `tax_pool` | Law 91 pool, proposed by the class, floored to the statutory default on create — **only while the `tax_depreciation` switch is on** (rule 12); null = unstated |
 | `method` | `straight_line` (only method today) |
 | `funded_from` | the outbound RAIL the purchase moved on — a `payment_methods` code, `cash \| bank` the floor; the acquisition credit |
 | `bank_account_id` | WHICH bank account it left (`RecordsBankAccount` — asked · defaulted from the property · required where the rail carries bank money); null resolves to the rail, then the role |
@@ -360,6 +360,65 @@ covers the disposal, the acquisition date and `--month` on the backfill command.
      `label()`) and the activity trail; the Transfers tab lives with the asset. **No new
      setting** (skill §3b): neither system configures the transfer's posting shape, and the
      clearing account is a posting-map row like every other role.
+12. **The income-tax depreciation schedule is a MODULE SWITCH, and it is OFF on the client's
+   install until further work** (meeting 2026-09-02 point 12 — *"kelmt ehlak dareebi, 5leha
+   ehlak"* — decided 2026-09-13 by the owner: *"stop it, stop posting to the ledger, mark it in
+   the docs as stopped, no reference on the dashboard or in a money action, re-enableable later"*).
+   Two facts first, because the ask conflated them: `/admin/tax-depreciation` (Law 91/2005 art.
+   25 — `App\Support\TaxDepreciation` + `TaxDepreciationService`) is a REPORT for the corporate
+   return and **has never posted a journal entry** (`TheTaxDepreciationScheduleIsASwitchTest`
+   pins that its three files name no ledger, no entry and no write); what posts monthly is the
+   BOOK depreciation — `accounting:post-depreciation`, the *Post depreciation* button and the
+   entries tab — which is the `fixed_assets` module and is **untouched**: assets go on
+   depreciating in the books. Asked which was meant, the owner chose *only the tax page*.
+   - **The standard**: every fixed-asset system in the benchmark set keeps a TAX book beside the
+     accounting one and makes keeping it a per-company configuration (Yardi Fixed Assets' books,
+     SAP's depreciation areas, Odoo's fiscal vs. accounting). So it is a switch that **ships ON**
+     — `Modules::KEYS['tax_depreciation']`, `ModulesSettings::$tax_depreciation = true`, Settings →
+     Modules → Inventory & assets — and the client's OFF is a configuration act on their box,
+     never the code default (skill §3b). A switch and not a code freeze (`Modules::FROZEN` is for
+     UNFINISHED work — the ETA precedent): the schedule is finished and correct, what the client is
+     deciding is whether to look at it. Its own key, deliberately NOT `FEATURE_OF` `fixed_assets`
+     — a follower answers whatever its owner answers, and this must be off while the register is on.
+   - **Off hides every door and posts nothing new**: `TaxDepreciation::canAccess()` reads the
+     switch, and the sidebar (`Navigation::itemsFor()`), the report hub (`ReportCatalogue::
+     visibleTo()`), the delivery options and every scheduled delivery (`DeliverSavedReportService`
+     re-asks `canAccess()`) and the assistant's report tier all ask that one method — 403 on the
+     route, absent everywhere else. The `tax_pool` Select on the asset form, the class form's
+     `default_tax_pool` and the classes table's column are `->visible()` on the same switch; the
+     asset form's class helper stops naming a pool that is no longer below it. Nothing on a
+     dashboard widget, the month-end close or any money action ever referenced the schedule
+     (measured by grep before the change), and the page carries no act of its own.
+   - **The data while off — UNSTATED, never invented (found by review).** A hidden field is not
+     dehydrated, so an existing asset keeps its pool and a new one takes its CLASS's proposal
+     through `FixedAsset::saving`. But the floor to the statutory default (`general`, 25% DB) runs
+     **only while the switch is on**: with it off nobody can confirm a pool, so an asset whose
+     class proposes none — every class registered while off, since its field is hidden too — is
+     left NULL. The schedule already reads null as the law's default (`TaxDepreciationScheduleTest`:
+     *general, never dropped*), and the form shows the blank BACK the day the switch returns —
+     the review step below — where a `general` the system invented would have been a figure on a
+     tax return nobody looked at twice.
+   - **A saved view of the schedule is not stranded (found by review).** The hub filtered out
+     every saved view of a report the reader could not open — and the hub is the ONLY surface
+     that manages a `SavedReport`, so a scheduled delivery of the tax schedule would have gone on
+     being claimed by `reports:deliver`, refused by the service (correctly) and counted as a
+     FAILURE on every due day for as long as the switch was off, with nothing anywhere to retire
+     it. An operator's OWN view of an unopenable report is listed now, unlinked, saying why
+     (`admin.report_hub.unavailable_view`), with delete and the schedule modal still on it; a
+     colleague's stays hidden (not theirs to touch). General: it covers a report whose module is
+     off AND a report the reader lost the right to.
+   - **To switch it back on**: Settings → Modules → *Tax depreciation* (super_admin). Then
+     review the pools registered while it was off — `fixed_asset_categories` with a null
+     `default_tax_pool` and `fixed_assets` with a null `tax_pool` (blank on the form, `general` to
+     the schedule) — and confirm the rates the return is filed at (STATUS A6.1). Nothing else is
+     needed: no migration, no deploy, no data was deleted.
+   - **Left as it is, and why**: the `tax_pool` column stays NOT-NULL-by-convention only through
+     the floor, so a null is now a legitimate value meaning *unstated* (the column was nullable
+     from its migration and the service always read `?: default()`); the four permission /
+     screen-guide / empty-state strings that mention "tax pool" describe what a RIGHT allows or
+     what the classes screen is for and stay; the handbook's screens dataset lists every screen
+     regardless of any switch (`cam` too). Client's install: **`modules.tax_depreciation = false`
+     SET on staging 2026-09-13** (STATUS §9).
 
 ---
 

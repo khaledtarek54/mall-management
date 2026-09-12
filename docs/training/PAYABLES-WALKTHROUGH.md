@@ -690,7 +690,7 @@ reconciling the first. A wrong match marks money verified, which is worse than n
 | `/admin/vat-return` | Output VAT against input VAT | Per registration, not per mall |
 | `/admin/withholding-tax-return` | **Form 41** per supplier | **Quarterly, off the FISCAL year's start** |
 | Withholding **certificate** PDF | What a supplier hands their own accountant | Per supplier |
-| `/admin/tax-depreciation` | The tax view of the fixed-asset register | — |
+| `/admin/tax-depreciation` | The tax view of the fixed-asset register — only while the *Tax depreciation* module switch is on (it is off on this install) | — |
 
 Four decisions inside the withholding return worth knowing:
 

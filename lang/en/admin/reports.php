@@ -331,6 +331,7 @@ return [
 
         'empty' => 'You do not have access to any report yet.',
         'categories' => [
+        'unavailable_view' => 'This report is switched off, or your access to it changed. Delete the view or clear its schedule.',
             'financial' => 'Financial statements',
             'receivables' => 'Receivables',
             'payables' => 'Payables',

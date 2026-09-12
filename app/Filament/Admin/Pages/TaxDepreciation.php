@@ -7,6 +7,7 @@ use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\KeepsFilterAnswered;
 use App\Services\Accounting\TaxDepreciationService;
+use App\Support\Modules;
 use App\Support\TaxDepreciation as Pools;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -48,9 +49,17 @@ class TaxDepreciation extends Page implements DeliverableReport, HasSchemas
 
     public ?int $year = null;
 
+    /**
+     * The schedule is its own module switch (`tax_depreciation`, meeting 2026-09-02 point 12): an
+     * install that files the return from its accountant's own computation switches it off and the
+     * page, the sidebar item, the report-hub entry and every scheduled delivery of it go together —
+     * all of them ask THIS method, so there is one door to shut. The tax pool on the asset and
+     * class forms reads the same switch. Book depreciation is the `fixed_assets` module and posts
+     * regardless; this page never posted anything.
+     */
     public static function canAccess(): bool
     {
-        return Auth::user()?->can('reports.view') ?? false;
+        return Modules::enabled('tax_depreciation') && (Auth::user()?->can('reports.view') ?? false);
     }
 
     public static function getNavigationLabel(): string

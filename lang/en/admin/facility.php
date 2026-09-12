@@ -491,6 +491,7 @@ return [
         'helpers' => [
             'tax_pool' => 'Which class this falls in for income tax (Law 91/2005). Separate from the accounting useful life.',
             'category' => 'Numbers the asset and proposes its life, memo value and tax pool; blanks below fill in when picked.',
+            'category_no_tax_pool' => 'Numbers the asset and proposes its life and memo value; blanks below fill in when picked.',
             'tag' => 'Leave blank to take the next number in the class\'s series; a number you type is kept.',
             'tag_allocated_as' => 'Allocated as :example if left blank',
             'tag_typed' => 'Pick a class, or type the number',

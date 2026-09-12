@@ -55,6 +55,7 @@ return [
             'facility' => 'Work orders, service schedules, equipment and permits to work.',
             'inventory' => 'Warehouses, stock items and the movements between them.',
             'fixed_assets' => 'The asset register and its depreciation postings.',
+            'tax_depreciation' => 'The income-tax depreciation schedule and the tax pool on each asset. Book depreciation still posts.',
             'employees' => 'The staff register, departments and documents.',
             'payrolls' => 'Payroll runs and the statutory rates they compute on.',
             'custodies' => 'Petty cash held by a staff member, and how it is spent.',

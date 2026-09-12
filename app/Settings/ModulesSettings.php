@@ -55,6 +55,16 @@ class ModulesSettings extends Settings
 
     public bool $fixed_assets = true;
 
+    /**
+     * The income-tax depreciation schedule (Law 91/2005) and the tax pool on each asset and class.
+     * Defaults TRUE like every module switch — the market's fixed-asset systems keep a tax book
+     * beside the accounting one — and the client's install switches it OFF by hand (meeting
+     * 2026-09-02 point 12): they file the return from their accountant's own computation and do
+     * not want a second depreciation figure on screen. Book depreciation is `fixed_assets` and is
+     * untouched by this switch; the schedule never posted anything.
+     */
+    public bool $tax_depreciation = true;
+
     public bool $employees = true;
 
     public bool $custodies = true;

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\FixedAssetCategories\Tables;
 
 use App\Models\FixedAsset;
 use App\Models\FixedAssetCategory;
+use App\Support\Modules;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -45,6 +46,8 @@ class FixedAssetCategoriesTable
                 TextColumn::make('default_tax_pool')
                     ->label(__('admin.fields.default_tax_pool'))
                     ->formatStateUsing(fn (?string $state): string => $state ? __("admin.tax_depreciation.pools.{$state}") : '—')
+                    // With the tax schedule switched off the pool is a fact nothing reads.
+                    ->visible(fn (): bool => Modules::enabled('tax_depreciation'))
                     ->toggleable(),
 
                 TextColumn::make('fixed_assets_count')

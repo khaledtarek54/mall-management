@@ -129,7 +129,9 @@ class ReportHub extends Page implements HasTable
                 TextColumn::make('title')
                     ->label(__('admin.report_hub.report'))
                     ->weight('medium')
-                    ->url(fn (array $record): string => $record['url'])
+                    // Null for an own saved view whose report cannot be opened right now: a title
+                    // that is not a link, over a description saying why.
+                    ->url(fn (array $record): ?string => $record['url'])
                     ->color('primary')
                     // The description sits under the title rather than in its own column: at this
                     // width a second text column wraps into an unreadable ladder, and the two
@@ -240,9 +242,11 @@ class ReportHub extends Page implements HasTable
     /**
      * This operator's saved views, plus anything the team shared, for reports they can still open.
      *
-     * `visibleTo()` on the query is ownership; the `canAccess()` filter below is capability. Both
-     * are needed: a shared view must not list a report the reader cannot open, and a view whose
-     * report was removed from the catalogue must not render a dead row.
+     * `visibleTo()` on the query is ownership; the `canAccess()` test below is capability. Both are
+     * needed: a shared view must not list a report the reader cannot open, and a view whose report
+     * was removed from the catalogue must not render a dead row (`catalogued()`). The reader's OWN
+     * view of a report they cannot open right now is the exception — listed without a link so
+     * they can retire it.
      *
      * @return Collection<int, object>
      */
@@ -257,25 +261,40 @@ class ReportHub extends Page implements HasTable
             ->with('user:id,name')
             ->orderBy('name')
             ->get()
-            ->filter(fn (SavedReport $view) => rescue(
-                fn () => $pageFor[$view->report]::canAccess(),
-                false,
-                false,
-            ))
-            ->map(fn (SavedReport $view) => (object) [
-                'id' => $view->id,
-                'name' => $view->name,
-                'user_id' => $view->user_id,
-                // Whose it is, when it is not yours — a shared view with no author reads as
-                // something the system produced rather than something a colleague set up.
-                // Whose it is, when it is not yours — a shared view with no author reads as
-                // something the system produced rather than something a colleague set up. Your own
-                // views describe the report instead, which is the more useful line to read.
-                'description' => $view->user_id === Auth::id()
-                    ? __("admin.report_hub.descriptions.{$view->report}")
-                    : __('admin.report_hub.shared_by', ['name' => $view->user?->name ?? '—']),
-                'url' => ReportParameters::urlFor($pageFor[$view->report], $view->parameters ?? [], $view->id),
-            ]);
+            ->map(function (SavedReport $view) use ($pageFor): ?object {
+                $canOpen = rescue(fn () => $pageFor[$view->report]::canAccess(), false, false);
+                $own = $view->user_id === Auth::id();
+
+                // A view of a report the reader cannot open right now — its module switched off,
+                // or their right withdrawn — is DROPPED when it is a colleague's (not theirs to
+                // touch) and KEPT, unlinked, when it is their own, so its schedule can be cleared or
+                // the view deleted. Filtered out with the rest, it went on delivering: this hub is
+                // the only surface that manages a saved view, `DeliverSavedReportService` refused it
+                // (correctly) and the command counted that refusal as a failure on every due day,
+                // with nothing anywhere to retire it. Found by review of the tax-schedule switch.
+                if (! $canOpen && ! $own) {
+                    return null;
+                }
+
+                return (object) [
+                    'id' => $view->id,
+                    'name' => $view->name,
+                    'user_id' => $view->user_id,
+                    // Whose it is, when it is not yours — a shared view with no author reads as
+                    // something the system produced rather than something a colleague set up. Your
+                    // own views describe the report instead, which is the more useful line to read.
+                    'description' => match (true) {
+                        ! $canOpen => __('admin.report_hub.unavailable_view'),
+                        $own => __("admin.report_hub.descriptions.{$view->report}"),
+                        default => __('admin.report_hub.shared_by', ['name' => $view->user?->name ?? '—']),
+                    },
+                    'url' => $canOpen
+                        ? ReportParameters::urlFor($pageFor[$view->report], $view->parameters ?? [], $view->id)
+                        : null,
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     /**

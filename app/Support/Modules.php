@@ -80,6 +80,14 @@ class Modules
         'inventory_assets' => [
             'inventory',
             'fixed_assets',
+            // The income-tax depreciation schedule (Law 91/2005 art. 25) — a REPORT beside the
+            // register, its own switch because it is its own decision: whether a second, tax
+            // basis is kept at all is configured per company in every fixed-asset system that
+            // offers one, independently of whether assets are registered and depreciated in the
+            // books. Ships ON (the market's answer); the client's install SETS it off (meeting
+            // 2026-09-02 point 12, decided 2026-09-13). NOT `FEATURE_OF` fixed_assets: a follower
+            // answers whatever its owner answers, and this must be off while the register is on.
+            'tax_depreciation',
         ],
         'hr_payroll' => [
             'employees',
@@ -149,6 +157,7 @@ class Modules
         // Inventory & assets
         'inventory',
         'fixed_assets',
+        'tax_depreciation',
         // HR & payroll
         'employees',
         'payrolls',

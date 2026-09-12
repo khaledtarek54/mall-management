@@ -10,6 +10,7 @@ use App\Services\DepreciationService;
 use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\Modules;
 use App\Support\TaxDepreciation;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
@@ -68,7 +69,10 @@ class FixedAssetForm
                         $set('tax_pool', $defaults['tax_pool']);
                     }
                 })
-                ->helperText(__('admin.fixed_assets.helpers.category')),
+                // Names the tax pool only while there is a tax pool below to fill in.
+                ->helperText(fn (): string => Modules::enabled('tax_depreciation')
+                    ? __('admin.fixed_assets.helpers.category')
+                    : __('admin.fixed_assets.helpers.category_no_tax_pool')),
             TextInput::make('name')
                 ->label(__('admin.fixed_assets.fields.name'))
                 ->required()
@@ -97,11 +101,18 @@ class FixedAssetForm
             // No form default, deliberately: with `general` filled in from mount the class's own
             // pool never reached the field (`blank()` was never true). The model floors a blank
             // to the statutory default on create, so the row is never left unstated.
+            // Offered only while the tax schedule is switched on (`tax_depreciation`, meeting
+            // 2026-09-02 point 12): a pool nothing on screen reads is a question the operator
+            // cannot answer. Hidden is NOT dehydrated, so an existing asset keeps the pool it has,
+            // and a new one takes its CLASS's proposal from the model or stays NULL — unstated,
+            // shown back as blank when the switch returns — rather than a default the system
+            // invented while nobody could confirm it (`FixedAsset::saving`).
             Select::make('tax_pool')
                 ->label(__('admin.fixed_assets.fields.tax_pool'))
                 ->options(fn () => collect(TaxDepreciation::pools())
                     ->mapWithKeys(fn (string $p) => [$p => __("admin.tax_depreciation.pools.{$p}")])->all())
                 ->native(false)
+                ->visible(fn (): bool => Modules::enabled('tax_depreciation'))
                 ->helperText(__('admin.fixed_assets.helpers.tax_pool')),
             DatePicker::make('acquisition_date')
                 ->label(__('admin.fixed_assets.fields.acquisition_date'))

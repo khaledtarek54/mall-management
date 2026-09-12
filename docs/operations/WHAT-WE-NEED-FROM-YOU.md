@@ -241,7 +241,7 @@ a rebuild.
 | A3.4 | A closed period blocks back-dated posting | |
 | A3.8 | **Reporting per property. Consolidated is NOT reachable today** — the books support it; the screens do not | |
 | A5.2 | Payroll withholdings split into their own payable accounts | |
-| A6.1 | **Egyptian tax depreciation 5 / 10 / 25 / 50%** (Law 91/2005 art. 25) | |
+| A6.1 | **Egyptian tax depreciation 5 / 10 / 25 / 50%** (Law 91/2005 art. 25) — switched off at your request since 2026-09-13; confirm only when it returns | |
 | A6.2 / A9.6 | Monthly depreciation run · bilingual payslips · per-asset useful life and salvage | |
 | A7.2 / A7.5 | Deposit is a refundable liability with **no VAT**; discounts go through credit notes with approval | |
 | A9.3 / A9.4 | CAM presented **gross**; inventory at per-movement unit cost (FIFO on receipts) | |

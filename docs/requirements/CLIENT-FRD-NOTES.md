@@ -205,7 +205,7 @@ These four decisions steer the FRs below:
 | 9 | Description says which invoice was paid and how | Method only | ✅ **Shipped 2026-09-11** — *"Bank transfer — for INV-…, INV-…"* | (with 6) | ✅ built |
 | 10 | Statement footer "valid for X days" | Fixed sentence | ✅ **Shipped 2026-09-11** — `statement.footer` block at /admin/document-wording | XS | ✅ built |
 | 11 | Fixed asset: category first; asset number auto from category; description | Tag typed by hand; category free text | ✅ **Shipped 2026-09-12** — `fixed_asset_categories` catalogue (`/admin/fixed-asset-categories`), class first on the form, tag `{PREFIX}-0001` per property from the class, typed/imported tags kept ([modules/23](../modules/23-fixed-assets.md)) | M | ✅ built |
-| 12 | "Tax depreciation" → "Depreciation" | Two bases by law; only the tax one has a screen | **Do not rename**; show the BOOK rate, add the book schedule | S | |
+| 12 | "Tax depreciation" → "Depreciation" | Two bases by law; only the tax one has a screen | ✅ **Shipped 2026-09-13** — the tax schedule is a module switch (`tax_depreciation`, ships on), **switched OFF on the client's install** on Khaled's call; the book rate already shows (#17); the schedule never posted, the book run keeps posting ([modules/23 rule 12](../modules/23-fixed-assets.md)) | S | ✅ built · OFF |
 | 13 | Salvage value default 1 | Default 0; nothing hides at 0 | ✅ **Shipped 2026-09-12** — the class's memo value, 1.00 on every shipped class, proposed on pick and by the model; a stated figure wins | XS | ✅ built |
 | 14 | Useful life per category; rate % not months; daily | Months per asset; full month, no proration | ✅ **Shipped 2026-09-12** — class default life; the form reads/writes an annual rate % beside the months (months stored); `accounting.depreciation_proration` (`full_month` ships · `days` — the client's ask is SET on staging); posting stays monthly | S | ✅ built |
 | 15 | "Funded from" → payment method; vendor existing or new | cash/bank literal; no bank account; no vendor | ✅ **Slice 1 shipped 2026-09-12** — *Paid by* is the outbound rail catalogue + the bank account (the ninth `RecordsBankAccount` document, credit leg in the bank's own chart account); *Supplier* is a vendor row with a "+" gated on `vendors.create`; importer takes the supplier code ([modules/23](../modules/23-fixed-assets.md)). Slice 2 (a supplier BILL that capitalises the asset — Dr asset / Cr AP) not built | S (+M) | ✅ slice 1 built |
@@ -498,6 +498,15 @@ the form (#14), add a plain **Depreciation schedule** (book) report if they want
 *إهلاك* — the register CSV is already that schedule — and keep the tax page, whose subheading already
 says *"for the return, not a second ledger"*. **Ask** whether they want the tax schedule hidden (it is
 one module switch away) — it is what the corporate return is prepared from. Effort **S**.
+
+> **Decided 2026-09-13 — Khaled: *"stop it, stop posting to the ledger, mark it stopped, no
+> reference on the dashboard or in a money action, re-enableable later."*** Asked which of the two
+> was meant — the tax PAGE (a report that has never posted) or the BOOK run (which posts monthly) —
+> he chose **only the tax page**. Shipped as a module switch, `tax_depreciation`, shipping ON (the
+> market keeps a tax book per company) and **SET OFF on staging** the same day; off, the page 403s,
+> the sidebar, the report hub, the deliveries and the assistant omit it, and the tax pool leaves the
+> asset and class forms; the book depreciation is untouched. Re-enable from Settings → Modules, then
+> review the pools left unstated while it was off. [modules/23 rule 12](../modules/23-fixed-assets.md).
 
 **#13 — *"Qema t5rdia, yb2a '1' default; lw b2t 0 msh hatzhar."***
 

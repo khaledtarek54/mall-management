@@ -11,6 +11,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\Modules;
 use App\Support\PostingDate;
 use App\Support\TaxDepreciation;
 use Carbon\CarbonImmutable;
@@ -475,7 +476,17 @@ class FixedAsset extends Model
             // `TaxDepreciationService` would read a null the same way, and a stated value is what
             // the form shows back. The form carries NO default of its own (it did, and `general`
             // from mount meant the class's proposal never reached the field — the review caught it).
-            if (! $fixedAsset->exists && blank($fixedAsset->getAttributes()['tax_pool'] ?? null)) {
+            //
+            // **Only while the tax schedule is switched on** (`tax_depreciation`, meeting 2026-09-02
+            // point 12). With it off nobody can state a pool — the field is hidden on every door —
+            // so an asset whose class proposes none is left NULL, which the schedule already reads
+            // as the law's default (`TaxDepreciationScheduleTest`: general, never dropped) and the
+            // form shows back as BLANK the day the switch returns: an unconfirmed classification
+            // the accountant can see and settle, rather than a `general` the system invented and
+            // nobody would ever look at again. Found by review.
+            if (! $fixedAsset->exists
+                && blank($fixedAsset->getAttributes()['tax_pool'] ?? null)
+                && Modules::enabled('tax_depreciation')) {
                 $fixedAsset->tax_pool = TaxDepreciation::default();
             }
 

@@ -181,6 +181,7 @@ return [
         'inventory' => 'Inventory',
         'fixed_asset_categories' => 'Asset classes',
         'fixed_assets' => 'Fixed Assets',
+        'tax_depreciation' => 'Tax depreciation',
         'employees' => 'Employees',
         'custodies' => 'Custodies',
         'imports' => 'Data Import',

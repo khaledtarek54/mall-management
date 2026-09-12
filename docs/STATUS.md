@@ -252,7 +252,7 @@ the cutover posture.
 | A3.4 | Period close blocks back-dated posting | As described |
 | **A3.8** | **Reporting per property — and CONSOLIDATED is not reachable today.** The books support it (the year-end close already rolls a consolidated bucket) but no screen offers it: the six statements pin their property picker to the mall in the switcher, and All-Properties mode was removed by an earlier decision. A combined P&L for an owner holding both malls is currently two PDFs and a spreadsheet. | Per property, as described. **Consolidated needs a decision** — reopen the All-Properties question (**M**), or accept the per-property split |
 | A5.2 | Payroll withholdings split into their own payable accounts | As described |
-| A6.1 | **Egyptian tax depreciation rates per class** (5 / 10 / 25 / 50%, Law 91/2005 art. 25) | Built and computed; confirm the rates you file at |
+| A6.1 | **Egyptian tax depreciation rates per class** (5 / 10 / 25 / 50%, Law 91/2005 art. 25) | Built and computed; **switched OFF on your install since 2026-09-13 at your request** (Settings → Modules → Tax depreciation) — confirm the rates only when it returns |
 | A6.2 / A9.6 | Monthly depreciation run, bilingual payslips, per-asset useful life and salvage | As described |
 | A7.2 / A7.5 | Deposit is a refundable liability with no VAT; discounts through credit notes with approval | As described |
 | A9.3 / A9.4 | CAM presented **gross**; inventory at per-movement unit cost (FIFO on receipts) | As described |
@@ -364,7 +364,7 @@ Do not re-ask. One line apiece so a link from another document still resolves.
 | A4.1 *(mechanism)* | **The chart is importable** (EG-28). Only the file is missing |
 | A5.1 *(half)* | The **employer's** social-insurance contribution is recorded and posts |
 | A5.3 *(mechanism)* | **Payroll numbers are a dated ladder** (EG-03) resolved for the run's own month |
-| A6.1 | **Egyptian tax depreciation is built** — statutory pools and the temporary difference. A schedule, not a second ledger, because Egypt files single-book |
+| A6.1 | **Egyptian tax depreciation is built** — statutory pools and the temporary difference. A schedule, not a second ledger, because Egypt files single-book; **a module switch since 2026-09-13, OFF on the client's install** (meeting point 12) |
 | A7.1 *(half)* | **The PDC register is built** — lifecycle, bulk lodging, maturity dashboard, GL posting |
 | A9.7 | **A bank account per mall** (EG-12) and **configurable numbering** including the reset rule (EG-10) |
 | A9.8 *(half)* | **Form 41 is built** (EG-21) — quarterly, per registration, with certificates and a tie-out |
@@ -485,7 +485,13 @@ and the shipped shape); if it is the net, the figures are corrected by a re-surv
 Point 23 (late fees → an operations request to cut services) is **deferred** on Khaled's call
 (2026-09-13, *"not needed now"*); the market study and the ready design are kept in
 [CLIENT-FRD-NOTES §6.6](requirements/CLIENT-FRD-NOTES.md#66-collections-23) for the day it returns.
-What is left of the memo is decisions, not code: 2 (X days) · 4 (the lease template) · 12 · 21 · 22.
+**Point 12 shipped 2026-09-13 as a switch and is OFF on staging**: the income-tax depreciation
+schedule (a report — it never posted) is `tax_depreciation` under Settings → Modules, shipping on
+(the market keeps a tax book per company) and **SET off on this install** on Khaled's call — the
+page, the hub entry, the deliveries and the tax pool on the asset and class forms go with it; the
+book depreciation run is untouched. Re-enable from the switch, then review the pools left unstated
+while it was off ([modules/23 rule 12](modules/23-fixed-assets.md)).
+What is left of the memo is decisions, not code: 2 (X days) · 4 (the lease template) · 21 · 22.
 
 ### 9.1 · The accountant's sitting
 

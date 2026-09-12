@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\FixedAssetCategories\Schemas;
 
+use App\Support\Modules;
 use App\Support\TaxDepreciation;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -58,11 +59,15 @@ class FixedAssetCategoryForm
                 ->prefix(config('app.currency', 'EGP'))
                 ->helperText(__('admin.fixed_asset_categories_screen.help.default_salvage')),
 
+            // The class's proposal for a field the asset form only offers while the tax schedule
+            // is switched on (`tax_depreciation`) — hidden with it. A class registered while the
+            // switch is off proposes NO pool, and its assets stay unstated until somebody looks.
             Select::make('default_tax_pool')
                 ->label(__('admin.fields.default_tax_pool'))
                 ->options(fn (): array => collect(TaxDepreciation::pools())
                     ->mapWithKeys(fn (string $p): array => [$p => __("admin.tax_depreciation.pools.{$p}")])->all())
                 ->native(false)
+                ->visible(fn (): bool => Modules::enabled('tax_depreciation'))
                 ->helperText(__('admin.fixed_asset_categories_screen.help.default_tax_pool')),
 
             TextInput::make('sort_order')

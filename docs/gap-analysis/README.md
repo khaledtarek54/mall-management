@@ -441,7 +441,8 @@ found a live deadlock — see §6.
 modules it either matches Odoo or matches Odoo **Enterprise** (the paid edition) on several
 property-fit capabilities Community lacks. The honest gaps were a short cluster — bank
 reconciliation, Egyptian tax depreciation, employer social insurance / gratuity — and the first two
-have since shipped (`BankStatement` + matcher; `/admin/tax-depreciation`).
+have since shipped (`BankStatement` + matcher; `/admin/tax-depreciation` — a module switch since
+2026-09-13, off on the client's install).
 
 **From here, build effort goes to property and facility, not here.** That is a standing decision,
 recorded so nobody re-audits a closed layer.

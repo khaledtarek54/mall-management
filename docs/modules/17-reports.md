@@ -269,7 +269,13 @@ Livewire property and Livewire takes what the payload says, not what the `Select
 > existed. `/admin/report-hub` groups them — Financial · Receivables · Leasing · Operations · Tax —
 > each with a one-line description of the question it answers, which is the field that earns the
 > page. A report appears exactly when the operator could open it, because the hub asks each page's
-> own `canAccess()` rather than duplicating a permission that would drift.
+> own `canAccess()` rather than duplicating a permission that would drift. **The one exception is
+> the reader's OWN saved view of a report they cannot open right now** (2026-09-13 — a module
+> switched off, or a right withdrawn): it is listed UNLINKED, saying why, with delete and the
+> schedule modal still on it, because the hub is the only surface that manages a saved view and a
+> filtered-out one went on being claimed by `reports:deliver` and refused as a failure on every due
+> day. A colleague's stays hidden. The tax depreciation schedule is the first report behind its own
+> switch (`tax_depreciation`, [modules/23 rule 12](23-fixed-assets.md)).
 >
 > `App\Support\ReportCatalogue` is the registry and `ReportCatalogueConformanceTest` the gate:
 > every admin page is catalogued or exempt-with-a-reason, and both languages must describe every

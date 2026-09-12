@@ -176,6 +176,7 @@ return [
         'inventory' => 'المخزون',
         'fixed_asset_categories' => 'فئات الأصول',
         'fixed_assets' => 'الأصول الثابتة',
+        'tax_depreciation' => 'الإهلاك الضريبي',
         'employees' => 'الموظفون',
         'custodies' => 'العهد',
         'imports' => 'استيراد البيانات',
