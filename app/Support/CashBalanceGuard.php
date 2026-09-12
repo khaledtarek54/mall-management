@@ -91,6 +91,16 @@ class CashBalanceGuard
             return;
         }
 
+        // THE EVALUATION MUST LEAVE NO TRACE ON THE MODEL (2026-09-13). A journalizer reads a
+        // document's children (`InvoiceJournalizer` → `loadMissing('items')`), and on a model
+        // that is still being CREATED those children do not exist yet — so the read cached an
+        // EMPTY collection on the very instance the caller goes on to use. Measured: the monthly
+        // run billed an invoice with two lines, then handed that instance to the tenant's e-mail,
+        // whose PDF rendered NO lines (`InvoicePdfService::viewData()` — `loadMissing` keeps a
+        // cache that is already there). Snapshot the relations before, restore them after: the
+        // guard is a read, and a read that changes what its subject answers next is a write.
+        $loadedBefore = $model->getRelations();
+
         try {
             $movement = app(LedgerPoster::class)->accountMovements($model);
         } catch (DomainException $e) {
@@ -104,6 +114,8 @@ class CashBalanceGuard
             Log::warning('Cash-balance guard could not evaluate '.$model::class.($model->getKey() ? ' #'.$model->getKey() : '').': '.$e->getMessage());
 
             return;
+        } finally {
+            $model->setRelations($loadedBefore);
         }
 
         if ($movement === null || $movement['entry_date'] === null) {

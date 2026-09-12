@@ -1218,7 +1218,11 @@ default its bank (`RecordsBankAccount`) in `creating`, and a wildcard listener o
 AFTER the model's own, so the credit leg the guard reads already names the bank the money leaves.
 It asks `LedgerPoster::accountMovements()` what the save would MOVE per account — the would-be entry
 (`effectivePayload()`, the poster's own reading) and the id of the live entry it would REPLACE, which
-the balance read leaves out — so **an edit is judged on its increase, a document re-dated or re-homed
+the balance read leaves out — **and leaves no trace on the model (2026-09-13)**: the journalizer's
+`loadMissing('items')` on an invoice at `creating` had cached an EMPTY lines collection on the very
+instance the billing run then mailed to the tenant, whose PDF rendered no lines
+(`ABilledInvoiceReachesTheTenantWithItsLinesTest`); the guard snapshots `getRelations()` and restores
+it in `finally`, because a read that changes what its subject answers next is a write — so **an edit is judged on its increase, a document re-dated or re-homed
 on its whole amount where it now lands, a void moves money IN and is never refused, and a receipt is
 never in question** (the guard reads outflows only). The first cut NETTED the two entries per account,
 and the review broke it: an outflow moved to an EARLIER day netted to zero and passed, leaving that
