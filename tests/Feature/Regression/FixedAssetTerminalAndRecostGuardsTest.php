@@ -39,7 +39,7 @@ beforeEach(function () {
 
     $this->fixed = FixedAsset::create([
         'asset_id' => $this->asset->id,
-        'name' => 'Chiller unit', 'tag' => 'FA-001', 'category' => 'hvac',
+        'name' => 'Chiller unit', 'tag' => 'FA-001', 'category' => 'HVAC',
         'acquisition_date' => '2026-01-01',
         'acquisition_cost' => 100000, 'salvage_value' => 0,
         'useful_life_months' => 100, 'method' => 'straight_line',

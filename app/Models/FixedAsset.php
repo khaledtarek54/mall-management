@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Services\DepreciationService;
 use App\Support\ActivityLogging;
@@ -9,6 +10,7 @@ use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\PostingDate;
+use App\Support\TaxDepreciation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,7 +32,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: FixedAsset::class)]
 class FixedAsset extends Model
 {
-    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
      * The register rows that are still ON THE BALANCE SHEET.
@@ -117,6 +119,99 @@ class FixedAsset extends Model
     }
 
     /**
+     * The asset CLASS this row was registered under (meeting 2026-09-02, points 11 · 13 · 14):
+     * where its tag series, its proposed life, its memo value and its tax pool came from. Keyed on
+     * the CODE the `category` column stores, so a class renamed on its screen relabels every asset
+     * at once and a legacy value with no row still reads as itself.
+     *
+     * NOT named `category()`: a relation named after its own foreign-key column shadows the
+     * attribute — reading `$asset->category` then resolves the RELATION, whose `getParentKey()`
+     * reads `$asset->category` again (measured: every read of the column threw).
+     */
+    public function assetClass(): BelongsTo
+    {
+        return $this->belongsTo(FixedAssetCategory::class, 'category', 'code');
+    }
+
+    /**
+     * The straight-line rate as a percentage a year — `12 ÷ useful_life_months × 100`.
+     *
+     * The accountant reads a life as a RATE (Law 91 states its rates as percentages; SAP's key is
+     * "20%" as readily as "5 years"), and the one figure the register showed was months. Months stay
+     * the ONE stored truth — `DepreciationService::monthlyAmount()` divides by them — and this is the
+     * other reading of the same number, offered on the form both ways. Null while no life is set.
+     */
+    public function annualRatePct(): ?float
+    {
+        return self::annualRateFor((int) $this->useful_life_months);
+    }
+
+    /** The rate a life in months reads as — the form's half of the pair, before a row exists. */
+    public static function annualRateFor(int $months): ?float
+    {
+        return $months > 0 ? round(1200 / $months, 2) : null;
+    }
+
+    /**
+     * Months from a rate, the reciprocal of {@see annualRatePct()} — `1200 ÷ rate`, rounded to a
+     * whole month, never below one. What the form stores when the operator types the percentage.
+     */
+    public static function monthsForAnnualRate(float $ratePct): ?int
+    {
+        return $ratePct > 0 ? max(1, (int) round(1200 / $ratePct)) : null;
+    }
+
+    /**
+     * The next tag in this property's series for a class — `{prefix}-0001`.
+     *
+     * Per PROPERTY, because a tag's identity already is (property, tag): two malls each number
+     * their chillers from 1, which is the rule the importer keys on. MAX-based over `withTrashed()`
+     * so a retired asset keeps its number reserved, and LENGTH-first so the series counts past its
+     * padding (EG-10) — the same allocator shape every document series here takes, and the one
+     * `DocumentSeriesOrderingConformanceTest` derives its sweep from.
+     *
+     * Only a tag whose tail is a NUMBER counts as a member of the series. Unlike an invoice number,
+     * a tag is routinely TYPED — a migrating register's own `FUR-2026-0001` is kept as it stands
+     * (the counterparty-code rule) — and `(int) '2026-0001'` reads as 2026, which would have the
+     * next blank tag allocated `FUR-2027` (the review caught it). The set is bounded by one
+     * property's assets in one class, so reading it back and filtering in PHP costs nothing.
+     */
+    public static function generateTag(int $assetId, string $prefix): string
+    {
+        $prefix = strtoupper($prefix).'-';
+
+        $last = static::withTrashed()
+            ->where('asset_id', $assetId)
+            ->where('tag', 'like', $prefix.'%')
+            ->orderByRaw('LENGTH(tag) DESC, tag DESC')
+            ->pluck('tag')
+            ->map(fn (string $tag): string => substr($tag, strlen($prefix)))
+            ->filter(fn (string $tail): bool => preg_match('/^\\d+$/', $tail) === 1)
+            ->map(fn (string $tail): int => (int) $tail)
+            ->max();
+
+        return sprintf('%s%04d', $prefix, ($last ?? 0) + 1);
+    }
+
+    /** MAX+1 with a collision loop — the belt to the allocation lock's braces. */
+    protected static function generateUniqueTag(int $assetId, string $prefix): string
+    {
+        $series = strtoupper($prefix).'-';
+        $candidate = static::generateTag($assetId, $prefix);
+        $attempts = 0;
+
+        while (static::withTrashed()->where('asset_id', $assetId)->where('tag', $candidate)->exists()) {
+            $candidate = sprintf('%s%04d', $series, (int) substr($candidate, strlen($series)) + 1);
+
+            if (++$attempts > 1000) {
+                return $series.uniqid();
+            }
+        }
+
+        return $candidate;
+    }
+
+    /**
      * Everything this asset has depreciated — **the one definition**.
      *
      * `opening_accumulated_depreciation` carries what was already written off before Atriom existed;
@@ -189,6 +284,49 @@ class FixedAsset extends Model
     {
         // NOT-NULL guard for the money columns (the meter_readings.cost bug class).
         static::saving(function (self $fixedAsset) {
+            // ── THE CLASS PROPOSES WHAT THE ROW LEFT BLANK — on CREATE only ──────────────────
+            // The memo value, the useful life and the tax pool an asset of this kind usually has
+            // (`FixedAssetCategory::defaultsFor()`). The form prefills them when the category is
+            // picked; this is the same proposal for the doors with no form — the importer, a
+            // seeder, a factory — so a migrating register whose file leaves salvage blank gets the
+            // class's memo value rather than a silent zero. BEFORE the NOT-NULL coercion below,
+            // which would otherwise turn the blank into the zero this exists to replace. A figure
+            // stated on the row — including an explicit 0 — is never overwritten, and a row that
+            // exists is never touched: what is on the asset is what depreciates.
+            if (! $fixedAsset->exists && ($defaults = FixedAssetCategory::defaultsFor($fixedAsset->category)) !== null) {
+                $raw = $fixedAsset->getAttributes();
+
+                if (($raw['salvage_value'] ?? null) === null || ($raw['salvage_value'] ?? null) === '') {
+                    $fixedAsset->salvage_value = $defaults['salvage_value'];
+                }
+
+                if (blank($raw['useful_life_months'] ?? null) && $defaults['useful_life_months'] !== null) {
+                    $fixedAsset->useful_life_months = $defaults['useful_life_months'];
+                }
+
+                if (blank($raw['tax_pool'] ?? null) && $defaults['tax_pool'] !== null) {
+                    $fixedAsset->tax_pool = $defaults['tax_pool'];
+                }
+            }
+
+            // A life must come from somewhere — the row, or its class. A blank left by a door that
+            // named a class proposing none is refused in words, not as the column's NOT NULL. The
+            // form requires the field, so the door this reaches is the importer — whose own
+            // `beforeCreate()` throws the SAME sentence as a `RowImportFailedException`, because
+            // Filament's `ImportCsv` writes only that exception's words into the failed-rows file
+            // and swallows every other throwable into a message-less failed row.
+            if (! $fixedAsset->exists && blank($fixedAsset->getAttributes()['useful_life_months'] ?? null)) {
+                throw new \DomainException(__('admin.fixed_assets.errors.useful_life_required'));
+            }
+
+            // The tax pool is stated on every row: the class's, else the statutory default —
+            // `TaxDepreciationService` would read a null the same way, and a stated value is what
+            // the form shows back. The form carries NO default of its own (it did, and `general`
+            // from mount meant the class's proposal never reached the field — the review caught it).
+            if (! $fixedAsset->exists && blank($fixedAsset->getAttributes()['tax_pool'] ?? null)) {
+                $fixedAsset->tax_pool = TaxDepreciation::default();
+            }
+
             foreach (['acquisition_cost', 'salvage_value'] as $column) {
                 $raw = $fixedAsset->getAttributes()[$column] ?? null;
                 if ($raw === null || $raw === '') {
@@ -252,6 +390,34 @@ class FixedAsset extends Model
                     (float) $fixedAsset->salvage_value,
                 );
             }
+        });
+
+        // ── THE NUMBER COMES FROM THE CLASS (meeting 2026-09-02, point 11) ─────────────────
+        // A blank tag is allocated `{prefix}-0001` in this property's series for the category,
+        // under the document-number lock held across the INSERT (`AllocatesDocumentNumber`), so
+        // two operators registering chillers at once do not both get `HVAC-0007`. A tag the
+        // operator typed or a migrating register supplied is KEPT — its accountant's paperwork
+        // already carries it, which is the `AllocatesPartyCode` rule for a counterparty code. An
+        // asset whose class has no series (a legacy value with no row) keeps needing a tag: the
+        // column is NOT NULL, and the form requires it on that path — a blank there would reach the
+        // database as a raw constraint error, which is not a refusal anybody can read.
+        static::creating(function (self $fixedAsset): void {
+            if (filled($fixedAsset->tag)) {
+                return;
+            }
+
+            $prefix = FixedAssetCategory::defaultsFor($fixedAsset->category)['tag_prefix'] ?? null;
+
+            if ($prefix === null || $prefix === '' || ! $fixedAsset->asset_id) {
+                return;
+            }
+
+            $assetId = (int) $fixedAsset->asset_id;
+
+            $fixedAsset->tag = $fixedAsset->allocateDocumentNumber(
+                "fixed-asset-tag:{$assetId}:{$prefix}",
+                fn (): string => static::generateUniqueTag($assetId, $prefix),
+            );
         });
 
         // --- Keep the depreciation charges' ledger entries in lock-step with the

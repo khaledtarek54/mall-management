@@ -288,6 +288,12 @@
         "note": null
     },
     {
+        "model": "FixedAssetCategory",
+        "label": "Fixed Asset Category",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "FixedAssetDisposal",
         "label": "Fixed Asset Disposal",
         "classification": "owned",

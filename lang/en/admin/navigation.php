@@ -179,6 +179,7 @@ return [
         'announcements' => 'Announcements',
         'marketing_posts' => 'Marketing posts (shopper feed)',
         'inventory' => 'Inventory',
+        'fixed_asset_categories' => 'Asset classes',
         'fixed_assets' => 'Fixed Assets',
         'employees' => 'Employees',
         'custodies' => 'Custodies',

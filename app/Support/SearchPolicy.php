@@ -24,6 +24,7 @@ use App\Filament\Admin\Resources\ExpenseCategories\ExpenseCategoryResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
+use App\Filament\Admin\Resources\FixedAssetCategories\FixedAssetCategoryResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\Holidays\HolidayResource;
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
@@ -238,6 +239,7 @@ class SearchPolicy
         RetailCategoryResource::class => 'A dozen merchandising categories the leasing team configures and everyone else picks from a dropdown. A shopper-facing directory search looks for the STORE, not the category, and that already works through the tenant blob.',
         DocumentTemplateResource::class => 'A handful of rows the operator writes once and revises rarely, found by opening the screen rather than by searching. Searching for a phrase should find the DOCUMENT that carries it — the invoice, the statement — not the template it was written in.',
         PayrollRateResource::class => 'One row a year, and nobody searches for a year — the accountant opens the ladder to add next January\'s decree or to check what was in force. There is no name, code or reference to fold: every column is a number or a date.',
+        FixedAssetCategoryResource::class => 'A dozen asset classes the accountant configures once and the asset form picks from a dropdown. Searching for "furniture" should find the register\'s furniture, not the class row that names it.',
         ViolationCategoryResource::class => 'Seven-odd house rules a compliance manager configures and a field officer picks from a dropdown. Searching for "signage" should find the BREACH, not the rule it was filed under, and that already works through the violation blob.',
         RecurringExpenseResource::class => 'A handful of CONFIGURATION rows an operator sets up once and reviews yearly — a real-estate tax schedule, a licence renewal. Searching for "real-estate tax" should find the EXPENSES it booked, which the expense blob already answers; surfacing the schedule above them would put a setting where the money should be.',
         CustomFieldResource::class => 'The DEFINITIONS of the operator\'s own fields — configuration, not records. Searching for "parent group" should find the TENANT whose parent group it is, not the row that says tenants have one; making the definitions findable would put a settings row above every record it describes.',

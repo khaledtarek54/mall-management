@@ -247,6 +247,7 @@ final class ActivityLogging
         'VendorDocumentType' => ['blocks_dispatch', 'code', 'is_active', 'name_ar', 'name_en', 'sort_order'],
         'Violation' => ['asset_id', 'category', 'description', 'fine_amount', 'notified_at', 'status', 'tenant_id', 'violation_date'],
         'ViolationCategory' => ['code', 'default_fine_amount', 'is_active', 'name_ar', 'name_en', 'sort_order'],
+        'FixedAssetCategory' => ['code', 'default_salvage_value', 'default_tax_pool', 'default_useful_life_months', 'is_active', 'name_ar', 'name_en', 'sort_order', 'tag_prefix'],
         'Warehouse' => ['asset_id', 'category', 'code', 'is_active', 'name'],
         'WorkOrderProposal' => ['decided_at', 'decision_reason', 'facility_work_order_id', 'is_supplementary', 'labour_amount', 'material_amount', 'scope', 'service_amount', 'status', 'total_amount', 'vendor_id'],
         'WorkPermit' => ['area_id', 'closed_at', 'closure_notes', 'conditions', 'contractor_name', 'description', 'facility_work_order_id', 'issued_at', 'location', 'status', 'type', 'unit_id', 'valid_from', 'valid_to', 'vendor_id'],

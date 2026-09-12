@@ -7,9 +7,12 @@ use Illuminate\Support\Facades\Lang;
 /**
  * The built-in category suggestions, and the one rule for displaying them bilingually.
  *
- * `fixed_assets.category` and `warehouses.category` are **free-form string columns**: the
- * operator may type anything, and the Select merely seeds the list with suggestions and offers
- * a "create" affordance. That freedom is deliberate and stays.
+ * `warehouses.category` is a **free-form string column**: the operator may type anything, and the
+ * Select merely seeds the list with suggestions and offers a "create" affordance. That freedom is
+ * deliberate and stays. (`fixed_assets.category` had the same shape until 2026-09-12, when the
+ * accountant asked for the class to number and default the asset — it is the seventh
+ * `IsCodeCatalogue` now, `FixedAssetCategory`, and its labels come from its rows; the lang group
+ * `admin.enums.category_suggestions.fixed_asset` stays as that catalogue's floor labels.)
  *
  * But the seeded suggestions are OUR strings, not the operator's — and they were English
  * literals inlined in the form (`'furniture', 'equipment', 'HVAC', …`), rendered straight
@@ -29,9 +32,6 @@ use Illuminate\Support\Facades\Lang;
  */
 final class CategorySuggestions
 {
-    /** Fixed-asset categories seeded into the Select. Values are the stored strings. */
-    public const FIXED_ASSET = ['furniture', 'equipment', 'HVAC', 'IT', 'vehicles', 'fit-out'];
-
     /** Warehouse (stock-location) categories. */
     public const WAREHOUSE = ['spare_parts', 'machines', 'consumables'];
 

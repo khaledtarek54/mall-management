@@ -194,40 +194,44 @@ class TaxDepreciationService
     }
 
     /**
-     * What the ACCOUNTING book charged the same assets that year — the other half of the
+     * What the ACCOUNTING book charges the same assets that year — the other half of the
      * difference an accountant is looking for.
+     *
+     * A PROJECTION of the book schedule (the page reads a year that may not be fully posted), but
+     * sized month by month by `DepreciationService::chargeFor()` — the rule `run()` posts with —
+     * walking from the acquisition month with the base running down, exactly as the ledger does.
+     * A copy of the arithmetic here once charged twelve whole months while the ledger, under the
+     * `days` convention, posted a prorated first month and a thirteenth partial one (the review
+     * caught it): a book-vs-tax difference the accountant would have filed.
      */
     private function bookChargeFor($assets, int $year): float
     {
         $total = 0.0;
 
         foreach ($assets as $asset) {
-            $monthly = $this->book->monthlyAmount($asset);
-
-            if ($monthly <= 0) {
+            if ($this->book->monthlyAmount($asset) <= 0) {
                 continue;
             }
 
-            $start = CarbonImmutable::parse($asset->acquisition_date);
-            $end = $asset->disposed_on ? CarbonImmutable::parse($asset->disposed_on) : null;
+            $month = CarbonImmutable::parse($asset->acquisition_date)->startOfMonth();
+            $end = $asset->disposed_on ? CarbonImmutable::parse($asset->disposed_on)->startOfMonth() : null;
+            $remaining = $this->book->depreciableBase($asset);
 
-            for ($m = 1; $m <= 12; $m++) {
-                $month = CarbonImmutable::create($year, $m, 1);
+            // Bounded by the base running out, the disposal, or the year the page asks about —
+            // never by the stated life alone, because a prorated first month runs one past it.
+            while ($remaining > 0 && (int) $month->year <= $year && ($end === null || $month->lte($end))) {
+                $charge = $this->book->chargeFor($asset, $month, $remaining);
 
-                if ($month->lt($start->startOfMonth())) {
-                    continue;
-                }
-                if ($end && $month->gt($end->startOfMonth())) {
+                if ($charge <= 0) {
                     break;
                 }
 
-                // Never beyond the depreciable base — the same clamp the posting run applies.
-                $monthsElapsed = $start->startOfMonth()->diffInMonths($month) + 1;
-                if ($monthsElapsed > (int) $asset->useful_life_months) {
-                    break;
+                if ((int) $month->year === $year) {
+                    $total += $charge;
                 }
 
-                $total += $monthly;
+                $remaining = round($remaining - $charge, 2);
+                $month = $month->addMonth();
             }
         }
 

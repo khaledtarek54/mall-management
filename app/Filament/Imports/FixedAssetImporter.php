@@ -4,10 +4,14 @@ namespace App\Filament\Imports;
 
 use App\Filament\Imports\Concerns\ResolvesVisibleAssetByCode;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetCategory;
 use App\Support\DataTransferNotice;
+use App\Support\ValueSets;
+use Filament\Actions\Imports\Exceptions\RowImportFailedException;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\Rule;
 
 /**
  * Load the fixed-asset register at cut-over — chillers, escalators, generators.
@@ -52,20 +56,32 @@ class FixedAssetImporter extends Importer
                     $record->asset_id = static::resolveVisibleAsset($state)?->id;
                 }),
 
+            // A migrating register's own numbers are KEPT (the counterparty-code rule — its
+            // accountant's paperwork already carries them); a blank cell is allocated the next
+            // number in the class's series for the property, by the model, as the form does — so
+            // a row naming NO class must carry its own tag, or nothing can number it and the
+            // insert would fail on the column's NOT NULL with no sentence for the operator.
             ImportColumn::make('tag')
                 ->label(__('admin.fixed_assets.fields.tag'))
                 ->requiredMapping()
-                ->rules(['required', 'max:40']),
+                ->rules(['nullable', 'required_without:category', 'max:40']),
 
             ImportColumn::make('name')
                 ->label(__('admin.fields.name'))
                 ->requiredMapping()
                 ->rules(['required', 'max:255']),
 
+            // The asset CLASS — a catalogue code since 2026-09-12 (`FixedAssetCategory`): what
+            // numbers an untagged row and proposes a blank salvage, life or tax pool.
+            // `ValueSets::allowed()` — what the column ACCEPTS, which is every catalogue row
+            // including a retired one (a migrating file may legitimately carry a class the
+            // operator has since stopped offering on the form; refusing the row would lose it).
+            // Nullable, deliberately: a migrating register carries its own numbers and lives, and
+            // may carry no classes at all — the form requires one for a NEW asset because that is
+            // where the number comes from.
             ImportColumn::make('category')
                 ->label(__('admin.fields.category'))
-                // Free-form on purpose (a string column, not an enum): the operator's own taxonomy.
-                ->rules(['nullable', 'max:255']),
+                ->rules(['nullable', Rule::in(ValueSets::allowed('fixed_assets', 'category') ?? [])]),
 
             ImportColumn::make('acquisition_date')
                 ->label(__('admin.fixed_assets.fields.acquisition_date'))
@@ -96,11 +112,18 @@ class FixedAssetImporter extends Importer
                 ->numeric()
                 ->rules(['nullable', 'numeric', 'min:0']),
 
+            // Blank takes the class's proposed life (the model fills it on create); a figure
+            // stated in the file wins, exactly as salvage does above. Required where no class is
+            // named — nothing else can propose one — and `beforeCreate()` below refuses in words
+            // where the class named proposes none either. `ignoreBlankState()`, because on a
+            // RE-IMPORT (the tag matched an existing asset) a blank cell must leave the life the
+            // row already has: Filament fills a blank as null otherwise, and the column is NOT NULL.
             ImportColumn::make('useful_life_months')
                 ->label(__('admin.fixed_assets.fields.useful_life'))
                 ->requiredMapping()
                 ->integer()
-                ->rules(['required', 'integer', 'min:1']),
+                ->ignoreBlankState()
+                ->rules(['nullable', 'required_without:category', 'integer', 'min:1']),
 
             ImportColumn::make('notes')
                 ->label(__('admin.fields.notes'))
@@ -131,9 +154,14 @@ class FixedAssetImporter extends Importer
             return null;
         }
 
-        $existing = FixedAsset::query()
+        // A row with no tag has no identity to match on: it is a NEW asset, numbered by the class
+        // on create. Matching a blank against `''` would never find anything either, but saying so
+        // is what stops a second import of the same untagged file reading as an update.
+        $tag = trim((string) ($this->data['tag'] ?? ''));
+
+        $existing = $tag === '' ? null : FixedAsset::query()
             ->where('asset_id', $asset->id)
-            ->where('tag', $this->data['tag'] ?? '')
+            ->where('tag', $tag)
             ->first();
 
         return $existing ?? new FixedAsset([
@@ -143,6 +171,28 @@ class FixedAssetImporter extends Importer
             // still post its acquisition.
             'is_opening_balance' => true,
         ]);
+    }
+
+    /**
+     * A NEW asset with no life of its own and a class proposing none is refused HERE, in words:
+     * the model throws the same sentence as a `DomainException`, and Filament's `ImportCsv`
+     * writes only a `RowImportFailedException`'s message into the failed-rows file — every other
+     * throwable becomes a failed row with no sentence (the `LeaseImporter` idiom).
+     */
+    protected function beforeCreate(): void
+    {
+        /** @var FixedAsset $asset */
+        $asset = $this->record;
+
+        if (filled($asset->getAttributes()['useful_life_months'] ?? null)) {
+            return;
+        }
+
+        if ((FixedAssetCategory::defaultsFor($asset->category)['useful_life_months'] ?? null) !== null) {
+            return;
+        }
+
+        throw new RowImportFailedException(__('admin.fixed_assets.errors.useful_life_required'));
     }
 
     public static function getCompletedNotificationBody(Import $import): string

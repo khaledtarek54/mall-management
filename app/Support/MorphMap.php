@@ -50,6 +50,7 @@ use App\Models\FacilityWorkOrderPart;
 use App\Models\FailureCode;
 use App\Models\FiscalYear;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetCategory;
 use App\Models\FixedAssetDisposal;
 use App\Models\Floor;
 use App\Models\Holiday;
@@ -284,6 +285,7 @@ class MorphMap
         'document_template' => DocumentTemplate::class,
         'payroll_rate' => PayrollRate::class,
         'violation_category' => ViolationCategory::class,
+        'fixed_asset_category' => FixedAssetCategory::class,
         'vendor_document_type' => VendorDocumentType::class,
         'tenant_request_subcategory' => TenantRequestSubcategory::class,
         'trade' => Trade::class,

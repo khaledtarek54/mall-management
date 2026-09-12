@@ -204,13 +204,13 @@ These four decisions steer the FRs below:
 | 8 | Ledger column "Charge" → "Debit"; PDF = the screen, every detail | ✅ **Rename shipped 2026-09-03**; PDF still a different document | ✅ **Shipped 2026-09-11** — one row per invoice line, screen and PDF one derivation | (with 6) | ✅ built |
 | 9 | Description says which invoice was paid and how | Method only | ✅ **Shipped 2026-09-11** — *"Bank transfer — for INV-…, INV-…"* | (with 6) | ✅ built |
 | 10 | Statement footer "valid for X days" | Fixed sentence | ✅ **Shipped 2026-09-11** — `statement.footer` block at /admin/document-wording | XS | ✅ built |
-| 11 | Fixed asset: category first; asset number auto from category; description | Tag typed by hand; category free text | **Build** a category catalogue + auto tag | M | |
+| 11 | Fixed asset: category first; asset number auto from category; description | Tag typed by hand; category free text | ✅ **Shipped 2026-09-12** — `fixed_asset_categories` catalogue (`/admin/fixed-asset-categories`), class first on the form, tag `{PREFIX}-0001` per property from the class, typed/imported tags kept ([modules/23](../modules/23-fixed-assets.md)) | M | ✅ built |
 | 12 | "Tax depreciation" → "Depreciation" | Two bases by law; only the tax one has a screen | **Do not rename**; show the BOOK rate, add the book schedule | S | |
-| 13 | Salvage value default 1 | Default 0; nothing hides at 0 | **Build** as the category's memo value (SAP's rule) | XS | |
-| 14 | Useful life per category; rate % not months; daily | Months per asset; full month, no proration | **Build** defaults + % input + day proration; posting stays monthly | S | |
+| 13 | Salvage value default 1 | Default 0; nothing hides at 0 | ✅ **Shipped 2026-09-12** — the class's memo value, 1.00 on every shipped class, proposed on pick and by the model; a stated figure wins | XS | ✅ built |
+| 14 | Useful life per category; rate % not months; daily | Months per asset; full month, no proration | ✅ **Shipped 2026-09-12** — class default life; the form reads/writes an annual rate % beside the months (months stored); `accounting.depreciation_proration` (`full_month` ships · `days` — the client's ask is SET on staging); posting stays monthly | S | ✅ built |
 | 15 | "Funded from" → payment method; vendor existing or new | cash/bank literal; no bank account; no vendor | **Build** rail + bank account + vendor; AP capitalisation later | S (+M) | |
 | 16 | Cash box / bank can never be credit | No guard | **Build** for cash (SAP's rule); warn for bank | M | |
-| 17 | TB daily depreciation; 60 months shows 25% not 20% | 25% = Law 91 tax pool, correct; 20% is the unshown book rate | **Not a bug** — closed by 12 + 14 | — | |
+| 17 | TB daily depreciation; 60 months shows 25% not 20% | 25% = Law 91 tax pool, correct; 20% is the unshown book rate | **Not a bug** — the book rate now shows on the register (the *Annual rate %* column) and the form, beside the tax pool; daily posting declined (14) | — | ✅ closed by 14 |
 | 18 | Transfer an asset between places | `asset_id` editable → rewrites history | **Build** a dated Transfer act | M | |
 | 19 | Trial balance as a collapsible tree | Flat list | **Build** a ledger tree (screen + PDF) | M | |
 | 20 | Gross and net area per unit | One area | **Build** net area as an informational second measure | S | |
@@ -441,7 +441,7 @@ same helper. Effort **M**.
 
 ---
 
-### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 17 · 18) — the accountant's slice
+### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 17 · 18) — the accountant's slice — 11 · 13 · 14 ✅ shipped 2026-09-12
 
 **#11 — *"Category fixed asset ton fl awl, raqm l 2asl shelhaaaa w htt3ml auto mn l category w mwgod
 fl database. w nzwd description le fixed assets bel mola7zat."***
@@ -462,6 +462,14 @@ lock (the `AllocatesPartyCode` idiom — and **kept when an import supplies one*
 has its own numbers). Category first on the form. *Description:* `name` is the description and
 `notes` the remarks — relabel; add a third field only if they confirm they need one. Effort **M**;
 it is also the base for 13 and 14.
+
+**Shipped 2026-09-12** as recommended, with three things worth stating. (a) The migration rows every
+value the register already holds and **skips the shipped codes** — the seeder creates those with their
+life, pool and prefix; a row the migration had created for `HVAC` on a box already holding HVAC assets
+shipped the class LIFELESS on exactly the installs that have assets (the review caught it against the
+staging register). (b) A kept tag in another numeric shape (`FUR-2026-0001`) is not a member of the
+series — `(int) '2026-0001'` reads as 2026. (c) *Description:* left as `name` + `notes`, unchanged —
+nobody has confirmed a third field is needed.
 
 **#12 — *"Kelmt ehlak dareebi, 5le ehlak."*** and **#17 (second half) — *"60 shuhor, rate zahrt 25%
 mfrod kant tb2a 20%."***
@@ -492,6 +500,10 @@ Odoo default salvage to 0.
 **Recommendation — BUILD** as the category's default memo value (#11), seeded **1.00**; the base is
 cost − memo. Effort **XS** once the catalogue exists.
 
+**Shipped 2026-09-12.** Proposed on the form when the class is picked and by the model for every
+door with no form (the importer, a seeder); a figure stated — including an explicit 0 — wins, and
+nothing re-reads the class once the asset exists.
+
 **#14 — *"L 3omar entagy 3ala 7sb l category / 5leha % bdl shuhor / ttsgl daily msh shahren."*** and
 **#17 (first half) — *"Trail balance, daily le ehlak."***
 
@@ -512,6 +524,15 @@ trial balance run mid-month shows no current-month depreciation in any of them.
 and the mid-month trial balance would still be what the accountant expects from every other system.
 If they want the current month visible before month-end, the *Post this month* button already runs
 it early. Effort **S**.
+
+**Shipped 2026-09-12** — (a), (b) and (c); the daily entry declined as above. The proration is
+`full_month` on a fresh install (what every install did — Yardi's and this system's behaviour) and
+**`days` is what the client SETS** on `/admin/settings` → Fixed assets (skill §3b); the sizing is ONE
+rule (`DepreciationService::chargeFor()`) read by the posting run and the tax page's book column, so
+the book-vs-tax difference cannot disagree with the ledger. Two shipped defects the review found in
+the build: a `maxValue(100)` on the derived rate refused every life under a year on create AND
+locked its Edit page (Filament validates a non-dehydrated field), and the form's own `general`
+tax-pool default meant the class's pool never reached the field.
 
 **#15 — *"Mamwl mn: n5leha tre2t daf3, w meen mwrd — mwgod fl system wla ytktb esm gded."***
 

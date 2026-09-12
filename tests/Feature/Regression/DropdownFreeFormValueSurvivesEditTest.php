@@ -4,8 +4,10 @@ use App\Filament\Admin\Resources\FixedAssets\Pages\EditFixedAsset;
 use App\Filament\Admin\Resources\InventoryItems\Pages\EditInventoryItem;
 use App\Filament\Admin\Resources\Warehouses\Pages\EditWarehouse;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetCategory;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
+use Database\Seeders\FixedAssetCategorySeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -114,24 +116,31 @@ it('lets an operator create a brand-new warehouse category from the dropdown (fr
     expect($warehouse->fresh()->category)->toBe('landscaping');
 });
 
-it('keeps an out-of-list fixed-asset category selectable on edit (Select, not datalist)', function () {
+it('keeps a RETIRED asset class selectable on the asset\'s edit page', function () {
+    // The fixed-asset category stopped being free-form on 2026-09-12 (`FixedAssetCategory`, the
+    // seventh catalogue). The case this test guards is the catalogue version of the same trap:
+    // a class the operator retired must not make every asset registered under it unsavable —
+    // `CatalogueAwareSelect` keeps the stored code offered on a saved record.
+    $this->seed(FixedAssetCategorySeeder::class);
     $asset = makeAsset();
-    // 'signage' is NOT a built-in suggestion (furniture/equipment/HVAC/IT/vehicles/fit-out).
     $fa = FixedAsset::create([
-        'asset_id' => $asset->id, 'name' => 'Mall pylon sign', 'tag' => 'FA-SIGN',
-        'category' => 'signage', 'acquisition_date' => '2026-01-01', 'acquisition_cost' => 5000,
+        'asset_id' => $asset->id, 'name' => 'Rooftop chiller', 'tag' => 'FA-CHILL',
+        'category' => 'HVAC', 'acquisition_date' => '2026-01-01', 'acquisition_cost' => 5000,
         'salvage_value' => 0, 'useful_life_months' => 60, 'method' => 'straight_line',
         'funded_from' => 'cash',
     ]);
+
+    FixedAssetCategory::where('code', 'HVAC')->sole()->update(['is_active' => false]);
+    FixedAssetCategory::flushCatalogue();
 
     $this->actingAs(makeUser('accounting', [$asset->id]));
 
     asTenant($asset, function () use ($fa) {
         Livewire::test(EditFixedAsset::class, ['record' => $fa->getKey()])
-            ->assertFormSet(['category' => 'signage'])
+            ->assertFormSet(['category' => 'HVAC'])
             ->call('save')
             ->assertHasNoFormErrors();
     });
 
-    expect($fa->fresh()->category)->toBe('signage');
+    expect($fa->fresh()->category)->toBe('HVAC');
 });

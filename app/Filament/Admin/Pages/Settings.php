@@ -10,6 +10,7 @@ use App\Services\GratuityService;
 use App\Settings\TaxSettings;
 use App\Support\DeletionPolicy;
 use App\Support\DepositBasis;
+use App\Support\DepreciationProration;
 use App\Support\DocumentNumbering;
 use App\Support\FiscalYearStart;
 use App\Support\LeaseActivation;
@@ -177,6 +178,23 @@ class Settings extends Page implements HasSchemas
                         ->label(__('admin.settings.fields.default_lease_term_months'))
                         ->numeric()->minValue(1)->maxValue(600)
                         ->suffix(__('admin.fields.months'))
+                        ->required(),
+                ]),
+            Section::make(__('admin.settings.sections.fixed_assets'))
+                ->description(__('admin.settings.sections.fixed_assets_description'))
+                ->components([
+                    // SAP's period control. `full_month` is what every install did before the
+                    // setting existed; `days` is the accountant's ask (meeting 2026-09-02, point
+                    // 14). Posting stays monthly under either — a daily entry is what no
+                    // benchmark system does, and the help says so.
+                    Select::make('accounting.depreciation_proration')
+                        ->label(__('admin.settings.fields.depreciation_proration'))
+                        ->options(collect(DepreciationProration::METHODS)
+                            ->mapWithKeys(fn (string $method): array => [
+                                $method => __("admin.settings.fields.depreciation_proration_options.{$method}"),
+                            ])->all())
+                        ->helperText(__('admin.settings.fields.depreciation_proration_help'))
+                        ->native(false)
                         ->required(),
                 ]),
             Section::make(__('admin.settings.sections.records_retention'))

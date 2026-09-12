@@ -234,6 +234,14 @@
             "recordActions": []
         },
         {
+            "class": "FixedAssetCategoryResource",
+            "slug": "fixed-asset-categories",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false,
+            "recordActions": []
+        },
+        {
             "class": "FixedAssetResource",
             "slug": "fixed-assets",
             "hasCreate": true,

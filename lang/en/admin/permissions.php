@@ -128,6 +128,11 @@ return [
             'create' => 'Add a field to a record type',
             'edit' => 'Rename or retire a custom field',
         ],
+        'fixed_asset_categories' => [
+            'view' => 'View the asset classes and what each proposes',
+            'create' => 'Add an asset class',
+            'edit' => 'Edit an asset class — its number series, useful life, memo value or tax pool',
+        ],
         'violation_categories' => [
             'view' => 'View the house rules and their standard fines',
             'create' => 'Add a house rule',

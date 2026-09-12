@@ -191,6 +191,8 @@ class Modules
         'tenant_request_subcategories' => 'requests',
         // Violations (module 31) — the schedule of penalties.
         'violation_categories' => 'violations',
+        // The asset classes are the register's own vocabulary (meeting 2026-09-02, points 11 · 13 · 14).
+        'fixed_asset_categories' => 'fixed_assets',
         // Vendors (module 12) — which certificates block dispatch.
         'vendor_document_types' => 'vendors',
         // Metering (module 10) — a tariff prices a reading and nothing else reads it.

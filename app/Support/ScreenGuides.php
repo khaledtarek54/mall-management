@@ -60,6 +60,7 @@ use App\Filament\Admin\Resources\ExpenseCategories\ExpenseCategoryResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
+use App\Filament\Admin\Resources\FixedAssetCategories\FixedAssetCategoryResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\Holidays\HolidayResource;
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
@@ -237,6 +238,7 @@ class ScreenGuides
         CustomFieldResource::class => 'custom_fields',
         RecurringExpenseResource::class => 'recurring_expenses',
         ViolationCategoryResource::class => 'violation_categories',
+        FixedAssetCategoryResource::class => 'fixed_asset_categories',
         VendorDocumentTypeResource::class => 'vendor_document_types',
         TenantRequestSubcategoryResource::class => 'tenant_request_subcategories',
         PaymentMethodResource::class => 'payment_methods',

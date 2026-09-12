@@ -490,6 +490,14 @@ class RolesPermissionsSeeder extends Seeder
             'fixed_assets.create' => 'Register fixed assets',
             'fixed_assets.edit' => 'Edit fixed assets, dispose & post depreciation',
         ],
+        // The asset classes (meeting 2026-09-02, points 11 · 13 · 14) — the number series, the
+        // proposed life, the memo value and the tax pool. Apart from `fixed_assets.*` because a
+        // clerk who registers assets does not thereby decide how a whole class depreciates.
+        'fixed_asset_categories' => [
+            'fixed_asset_categories.view' => 'View the asset classes and what each proposes',
+            'fixed_asset_categories.create' => 'Add an asset class',
+            'fixed_asset_categories.edit' => 'Edit an asset class — its number series, useful life, memo value or tax pool',
+        ],
         // Mall news (module 27). `send` is its own permission and not folded into `create`, for
         // the same reason `marketing_posts.approve` is separate from `edit`: since notices gained
         // a draft state, composing one and pushing it to every retailer's phone stopped being the
@@ -865,6 +873,8 @@ class RolesPermissionsSeeder extends Seeder
             'document_templates.view', 'document_templates.create', 'document_templates.edit',
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
             'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
+            // The classes are the accountant's: what an asset is proposed with is a books decision.
+            'fixed_asset_categories.view', 'fixed_asset_categories.create', 'fixed_asset_categories.edit',
             'employees.view', 'employees.grant_advance', 'employees.record_repayment',
             'custodies.view', 'custodies.create', 'custodies.edit', 'custodies.settle',
             // Owner statements + disbursements (module 27) — accounting runs the operator side.

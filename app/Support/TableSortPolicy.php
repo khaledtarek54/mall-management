@@ -187,6 +187,7 @@ final class TableSortPolicy
         'Admin/Resources/VendorDocumentTypes/Tables/VendorDocumentTypesTable' => self::REGISTER,
         'Admin/Resources/Vendors/Tables/VendorsTable' => self::REGISTER,
         'Admin/Resources/ViolationCategories/Tables/ViolationCategoriesTable' => self::REGISTER,
+        'Admin/Resources/FixedAssetCategories/Tables/FixedAssetCategoriesTable' => self::REGISTER,
         'Admin/Resources/Warehouses/Tables/WarehousesTable' => self::REGISTER,
 
         // ── WORKLIST ──────────────────────────────────────────────────────────

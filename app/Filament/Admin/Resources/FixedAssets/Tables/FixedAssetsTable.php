@@ -4,8 +4,8 @@ namespace App\Filament\Admin\Resources\FixedAssets\Tables;
 
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetCategory;
 use App\Services\DepreciationService;
-use App\Support\CategorySuggestions;
 use App\Support\Filament\DateRangeFilter;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -41,8 +41,9 @@ class FixedAssetsTable
                     ->toggleable(),
                 TextColumn::make('category')
                     ->label(__('admin.fixed_assets.fields.category'))
-                    // Translated for the values we seed, raw for one the operator invented.
-                    ->formatStateUsing(fn (?string $state) => CategorySuggestions::label('fixed_asset', $state))
+                    // The class's own label — rows first, inactive included, so a retired class
+                    // still names the assets registered under it (`IsCodeCatalogue::labelFor()`).
+                    ->formatStateUsing(fn (?string $state): string => FixedAssetCategory::labelFor($state))
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('acquisition_date')
@@ -72,6 +73,16 @@ class FixedAssetsTable
                             ->money('EGP')
                             ->query(fn (Builder $query) => $query->whereIn('status', FixedAsset::ON_BOOKS_STATUSES))
                     ),
+                // The BOOK rate (points 12 · 14 · 17): a 60-month life is 20% a year, and the
+                // register showed the life in months only — which is how the accountant came to
+                // read the tax page's 25% as the rate the books use. Months stay the stored truth;
+                // this is the same number read the way Law 91 states its own.
+                TextColumn::make('annual_rate_pct')
+                    ->label(__('admin.fixed_assets.fields.annual_rate_pct'))
+                    ->state(fn (FixedAsset $record): ?float => $record->annualRatePct())
+                    ->numeric(decimalPlaces: 2)
+                    ->suffix('%')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('monthly')
                     ->label(__('admin.fixed_assets.fields.monthly'))
                     // Pure calc (cost − salvage) ÷ life — no query.
@@ -128,14 +139,11 @@ class FixedAssetsTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn (): array => __('admin.fixed_assets.statuses')),
-                // Free-text on the form (with a "create" affordance), so offer what's in use.
+                // Every class the column may hold, retired ones included — a filter is a read,
+                // and an asset registered under a since-retired class must stay findable.
                 SelectFilter::make('category')
                     ->label(__('admin.fixed_assets.fields.category'))
-                    ->options(fn (): array => CategorySuggestions::options(
-                        'fixed_asset',
-                        [],   // only what is actually in use — a filter for zero rows is noise
-                        FixedAsset::query()->whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
-                    )),
+                    ->options(fn (): array => FixedAssetCategory::filterOptions()),
                 DateRangeFilter::make('acquisition_date', __('admin.fixed_assets.fields.acquisition_date')),
                 // Fully-depreciated assets still on the books — the write-off worklist.
                 //

@@ -35,6 +35,9 @@ class DatabaseSeeder extends Seeder
         RetailCategorySeeder::class,
         ViolationCategorySeeder::class,
         VendorDocumentTypeSeeder::class,
+        // The asset classes: the number series, the memo value and the life a new asset is
+        // proposed with (meeting 2026-09-02, points 11 · 13 · 14).
+        FixedAssetCategorySeeder::class,
         // Egypt's fixed-date public holidays. Without this the calendar is EMPTY, and a missing
         // holiday is silent — an SLA measured straight across Eid with nothing to say why.
         HolidaySeeder::class,

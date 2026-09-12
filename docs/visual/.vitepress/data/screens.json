@@ -192,6 +192,12 @@
         "guide": "failure_codes"
     },
     {
+        "screen": "FixedAssetCategoryResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "fixed_asset_categories"
+    },
+    {
         "screen": "FixedAssetResource",
         "panel": "admin",
         "kind": "resource",

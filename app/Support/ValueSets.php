@@ -18,6 +18,7 @@ use App\Models\Disbursement;
 use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
+use App\Models\FixedAssetCategory;
 use App\Models\InvoiceWriteOff;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
@@ -307,6 +308,16 @@ class ValueSets
         'custodies.paid_from' => ['cash', 'bank'],
         'custody_transactions.method' => ['cash', 'bank'],
         'fixed_assets.funded_from' => ['cash', 'bank'],
+        // The asset CLASS (meeting 2026-09-02, point 11): free text until 2026-09-12, now the
+        // seventh `IsCodeCatalogue`. The eight shipped classes are the floor; the operator's own
+        // rows widen it, and the migration that created the catalogue seeded every value already
+        // stored as a row so nothing an install held is refused.
+        'fixed_assets.category' => [FixedAssetCategory::class, 'FLOOR'],
+        // What a class proposes as the Law 91 pool — the same set the asset's own column holds.
+        'fixed_asset_categories.default_tax_pool' => [
+            TaxDepreciation::BUILDINGS, TaxDepreciation::INTANGIBLES,
+            TaxDepreciation::COMPUTERS, TaxDepreciation::GENERAL, TaxDepreciation::NONE,
+        ],
         'fixed_asset_disposals.proceeds_account' => ['cash', 'bank'],
         // …and the other half of the same money movement, in the other DIRECTION: granting an
         // advance PAYS the employee, so it is an outbound rail like an expense. `paid_from` had no
@@ -535,8 +546,7 @@ class ValueSets
         // ── Genuinely free text, and a decision rather than an omission ────────────────────────
         'vendor_contacts.role' => 'A job title the operator types — "Operations Lead", "Account Manager". Constraining it would force every supplier\'s org chart into our vocabulary, which is the opposite of what a contact list is for.',
         'department_user.role' => 'The member\'s role WITHIN a department, typed per membership. Same reasoning as vendor_contacts.role.',
-        'fixed_assets.category' => 'Free text today, and flagged for a decision rather than a set: it names the KIND of asset (HVAC, generator, lift) and the operator\'s list is theirs. If it is ever made a catalogue it becomes the seventh IsCodeCatalogue, not a literal here.',
-        'inventory_items.category' => 'Free text today — see fixed_assets.category. Same decision, same shape if it changes.',
+        'inventory_items.category' => 'Free text today: what kind of stock it is, typed by the storekeeper. `fixed_assets.category` was the same shape until 2026-09-12 and became the seventh IsCodeCatalogue when the accountant asked for the class to number and default the asset; this one gets the same treatment the day a storekeeper asks.',
         'inventory_items.unit' => 'Deliberately OPEN: InventoryItemForm offers six suggestions, merges every unit already in use, and carries a createOptionForm so a storekeeper can add one. A fixed set here would refuse the affordance the form advertises.',
         'warehouses.category' => 'Free text: what a store room holds ("spare parts", "consumables"), typed with spaces. Two warehouses in one mall may describe themselves differently and neither is wrong.',
     ];
@@ -613,6 +623,7 @@ class ValueSets
         'tenants.retail_category' => [RetailCategory::class, 'codes'],
         'vendor_documents.type' => [VendorDocumentType::class, 'codes'],
         'violations.category' => [ViolationCategory::class, 'codes'],
+        'fixed_assets.category' => [FixedAssetCategory::class, 'codes'],
     ];
 
     /**

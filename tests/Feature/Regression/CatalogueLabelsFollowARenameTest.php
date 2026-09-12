@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ExpenseCategory;
+use App\Models\FixedAssetCategory;
 use App\Models\PaymentMethod;
 use App\Models\RetailCategory;
 use App\Models\TenantRequestSubcategory;
@@ -30,6 +31,7 @@ $catalogues = [
     'retail_category' => [RetailCategory::class, ['code' => 'cinema', 'name_en' => 'Cinema', 'name_ar' => 'سينما']],
     'violation_category' => [ViolationCategory::class, ['code' => 'fire_exit', 'name_en' => 'Blocked fire exit', 'name_ar' => 'مخرج طوارئ مسدود']],
     'vendor_document_type' => [VendorDocumentType::class, ['code' => 'civil_defence', 'name_en' => 'Civil-defence permit', 'name_ar' => 'تصريح دفاع مدني']],
+    'fixed_asset_category' => [FixedAssetCategory::class, ['code' => 'signage', 'name_en' => 'Signage', 'name_ar' => 'لافتات']],
     'tenant_request_subcategory' => [TenantRequestSubcategory::class, [
         'request_type' => 'maintenance', 'code' => 'lift', 'name_en' => 'Lift', 'name_ar' => 'مصعد',
     ]],

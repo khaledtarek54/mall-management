@@ -89,7 +89,7 @@ dataset('all_mode_pickable_asset_resources', [
     'Equipment' => [EquipmentResource::class, CreateEquipment::class, Equipment::class,
         fn (int $mall) => ['asset_id' => $mall, 'code' => 'EQ-01', 'name_en' => 'Chiller', 'name_ar' => 'مبرد']],
     'FixedAsset' => [FixedAssetResource::class, CreateFixedAsset::class, FixedAsset::class,
-        fn (int $mall) => ['asset_id' => $mall, 'name' => 'Generator', 'tag' => 'FA-01', 'acquisition_cost' => 100000, 'useful_life_months' => 60, 'funded_from' => 'cash']],
+        fn (int $mall) => ['asset_id' => $mall, 'category' => 'generator', 'name' => 'Generator', 'tag' => 'FA-01', 'acquisition_cost' => 100000, 'useful_life_months' => 60, 'funded_from' => 'cash']],
     'ServicePlan' => [ServicePlanResource::class, CreateServicePlan::class, ServicePlan::class,
         fn (int $mall) => ['asset_id' => $mall, 'title' => 'Monthly HVAC service', 'trade_id' => tradeId('hvac')]],
     'SlaPolicy' => [SlaPolicyResource::class, CreateSlaPolicy::class, SlaPolicy::class,

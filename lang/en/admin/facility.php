@@ -459,6 +459,7 @@ return [
         'errors' => [
             'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
             'disposed_immutable' => 'A disposed asset is final — its cost, dates and property cannot change. The write-off has already posted, and restating it would rewrite the gain or loss on a sale that has happened. Correct it with a journal entry instead; the name, tag and notes stay editable.',
+            'useful_life_required' => 'State a useful life, or pick a class that proposes one.',
             'recost_below_accumulated' => 'The new depreciable base (:base) is below the :accumulated already depreciated. Lowering it would push the net book value negative and halt depreciation. Dispose the asset or create a corrected one instead.',
         ],
         'group' => 'Fixed Assets',
@@ -468,7 +469,7 @@ return [
             'tax_pool' => 'Tax depreciation pool',
             'name' => 'Name', 'tag' => 'Asset tag', 'category' => 'Category', 'property' => 'Property',
             'acquisition_date' => 'Acquired', 'acquisition_cost' => 'Cost', 'salvage_value' => 'Salvage',
-            'useful_life' => 'Useful life (months)', 'funded_from' => 'Funded from', 'status' => 'Status',
+            'useful_life' => 'Useful life (months)', 'annual_rate_pct' => 'Rate a year', 'funded_from' => 'Funded from', 'status' => 'Status',
             'opening_accumulated' => 'Depreciation already taken (at cut-over)',
             'monthly' => 'Monthly deprec.', 'accumulated' => 'Accum. deprec.', 'net_book_value' => 'Net book value',
             'period' => 'Month', 'amount' => 'Amount', 'notes' => 'Notes', 'posted_by' => 'Posted by',
@@ -477,6 +478,12 @@ return [
         ],
         'helpers' => [
             'tax_pool' => 'Which class this falls in for income tax (Law 91/2005). Separate from the accounting useful life.',
+            'category' => 'Numbers the asset and proposes its life, memo value and tax pool; blanks below fill in when picked.',
+            'tag' => 'Leave blank to take the next number in the class\'s series; a number you type is kept.',
+            'tag_allocated_as' => 'Allocated as :example if left blank',
+            'tag_typed' => 'Pick a class, or type the number',
+            'salvage_value' => 'The value the asset is never depreciated below. Proposed by its class; 0 depreciates to nothing.',
+            'annual_rate_pct' => 'The same life as a percentage a year (12 ÷ months). Type either; the other follows.',
         ],
         'filters' => [
             'fully_depreciated' => 'Fully depreciated',

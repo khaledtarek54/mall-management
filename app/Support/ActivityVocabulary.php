@@ -17,6 +17,7 @@ use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetCategory;
 use App\Models\Floor;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
@@ -137,6 +138,7 @@ class ActivityVocabulary
         'tenant.retail_category' => RetailCategory::class,
         'vendor_document.type' => VendorDocumentType::class,
         'violation.category' => ViolationCategory::class,
+        'fixed_asset.category' => FixedAssetCategory::class,
     ];
 
     /**
@@ -233,6 +235,7 @@ class ActivityVocabulary
         'charge.escalation_mode' => 'admin.charge_escalation.modes',
         'fixed_asset.method' => 'admin.enums.depreciation_method',
         'fixed_asset.tax_pool' => 'admin.tax_depreciation.pools',
+        'fixed_asset_category.default_tax_pool' => 'admin.tax_depreciation.pools',
         'fixed_asset.funded_from' => 'admin.enums.cash_or_bank',
         'lease.proration_method' => 'admin.proration_methods',
         'lease.rent_pricing_basis' => 'admin.enums.rent_pricing_basis',

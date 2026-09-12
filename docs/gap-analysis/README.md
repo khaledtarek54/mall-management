@@ -445,6 +445,13 @@ have since shipped (`BankStatement` + matcher; `/admin/tax-depreciation`).
 **From here, build effort goes to property and facility, not here.** That is a standing decision,
 recorded so nobody re-audits a closed layer.
 
+> **Fixed assets, 2026-09-12 — one Odoo/SAP shape adopted on the client's ask, not a re-audit.** The
+> asset CLASS is a catalogue row now (`fixed_asset_categories`: prefix, proposed life, memo value,
+> tax pool — SAP's asset class, Odoo's asset model), the tag is numbered from it per property, and
+> the first month's proration is a company setting with SAP's two answers (`full_month` ·
+> `days`), posting still monthly ([modules/23](../modules/23-fixed-assets.md)). Nothing else in the
+> layer moved.
+
 > **Two of the three named gaps have since SHIPPED, and this section had not been updated
 > (2026-08-20).** `PayrollSettings::employer_social_insurance_rate` books the employer's own
 > contribution as a cost that does not reduce net pay, and `gratuity_enabled` +

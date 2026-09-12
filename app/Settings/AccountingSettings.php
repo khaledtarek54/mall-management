@@ -2,6 +2,7 @@
 
 namespace App\Settings;
 
+use App\Support\DepreciationProration;
 use App\Support\DocumentNumbering;
 use Spatie\LaravelSettings\Settings;
 
@@ -93,6 +94,24 @@ class AccountingSettings extends Settings
     public int $activity_log_retention_days = 1825;
 
     public int $default_lease_term_months = 36;
+
+    /**
+     * How the FIRST month of an asset's life is charged — `full_month` · `days` (meeting
+     * 2026-09-02, point 14: *"the depreciation should be recorded daily, not monthly"*).
+     *
+     * SAP's period control: an asset acquired on the 20th is charged the whole month under
+     * `full_month` (what every install did before this setting existed, so it is the default and
+     * nothing moves on deploy) and 11/30 of a month under `days`, with the balance falling into the
+     * last month of its life — the schedule still sums to the depreciable base. Odoo offers the same
+     * choice as "prorata by days".
+     *
+     * **Posting stays MONTHLY under either.** A daily journal entry — thirty a month per asset — is
+     * what no benchmark system does, and a trial balance run mid-month shows no current-month
+     * depreciation in any of them; what the accountant meant is the first-month proration this
+     * setting names. *Post this month* runs the current month early when a figure is wanted before
+     * month-end. {@see DepreciationProration}.
+     */
+    public string $depreciation_proration = DepreciationProration::FULL_MONTH;
 
     public static function group(): string
     {

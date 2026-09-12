@@ -174,6 +174,7 @@ return [
         'announcements' => 'الإعلانات',
         'marketing_posts' => 'المنشورات التسويقية (واجهة الزوّار)',
         'inventory' => 'المخزون',
+        'fixed_asset_categories' => 'فئات الأصول',
         'fixed_assets' => 'الأصول الثابتة',
         'employees' => 'الموظفون',
         'custodies' => 'العهد',

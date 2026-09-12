@@ -1982,6 +1982,25 @@ return [
         ],
     ],
 
+    'fixed_asset_categories' => [
+        'purpose' => 'The kinds of fixed asset the operator owns — furniture, HVAC, IT, vehicles, generators — and what each kind decides for every asset registered under it: the number series (FUR-0001, FUR-0002 …), the useful life it is proposed with, the memo value it is never depreciated below, and the income-tax pool it falls in. Every asset register works this way; before this screen the tag was typed by hand and the category was free text.',
+        'steps' => [
+            'Add a class when a kind of asset recurs that the list does not name. Give it a code once and keep it — every asset stores the code itself.',
+            'Set its prefix: the letters in front of the asset number. Leave it blank and it is derived from the code.',
+            'Set the proposed useful life in months (the asset form also reads it as a rate a year), the memo value — 1.00 keeps a fully-depreciated asset on the register at one pound — and the tax pool.',
+            'To retire a class, switch it off. It leaves the asset form\'s picker and every asset already registered keeps its class and its number.',
+        ],
+        'affects' => [
+            'The fixed-asset form lists the classes switched on here, first, and fills the useful life, memo value and tax pool from the class when they are blank — the operator can still change each on the asset.',
+            'An asset saved with no tag is numbered from the class\'s prefix, per property; a tag the operator or an import supplies is kept.',
+            'The register, its CSV and every report name the class by its label here, so renaming one relabels every asset at once.',
+        ],
+        'rules' => [
+            'A code cannot be changed once saved, because every asset stores the code itself rather than a link to this row.',
+            'The defaults are proposals, never re-applied: what is on the asset is what depreciates, and revising a class leaves every asset already registered alone.',
+            'A class that has numbered an asset cannot be deleted. Switch it off instead.',
+        ],
+    ],
     'violation_categories' => [
         'purpose' => 'The mall\'s house rules, as the field officer sees them. Each row is one kind of breach — blocked fire exit, unauthorised signage, after-hours noise — and the standard fine for it. It used to be a fixed list of seven; it is yours now, and it is meant to grow as the handbook does.',
         'steps' => [

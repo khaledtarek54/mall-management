@@ -25,6 +25,7 @@ return [
             'payroll_rate' => 'نسبة رواتب',
             'recurring_expense' => 'مصروف دوري',
             'custom_field' => 'حقل مخصص',
+            'fixed_asset_category' => 'فئة أصل',
             'violation_category' => 'بند مخالفة',
             'vendor_document_type' => 'نوع مستند مورّد',
             'work_order_labour' => 'عمالة أمر عمل',

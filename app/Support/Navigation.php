@@ -61,6 +61,7 @@ use App\Filament\Admin\Resources\ExpenseCategories\ExpenseCategoryResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
+use App\Filament\Admin\Resources\FixedAssetCategories\FixedAssetCategoryResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\Holidays\HolidayResource;
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
@@ -333,6 +334,7 @@ final class Navigation
             UtilityTariffResource::class,
             TenantRequestSubcategoryResource::class,
             ViolationCategoryResource::class,
+            FixedAssetCategoryResource::class,
             TradeResource::class,
             FailureCodeResource::class,
             SlaPolicyResource::class,

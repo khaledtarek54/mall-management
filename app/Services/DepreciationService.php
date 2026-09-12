@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FixedAsset;
+use App\Support\DepreciationProration;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,22 @@ class DepreciationService
         $life = (int) $asset->useful_life_months;
 
         return $life > 0 ? round($this->depreciableBase($asset) / $life, 2) : 0.0;
+    }
+
+    /**
+     * What ONE month charges: the straight-line amount, the acquisition month's share of it
+     * (`DepreciationProration`, point 14), never beyond what is left of the base. The one sizing
+     * rule — `run()` posts it and `TaxDepreciationService::bookChargeFor()` projects a year of it,
+     * so the book-vs-tax page cannot disagree with the ledger by a prorated first month.
+     */
+    public function chargeFor(FixedAsset $asset, CarbonImmutable $month, float $remaining): float
+    {
+        $fraction = DepreciationProration::firstMonthFraction(
+            CarbonImmutable::parse($asset->acquisition_date),
+            $month,
+        );
+
+        return round(min(round($this->monthlyAmount($asset) * $fraction, 2), $remaining), 2);
     }
 
     /** Accumulated depreciation to date = SUM of this asset's entries. */
@@ -122,7 +139,12 @@ class DepreciationService
                     return; // fully depreciated
                 }
 
-                $amount = round(min($this->monthlyAmount($asset), $remaining), 2);
+                // The acquisition month takes the share the company's convention says — whole,
+                // or the days held over the month's days (`DepreciationProration`, point 14). Any
+                // later month is whole; the last takes what is left through the clamp, so a
+                // prorated first month lengthens the schedule by one partial month at the end
+                // and the total stays the depreciable base.
+                $amount = $this->chargeFor($asset, $month, $remaining);
                 if ($amount <= 0) {
                     return;
                 }

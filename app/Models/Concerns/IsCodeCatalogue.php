@@ -4,6 +4,7 @@ namespace App\Models\Concerns;
 
 use App\Http\Middleware\SetLocale;
 use App\Models\ExpenseCategory;
+use App\Models\FixedAssetCategory;
 use App\Models\PaymentMethod;
 use App\Models\RetailCategory;
 use App\Models\TenantRequestSubcategory;
@@ -15,9 +16,9 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * A register of operator-editable CODES that a column stores and a picker offers.
  *
- * Six models have this shape — {@see PaymentMethod}, {@see ExpenseCategory},
+ * Seven models have this shape — {@see PaymentMethod}, {@see ExpenseCategory},
  * {@see TenantRequestSubcategory}, {@see RetailCategory},
- * {@see ViolationCategory}, {@see VendorDocumentType} — and the first four
+ * {@see ViolationCategory}, {@see VendorDocumentType}, {@see FixedAssetCategory} — and the first four
  * each carried their own copy of the same four methods. That duplication had already produced one
  * cross-cutting bug: the label memo was keyed without the locale, so a request that switches
  * language (every PDF service, every queued notification) read the other language's cache. Finding

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ExpenseCategory;
+use App\Models\FixedAssetCategory;
 use App\Models\RetailCategory;
 use App\Models\ViolationCategory;
 use App\Support\CategorySuggestions;
@@ -43,7 +44,7 @@ it('gives every seeded category value an Arabic label', function () {
         ['violations', 'category', fn (string $v): ?string => ViolationCategory::labelFor($v)],
         ['tenants', 'retail_category', fn (string $v): ?string => RetailCategory::labelFor($v)],
         ['warehouses', 'category', fn (string $v): ?string => CategorySuggestions::label('warehouse', $v)],
-        ['fixed_assets', 'category', fn (string $v): ?string => CategorySuggestions::label('fixed_asset', $v)],
+        ['fixed_assets', 'category', fn (string $v): ?string => FixedAssetCategory::labelFor($v)],
     ];
 
     $untranslated = [];

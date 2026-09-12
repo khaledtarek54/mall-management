@@ -25,6 +25,8 @@ book value and the P&L carries the monthly depreciation charge.
 | **Schedule model** | **Entry ledger** (one `depreciation_entry` per asset per month; accumulated DERIVED) | Auditable + reconcilable — mirrors the GL / inventory "derived truth"; the monthly run is idempotent via a unique (asset, month). |
 | **Scope** | **Per-property** (`asset_id`) | Each mall's fixed assets belong to it; scoped like units/leases/inventory. |
 | **Acquisition funding** | `funded_from` (cash \| bank) | The credit side of the acquisition GL entry (Phase 2) — most fixed assets are paid, so this avoids inflating Accounts Payable. |
+| **The asset CLASS is a catalogue row** (2026-09-12) | `fixed_asset_categories` — the seventh `IsCodeCatalogue` | SAP's asset class drives the number range, the depreciation key and the memo value; Yardi Fixed Assets and Odoo carry the same defaults on the category. It was free text with suggestions; the operator could neither add a class nor give one a life. |
+| **First-month proration** | `accounting.depreciation_proration` — `full_month` (default) \| `days` | SAP's period control, Odoo's "prorata": the two answers the market offers. Company-level like SAP's depreciation key — two malls of one operator do not keep the register on two conventions. Posting stays MONTHLY either way; a daily journal entry is what no benchmark system does. |
 
 ---
 
@@ -66,6 +68,19 @@ runs, and an out-of-scope row is skipped rather than written. `method` and `fund
 importable: depreciation is straight-line only, and `funded_from` picks the credit side of an entry
 this importer never posts.
 
+**Since 2026-09-12 the tag may be BLANK** — a row with no tag is a NEW asset numbered by its class,
+so it must name one (`tag` is `required_without:category`, and `useful_life_months` likewise:
+nothing else can propose either). `category` is nullable and validated against
+`ValueSets::allowed()` — every catalogue row INCLUDING a retired one, because a migrating file may
+carry a class the operator has since stopped offering and refusing the row would lose it. A blank
+life takes the class's proposal; on a RE-IMPORT (the tag matched) a blank cell **keeps the life the
+row already has** (`ignoreBlankState()` — Filament fills a blank as null otherwise and the column is
+NOT NULL). A class proposing no life and a blank cell is refused from the importer's own
+`beforeCreate()` as a `RowImportFailedException` — the ONE exception whose sentence Filament's
+`ImportCsv` writes into the failed-rows file; the model's `DomainException` carries the same words
+and would arrive there as a message-less failed row. A second import of an UNTAGGED file duplicates
+every row (there is no identity to match on) — tag the file, or import once.
+
 ## 1. Domain model
 
 ### `fixed_assets` — the register (per property)
@@ -73,12 +88,24 @@ this importer never posts.
 |--------|---------|
 | `asset_id` | the property (FK, cascade) |
 | `name` · `tag` | label + asset tag (**unique per property**) |
-| `category` | free-form (furniture / HVAC / IT …) |
-| `acquisition_date` · `acquisition_cost` · `salvage_value` | cost basis |
-| `useful_life_months` | straight-line period |
+| `category` | the CLASS — a `fixed_asset_categories.code` (see below); nullable for a legacy row, required for a new one |
+| `acquisition_date` · `acquisition_cost` · `salvage_value` | cost basis; a blank salvage on create takes the class's memo value (1.00 shipped — SAP's rule) |
+| `useful_life_months` | straight-line period; the form also reads and writes it as an ANNUAL RATE % (`annualRatePct()` ↔ `monthsForAnnualRate()` — Law 91 states rates), months are the stored truth |
+| `tax_pool` | Law 91 pool, proposed by the class, floored to the statutory default on create |
 | `method` | `straight_line` (only method today) |
 | `funded_from` | `cash` \| `bank` — acquisition credit (Phase 2 GL) |
 | `status` · `disposed_on` | `active` / `disposed` |
+
+### `fixed_asset_categories` — the asset CLASS (portfolio-shared catalogue, 2026-09-12)
+| Column | Meaning |
+|--------|---------|
+| `code` | the value `fixed_assets.category` stores; immutable on edit (it is the address of every asset carrying it) |
+| `name_en` · `name_ar` | the label, read through `IsCodeCatalogue::labelFor()` (inactive rows included) |
+| `tag_prefix` | the series a blank tag is numbered in — `{PREFIX}-0001` per property; derived from the code and upper-cased on save, unique |
+| `default_useful_life_months` · `default_salvage_value` · `default_tax_pool` | what a NEW asset of the class is proposed with — a PREFILL and nothing else, never re-read once the asset exists (the violation-category rule) |
+| `is_active` · `sort_order` | retiring a class keeps every asset carrying it saveable (`CatalogueAwareSelect`) |
+
+Screen: `/admin/fixed-asset-categories` (Setup group), `fixed_asset_categories.{view,create,edit}`, granted to `accounting`. Ships eight classes (`FixedAssetCategorySeeder`): furniture FUR 60 · equipment EQP 84 · HVAC 120 · IT 48 (computers pool) · vehicles VEH 60 · fit-out FIT 120 · generator GEN 180 · elevator ELV 240, every memo value 1.00.
 
 ### `depreciation_entries` — the monthly charge ledger
 | Column | Meaning |
@@ -130,7 +157,15 @@ real `accounting:sync-ledger` sweep rather than the journalizer alone; and the p
 covers the disposal, the acquisition date and `--month` on the backfill command.
 
 
-1. **Monthly charge** = `(acquisition_cost − salvage_value) ÷ useful_life_months`, rounded 2dp.
+1. **Monthly charge** = `(acquisition_cost − salvage_value) ÷ useful_life_months`, rounded 2dp — and
+   the acquisition month takes the share `accounting.depreciation_proration` says: whole
+   (`full_month`, the default, what every install did) or the days held over the month's days
+   (`days`). `DepreciationService::chargeFor()` is the ONE sizing rule — `run()` posts it and the
+   tax page's book column (`TaxDepreciationService::bookChargeFor()`) projects a year of it, so the
+   two cannot disagree by a prorated first month (a second copy of the arithmetic did, until the
+   review caught it). A prorated first month lengthens the schedule by one partial month at the
+   end through rule 4; the total is still the base. Read at RUN time: it sizes any acquisition month
+   not yet posted and never restates one already posted.
 2. **Accumulated depreciation is derived** = `SUM(depreciation_entries.amount)`; net book
    value = `cost − accumulated`. Never a cached column.
 3. **The run is idempotent + lock-safe**: one entry per (asset, month); each asset row
@@ -139,6 +174,19 @@ covers the disposal, the acquisition date and `--month` on the backfill command.
    base, so accumulated tops out at `cost − salvage` (never beyond).
 5. **No charge before the acquisition month**, and **none once fully depreciated** or `disposed`.
 6. **NOT-NULL money** — blank `acquisition_cost`/`salvage_value` coerce to 0 in the model.
+7a. **The number comes from the CLASS** (meeting 2026-09-02, point 11). A blank `tag` on create is
+   allocated `{prefix}-0001` in the property's series for the category under the document-number
+   lock (`AllocatesDocumentNumber`, `FixedAsset::generateTag()` — LENGTH-first over `withTrashed()`,
+   and only a NUMERIC tail counts as a member of the series, because a kept `FUR-2026-0001` would
+   otherwise read as 2026). A typed tag — the form's, or a migrating register's — is KEPT, the
+   counterparty-code rule. An asset with no class, or a class with no series, still needs one: the
+   form requires it there, and on EDIT always (the column is NOT NULL and nothing re-allocates).
+7b. **The class PROPOSES, the row DECIDES** (points 13 · 14). On create, a blank salvage takes the
+   class's memo value, a blank life the class's, a blank pool the class's and then the statutory
+   default — in `FixedAsset::saving`, BEFORE the NOT-NULL coercion of rule 6, so every door (form,
+   importer, seeder) gets the same proposal. A figure stated — including an explicit zero salvage —
+   is never overwritten, and nothing re-reads the class once the asset exists. A create with no life
+   from either is refused in words (`admin.fixed_assets.errors.useful_life_required`).
 7. **Posting respects property authority** — the scheduled `accounting:post-depreciation`
    run is portfolio-wide, but the admin **"Post this month"** button passes the operator's
    visible-property set (`TenantScope::visibleAssetIds()`), so a single-property accounting
@@ -234,6 +282,7 @@ the GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson f
 | **1a — Depreciation engine** | register + `DepreciationEntry` + `DepreciationService` (straight-line, derived accumulated/NBV, clamp) + `accounting:post-depreciation` + schedule + tests | ✅ shipped |
 | **1b — Admin surfaces** | Filament `FixedAssetResource` (register + schedule columns: cost / accumulated / NBV / monthly) property-scoped, `fixed_assets.*` RBAC (accounting role), `fixed_assets` module flag, read-only depreciation-history relation manager, dispose action, "post this month" list action | ✅ shipped |
 | **2 — GL posting** | acquisition → Dr Furniture & Equipment (12101001) / Cr Cash\|Bank (per `funded_from`); depreciation entry → Dr Depreciation Expense (51107001) / Cr Accumulated Depreciation (12201001). Journalizers + mappings + sweep + a tie-out-safe check. | ✅ shipped |
+| **3 — The class, the number, the rate, the first month** (meeting 2026-09-02, points 11 · 13 · 14) | `fixed_asset_categories` catalogue + screen; tag allocated from the class per property; class defaults prefilled on the form and by the model; useful life read as an annual rate; `accounting.depreciation_proration` (`full_month` \| `days`); importer widened. **Deploy note**: the migration rows every value the register already holds (grouped case-insensitively, the register rewritten to the row's spelling) and deliberately SKIPS the shipped codes so `atriom:install --force`'s seeder creates those with their life, pool and prefix — a row it had created for `HVAC` on a box already holding HVAC assets shipped the class lifeless, on exactly the installs that have assets. | ✅ shipped |
 | **2b — Disposal write-off** | `FixedAssetDisposal` source + `DisposeFixedAssetService` + journalizer: Dr Accumulated Depreciation + Dr Cash\|Bank (proceeds) + gain/loss / Cr Furniture & Equipment, so the balance sheet clears the disposed asset. New gain/loss-on-disposal accounts + mappings; dispose-with-proceeds form; parent-lifecycle cascade covers it. | ✅ shipped |
 
 ---
@@ -255,6 +304,15 @@ and the module-17 financial-report exports — the same accountant-workable find
 `tests/Feature/Regression/FixedAssetRegisterCsvTest.php` — the register CSV values each asset at
 `cost − accumulated depreciation` **scoped to the user** (a restricted accounting user gets their
 mall's assets, not the portfolio) and closes with cost / accumulated / NBV totals.
+
+`tests/Feature/Regression/AFixedAssetIsNumberedAndDefaultedByItsClassTest.php` — points 11 · 13 · 14
+end to end: numbering per property and past padding, kept tags (including one in another numeric
+shape), the class's proposals and the stated figure winning, the rate↔months pair, the first month
+by days summing to the base, the setting read at run time and clamped, the form (class first, the
+prefill, a life under a year, a cleared tag refused), the catalogue screen, the importer (kept /
+allocated / re-import keeping the life / refusals in words), the migration's backfill leaving the
+shipped codes to the seeder and rewriting the register, and the tax page's book column agreeing
+with the ledger. Seventeen cases; thirty mutations, each killing its own tooth.
 
 `tests/Feature/Services/DepreciationServiceTest.php` — monthly amount (net of salvage),
 one entry per asset per month, derived accumulated/NBV, idempotent re-run, no charge

@@ -238,6 +238,7 @@ the cutover posture.
 | # | Confirm | Ships as |
 |---|---|---|
 | **M-1/2/3** *(meeting 2026-09-02)* | **Lease activation gated on money, the reservation window, and the deposit basis** — all four are per-property settings (Settings → Billing, or Property overrides). You asked for *deposit or cheques before activation* and *a reservation valid for X days*: **`deposit_or_cheques` is set on both staging properties; X is yours to state** (0 = never lapses, which is what ships). | Yardi's defaults: entry executes (`none`), no window (`0`), deposit as months of rent. Your rule is a setting, never the code default — [modules/04](modules/04-leases.md). |
+| **M-11/13/14** *(meeting 2026-09-02)* | **The fixed-asset class, its memo value, its life, and the first month's proration** — the classes are a catalogue (`/admin/fixed-asset-categories`: prefix, proposed life, memo value 1.00, tax pool); the first month is `accounting.depreciation_proration` (Settings → Fixed assets). You asked for *daily* depreciation: **`days` is set on staging as your rule** — the acquisition month takes the days held over the month's days, and posting stays monthly (a daily journal entry is what no benchmark system does). The lives the seeder proposes (furniture 5 y · IT 4 · HVAC 10 · elevator 20 …) are the market's; **yours to correct on the screen**. | Yardi's and SAP's default: the acquisition month whole (`full_month` ships). Your rule is a setting, never the code default — [modules/23](modules/23-fixed-assets.md). |
 | **M-24** *(meeting 2026-09-02)* | **New charges follow the annual increase** — `billing.new_charges_follow_escalation`, per property (Settings → Billing, or Property overrides). You asked for *the increase on all expenses*: with it ON, the service charge and every charge added to a lease is proposed as following the rent's clause, and the operator still rules per charge on the lease's *Annual increase* tab. **Set ON on both staging properties as your rule** (a configuration act, the way `deposit_or_cheques` was) — switch it off per property where a mall's contracts step the rent alone. | Yardi's default: off (a charge carries no escalation until stated). Your rule is a setting, never the code default — [modules/04](modules/04-leases.md). |
 | A1.2–A1.6 | Percentage rent, late fees and the marketing levy are **VAT-exempt** (the levy is flagged for your accountant — a promotional-fund contribution is arguably a taxable service; your QA asked for 14% on 2026-09-11, Trello D0fZZ0fK, and you kept it exempt until the accountant rules); CAM recovery carries 14%; levy **5% of base rent only**, billed as its own invoice line; CAM allocated **pro-rata by leased m²** | Every one is a row on `/admin/charge-codes` — a different ruling is a row, not a release: point `marketing` at `VAT_14` and every lease bills it from the next run |
 | A1.7 | Late fee **2%** of outstanding, **minimum 50 EGP**, **7-day grace**, charged **once**, **no cap** | Five settings on three tiers (lease → property → portfolio); 0 = no cap, 0 = charge once |
@@ -421,6 +422,15 @@ and the quick wizard), and the rule is set from the lease's tabs with the form's
 from them — on the way the review found two pre-existing money defects in the register, both
 closed: a future-dated release stopped billing the bay from the day it was recorded, and a bay
 held, given back and re-let was closed twice and summed twice ([modules/35](modules/35-rentable-items.md)).
+**Points 11 · 13 · 14 shipped 2026-09-12** — the asset CLASS is a catalogue row (SAP's asset
+class: the number range, the memo value, the proposed life and pool), class first on the form,
+the tag `{PREFIX}-0001` per property from it, the useful life read as an annual rate beside the
+months, and the first month's proration a company setting with SAP's two answers. §4 row
+M-11/13/14 records what the client sets. **Two defects the review found in the build**, both
+before deploy: the migration would have shipped the classes lifeless on any box already holding
+assets (the staging register), and the derived rate field refused every life under a year
+([modules/23](modules/23-fixed-assets.md)). Next in the memo's order: 15 (funded-from as a rail
++ a vendor), then 18 (the transfer act).
 
 ### 9.1 · The accountant's sitting
 

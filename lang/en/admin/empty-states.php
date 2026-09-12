@@ -331,6 +331,11 @@ return [
             'description' => 'A contractor\'s compliance file is built from these types, and one of them decides whether a lapsed certificate stops dispatch.',
             'cta' => 'Add a document type',
         ],
+        'fixed_asset_categories' => [
+            'heading' => 'No asset classes yet',
+            'description' => 'Every fixed asset is registered under a class, which numbers it and proposes its useful life, memo value and tax pool.',
+            'cta' => 'Add a class',
+        ],
         'violation_categories' => [
             'heading' => 'No violation categories yet',
             'description' => 'A recorded violation is classified here, and the category carries the standard fine the form prefills.',

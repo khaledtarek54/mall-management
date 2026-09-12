@@ -12,6 +12,7 @@ use App\Filament\Admin\Resources\FixedAssets\Schemas\FixedAssetForm;
 use App\Filament\Admin\Resources\FixedAssets\Tables\FixedAssetsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetCategory;
 use App\Services\DepreciationService;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -165,7 +166,7 @@ class FixedAssetResource extends Resource
             }
 
             $rows[] = [
-                $asset->tag, $asset->name, $asset->category ?? '',
+                $asset->tag, $asset->name, $asset->category ? FixedAssetCategory::labelFor($asset->category) : '',
                 (string) data_get($asset, 'asset.name', ''),
                 // acquisition_date is a NOT-NULL date column — always a Carbon.
                 $asset->acquisition_date->format('Y-m-d'),

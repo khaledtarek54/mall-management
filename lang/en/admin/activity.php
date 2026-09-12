@@ -25,6 +25,7 @@ return [
             'payroll_rate' => 'Payroll rate',
             'recurring_expense' => 'Recurring cost',
             'custom_field' => 'Custom field',
+            'fixed_asset_category' => 'Asset class',
             'violation_category' => 'Violation category',
             'vendor_document_type' => 'Vendor document type',
             'work_order_labour' => 'Work order labour',

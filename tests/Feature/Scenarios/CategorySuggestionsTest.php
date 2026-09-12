@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\FixedAssetCategory;
 use App\Support\CategorySuggestions;
 
 /**
@@ -14,12 +15,15 @@ use App\Support\CategorySuggestions;
  * cell, so the Arabic panel showed "furniture / HVAC / spare_parts".
  */
 it('translates a seeded category', function () {
+    // The fixed-asset half became a catalogue (`FixedAssetCategory`) on 2026-09-12 and reads its
+    // labels from its rows — the same lang group is its floor, so an unseeded database still
+    // reads the shipped classes in the operator's language.
     app()->setLocale('ar');
-    expect(CategorySuggestions::label('fixed_asset', 'HVAC'))->toBe('تكييف وتهوية');
+    expect(FixedAssetCategory::labelFor('HVAC'))->toBe('تكييف وتهوية');
     expect(CategorySuggestions::label('warehouse', 'spare_parts'))->toBe('قطع غيار');
 
     app()->setLocale('en');
-    expect(CategorySuggestions::label('fixed_asset', 'HVAC'))->toBe('HVAC');
+    expect(FixedAssetCategory::labelFor('HVAC'))->toBe('HVAC');
     expect(CategorySuggestions::label('warehouse', 'spare_parts'))->toBe('Spare parts');
 });
 
@@ -27,7 +31,7 @@ it('returns an operator-invented category exactly as typed, in both locales', fu
     foreach (['en', 'ar'] as $locale) {
         app()->setLocale($locale);
 
-        expect(CategorySuggestions::label('fixed_asset', 'مولدات كهربائية'))->toBe('مولدات كهربائية');
+        expect(CategorySuggestions::label('warehouse', 'مخزن بارد'))->toBe('مخزن بارد');
         expect(CategorySuggestions::label('warehouse', 'Cold storage'))->toBe('Cold storage');
     }
 });
@@ -35,11 +39,11 @@ it('returns an operator-invented category exactly as typed, in both locales', fu
 it('keeps the STORED value as the option key so no row is orphaned', function () {
     app()->setLocale('ar');
 
-    $options = CategorySuggestions::options('fixed_asset', CategorySuggestions::FIXED_ASSET, []);
+    $options = CategorySuggestions::options('warehouse', CategorySuggestions::WAREHOUSE, []);
 
     // Keys are what lands in the database; labels are only what is shown.
-    expect(array_keys($options))->toBe(CategorySuggestions::FIXED_ASSET);
-    expect($options['HVAC'])->toBe('تكييف وتهوية');
+    expect(array_keys($options))->toBe(CategorySuggestions::WAREHOUSE);
+    expect($options['spare_parts'])->toBe('قطع غيار');
 });
 
 it('keeps the current value selectable even when it is not a suggestion', function () {
