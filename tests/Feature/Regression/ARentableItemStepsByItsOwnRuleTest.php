@@ -590,7 +590,7 @@ describe('through the panel', function () {
                 ->and($itemRows->first()['escalation_mode'])->toBe(ChargeEscalation::FIXED_AMOUNT)
                 ->and((float) $itemRows->first()['escalation_amount'])->toBe(75.0);
 
-            $tab->assertSee(__('admin.charge_escalation.own_amount', ['amount' => '75.00']));
+            $tab->assertSee(__('admin.charge_escalation.own_amount', ['amount' => '75.00', 'cadence' => ChargeEscalation::cadence($lease)]));
 
             $en = Livewire::test(EditLease::class, ['record' => $lease->getKey()]);
             $en->assertSee('P-A')->assertSee('Parking & rentable items')
@@ -683,8 +683,13 @@ describe('through the panel', function () {
             // there per item picked, gone again when the item is removed, keyed so a typed rule
             // follows its item.
             $bay = RentableItem::create(['asset_id' => $this->asset->id, 'code' => 'P-Q', 'type' => 'parking', 'status' => 'available', 'monthly_rate' => 500]);
-            $page->assertFormFieldDoesNotExist('rentable_items.k1.escalation_mode');
             $page->fillForm(['rentable_items' => ['k1' => ['rentable_item_id' => $bay->id, 'monthly_rate' => 500, 'effective_from' => null]]]);
+            // By STATE PATH, not by flat key: the mode select is keyed on the clause since
+            // 2026-09-13 (`EscalationRuleFields`), so `assertFormFieldDoesNotExist('…escalation_mode')`
+            // would be satisfied by a select whose key carries a hash — vacuous (found by review).
+            expect(collect($page->instance()->form->getFlatComponents(withHidden: true))
+                ->contains(fn ($c): bool => $c instanceof \Filament\Forms\Components\Select && $c->getStatePath() === 'data.rentable_items.k1.escalation_mode'))
+                ->toBeFalse();
             expect(collect($page->get('data.charge_escalations'))->has('item-k1'))->toBeTrue();
             $page->fillForm(['charge_escalations.item-k1.escalation_mode' => ChargeEscalation::PERCENT, 'charge_escalations.item-k1.escalation_rate' => 4])
                 ->assertSee('P-Q');

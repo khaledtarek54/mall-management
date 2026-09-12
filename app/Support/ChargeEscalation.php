@@ -143,28 +143,73 @@ final class ChargeEscalation
     }
 
     /**
-     * The rule in words, for the schedule tab and the form's summary: what it follows and by how
-     * much, or that it stands still. The lease is read for what a follows-lease row inherits, so
-     * the sentence names the figure rather than the word "clause".
+     * The rule in words, for the schedule tab and the form's summary: what it follows, by how
+     * much and how often, or that it stands still. The lease is read for what a follows-lease
+     * row inherits, so the sentence names the FIGURE that will bill — the collared rate, the same
+     * one the projection writes — rather than the word "clause".
+     *
+     * Three things this sentence must not say (Trello O26YHJWG · TvHYVvEc · cdng18sM, 2026-09-13):
+     * "a year" over a clause that steps every three months (`cadence()` reads the interval);
+     * "steps by an amount" over a clause of NONE — the two un-followable clauses are different
+     * facts and each gets its own sentence; and a figure the option beside it does not name
+     * (`options()` composes from the same reads, so the two columns cannot contradict).
      */
     public static function describe(Model $row, Lease $lease): string
     {
         $mode = self::modeOf($row);
+        $cadence = self::cadence($lease);
 
         if ($mode === self::FOLLOWS_LEASE) {
-            if (! self::clauseIsFollowable($lease)) {
-                return __('admin.charge_escalation.follows_nothing');
-            }
-
-            return (string) $lease->escalation_type === 'cpi'
-                ? __('admin.charge_escalation.follows_index')
-                : __('admin.charge_escalation.follows_rate', ['rate' => self::trimmed((float) $lease->escalation_rate)]);
+            return match (self::inheritance($lease)) {
+                'index' => __('admin.charge_escalation.follows_index', ['cadence' => $cadence]),
+                'amount' => __('admin.charge_escalation.follows_amount'),
+                'none' => __('admin.charge_escalation.follows_none'),
+                default => __('admin.charge_escalation.follows_rate', ['rate' => self::trimmed((float) self::inheritedPercent($lease)), 'cadence' => $cadence]),
+            };
         }
 
         return match ($mode) {
-            self::PERCENT => __('admin.charge_escalation.own_percent', ['rate' => self::trimmed((float) $row->escalation_rate)]),
-            self::FIXED_AMOUNT => __('admin.charge_escalation.own_amount', ['amount' => number_format((float) $row->escalation_amount, 2)]),
+            self::PERCENT => __('admin.charge_escalation.own_percent', ['rate' => self::trimmed((float) $row->escalation_rate), 'cadence' => $cadence]),
+            self::FIXED_AMOUNT => __('admin.charge_escalation.own_amount', ['amount' => number_format((float) $row->escalation_amount, 2), 'cadence' => $cadence]),
             default => __('admin.charge_escalation.none'),
+        };
+    }
+
+    /**
+     * How often the anniversary comes round, in words — "a year", "every 3 months", "every 2
+     * years" — from the clause's own interval (`Lease::escalationIntervalMonths()`, which floors a
+     * blank at twelve). One reading for every sentence on the tab, so a quarterly clause is never
+     * described as yearly beside a schedule that steps four times a year (Trello O26YHJWG).
+     */
+    public static function cadence(Lease $lease): string
+    {
+        $months = $lease->escalationIntervalMonths();
+
+        return $months % 12 === 0
+            ? trans_choice('admin.charge_escalation.cadence.years', intdiv($months, 12), ['n' => intdiv($months, 12)])
+            : trans_choice('admin.charge_escalation.cadence.months', $months, ['n' => $months]);
+    }
+
+    /**
+     * What a follows-lease row would inherit from this clause, as one of four words — `rate`
+     * (a stated percentage that steps, after the collar), `index`, `amount` (a step in pounds,
+     * which such a row cannot follow) or `none` (a clause that does not step: a stated rate of
+     * zero, or one a ceiling of zero clamps to nothing). `describe()` and `options()` both branch
+     * on it, which is what keeps the "Annual increase" and "By" columns saying the same thing
+     * about one clause. It reads what the PROJECTION writes (`inheritedPercent()`), so a stated
+     * zero under a FLOOR reads as none here exactly as the schedule shows no step — the sweep's
+     * collar would lift that zero to the floor on the night, a pre-existing gap between the two
+     * recorded on 2026-09-11 and not this sentence's to paper over.
+     */
+    private static function inheritance(Lease $lease): string
+    {
+        $type = (string) $lease->escalation_type;
+
+        return match (true) {
+            $type === 'cpi' => 'index',
+            $type === 'fixed_amount' => 'amount',
+            $type === 'fixed_percent' && self::inheritedPercent($lease) > 0 => 'rate',
+            default => 'none',
         };
     }
 
@@ -207,17 +252,23 @@ final class ChargeEscalation
     /**
      * The picker's options. `follows_lease` names what it would inherit — a bare "Follows the
      * clause" over a lease whose clause is a fixed amount offers a choice that does nothing, and
-     * saying so in the option is cheaper than a helper nobody reads.
+     * saying so in the option is cheaper than a helper nobody reads. Because the label carries
+     * a fact from OUTSIDE the select, a screen whose clause is typed live must re-mount the
+     * select when the clause moves (`EscalationRuleFields` keys it on `clauseFingerprint()`) —
+     * Filament refreshes a non-native select's option LIST on open and its displayed label never,
+     * which is how "(no percentage to follow)" stood beside "the index, collared" (Trello
+     * cdng18sM).
      *
      * @return array<string, string>
      */
     public static function options(?Lease $lease = null): array
     {
-        $follows = match (true) {
-            $lease === null => __('admin.charge_escalation.modes.follows_lease'),
-            ! self::clauseIsFollowable($lease) => __('admin.charge_escalation.modes.follows_lease_inert'),
-            (string) $lease->escalation_type === 'cpi' => __('admin.charge_escalation.modes.follows_lease_index'),
-            default => __('admin.charge_escalation.modes.follows_lease_rate', ['rate' => self::trimmed((float) $lease->escalation_rate)]),
+        $follows = match ($lease === null ? null : self::inheritance($lease)) {
+            null => __('admin.charge_escalation.modes.follows_lease'),
+            'index' => __('admin.charge_escalation.modes.follows_lease_index'),
+            'amount' => __('admin.charge_escalation.modes.follows_lease_amount'),
+            'none' => __('admin.charge_escalation.modes.follows_lease_none'),
+            default => __('admin.charge_escalation.modes.follows_lease_rate', ['rate' => self::trimmed((float) self::inheritedPercent($lease))]),
         };
 
         return [
@@ -226,6 +277,25 @@ final class ChargeEscalation
             self::FIXED_AMOUNT => __('admin.charge_escalation.modes.fixed_amount'),
             self::NONE => __('admin.charge_escalation.modes.none'),
         ];
+    }
+
+    /**
+     * Everything `options()` and `describe()` read off the clause, as one string — the thing a
+     * live form keys the mode select on so its label is re-read the moment the clause changes.
+     */
+    public static function clauseFingerprint(?Lease $lease): string
+    {
+        if ($lease === null) {
+            return 'no-clause';
+        }
+
+        return implode('|', [
+            (string) $lease->escalation_type,
+            (string) $lease->escalation_rate,
+            (string) $lease->escalation_floor_rate,
+            (string) $lease->escalation_ceiling_rate,
+            (string) $lease->escalation_interval_months,
+        ]);
     }
 
     /** `7.50` → `7.5`, `7.00` → `7` — a rate reads as the contract wrote it. */

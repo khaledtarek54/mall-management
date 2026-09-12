@@ -1298,6 +1298,22 @@
 > (`EveryChargeStepsByItsOwnRuleTest`, twenty-two cases, nineteen mutations each killing their own
 > tooth — including the `clauseIsFollowable()` guard inside `stepFor()`, which the driven cases
 > could not see because both callers pass null under an amount clause, so it is asked directly.)
+> **The table's WORDS are read off the clause too (Trello O26YHJWG · TvHYVvEc · cdng18sM,
+> 2026-09-13)**: `ChargeEscalation::cadence()` says how OFTEN from `escalation_interval_months`
+> ("a year" · "every 3 months" · "every 2 years", plural-choice strings in both languages — the
+> first cut printed "a year" over a quarterly clause), `inheritance()` tells the two un-followable
+> clauses apart (a clause of NONE reads *"which does not step"*, an AMOUNT clause *"which steps
+> by an amount"* — one sentence had served both), and every figure named is the COLLARED one the
+> ladder writes. The rate and amount boxes carry the cadence as their unit. **And the option
+> label is re-read when the clause moves**: Filament re-fetches a non-native select's option LIST
+> on open and never the label it DISPLAYS (`select.blade.php` keys the widget on disabled and
+> reorderable only, under `wire:ignore`), so the follows-lease option — which names a figure from
+> OUTSIDE the select — stood at *"(no percentage to follow)"* beside a *By* cell already reading
+> *"the index, collared"*; `EscalationRuleFields` keys the mode select on
+> `ChargeEscalation::clauseFingerprint()`, so a clause retyped live re-mounts it. The interval and
+> the collar fields are `live(onBlur)` for the same reason the rate is.
+> (`AChargesAnnualIncreaseIsWordedFromTheClauseTest`, eight mutations each killing their own tooth
+> — the liveness pinned directly, because `fillForm()` re-renders whatever a field says.)
 >
 > **The adversarial review found three blockers and four should-fixes, every one verified by
 > driving the code, and each is a tooth now.** A PARKING BAY IS DERIVED: it is priced in the
@@ -2511,8 +2527,10 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - **Which charges step**: a TABLE (`Repeater::table()`, not stored on the lease —
      `dehydrated(false)`, read from form state by the page) with one row per recurring charge
      type on the schedule: the charge · its rule (`ChargeEscalation::options()`, whose
-     follows-lease option NAMES the percentage it would inherit, read live off the clause fields
-     above) · its own % or EGP figure, or a sentence saying what it inherits. On CREATE the only
+     follows-lease option NAMES the collared percentage it would inherit, read live off the
+     clause fields above — and re-keyed on them, or the displayed label lags a round trip) · its
+     own % or EGP figure per step, or a sentence saying what it inherits and how often
+     (`ChargeEscalation::describe()`, the cadence from the clause interval). On CREATE the only
      row is the service charge the form seeds, proposed from the property
      (`billing.new_charges_follow_escalation`); on EDIT every type the schedule holds, filled by
      `EditLease::chargeEscalationRows()` from the rung in force today and written back in

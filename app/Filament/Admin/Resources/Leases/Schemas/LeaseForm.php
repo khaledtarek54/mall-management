@@ -1054,6 +1054,9 @@ class LeaseForm
                                     ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_index_lag_months')),
                                 TextInput::make('escalation_interval_months')
                                     ->label(__('admin.fields.escalation_interval_months'))
+                                    // Live on blur, as the rate is: the "Which charges step" table
+                                    // says how OFTEN each charge steps from this figure.
+                                    ->live(onBlur: true)
                                     ->numeric()
                                     ->minValue(1)
                                     ->maxValue(120)
@@ -1072,6 +1075,9 @@ class LeaseForm
                                 // never applies it to `fixed_amount`.
                                 TextInput::make('escalation_floor_rate')
                                     ->label(__('admin.fields.escalation_floor_rate'))
+                                    // Live on blur: the rate's collared hint and the "Which charges
+                                    // step" table both name the figure this bound produces.
+                                    ->live(onBlur: true)
                                     ->numeric()
                                     ->suffix('%')
                                     ->minValue(0)
@@ -1088,6 +1094,9 @@ class LeaseForm
                                     ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_floor_rate')),
                                 TextInput::make('escalation_ceiling_rate')
                                     ->label(__('admin.fields.escalation_ceiling_rate'))
+                                    // Live on blur: the rate's collared hint and the "Which charges
+                                    // step" table both name the figure this bound produces.
+                                    ->live(onBlur: true)
                                     ->numeric()
                                     ->suffix('%')
                                     ->minValue(0)
@@ -1637,10 +1646,6 @@ class LeaseForm
     }
 
     /**
-     * The clause as the operator has it on THIS form — typed, not yet saved — for what a
-     * follows-lease option would inherit. A repeater row reads the form root two levels up.
-     */
-    /**
      * Whether *Active* is an ACT here rather than a choice: the property gates activation on money
      * (`billing.lease_activation_requires`, meeting 2026-09-02 point 1) and this record is not
      * already active. ONE predicate for the dropdown that withholds the value and the helper that
@@ -1652,11 +1657,21 @@ class LeaseForm
             && ! LeaseActivation::entryExecutes(TenantScope::currentAssetId());
     }
 
+    /**
+     * The clause as the operator has it on THIS form — typed, not yet saved — for what a
+     * follows-lease option would inherit and how the "By" cell words it. A repeater row reads the
+     * form root two levels up. Every column `ChargeEscalation` reads travels: the collar, so the
+     * sentence names the COLLARED figure the ladder will carry, and the interval, so it says how
+     * often (Trello O26YHJWG — "+100% a year" over a clause stepping every three months).
+     */
     private static function clauseAsTyped(Get $get): Lease
     {
         return (new Lease)->forceFill([
             'escalation_type' => $get('../../escalation_type'),
             'escalation_rate' => $get('../../escalation_rate'),
+            'escalation_floor_rate' => $get('../../escalation_floor_rate'),
+            'escalation_ceiling_rate' => $get('../../escalation_ceiling_rate'),
+            'escalation_interval_months' => $get('../../escalation_interval_months'),
         ]);
     }
 

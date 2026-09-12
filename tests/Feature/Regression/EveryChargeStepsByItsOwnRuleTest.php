@@ -626,7 +626,7 @@ describe('through the panel', function () {
             ]);
 
             $en = Livewire::test(ChargeScheduleRelationManager::class, ['ownerRecord' => $lease, 'pageClass' => EditLease::class]);
-            $en->assertSee('+7% a year')->assertSee('+EGP 500.00 a year')->assertSee('+8% a year')->assertSee('Stands still');
+            $en->assertSee('+7% every year')->assertSee('+EGP 500.00 every year')->assertSee('+8% every year')->assertSee('Stands still');
 
             app()->setLocale('ar');
             $ar = Livewire::test(ChargeScheduleRelationManager::class, ['ownerRecord' => $lease, 'pageClass' => EditLease::class]);
