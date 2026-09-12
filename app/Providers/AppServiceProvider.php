@@ -20,6 +20,7 @@ use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
 use App\Settings\IntegrationsSettings;
 use App\Support\ActivityVocabulary;
+use App\Support\CashBalanceGuard;
 use App\Support\Filament\AnnouncingAttachAction;
 use App\Support\Filament\AnnouncingCreateAction;
 use App\Support\Filament\AnnouncingDeleteAction;
@@ -295,6 +296,22 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
         });
+
+        // A cash box is never driven below zero, and a bank account says so (meeting 2026-09-02,
+        // point 16). `creating` + `updating`, not `saving`: `RecordsBankAccount` fills a new
+        // document's bank in its own `creating` hook, which runs before a wildcard listener on the
+        // same event (model listeners are registered first) — so here the credit leg already names
+        // the bank the money actually leaves. On `saving` it would have read the role. Same
+        // wildcard reasoning as the two listeners above — see App\Support\CashBalanceGuard.
+        foreach (['eloquent.creating: *', 'eloquent.updating: *'] as $event) {
+            Event::listen($event, function (string $event, array $payload): void {
+                foreach ($payload as $model) {
+                    if ($model instanceof Model) {
+                        CashBalanceGuard::guard($model);
+                    }
+                }
+            });
+        }
 
         Lease::observe(LeaseObserver::class);
 

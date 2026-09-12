@@ -209,7 +209,7 @@ These four decisions steer the FRs below:
 | 13 | Salvage value default 1 | Default 0; nothing hides at 0 | ✅ **Shipped 2026-09-12** — the class's memo value, 1.00 on every shipped class, proposed on pick and by the model; a stated figure wins | XS | ✅ built |
 | 14 | Useful life per category; rate % not months; daily | Months per asset; full month, no proration | ✅ **Shipped 2026-09-12** — class default life; the form reads/writes an annual rate % beside the months (months stored); `accounting.depreciation_proration` (`full_month` ships · `days` — the client's ask is SET on staging); posting stays monthly | S | ✅ built |
 | 15 | "Funded from" → payment method; vendor existing or new | cash/bank literal; no bank account; no vendor | ✅ **Slice 1 shipped 2026-09-12** — *Paid by* is the outbound rail catalogue + the bank account (the ninth `RecordsBankAccount` document, credit leg in the bank's own chart account); *Supplier* is a vendor row with a "+" gated on `vendors.create`; importer takes the supplier code ([modules/23](../modules/23-fixed-assets.md)). Slice 2 (a supplier BILL that capitalises the asset — Dr asset / Cr AP) not built | S (+M) | ✅ slice 1 built |
-| 16 | Cash box / bank can never be credit | No guard | **Build** for cash (SAP's rule); warn for bank | M | |
+| 16 | Cash box / bank can never be credit | No guard | ✅ **Shipped 2026-09-12** — `CashBalanceGuard` on every posting source: an outflow past the account's running balance from the document's date onward is WARNED in figures and recorded, or REFUSED in the same words with the way out — per property, `accounting.refuse_overdrawn_cash` / `accounting.refuse_overdrawn_bank`, both shipped OFF (Yardi's), **both ON on staging as the client's rule** (cash ON = SAP's cash-journal rule); the bank register shows each account's GL balance ([modules/21](../modules/21-general-ledger.md#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12)) | M | ✅ built |
 | 17 | TB daily depreciation; 60 months shows 25% not 20% | 25% = Law 91 tax pool, correct; 20% is the unshown book rate | **Not a bug** — the book rate now shows on the register (the *Annual rate %* column) and the form, beside the tax pool; daily posting declined (14) | — | ✅ closed by 14 |
 | 18 | Transfer an asset between places | `asset_id` editable → rewrites history | ✅ **Shipped 2026-09-12** — *Transfer* act on the asset's page (destination · date · reason), two GL legs on the transfer date (OUT of the old property, IN to the new, NBV through `inter_property_clearing`), history stays where it was, depreciation follows from the transfer month, a *Transfers* tab; `asset_id` REFUSED once depreciating ([modules/23 §2.11](../modules/23-fixed-assets.md)) | M | ✅ built |
 | 19 | Trial balance as a collapsible tree | Flat list | **Build** a ledger tree (screen + PDF) | M | |
@@ -441,7 +441,7 @@ same helper. Effort **M**.
 
 ---
 
-### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 17 · 18) — the accountant's slice — 11 · 13 · 14 · 15 (slice 1) · 18 ✅ shipped 2026-09-12
+### 6.4 Fixed assets (11 · 12 · 13 · 14 · 15 · 16 · 17 · 18) — the accountant's slice — 11 · 13 · 14 · 15 (slice 1) · 16 · 18 ✅ shipped 2026-09-12
 
 **#11 — *"Category fixed asset ton fl awl, raqm l 2asl shelhaaaa w htt3ml auto mn l category w mwgod
 fl database. w nzwd description le fixed assets bel mola7zat."***
@@ -579,13 +579,40 @@ overdraw; Odoo does not block. Egyptian practice: the خزينة is never credit
 
 **Recommendation — BUILD, split by account kind, and say the deviation.** For **cash** (the `cash`
 posting-role account, per property): refuse an outbound document whose amount exceeds the balance as
-at its date — SAP's rule, stricter than Yardi. One seam, `App\Support\CashBalanceGuard`, from the
-wildcard `saving` listener over the outbound money documents (enumerate with `atriom:doors`: expense,
-vendor-bill payment, disbursement, payroll paid from cash, advance grant, custody grant, deposit
-refund, asset acquisition). For **bank**: a warning on the form and a health advisory; the hard
-refusal behind a per-property setting (`treasury.refuse_overdrawn_bank`, **off**) — an overdraft
-facility is legitimate, and refusing a real payment because its receipt was keyed an hour later is the
-worse failure. Effort **M**.
+at its date — SAP's rule, stricter than Yardi. For **bank**: warn, with the hard refusal behind a
+per-property setting shipped **off** — an overdraft facility is legitimate, and refusing a real
+payment because its receipt was keyed an hour later is the worse failure. Effort **M**.
+
+**✅ Shipped 2026-09-12.** `App\Support\CashBalanceGuard`, one wildcard listener on `creating` and
+`updating` over every `LedgerPoster::JOURNALIZERS` source (not `saving` — a document's own hooks
+derive its property and its bank in `creating`, and a wildcard on the same event runs after them):
+it asks the poster what the save would MOVE per account (`LedgerPoster::accountMovements()` — the
+would-be entry, plus the id of the live entry it would replace, which the balance read leaves out,
+so an edit is judged on its increase, a document re-dated or re-homed on its whole amount where it
+now lands, and a void is never refused), classifies each account the save credits — the property's
+cash box, or a bank (a registered account's own leaf, read WHOLE because it is one property's by
+construction and a receipt allocated across two malls lands in it with no property; a non-cash
+rail's account; the `bank` role) — and reads the ledger's LOWEST running balance from the
+document's date onward, so a back-dated payment cannot leave a later day short. Payroll is dated by
+its PERIOD (the 1st) and is judged from the day it is approved and paid. **Both rules ship OFF —
+Yardi's default — and off WARNS** with the same sentence as a persistent notification, the payment
+recorded: *"This would take the cash box at Atriom Walk EGP 6,000.00 below zero as at 12 July 2026
+(balance EGP 0.00, this payment EGP 6,000.00) — a cash box is never spent below what it holds.
+Record the receipt that funds it first, or pay it through the bank."* **ON refuses** in the same
+words — `accounting.refuse_overdrawn_cash` (SAP's cash-journal rule) and
+`accounting.refuse_overdrawn_bank` (the client's own "never in credit"), **both ON on staging as the
+client's rule**. Both are `PropertySettings::OVERRIDABLE` (Settings → *Cash box and bank*, Property
+overrides — under their own heading there). The bank register carries a *GL balance* column, red
+when overdrawn. Fails OPEN where the chart cannot answer (no cash role mapped, a journalizer that
+throws) — an incomplete setup never blocks ordinary work. The balance is the LEDGER's, posted by the
+after-commit job: a receipt keyed seconds ago may not be in it yet, the lag Horizon closes in
+milliseconds; and the read takes no lock, so two cashiers spending the last 1,000 at once can both
+pass — a window the sync lag dwarfs, stated rather than locked. The demo and the soak seeders were
+paying from an empty treasury (the demo bought a 210,000 access-control system from petty cash and
+2.8M of bank payments from an account holding nothing) and now open with balances against capital,
+and both seeder tests run under the client's rule. Not built: a health advisory for an overdrawn
+bank (the register's red column is the report), and a per-ACCOUNT overdraft limit (Yardi has none
+either).
 
 **#18 — *"Na2l asl le fixed assets law hnwde mo3dat mn mkan le mkan."***
 

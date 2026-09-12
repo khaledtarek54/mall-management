@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\User;
+use App\Settings\AccountingSettings;
 use Database\Seeders\DatabaseSeeder;
 
 /**
@@ -21,6 +22,12 @@ use Database\Seeders\DatabaseSeeder;
  * the failure messages carry which property broke.
  */
 it('seeds a complete, correctly-branded demo dataset', function () {
+    // Under the CLIENT's rule for the treasury (both overdraft refusals ON, as on staging): every
+    // payment the demo records is judged against an opening treasury it posts first, and a seed
+    // that survives only the shipped (warn-only) default is a seed that dies on the box that
+    // matters (point 16, 2026-09-12).
+    app(AccountingSettings::class)->refresh()->fill(['refuse_overdrawn_cash' => true, 'refuse_overdrawn_bank' => true])->save();
+
     $this->seed(DatabaseSeeder::class);
 
     // --- runs end to end and produces the expected shape -------------------------

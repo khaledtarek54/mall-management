@@ -149,6 +149,7 @@ return [
         'department_id' => 'Department',
         'direction' => 'Direction',
         'disposed_on' => 'Disposed on',
+        'gl_balance' => 'Ledger balance',
         'transferred_on' => 'Transferred on',
         'from_asset_id' => 'From property',
         'to_asset_id' => 'To property',

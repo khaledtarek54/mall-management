@@ -469,6 +469,64 @@ class LedgerPoster
     }
 
     /**
+     * **What this document, AS IT STANDS, would move on each account** — its would-be entry as a
+     * net debit per account (negative = money leaving the account), the date and property it would
+     * post under, and the id of the live entry that entry would REPLACE.
+     *
+     * The question `App\Support\CashBalanceGuard` asks (meeting 2026-09-02, point 16): a cash box
+     * may never be driven below zero, so the guard reads the account's balance WITHOUT the
+     * document's own live entry and judges the whole new payload against it — which for an edit is
+     * the increase over what the books carry (1,000 retyped to 1,500 costs a box holding 1,200 more
+     * than it has; retyped to 800 costs it nothing), and for a re-DATED or re-HOMED document is the
+     * full amount on its new day or in its new mall. Netting the two entries per account was the
+     * first cut, and the review broke it: an outflow moved to an EARLIER day netted to zero and
+     * passed, leaving the earlier day short. Built from the same `effectivePayload()` the engine
+     * posts with and the same live-entry lookup `pendingRestatement()` reads, so the guard cannot
+     * see a movement the sync would not make. Null when the document posts nothing, or would post
+     * nothing — a void REMOVES an outflow, which never overdraws, and blocking it would make a
+     * payment recorded in error impossible to reverse.
+     *
+     * Read-only: no lock, no write. Safe to call from a model event.
+     *
+     * @return array{entry_date: ?string, asset_id: ?int, net: array<int, float>, replaces: ?int}|null
+     */
+    public function accountMovements(Model $source): ?array
+    {
+        $journalizer = $this->journalizerFor($source);
+        if (! $journalizer) {
+            return null;
+        }
+
+        $payload = $this->effectivePayload($source, $journalizer);
+        if ($payload === null) {
+            return null;
+        }
+
+        $net = [];
+        foreach ($payload['lines'] as $line) {
+            $id = (int) $line['ledger_account_id'];
+            $net[$id] = round(($net[$id] ?? 0.0) + (float) ($line['debit'] ?? 0) - (float) ($line['credit'] ?? 0), 2);
+        }
+
+        $replaces = null;
+        if ($source->exists) {
+            $replaces = JournalEntry::query()
+                ->where('source_type', $source->getMorphClass())
+                ->where('source_id', $source->getKey())
+                ->where('status', 'posted')
+                ->latest('id')
+                ->value('id');
+        }
+
+        return [
+            'entry_date' => self::dateKey($payload['entry_date'] ?? null),
+            'asset_id' => isset($payload['asset_id']) ? (int) $payload['asset_id'] : null,
+            'net' => array_filter($net, fn (float $v) => abs($v) >= 0.005),
+            'replaces' => $replaces === null ? null : (int) $replaces,
+        ];
+    }
+
+    /**
      * Can the entry this document already posted be VOIDED right now? (SW-230)
      *
      * True when there is nothing posted to void, or when `JournalPostingService` can find an open

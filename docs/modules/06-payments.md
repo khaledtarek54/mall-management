@@ -733,6 +733,14 @@ which is what a mall without a separate account actually does. There is delibera
 `cash`/`till` purpose** — a petty-cash box is the `cash` posting role, and a row here would sit in
 the reconciliation register waiting for a statement that never arrives.
 
+**The register shows each account's GL balance, red when overdrawn** (2026-09-12, meeting point 16):
+`CashBalanceGuard::balanceOf()` over the account's own leaf in the property's dimension. An outbound
+document that would take a bank account below zero is WARNED in figures under the shipped default
+(Yardi's — an overdraft facility is legitimate) and REFUSED where the property's
+`accounting.refuse_overdrawn_bank` is on, which is the client's own rule on staging; the drawer's
+twin, `refuse_overdrawn_cash`, is SAP's cash-journal rule. One seam over every posting source —
+[modules/21](21-general-ledger.md#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12).
+
 **`bank_accounts.is_default`** is which account a new document fills itself in with.
 `BankAccount::defaultFor()` is the ladder: this purpose → the default **operating** account → **the
 only active account there is** (one account is not a choice) → nothing, which is verbatim today's

@@ -58,6 +58,15 @@ Outstanding = `amount − Σ settlements` (DERIVED, never cached).
    re-derives at the new figure and the settlements' credits do not move, so Custodies stops netting
    to zero. `paid_from` decides WHICH account was credited, after the cash has left it.
    **"Once settled", not "on grant":** a عهدة keyed wrongly stays fixable until it is spent against.
+5. **A grant paid from the cash box is refused when the box cannot cover it** (2026-09-12, meeting
+   point 16) — and so is every other outbound document from the drawer: `App\Support\CashBalanceGuard`
+   is one seam over every posting source, judging the property's cash box on the ledger's running
+   balance from the grant's date onward. The drawer refuses only where the property's
+   `accounting.refuse_overdrawn_cash` is ON (the client's rule on staging; shipped OFF — Yardi's —
+   and off still warns in figures). The rule and its reasons live in
+   [modules/21](21-general-ledger.md#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12);
+   the custody's OWN pot (rule 3) is a different question — what the custodian still holds — and
+   both guards can refuse one settlement, each naming its own figure.
    `purpose` and `reference` carry no money and no dimension, so they stay editable.
    Tests: `CustodyGrantTermsLockTest`.
 6. **The custodian is fixed from the grant** — `asset_id` is denormalised FROM the employee, so

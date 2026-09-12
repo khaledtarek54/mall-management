@@ -20,6 +20,7 @@ use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * What THIS mall answers differently from the portfolio (CFG-03).
@@ -136,20 +137,35 @@ class PropertyOverrides extends Page implements HasSchemas
 
     public function form(Schema $schema): Schema
     {
-        return $schema->statePath('data')->components([
-            Section::make(__('admin.property_overrides.sections.billing'))
-                ->description(__('admin.property_overrides.sections.billing_description'))
-                ->columns(2)
-                ->components($this->overrideFields()),
-        ]);
+        // One section per settings GROUP the registry carries, in the registry's order — so the
+        // treasury's two keys read under "Cash box and bank" and not between the billing terms.
+        // A group without a heading falls to billing's, which is what this page rendered before
+        // there was a second group (2026-09-12, point 16).
+        $sections = collect(PropertySettings::OVERRIDABLE)
+            ->keys()
+            ->map(fn (string $key) => explode('.', $key, 2)[0])
+            ->unique()
+            ->map(function (string $group) {
+                $known = Lang::has("admin.property_overrides.sections.{$group}", fallback: false) ? $group : 'billing';
+
+                return Section::make(__("admin.property_overrides.sections.{$known}"))
+                    ->description(__("admin.property_overrides.sections.{$known}_description"))
+                    ->columns(2)
+                    ->components($this->overrideFields($group));
+            })
+            ->values()
+            ->all();
+
+        return $schema->statePath('data')->components($sections);
     }
 
     /** @return array<int, mixed> */
-    private function overrideFields(): array
+    private function overrideFields(?string $group = null): array
     {
         $assetId = TenantScope::currentAssetId();
 
         return collect(PropertySettings::OVERRIDABLE)
+            ->when($group !== null, fn ($keys) => $keys->filter(fn (array $meta, string $key) => str_starts_with($key, $group.'.')))
             ->map(function (array $meta, string $key) {
                 $portfolio = PropertySettings::portfolio($key);
                 $inherited = is_bool($portfolio) ? ($portfolio ? '1' : '0') : (string) $portfolio;

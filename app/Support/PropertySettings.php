@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\PropertySetting;
+use App\Settings\AccountingSettings;
 use App\Settings\BillingSettings;
 
 /**
@@ -81,6 +82,14 @@ class PropertySettings
         'billing.new_charges_follow_escalation' => [
             'class' => BillingSettings::class,
             'reason' => 'Whether a charge added to a lease is proposed as following the annual-increase clause is a building\'s own leasing convention: a mall whose standard contract raises the rent, the service charge and every bay together differs from one whose contract steps the rent alone. Yardi\'s charge templates are per property for the same reason; the operator still rules per charge.',
+        ],
+        'accounting.refuse_overdrawn_cash' => [
+            'class' => AccountingSettings::class,
+            'reason' => 'Whether the drawer may be spent below zero is a property\'s own treasury control: one mall runs a petty-cash box that must never show a negative count, another runs none and pays everything through the bank. SAP scopes its cash-journal rule per journal for the same reason.',
+        ],
+        'accounting.refuse_overdrawn_bank' => [
+            'class' => AccountingSettings::class,
+            'reason' => 'An overdraft facility is a fact about ONE bank account at ONE mall — the flagship may hold one while the outlet does not — so whether an outbound payment may take the account below zero, or must wait for the receipt, is decided per property, exactly as Yardi\'s bank-level controls are.',
         ],
         'billing.default_security_deposit_months' => [
             'class' => BillingSettings::class,

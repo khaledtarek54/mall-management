@@ -2,6 +2,7 @@
 
 namespace App\Settings;
 
+use App\Support\CashBalanceGuard;
 use App\Support\DepreciationProration;
 use App\Support\DocumentNumbering;
 use Spatie\LaravelSettings\Settings;
@@ -112,6 +113,29 @@ class AccountingSettings extends Settings
      * month-end. {@see DepreciationProration}.
      */
     public string $depreciation_proration = DepreciationProration::FULL_MONTH;
+
+    /**
+     * Refuse an outbound document that would take a property's CASH BOX below zero (meeting
+     * 2026-09-02, point 16 — *"the cash box can never be in credit"*).
+     *
+     * Ships OFF, warning in figures at the save — Yardi's default, and the rule this project ships
+     * a stricter rule under: the market's default in code, the client's own rule what they SET
+     * (skill §3b). Voyager blocks no cash account; SAP's cash journal — the one benchmark that
+     * models a drawer — refuses the posting as a hard error, and a physical drawer cannot hold a
+     * negative number of banknotes, which is why ON exists and is the client's setting on staging.
+     * Per property (`PropertySettings::OVERRIDABLE`). {@see CashBalanceGuard}.
+     */
+    public bool $refuse_overdrawn_cash = false;
+
+    /**
+     * Refuse an outbound document that would take a BANK account below zero.
+     *
+     * Ships OFF — Yardi's and Odoo's answer, because an overdraft facility is legitimate and
+     * refusing a real payment because its receipt was keyed an hour later is the worse failure.
+     * Off still WARNS in figures at the save. The client's own rule (*"the bank can never be in
+     * credit"*) is what they SET, per property. {@see CashBalanceGuard}.
+     */
+    public bool $refuse_overdrawn_bank = false;
 
     public static function group(): string
     {

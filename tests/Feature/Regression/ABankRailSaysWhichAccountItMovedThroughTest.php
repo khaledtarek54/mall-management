@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Payroll;
+use App\Models\RecurringExpense;
 use Database\Seeders\PaymentMethodSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -207,20 +208,27 @@ it('fills a new document in from the property default, and only where it should'
  * default that reached back over history would be a silent restatement of the books.
  */
 it('never writes a default onto a document that already exists', function () {
-    $expense = Expense::create([
+    // A recurring cost SCHEDULE: a `RecordsBankAccount` document whose rail stays editable after
+    // creation. (An expense was the fixture until 2026-09-12 — it worked only because the model's
+    // `status` read null in memory before the column default `recorded` was stated on the model;
+    // a recorded expense refuses a rail edit outright, which is the freeze, not this rule.)
+    $schedule = RecurringExpense::create([
         'asset_id' => $this->asset->id,
-        'expense_date' => now()->toDateString(),
-        'description' => 'Booked before anyone flagged a default',
         'category' => 'maintenance',
+        'description' => 'Booked before anyone flagged a default',
         'amount' => 200,
+        'frequency' => 'monthly',
+        'day_of_month' => 1,
+        'starts_on' => now()->startOfMonth()->toDateString(),
+        'is_active' => true,
         'paid_from' => 'cash',
     ]);
 
-    expect($expense->bank_account_id)->toBeNull();
+    expect($schedule->bank_account_id)->toBeNull();
 
-    $expense->update(['paid_from' => 'bank']);
+    $schedule->update(['paid_from' => 'bank']);
 
-    expect($expense->fresh()->bank_account_id)->toBeNull();
+    expect($schedule->fresh()->bank_account_id)->toBeNull();
 });
 
 /**

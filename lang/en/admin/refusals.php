@@ -21,6 +21,10 @@
 
 return [
     'refusals' => [
+        // Meeting 2026-09-02, point 16. The figures are the ones the decision was made from: the
+        // lowest the ledger balance reaches from the payment's date onward, and this payment.
+        'cash_box_overdrawn' => 'This would take the cash box at :property EGP :shortfall below zero as at :date (balance EGP :balance, this payment EGP :amount) — a cash box is never spent below what it holds. Record the receipt that funds it first, or pay it through the bank.',
+        'bank_overdrawn' => 'This would take :account EGP :shortfall below zero as at :date (balance EGP :balance, this payment EGP :amount), and this property does not allow an overdraft. Record the receipt that funds it first, or allow overdrafts under Property overrides.',
         'cheque_lease_other_tenant' => 'That lease belongs to a different tenant than this cheque. A cheque secures its own tenant\'s agreement.',
         'cheque_lease_other_property' => 'That lease is in a different property than this cheque. Lodge the cheque under the property the lease is in.',
         // Lease activation (meeting 2026-09-02, point 1). The figures in the sentence are the ones the

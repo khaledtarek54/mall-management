@@ -197,6 +197,20 @@ class Settings extends Page implements HasSchemas
                         ->native(false)
                         ->required(),
                 ]),
+            Section::make(__('admin.settings.sections.treasury'))
+                ->description(__('admin.settings.sections.treasury_description'))
+                ->components([
+                    // Meeting 2026-09-02, point 16. Both ship OFF — Yardi's answer, and off still
+                    // warns in figures. ON is SAP's cash-journal rule for the drawer and the client's
+                    // own "never in credit" for the bank: what they SET, per property (Property
+                    // overrides); see App\Support\CashBalanceGuard.
+                    Toggle::make('accounting.refuse_overdrawn_cash')
+                        ->label(__('admin.settings.fields.refuse_overdrawn_cash'))
+                        ->helperText(__('admin.settings.fields.refuse_overdrawn_cash_helper')),
+                    Toggle::make('accounting.refuse_overdrawn_bank')
+                        ->label(__('admin.settings.fields.refuse_overdrawn_bank'))
+                        ->helperText(__('admin.settings.fields.refuse_overdrawn_bank_helper')),
+                ]),
             Section::make(__('admin.settings.sections.records_retention'))
                 ->description(__('admin.settings.sections.records_retention_description'))
                 ->components([

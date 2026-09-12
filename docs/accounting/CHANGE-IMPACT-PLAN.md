@@ -1271,3 +1271,57 @@ registry line and date column, `JournalNarrativeIsAKeyNotProseTest` the two narr
 languages, `ActivityLogVocabularyConformanceTest` a `label()` on the transfer so the legs' audit
 rows name it. Fifteen cases, forty-three mutations —
 `AFixedAssetMovesByATransferActNotAnEditTest`; module 23 §2 rule 11.
+
+## 19. A cash box is never spent below zero, and a bank says so — one guard over every source (point 16, 2026-09-12)
+
+Meeting 2026-09-02, point 16: *"Sndo2 3am / bank menf3sh ykon da2n, lazm ykon fe amount fl 7sab."*
+Every section above asks what an edit may do to an entry already posted; none asked what a NEW
+document may do to the account it pays from. Nothing did: an expense, a supplier payment, an owner
+disbursement, a payroll run, a staff advance, a custody grant, a deposit refund and an asset purchase
+could each take a petty-cash box below zero and post cleanly — and the demo did, buying a 210,000
+access-control system from a box that held nothing.
+
+**The standard.** Yardi blocks nothing (its cash account is a bank, and a bank may overdraw); SAP's
+cash journal refuses a posting that would make the cash balance negative, and Odoo blocks neither.
+So the DRAWER may refuse (SAP's rule, stricter than Yardi, stated) and the BANK may warn — and
+**both ship as Yardi would have them, OFF, with the client's own rule what they SET** (skill §3b):
+`accounting.refuse_overdrawn_cash` and `accounting.refuse_overdrawn_bank`, per property, both ON on
+staging. Off still warns in figures at the save.
+
+**The seam is the poster's own reading, and it is the same shape as the sealed-period rule (§13).**
+`App\Support\CashBalanceGuard` listens on `eloquent.creating: *` and `eloquent.updating: *` for every
+`LedgerPoster::JOURNALIZERS` source; `LedgerPoster::accountMovements()` is the sibling of
+`sealedPeriodBlocking()` and `pendingRestatement()` — the would-be payload (`effectivePayload()`)
+per account plus the id of the live entry it would replace, which the balance read leaves out, so
+the decision derives from the engine and cannot drift from it. An edit is therefore judged on its
+INCREASE, a document re-dated or re-homed on its whole amount where it now lands (the first cut
+netted the two entries, and an outflow moved to an EARLIER day netted to zero — found by review); a
+void posts nothing and is never refused; an inflow is never in question. `kindOf()` classifies the
+account the save credits — the property's `cash` rail/role is the drawer, a registered bank's leaf
+(read WHOLE: one property's by construction, and a consolidated receipt lands in it with no
+dimension), a rail's own account or the `bank` role is a bank, anything else (AR, AP, a liability) is
+not money in hand. The balance is the ledger's running MINIMUM from the document's date onward, so a
+back-dated payment cannot leave a later day short and today's balance is not the answer; a source
+dated by its PERIOD (payroll) is judged from the day of the act. The read takes no lock — two
+cashiers spending the last 1,000 at once can both pass, a window the sync lag dwarfs — stated.
+
+**Why `creating`/`updating` and not `saving`**: the same reason `RecordsBankAccount` hooks there
+(§12) — a model's own `creating` listener derives its property and its bank before a wildcard
+listener on the same event, so the credit leg the guard reads is the one the entry will carry.
+**Why it fails open**: refusing ordinary work because the chart cannot answer is the worse failure —
+the choice §13 made. **Why the ledger and not the documents**: one truth about money; the after-commit
+lag is milliseconds under Horizon and is the reason the bank default is warn.
+
+**Two shipped holes this had to close on the way.** A wildcard `creating` listener that throws leaves
+`AllocatesDocumentNumber`'s cache lock held until its TTL (it is released in `created`) — measured as
+a hang under a frozen test clock — so the guard hands the lock back before refusing. And
+`expenses.status` / `deposit_transactions.status` default at the COLUMN, invisible at `creating`, so a
+document built by the real create page (which sends no status) read as unpostable and walked past
+the guard; both models state the default in `$attributes` now.
+
+**Not a registry change**: no field's classification moved, and no source's reversal changed. Cash
+outflows are refused at the DOOR (the save), the same place a closed period refuses a restatement;
+what is already posted is untouched on deploy. The seeders posting opening balances before spending
+from the drawer and the bank is the shape a mid-life mall has, not a work-around. Thirteen cases,
+twenty-eight mutations — `ACashBoxIsNeverSpentBelowZeroTest`; module 21 §3 rule 9 and its dated
+section.

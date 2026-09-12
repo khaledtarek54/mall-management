@@ -148,6 +148,7 @@ return [
         'department_id' => 'الإدارة',
         'direction' => 'الاتجاه',
         'disposed_on' => 'تاريخ الاستبعاد',
+        'gl_balance' => 'رصيد الأستاذ',
         'transferred_on' => 'تاريخ التحويل',
         'from_asset_id' => 'من العقار',
         'to_asset_id' => 'إلى العقار',

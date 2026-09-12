@@ -239,6 +239,7 @@ the cutover posture.
 |---|---|---|
 | **M-1/2/3** *(meeting 2026-09-02)* | **Lease activation gated on money, the reservation window, and the deposit basis** — all four are per-property settings (Settings → Billing, or Property overrides). You asked for *deposit or cheques before activation* and *a reservation valid for X days*: **`deposit_or_cheques` is set on both staging properties; X is yours to state** (0 = never lapses, which is what ships). | Yardi's defaults: entry executes (`none`), no window (`0`), deposit as months of rent. Your rule is a setting, never the code default — [modules/04](modules/04-leases.md). |
 | **M-11/13/14** *(meeting 2026-09-02)* | **The fixed-asset class, its memo value, its life, and the first month's proration** — the classes are a catalogue (`/admin/fixed-asset-categories`: prefix, proposed life, memo value 1.00, tax pool); the first month is `accounting.depreciation_proration` (Settings → Fixed assets). You asked for *daily* depreciation: **`days` is set on staging as your rule** — the acquisition month takes the days held over the month's days, and posting stays monthly (a daily journal entry is what no benchmark system does). The lives the seeder proposes (furniture 5 y · IT 4 · HVAC 10 · elevator 20 …) are the market's; **yours to correct on the screen**. | Yardi's and SAP's default: the acquisition month whole (`full_month` ships). Your rule is a setting, never the code default — [modules/23](modules/23-fixed-assets.md). |
+| **M-16** *(meeting 2026-09-02)* | **A cash box is never spent below zero, and a bank account says so** — two per-property settings (Settings → *Cash box and bank*, or Property overrides): `accounting.refuse_overdrawn_cash` and `accounting.refuse_overdrawn_bank`. Off records the payment and WARNS in figures (the balance, the amount, the shortfall); on REFUSES it in the same words with the way out. You asked for *"the cash box / bank can never be in credit"*: **both are set ON company-wide on staging as your rule** (a configuration act, the way `deposit_or_cheques` was) — a payment from an empty box is refused there. | Yardi's default: no block on either (Voyager lets a bank overdraw), and that is what ships — both OFF. Cash ON is SAP's cash-journal rule, stricter than Yardi and stated; your rule is a setting, never the code default — [modules/21](modules/21-general-ledger.md#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12). |
 | **M-24** *(meeting 2026-09-02)* | **New charges follow the annual increase** — `billing.new_charges_follow_escalation`, per property (Settings → Billing, or Property overrides). You asked for *the increase on all expenses*: with it ON, the service charge and every charge added to a lease is proposed as following the rent's clause, and the operator still rules per charge on the lease's *Annual increase* tab. **Set ON on both staging properties as your rule** (a configuration act, the way `deposit_or_cheques` was) — switch it off per property where a mall's contracts step the rent alone. | Yardi's default: off (a charge carries no escalation until stated). Your rule is a setting, never the code default — [modules/04](modules/04-leases.md). |
 | A1.2–A1.6 | Percentage rent, late fees and the marketing levy are **VAT-exempt** (the levy is flagged for your accountant — a promotional-fund contribution is arguably a taxable service; your QA asked for 14% on 2026-09-11, Trello D0fZZ0fK, and you kept it exempt until the accountant rules); CAM recovery carries 14%; levy **5% of base rent only**, billed as its own invoice line; CAM allocated **pro-rata by leased m²** | Every one is a row on `/admin/charge-codes` — a different ruling is a row, not a release: point `marketing` at `VAT_14` and every lease bills it from the next run |
 | A1.7 | Late fee **2%** of outstanding, **minimum 50 EGP**, **7-day grace**, charged **once**, **no cap** | Five settings on three tiers (lease → property → portfolio); 0 = no cap, 0 = charge once |
@@ -446,7 +447,23 @@ the old property's books and join the new one's on the transfer date through two
 stays where it was, depreciation follows the asset from that month, and the register's *Transfers*
 tab answers *where did it go*. The free edit of the property — which re-homed every posted month —
 is refused once the asset has begun depreciating. No setting: neither system configures the
-transfer's shape. Next in the memo's order: 16 (a cash box never in credit), then 19, 20, 23.
+transfer's shape.
+**Point 16 shipped 2026-09-12** — a petty-cash box is never spent below what it holds, and a bank
+says so: one seam (`CashBalanceGuard`, on every posting source by being one) asks the poster what a
+save would MOVE, reads the ledger's running balance from the document's date onward, and — where
+the property says so — refuses the outflow that would take the account below zero, in figures,
+with the way out; where it does not, the payment records and the operator is warned in the same
+figures. Both rules ship OFF (Yardi's default) and both are SET ON on staging as the client's rule
+(§4 row M-16); cash ON is SAP's cash-journal rule, stricter than Yardi and stated. The bank
+register shows each account's GL balance, red when overdrawn. Two seeders had been paying from an
+empty treasury — a 210,000 access-control system out of petty cash, 2.8M of bank payments from an
+account holding nothing — and now open with balances against capital, the shape a mid-life mall
+has. The review found three real holes in the first cut, each now a tooth: an outflow re-dated
+EARLIER netted to zero and passed; a bank's own account was read per property and missed a receipt
+allocated across two malls; and payroll was judged from the 1st its entry is dated rather than the
+day it is approved and paid
+([modules/21](modules/21-general-ledger.md#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12)).
+Next in the memo's order: 19 (the trial balance as a tree), then 20, 23.
 
 ### 9.1 · The accountant's sitting
 

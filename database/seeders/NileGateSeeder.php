@@ -8,6 +8,7 @@ use App\Enums\PartyType;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
+use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\Announcement;
 use App\Models\Asset;
@@ -42,6 +43,9 @@ use App\Models\VendorBill;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorDocument;
+use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Services\BillSecurityDepositService;
 use App\Services\BillUnitOwnershipsService;
@@ -349,6 +353,39 @@ class NileGateSeeder extends Seeder
         ]);
 
         $this->command?->info('   Bank: CIB operating ('.($operating?->code ?? 'unmapped').') + NBE deposits ('.($deposits?->code ?? 'unmapped').')');
+
+        // The OPENING treasury (meeting 2026-09-02, point 16): 10,000 in the petty-cash box and
+        // 750,000 in CIB against owner capital, dated before the soak's first document. A cash box
+        // is never spent below what it holds and a bank says so — `CashBalanceGuard` refuses where
+        // the property says so, and on staging both rules are ON — while this property pays two
+        // small expenses from cash and ~590k of bills, payroll and assets from the bank, every one
+        // of them BEFORE its receipts post (the sweep at the end of `run()` is what posts them). A
+        // manual entry rather than a source document for the same reason; capital rather than a
+        // bank withdrawal, because the bank is one of the two accounts being opened.
+        $cash = app(AccountResolver::class)->id('cash', $this->asset->id);
+        $capital = app(AccountResolver::class)->id('capital', $this->asset->id);
+        if ($operating !== null) {
+            $on = $this->today->subMonths(13)->startOfMonth();
+            // A manual post needs its period to exist. Named for the calendar year it starts in, so
+            // under a non-January fiscal start the date may belong to the year before.
+            app(FiscalCalendar::class)->ensureYear($on->year);
+            if (AccountingPeriod::forDate($on) === null) {
+                app(FiscalCalendar::class)->ensureYear($on->year - 1);
+            }
+            app(JournalPostingService::class)->post([
+                'entry_date' => $on->toDateString(),
+                'asset_id' => $this->asset->id,
+                'is_manual' => true,
+                'description_en' => 'Opening balances — petty-cash float and operating bank account',
+                'description_ar' => 'أرصدة افتتاحية — عهدة الخزنة وحساب البنك التشغيلي',
+                'lines' => [
+                    ['ledger_account_id' => $cash, 'debit' => 10000, 'credit' => 0, 'asset_id' => $this->asset->id],
+                    ['ledger_account_id' => $operating->id, 'debit' => 750000, 'credit' => 0, 'asset_id' => $this->asset->id],
+                    ['ledger_account_id' => $capital, 'debit' => 0, 'credit' => 760000, 'asset_id' => $this->asset->id],
+                ],
+            ]);
+            $this->command?->info('   Opening treasury: EGP 10,000 in the cash box, EGP 750,000 in CIB');
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────────────────

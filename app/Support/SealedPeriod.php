@@ -189,7 +189,7 @@ class SealedPeriod
      * fails the build on one, so it can only exist mid-change, and erring toward the check is the
      * safe direction (the poster then gives the real answer anyway).
      */
-    private static function touchesTheLedger(Model $model): bool
+    public static function touchesTheLedger(Model $model): bool
     {
         foreach (array_keys($model->getDirty()) as $field) {
             $verdict = ChangeImpact::verdictFor($model::class, $field);

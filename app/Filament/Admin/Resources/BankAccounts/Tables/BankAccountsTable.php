@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\BankAccounts\Tables;
 
 use App\Filament\Admin\Resources\BankAccounts\BankAccountResource;
 use App\Models\BankAccount;
+use App\Support\CashBalanceGuard;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -58,6 +59,21 @@ class BankAccountsTable
                         ? __('admin.fields.is_default')
                         : null)
                     ->sortable(),
+                // The account's LEDGER balance today, red below zero — the register's own answer to
+                // point 16 for a bank the property lets overdraw (the save only warns there). The
+                // WHOLE chart account, not one dimension: the leaf is this bank's own, and a receipt
+                // allocated across two malls lands in it with no property. One aggregate per row.
+                TextColumn::make('gl_balance')
+                    ->label(__('admin.fields.gl_balance'))
+                    ->state(fn (BankAccount $record): ?float => $record->ledger_account_id
+                        ? CashBalanceGuard::balanceOf((int) $record->ledger_account_id, null, whole: true)
+                        : null)
+                    ->money('EGP')
+                    ->placeholder('—')
+                    ->color(fn (?float $state): ?string => $state !== null && $state < 0 ? 'danger' : null)
+                    ->weight(fn (?float $state): ?string => $state !== null && $state < 0 ? 'bold' : null)
+                    ->alignEnd()
+                    ->toggleable(),
                 TextColumn::make('currency')
                     ->label(__('admin.fields.currency'))
                     ->badge()

@@ -420,6 +420,11 @@ document's real date.
    a source of truth.)
 8. **Money is 2dp everywhere**, `round($x, 2)` on every amount — same as the rest of
    the money model.
+9. **A cash box is never spent below what it holds, and a bank account says so** (2026-09-12,
+   meeting point 16). `App\Support\CashBalanceGuard` judges every outbound posting source on the
+   ledger's running balance from the document's date onward; under the shipped defaults (Yardi's)
+   both warn in figures, and each is a per-property setting the operator turns to *refuse* — the
+   drawer's ON is SAP's cash-journal rule. See [the section below](#a-cash-box-is-never-spent-below-zero-and-a-bank-says-so-2026-09-12).
 
 ---
 
@@ -1086,6 +1091,101 @@ email's copy of that CSV, and the PDF — interpolated the same three placeholde
 places, which is what let the PDF drift. And `cumulative` (the flag that stops an *as at* statement
 being worded *"This period holds…"*) is answered by `unallocated()` itself, which owns the window,
 rather than derived again per renderer — where only one of the copies ever gets a test.
+
+### A cash box is never spent below zero, and a bank says so (2026-09-12)
+
+Meeting 2026-09-02, point 16 — *"Sndo2 3am / bank menf3sh ykon da2n, lazm ykon fe amount fl 7sab"*:
+a cash box or a bank account can never be in credit. Nothing guarded an outbound document against
+the balance of the account it paid from: an expense, a supplier payment, an owner disbursement, a
+payroll run, a staff advance, a custody grant, a deposit refund or an asset purchase could take a
+cash box below zero and post cleanly, and the demo did exactly that (a 210,000 access-control system
+bought from a petty-cash box holding nothing).
+
+**The standard.** Yardi blocks nothing — Voyager's cash account is a bank and a bank may overdraw.
+**SAP's cash journal — the one benchmark that models a drawer — refuses a posting that would make the
+cash balance negative** as a hard error, and a drawer cannot hold a negative number of banknotes.
+Odoo blocks neither. Egyptian practice: the خزينة is never credit.
+
+**One seam, derived from the poster.** `App\Support\CashBalanceGuard::guard()` is a wildcard
+listener on `eloquent.creating: *` and `eloquent.updating: *` — the same shape as `ValueSets::guard`
+and `SealedPeriod` — over every `LedgerPoster::JOURNALIZERS` source, so a 26th source is covered by
+being one. **Not `saving`**: a document's own hooks derive its property (`DepositTransaction`) and
+default its bank (`RecordsBankAccount`) in `creating`, and a wildcard listener on the same event runs
+AFTER the model's own, so the credit leg the guard reads already names the bank the money leaves.
+It asks `LedgerPoster::accountMovements()` what the save would MOVE per account — the would-be entry
+(`effectivePayload()`, the poster's own reading) and the id of the live entry it would REPLACE, which
+the balance read leaves out — so **an edit is judged on its increase, a document re-dated or re-homed
+on its whole amount where it now lands, a void moves money IN and is never refused, and a receipt is
+never in question** (the guard reads outflows only). The first cut NETTED the two entries per account,
+and the review broke it: an outflow moved to an EARLIER day netted to zero and passed, leaving that
+day short. Each account the save credits is classified by `kindOf()` — after one query that stops
+on anything but an ASSET account (an invoice credits revenue and VAT; classifying those cost nine
+queries a line for nothing): `cash_box` (the property's `cash` rail / posting role — one chart
+account, one drawer per `journal_entries.asset_id`), `bank` (a registered bank account's own leaf, a
+non-cash rail's own account, or the `bank` posting role), or nothing (AR, AP, a liability — not money
+in hand). **A bank's OWN chart account is read WHOLE**, not per dimension: it belongs to one property
+by construction, and a receipt allocated across two malls posts with no property and would otherwise
+be missing from the account it landed in; the shared `cash` and `bank` ROLE accounts stay per
+property. **Payroll is dated by its PERIOD** (`period_month`, the 1st) and is judged from the day of
+the act — the run is approved and paid at month-end, and measured from the 1st every month-end
+approval whose net exceeds the balance on the 1st would be refused; derived from the registry's date
+column, so a second period-dated source inherits the rule.
+
+**The balance is the ledger's running MINIMUM from the document's date onward** (`lowestBalanceFrom()`):
+opening before the date, then each posted day's end-of-day balance — so a payment back-dated to the
+5th "fits" on the 5th and is still refused when it would leave the 20th at −400, and today's balance
+is not the answer either (800 received on the 25th does not make the 5th solvent). SAP's cash journal
+judges the day's closing balance; a receipt keyed the same day counts. **The read takes no lock**:
+two cashiers spending the last 1,000 at once can both pass — on MySQL's REPEATABLE READ the second's
+snapshot predates the first's commit whether or not a lock were taken — a window the after-commit
+sync lag dwarfs, so this is a control on ordinary work and not a settlement guard; stated, not locked.
+
+**Two per-property settings, both shipped OFF — Yardi's default — and off still WARNS in figures.**
+`accounting.refuse_overdrawn_cash` ON is SAP's rule for the drawer; `accounting.refuse_overdrawn_bank`
+ON is the client's own *"the bank can never be in credit"*. Both are `PropertySettings::OVERRIDABLE`
+(Settings → *Cash box and bank*, or Property overrides) because a drawer is a property's own
+treasury control and an overdraft facility is a fact about ONE bank at ONE mall. **The client's rule
+is what they SET, never the code default** (skill §3b): on staging both are ON. A refusal is a
+`DomainException` in the reader's language naming the figures — *"This would take the cash box at
+Atriom Walk EGP 6,000.00 below zero as at 12 July 2026 (balance EGP 0.00, this payment EGP 6,000.00)
+— a cash box is never spent below what it holds. Record the receipt that funds it first, or pay it
+through the bank."* — and a warning is the same sentence as a persistent notification, with the
+payment recorded. The bank register carries a *GL balance* column, red when overdrawn.
+
+**What it reads and what it cannot see.** The balance is the LEDGER's — one truth about money, never a
+second sum over documents — and the ledger is posted by the after-commit job, so a receipt keyed
+seconds ago may not be in it yet: the lag Horizon closes in milliseconds, and the reason the bank
+default is warn. With `ACCOUNTING_REALTIME_LEDGER_SYNC` off the ledger lags to the daily sweep and the
+guard reads yesterday's balance — that flag is a diagnostic, not a posture. **Fails OPEN** when the
+chart cannot answer (no cash role mapped, a journalizer that throws on an unsaved document): refusing
+ordinary work because the accounting setup is incomplete is the worse failure, the same choice
+`SealedPeriod` made. **Two traps the build met**: a wildcard `creating` listener that throws leaves
+`AllocatesDocumentNumber`'s cache lock held (it is released in `created`) — under a frozen test clock
+the next document of the prefix waits for ever — so the guard hands the lock back before refusing;
+and `expenses.status` / `deposit_transactions.status` default at the COLUMN, invisible at `creating`,
+so a document built by a form that sends no status read as unpostable and walked past the guard —
+both models now state the default in `$attributes`.
+
+**The seeders were the first offenders.** `DemoSeeder` funded three fixed assets (375,000) from cash
+and paid a staff advance, a custody grant and three petty expenses from a box that held nothing, and
+2.8M of bank payments from accounts holding nothing — under a seeder every source document is posted
+by ONE sweep at the end of `run()`, so mid-seed the ledger is empty and a payment has nothing behind
+it. The assets pay through the bank now (a CCTV system is not petty cash) and both `DemoSeeder` and
+`NileGateSeeder` post OPENING balances against owner capital before anything leaves — the till, every
+registered bank account, and (the demo) the generic bank role, because a marketing spend, a custody
+grant and a staff advance carry no `bank_account_id` and their bank money leaves that account — dated
+before the earliest document. A MANUAL entry, because a source document would be as unposted as the
+payments it funds; capital rather than a bank withdrawal, because the bank is one of the accounts
+being opened. **Both seeder tests run under the client's rule (both refusals ON)**: a seed that
+survives only the shipped warn-only default is a seed that dies on the box that matters.
+(`NileGateSeederTest` exists since this change: the soak seeder had no test at all.)
+
+**Deliberately not built**: a per-account overdraft LIMIT (Yardi has none either — the setting is the
+limit at zero), a health advisory for an overdrawn bank (the register's red column is the report),
+and a second balance computed from unposted documents (a second truth about money).
+(`ACashBoxIsNeverSpentBelowZeroTest` — thirteen cases, twenty-eight mutations each killing their own
+tooth; the sealed-period pre-filter inside the guard is a query saver and not a tooth, and the lock
+release is proved by the hang its absence causes.)
 
 ### A month's trial balance opens with the balance brought forward (2026-09-11)
 

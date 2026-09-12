@@ -72,7 +72,9 @@ use App\Models\Violation;
 use App\Models\ViolationCategory;
 use App\Models\Warehouse;
 use App\Models\WorkPermit;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\MintBankLedgerAccountService;
 use App\Services\Accounting\SetPostMonthService;
 use App\Services\AllocatePaymentToInvoiceItemsService;
@@ -244,6 +246,15 @@ class DemoSeeder extends Seeder
         // generator and the current-month payment run both fire earlier, so 193 of 194 demo
         // receipts recorded no bank account at all.
         $this->seedBankAccounts($atriomWalk);
+
+        // The OPENING treasury, before any money leaves (meeting 2026-09-02, point 16). A cash box
+        // is never spent below what it holds and a bank says so — `CashBalanceGuard` refuses or
+        // warns — and every payment this seeder records pre-dates its receipts' POSTING: every
+        // source document here is journalised by the ONE sweep at the end of `run()`, so mid-seed
+        // the ledger holds nothing and a payment from an empty account is exactly what the guard
+        // exists to refuse. 2.8M leaves the bank over the demo's history (190k of it through the
+        // generic bank role, from documents that name no account); 25k leaves the till.
+        $this->seedOpeningTreasury($atriomWalk, cash: 50000, bank: 3000000, unattributedBank: 250000);
 
         // Attach the owner user to Atriom Walk at 100% ownership
         $ownerUser = User::where('email', 'owner@atriom.test')->first();
@@ -2598,7 +2609,10 @@ class DemoSeeder extends Seeder
                     'category' => $s['category'],
                     'description' => $s['description'],
                     'amount' => $amount,
-                    'paid_from' => 'cash',
+                    // A five-figure agency invoice is paid from the BANK, not the petty-cash
+                    // drawer — and since point 16 the drawer refuses what it does not hold, so a
+                    // demo paying 77,792 from an empty box would not seed at all.
+                    'paid_from' => 'bank',
                     'spent_on' => now()->subDays(($i + 1) * 10),
                     'created_by_user_id' => $marketingLead?->id,
                 ]);
@@ -3319,9 +3333,13 @@ class DemoSeeder extends Seeder
             ['name' => 'Central HVAC chiller unit',      'tag' => 'FA-HVAC-01', 'category' => 'HVAC',      'cost' => 480000, 'salvage' => 30000, 'life' => 120, 'funded' => 'bank', 'age' => 30],
             ['name' => 'Backup diesel generator 250kVA', 'tag' => 'FA-GEN-01',  'category' => 'generator', 'cost' => 620000, 'salvage' => 40000, 'life' => 180, 'funded' => 'bank', 'age' => 24],
             ['name' => 'Passenger elevator (Zone C)',    'tag' => 'FA-ELV-01',  'category' => 'elevator',  'cost' => 850000, 'salvage' => 50000, 'life' => 240, 'funded' => 'bank', 'age' => 20],
-            ['name' => 'Management office furniture set', 'tag' => 'FA-FRN-01',  'category' => 'furniture', 'cost' => 90000,  'salvage' => 5000,  'life' => 60,  'funded' => 'cash', 'age' => 18],
-            ['name' => 'CCTV + access-control system',    'tag' => 'FA-SEC-01',  'category' => 'IT',        'cost' => 210000, 'salvage' => 10000, 'life' => 72,  'funded' => 'cash', 'age' => 15],
-            ['name' => 'Floor scrubber machine',          'tag' => 'FA-CLN-01',  'category' => 'equipment', 'cost' => 75000,  'salvage' => 5000,  'life' => 84,  'funded' => 'cash', 'age' => 28],
+            // Every one of these is paid through the bank: a 210,000 access-control system is not
+            // petty cash, and since point 16 (2026-09-02) a cash-funded acquisition is REFUSED by
+            // `CashBalanceGuard` unless the box holds the money — three of them once read `cash`,
+            // 375,000 out of a box that held nothing, a fixture teaching something false.
+            ['name' => 'Management office furniture set', 'tag' => 'FA-FRN-01',  'category' => 'furniture', 'cost' => 90000,  'salvage' => 5000,  'life' => 60,  'funded' => 'bank', 'age' => 18],
+            ['name' => 'CCTV + access-control system',    'tag' => 'FA-SEC-01',  'category' => 'IT',        'cost' => 210000, 'salvage' => 10000, 'life' => 72,  'funded' => 'bank', 'age' => 15],
+            ['name' => 'Floor scrubber machine',          'tag' => 'FA-CLN-01',  'category' => 'equipment', 'cost' => 75000,  'salvage' => 5000,  'life' => 84,  'funded' => 'bank', 'age' => 28],
         ];
 
         $earliest = Carbon::now()->startOfMonth();
@@ -4156,6 +4174,71 @@ class DemoSeeder extends Seeder
      * created. Stamping them afterwards would mean an UPDATE, and `bank_account_id` is classified
      * REFUSED on a committed expense — quite rightly, since it decides where the cash leg posts.
      */
+    /**
+     * The mall's OPENING treasury: one manual entry putting `$cash` in the petty-cash box, `$bank`
+     * in the operating bank account (a fifth of it in each other registered account) and
+     * `$unattributedBank` in the generic bank role, against owner capital, dated three years back — before the
+     * earliest document this seeder writes (a chiller bought thirty months ago) — so every payment
+     * it records has money behind it. A mid-life mall has a bank balance and a till float; a
+     * dataset where both read 0.00 while 2.8M of supplier payments go out teaches something false,
+     * and since point 16 (2026-09-02) a payment from an empty account is REFUSED where the property
+     * says so. A MANUAL entry rather than a source document, deliberately — the sweep at the end of
+     * `run()` posts every source document and nothing before it, so a document here would be as
+     * unposted as the payments it must fund; `JournalPostingService` writes the entry the moment
+     * it is called, which is what the guard reads. Capital, not a bank withdrawal: the bank is one
+     * of the two things being opened. Idempotent on its own narrative; skipped, not fatal, on a
+     * database with no posting map (several gates seed this seeder without the reference data).
+     */
+    private function seedOpeningTreasury(Asset $asset, float $cash, float $bank, float $unattributedBank): void
+    {
+        $description = 'Opening balances — petty-cash float and operating bank account';
+        if (JournalEntry::query()->where('asset_id', $asset->id)->where('description_en', $description)->where('status', 'posted')->exists()) {
+            return;
+        }
+
+        try {
+            $resolver = app(AccountResolver::class);
+            $cashAccount = $resolver->id('cash', $asset->id);
+            $capital = $resolver->id('capital', $asset->id);
+            // The generic `bank` ROLE account too: a marketing spend, a custody grant and a staff
+            // advance carry no `bank_account_id` (module 21 — the petty-cash flows that resolve
+            // through the rail alone), so their bank money leaves THIS account, not CIB's leaf.
+            $bankRole = $resolver->id('bank', $asset->id);
+            // Every registered account opens with money: CIB (the default operating account, where
+            // most of the demo's payments leave from) with `$bank`, the NBE service-charge and
+            // deposit accounts with a fifth of it — the alternated rails and the deposit refunds
+            // draw on them too.
+            $leaves = BankAccount::query()->where('asset_id', $asset->id)->whereNotNull('ledger_account_id')->get()
+                ->mapWithKeys(fn (BankAccount $account) => [(int) $account->ledger_account_id => $account->id === $this->cibAccount?->id ? $bank : round($bank / 5, 2)]);
+            if ($leaves->isEmpty()) {
+                throw new \DomainException('no bank leaf');
+            }
+
+            $on = Carbon::now()->subYears(3)->startOfMonth();
+            $calendar = app(FiscalCalendar::class);
+            $calendar->ensureYear((int) $on->year);
+            if (AccountingPeriod::forDate($on) === null) {
+                $calendar->ensureYear((int) $on->year - 1); // a non-January fiscal start
+            }
+
+            app(JournalPostingService::class)->post([
+                'entry_date' => $on->toDateString(),
+                'asset_id' => $asset->id,
+                'is_manual' => true,
+                'description_en' => $description,
+                'description_ar' => 'أرصدة افتتاحية — عهدة الخزنة وحساب البنك التشغيلي',
+                'lines' => [
+                    ['ledger_account_id' => $cashAccount, 'debit' => $cash, 'credit' => 0, 'asset_id' => $asset->id],
+                    ...$leaves->map(fn (float $opening, int $leaf) => ['ledger_account_id' => $leaf, 'debit' => $opening, 'credit' => 0, 'asset_id' => $asset->id])->values()->all(),
+                    ['ledger_account_id' => $bankRole, 'debit' => $unattributedBank, 'credit' => 0, 'asset_id' => $asset->id],
+                    ['ledger_account_id' => $capital, 'debit' => 0, 'credit' => round($cash + $leaves->sum() + $unattributedBank, 2), 'asset_id' => $asset->id],
+                ],
+            ]);
+        } catch (\DomainException $e) {
+            $this->command->warn('   Opening treasury skipped: '.$e->getMessage());
+        }
+    }
+
     private function seedBankAccounts(Asset $asset): void
     {
         // Each leaf is MINTED through the method the bank-account picker's own create button

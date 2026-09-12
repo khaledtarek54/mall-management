@@ -84,6 +84,18 @@ class Expense extends Model
         return $query->whereIn('category', CostNature::categoriesOf($nature) ?: ['__none__']);
     }
 
+    /**
+     * The column default, stated on the MODEL so a `creating` listener can see it. The database
+     * fills `status` on INSERT, which is after every model event — so at `creating` a document
+     * built by a form that never sends a status read as `null`, `isPostable()` answered false, and
+     * `CashBalanceGuard` (which asks the journalizer what the save would move) saw nothing to
+     * refuse; the row then posted from the after-commit job, past the guard (point 16, measured
+     * through the real create page).
+     */
+    protected $attributes = [
+        'status' => 'recorded',
+    ];
+
     protected $fillable = [
         'bank_account_id',
         // Which JOB this cost belongs to — the other road into the service bucket.
