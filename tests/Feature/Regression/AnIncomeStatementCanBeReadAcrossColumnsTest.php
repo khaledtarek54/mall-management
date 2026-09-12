@@ -246,6 +246,9 @@ it('draws every column into the printed statement', function () {
     $html = PdfDocument::make('accounting.pdf.income-statement-spread')
         ->data([
             'spread' => $spread,
+            // The lines the PDF service hands the template — it has no fallback of its own, so a
+            // render without them is a fatal rather than a second copy of the layout.
+            'records' => StatementSpread::records($spread),
             'meta' => ['property' => 'A mall', 'period' => '2026', 'generated_on' => '01/01/2026', 'locale' => 'en'],
             ...IssuingEntity::forViewScopedTo(null),
         ])

@@ -192,16 +192,18 @@ it('emits subtotal rows on the screen, and they foot to the section total', func
         ->toBe(collect($records)->firstWhere('is_total', true)['amount']);
 });
 
-it('prints a leaf, a group subtotal and a section total at three different weights', function () {
+it('prints a leaf, a group subtotal and a section total at three different weights — and a heading at a fourth', function () {
     $r = statementRenderer();
 
     expect($r->weight(['is_total' => false, 'is_subtotal' => false]))->toBe('normal')
         ->and($r->weight(['is_total' => false, 'is_subtotal' => true]))->toBe('medium')
-        ->and($r->weight(['is_total' => true, 'is_subtotal' => false]))->toBe('bold');
+        ->and($r->weight(['is_total' => true, 'is_subtotal' => false]))->toBe('bold')
+        ->and($r->weight(['is_total' => false, 'is_subtotal' => false, 'is_heading' => true]))->toBe('semibold');
 });
 
-it('never offers a drill-through on a subtotal', function () {
-    // A subtotal is not an account. A link there would open the general ledger for nothing.
+it('never offers a drill-through on a subtotal or a heading', function () {
+    // A subtotal is not an account, and a heading is a SUMMARY account with no ledger of its own —
+    // a link on either would open the general ledger for nothing.
     $records = statementRenderer()->records([
         'Assets' => [
             'rows' => [
@@ -213,15 +215,22 @@ it('never offers a drill-through on a subtotal', function () {
         ],
     ]);
 
+    $kinds = ['heading' => 0, 'leaf' => 0];
+
     foreach ($records as $record) {
-        if ($record['is_subtotal'] || $record['is_total']) {
+        if ($record['is_subtotal'] || $record['is_total'] || $record['is_heading']) {
             expect($record['account_id'])->toBeNull();
+            $kinds['heading'] += (int) $record['is_heading'];
         } else {
             // The control — a leaf still drills through, or this test would pass on a screen that
             // had lost every link.
             expect($record['account_id'])->not->toBeNull();
+            $kinds['leaf']++;
         }
     }
+
+    // Both kinds were seen, or the loop above asserted about a shape the fixture never produced.
+    expect($kinds)->toBe(['heading' => 2, 'leaf' => 4]);
 });
 
 it('groups the CSV export the same way the screen groups', function () {

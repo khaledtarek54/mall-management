@@ -52,6 +52,26 @@ trait RendersFinancialStatement
             $grouped = $this->groupStatements() && StatementGroups::worthShowing($groups);
 
             foreach ($groups as $group) {
+                // The heading the group's rows sit under, whenever grouping is shown at all — for a
+                // one-row group too, which keeps no subtotal (the row already is one) but without a
+                // heading reads as a stray line under the previous group's total. What it says is
+                // `StatementGroups`' answer, shared with the CSV and the PDF.
+                $heading = $grouped ? StatementGroups::headingFor($group, $locale) : null;
+
+                if ($heading !== null) {
+                    $records[] = [
+                        'id' => 'r'.$i++,
+                        'section' => $sectionLabel,
+                        'code' => $group['code'],
+                        'account' => $heading,
+                        'amount' => null,
+                        'is_total' => false,
+                        'is_subtotal' => false,
+                        'is_heading' => true,
+                        'account_id' => null,
+                    ];
+                }
+
                 foreach ($group['rows'] as $row) {
                     $records[] = [
                         'id' => 'r'.$i++,
@@ -61,6 +81,7 @@ trait RendersFinancialStatement
                         'amount' => round((float) ($row['amount'] ?? 0), 2),
                         'is_total' => false,
                         'is_subtotal' => false,
+                        'is_heading' => false,
                         // What this line is made of. A statement whose figures cannot be opened is
                         // correct and terminal — the numbers are right, and there is no way to ask
                         // where they came from without leaving the report and rebuilding its filters.
@@ -84,6 +105,7 @@ trait RendersFinancialStatement
                     'amount' => round($group['total'], 2),
                     'is_total' => false,
                     'is_subtotal' => true,
+                    'is_heading' => false,
                     'account_id' => null,
                 ];
             }
@@ -96,6 +118,7 @@ trait RendersFinancialStatement
                 'amount' => round((float) $section['total'], 2),
                 'is_total' => true,
                 'is_subtotal' => false,
+                'is_heading' => false,
                 // A total is not an account, so there is nothing to open. Deliberately null rather
                 // than absent, so the column's URL closure has one shape for every row.
                 'account_id' => null,
@@ -119,13 +142,15 @@ trait RendersFinancialStatement
     }
 
     /**
-     * How heavily a row prints. Three weights for three kinds of line, so the eye can tell a leaf
-     * from a group subtotal from the figure the section foots to.
+     * How heavily a row prints. Four weights for four kinds of line, so the eye can tell a leaf
+     * from the heading it sits under, from that group's subtotal, from the figure the section
+     * foots to.
      */
     protected function statementWeight(array $record): string
     {
         return match (true) {
             (bool) ($record['is_total'] ?? false) => 'bold',
+            (bool) ($record['is_heading'] ?? false) => 'semibold',
             (bool) ($record['is_subtotal'] ?? false) => 'medium',
             default => 'normal',
         };
@@ -141,7 +166,9 @@ trait RendersFinancialStatement
      */
     protected function ledgerUrlFor(array $record): ?string
     {
-        if ($record['is_total'] || ($record['is_subtotal'] ?? false)) {
+        // A heading is the summary account, and a summary account has no ledger of its own — it is
+        // the sum of the leaves beneath it, each of which opens on its own row.
+        if ($record['is_total'] || ($record['is_subtotal'] ?? false) || ($record['is_heading'] ?? false)) {
             return null;
         }
 
@@ -176,6 +203,8 @@ trait RendersFinancialStatement
                     ->label(__('admin.fields.amount'))
                     ->money('EGP')
                     ->alignEnd()
+                    // A heading row carries a null amount and Filament renders a blank cell for it,
+                    // never 0.00 — its group's figure is the subtotal beneath, or the one row it heads.
                     ->weight(fn (array $record): string => $this->statementWeight($record)),
                 // ── The comparison, when one was asked for (RP-06) ──────────────────────────────
                 // A single period's P&L says what happened; it cannot say whether that is normal.
@@ -205,7 +234,9 @@ trait RendersFinancialStatement
                     ->alignEnd()
                     // Null, not 0%, when the prior figure was zero: a rise from nothing has no
                     // percentage, and printing one ("+100%", "∞") invents a number the books do not
-                    // support. The em dash says "not applicable" and is the honest answer.
+                    // support. A null renders as a BLANK cell — Filament takes its blank-state branch
+                    // before this formatter runs, so the `'—'` arm below is never reached; the blank
+                    // is the honest answer and it is also what a heading row shows in every column.
                     ->formatStateUsing(fn ($state): string => $state === null ? '—' : number_format((float) $state, 1).'%')
                     ->weight(fn (array $record): string => $this->statementWeight($record)) : null,
             ]))

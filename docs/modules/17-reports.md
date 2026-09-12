@@ -455,7 +455,10 @@ report now exports to **CSV**:
   [modules/21](21-general-ledger.md#the-trial-balance-reads-as-the-charts-tree-2026-09-12)).
   Since EG-28 they also carry the **chart's own group subtotals** — current vs non-current, operating
   revenue vs other income — from `App\Support\StatementGroups`, the same helper the screen and the
-  PDF use. *"Reads exactly like the on-screen report"* is a claim that has to be kept true by
+  PDF use, and since 2026-09-12 each group opens with its **heading row** (the summary account's code
+  and name, a BLANK amount rather than `0.00` so a spreadsheet SUM is not handed a zero line that
+  looks like an account) — a subtotal with no heading above it read as the section's own total
+  disagreeing with itself ([modules/21 → A subtotal stands under its heading](21-general-ledger.md#a-statement-is-read-by-the-charts-own-subtotals-eg-28-2026-08-22)). *"Reads exactly like the on-screen report"* is a claim that has to be kept true by
   construction: EG-36 shipped a screen out of step with its own export once, so the layout lives in
   one place rather than three. The cash-flow export passes `grouped: false`, because its sections are
   activities rather than branches of the chart. See

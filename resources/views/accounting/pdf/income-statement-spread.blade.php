@@ -4,15 +4,21 @@
 @section('content')
     @php
         $locale = $meta['locale'] ?? app()->getLocale();
-        // The SAME shape the single-period statement prints, so a spread is this statement read
-        // across more columns rather than a different report wearing its name.
-        $shape = \App\Support\IncomeStatementLayout::shape((bool) $spread['has_below_the_line']);
         $spans = $spread['spans'];
 
-        $cells = function (array $source) use ($spans) {
+        // The SAME lines the screen and the CSV print — `StatementSpread::records()`, handed in by
+        // the PDF service and REQUIRED here. This template used to walk `$spread['rows']` itself and
+        // so printed a flat list under each section while the screen beside it printed the chart's
+        // headings and subtotals: one statement, laid out two ways depending on which button was
+        // pressed. No fallback, deliberately — a second place that lays the spread out is that drift
+        // waiting to come back.
+
+        $cells = function (array $record) use ($spans) {
             $out = [];
             foreach ($spans as $span) {
-                $out[] = number_format((float) ($source[$span['key']] ?? 0), 2);
+                $value = $record['a_'.$span['key']] ?? null;
+                // A heading carries no figure; its group's total is the subtotal beneath.
+                $out[] = $value === null ? '' : number_format((float) $value, 2);
             }
             return $out;
         };
@@ -29,41 +35,45 @@
             </tr>
         </thead>
         <tbody>
-        @foreach ($shape as $part)
-            @php
-                $rows = $part['is_net'] ? [] : array_values(array_filter(
-                    $spread['rows'],
-                    fn (array $row): bool => $row['section'] === $part['section']
-                        && ($part['statement_section'] === null || $row['statement_section'] === $part['statement_section']),
-                ));
-                $totals = $spread['totals'][$part['totals_key']] ?? [];
-            @endphp
-
-            {{-- A below-the-line section with nothing in it prints nothing, exactly as on screen. --}}
-            @continue($rows === [] && $part['optional'])
-
-            @unless ($part['is_net'])
+        @php $section = null; @endphp
+        @foreach ($records as $record)
+            {{-- A section heading the first time a section's lines appear. A NET line (NOI, the
+                 bottom line) closes no section of its own, so it never opens one either. --}}
+            @if (! $record['is_net'] && $record['section'] !== $section)
+                @php $section = $record['section']; @endphp
                 <tr>
-                    <td class="section-heading" colspan="{{ count($spans) + 2 }}">{{ $part['label'] }}</td>
+                    <td class="section-heading" colspan="{{ count($spans) + 2 }}">{{ $section }}</td>
                 </tr>
+            @endif
 
-                @foreach ($rows as $row)
-                    <tr>
-                        <td class="code">{{ $row['code'] }}</td>
-                        <td>{{ $locale === 'ar' ? $row['name_ar'] : $row['name_en'] }}</td>
-                        @foreach ($cells($row['amounts']) as $cell)
-                            <td class="num">{{ $cell }}</td>
-                        @endforeach
-                    </tr>
-                @endforeach
-            @endunless
-
-            <tr class="{{ $part['is_net'] ? 'grand' : 'total-row' }}">
-                <td colspan="2">{{ $part['is_net'] ? $part['label'] : $part['total_label'] }}</td>
-                @foreach ($cells($totals) as $cell)
-                    <td class="num">{{ $cell }}</td>
-                @endforeach
-            </tr>
+            @if ($record['is_net'])
+                <tr class="grand">
+                    <td colspan="2">{{ $record['account'] }}</td>
+                    @foreach ($cells($record) as $cell)
+                        <td class="num">{{ $cell }}</td>
+                    @endforeach
+                </tr>
+            @elseif ($record['is_total'])
+                <tr class="total-row">
+                    <td colspan="2">{{ $record['account'] }}</td>
+                    @foreach ($cells($record) as $cell)
+                        <td class="num">{{ $cell }}</td>
+                    @endforeach
+                </tr>
+            @elseif ($record['is_heading'])
+                <tr class="group-heading">
+                    <td class="code">{{ $record['code'] }}</td>
+                    <td colspan="{{ count($spans) + 1 }}">{{ $record['account'] }}</td>
+                </tr>
+            @else
+                <tr class="{{ $record['is_subtotal'] ? 'subtotal-row' : '' }}">
+                    <td class="code">{{ $record['code'] }}</td>
+                    <td>{{ $record['account'] }}</td>
+                    @foreach ($cells($record) as $cell)
+                        <td class="num">{{ $cell }}</td>
+                    @endforeach
+                </tr>
+            @endif
         @endforeach
         </tbody>
     </table>

@@ -158,8 +158,10 @@ class ReportCsvExporter
 
     /**
      * A statement made of named sections (revenue/expense, assets/liabilities/equity, …). Each row is
-     * [section, account code, account name, amount]; each section closes with a subtotal, then a
-     * final net line — so the CSV reads exactly like the on-screen statement.
+     * [section, account code, account name, amount]; within a section each chart group opens with a
+     * HEADING row (its code, its name, a blank amount) and closes with its subtotal, the section
+     * closes with a subtotal, then a final net line — so the CSV reads exactly like the on-screen
+     * statement.
      *
      * A section may name its own total line (the income statement's "Total operating expenses",
      * and its mid-statement NET OPERATING INCOME row); the others fall back to a plain "Subtotal".
@@ -182,6 +184,15 @@ class ReportCsvExporter
             $showGroups = $grouped && StatementGroups::worthShowing($groups);
 
             foreach ($groups as $group) {
+                // The heading above the group's rows, from the same resolver the screen and the PDF
+                // read — a blank amount, never 0.00, so a spreadsheet SUM over the column is not
+                // handed a zero line that looks like an account.
+                $heading = $showGroups ? StatementGroups::headingFor($group, $locale) : null;
+
+                if ($heading !== null) {
+                    $rows[] = [$label, $group['code'], $heading, ''];
+                }
+
                 foreach ($group['rows'] as $line) {
                     $rows[] = [$label, $line['code'] ?? '', $this->name($line), round((float) ($line['amount'] ?? 0), 2)];
                 }

@@ -29,8 +29,12 @@
         /* The same heading INSIDE a table, for a statement whose sections cannot each be their own
            table because every one of them shares the spread's column widths. */
         td.section-heading { font-weight: bold; font-size: 11pt; color: #14213D; padding-top: 12px; border-bottom: none; }
-        /* A chart-group subtotal (EG-28) — lighter than the figure the section foots to,
-           heavier than a leaf, so the three kinds of line stay distinguishable in print. */
+        /* A chart group (EG-28): the heading its rows sit under and the subtotal that closes it —
+           lighter than the figure the section foots to, heavier than a leaf, so the four kinds of
+           line stay distinguishable in print. */
+        /* `table.report tr.…` so the rule outranks `table.report td` above — a bare `.group-heading td`
+           loses on specificity and its padding and missing underline never render. */
+        table.report tr.group-heading td { font-weight: 600; color: #4A5468; padding-top: 8px; border-bottom: none; }
         .subtotal-row td { border-top: 1px solid #C9D0DC; font-weight: 600; color: #4A5468; }
         .total-row td { border-top: 2px solid #7D8595; font-weight: bold; }
         .grand td { border-top: 2px solid #14213D; font-weight: bold; font-size: 11pt; }

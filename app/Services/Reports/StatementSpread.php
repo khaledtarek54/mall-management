@@ -4,6 +4,8 @@ namespace App\Services\Reports;
 
 use App\Services\Accounting\BudgetService;
 use App\Services\Accounting\LedgerReportService;
+use App\Support\IncomeStatementLayout;
+use App\Support\StatementGroups;
 use App\Support\StatementSection;
 use Carbon\CarbonImmutable;
 
@@ -146,6 +148,140 @@ class StatementSpread
             'totals' => $totals,
             'has_below_the_line' => $hasBelowTheLine,
         ];
+    }
+
+    /**
+     * The spread laid out as the lines a reader sees — heading · account rows · group subtotal ·
+     * section total · net line — with one `a_{span}` key per column instead of a single `amount`.
+     *
+     * ONE layout for three renderers. The screen's table, its CSV and the printed spread all read
+     * this; until it moved here the PDF template walked `$spread['rows']` on its own and printed a
+     * flat list under each section while the screen beside it printed the chart's subtotals — the
+     * same statement laid out two ways depending on which button was pressed.
+     *
+     * Laid out from `IncomeStatementLayout::shape()` like the single-period readings, so a statement
+     * read across twelve months has the same sections, in the same order, as the same statement read
+     * for one — a spread that relaid the sections would be a different report wearing this one's name.
+     *
+     * Every record carries the four kind flags (`is_heading` · `is_subtotal` · `is_total` · `is_net`)
+     * explicitly, so a renderer tests a key rather than the absence of one. A NET line (NOI, the
+     * bottom line) is a total that closes no section of its own, which is why the PDF prints it in
+     * the grand rule and never opens a section for it.
+     *
+     * Worded in the CURRENT locale, like every other renderer: the section labels come from
+     * `IncomeStatementLayout::shape()` and the subtotal label from `__()`, both of which read the
+     * app locale, so a `$locale` parameter here could only ever reach the account names and the
+     * headings — half a statement in one language under section labels in another. The PDF service
+     * calls this inside `DocumentLocale::in()`, which is what sets the document's language.
+     *
+     * @param  array<string, mixed>  $spread  what {@see incomeStatement()} returned
+     * @return list<array<string, mixed>>
+     */
+    public static function records(array $spread): array
+    {
+        $locale = app()->getLocale();
+        $records = [];
+        $i = 0;
+
+        $amounts = function (array $source, array $keys): array {
+            $cells = [];
+
+            foreach ($keys as $key) {
+                $cells['a_'.$key] = round((float) ($source[$key] ?? 0), 2);
+            }
+
+            return $cells;
+        };
+
+        $keys = array_column($spread['spans'], 'key');
+
+        foreach (IncomeStatementLayout::shape((bool) $spread['has_below_the_line']) as $part) {
+            $totals = $spread['totals'][$part['totals_key']] ?? [];
+
+            if ($part['is_net']) {
+                $records[] = [
+                    'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
+                    'account' => $part['label'], 'is_total' => true, 'is_subtotal' => false,
+                    'is_heading' => false, 'is_net' => true, 'account_id' => null,
+                ] + $amounts($totals, $keys);
+
+                continue;
+            }
+
+            $sectionRows = array_values(array_filter(
+                $spread['rows'],
+                fn (array $row): bool => $row['section'] === $part['section']
+                    && ($part['statement_section'] === null || $row['statement_section'] === $part['statement_section']),
+            ));
+
+            // A below-the-line section with nothing in it prints nothing — the same rule the
+            // single-period statement applies, so one picker cannot change which sections exist.
+            if ($sectionRows === [] && $part['optional']) {
+                continue;
+            }
+
+            // The chart's own subtotals, exactly as the single-period reading gets them (EG-28).
+            // `StatementGroups` totals ONE figure per row and a spread row carries several under
+            // `amounts`, so its own `total` is deliberately left at zero here — the key named below
+            // exists on no spread row — and each group's per-column totals are summed further down.
+            $groups = StatementGroups::for($sectionRows, amountKey: 'amount');
+            $grouped = StatementGroups::worthShowing($groups);
+
+            foreach ($groups as $group) {
+                // The heading the group's rows sit under — same resolver as the other readings, so
+                // the twelve-month spread cannot name a branch differently from the month beside it.
+                $heading = $grouped ? StatementGroups::headingFor($group, $locale) : null;
+
+                if ($heading !== null) {
+                    $records[] = [
+                        'id' => 's'.$i++, 'section' => $part['label'], 'code' => $group['code'],
+                        'account' => $heading, 'is_total' => false, 'is_subtotal' => false,
+                        'is_heading' => true, 'is_net' => false, 'account_id' => null,
+                    ] + array_fill_keys(array_map(fn (string $key): string => 'a_'.$key, $keys), null);
+                }
+
+                foreach ($group['rows'] as $row) {
+                    $records[] = [
+                        'id' => 's'.$i++, 'section' => $part['label'], 'code' => $row['code'],
+                        'account' => $locale === 'ar' ? $row['name_ar'] : $row['name_en'],
+                        'is_total' => false, 'is_subtotal' => false, 'is_heading' => false, 'is_net' => false,
+                        'account_id' => $row['account_id'] ?? null,
+                    ] + $amounts($row['amounts'], $keys);
+                }
+
+                if (! $grouped || ! $group['show_subtotal']) {
+                    continue;
+                }
+
+                // Summed per COLUMN from the group's own rows. `StatementGroups` cannot do it — it
+                // totals one figure per row and every column here needs its own.
+                $groupTotals = [];
+
+                foreach ($keys as $key) {
+                    $groupTotals[$key] = round(array_sum(array_map(
+                        fn (array $r): float => (float) ($r['amounts'][$key] ?? 0),
+                        $group['rows'],
+                    )), 2);
+                }
+
+                $records[] = [
+                    'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
+                    'account' => __('admin.reports.group_subtotal', [
+                        'group' => $locale === 'ar' ? $group['name_ar'] : $group['name_en'],
+                    ]),
+                    'is_total' => false, 'is_subtotal' => true, 'is_heading' => false, 'is_net' => false,
+                    'account_id' => null,
+                ] + $amounts($groupTotals, $keys);
+            }
+
+            $records[] = [
+                'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
+                'account' => $part['total_label'], 'is_total' => true, 'is_subtotal' => false,
+                'is_heading' => false, 'is_net' => false, 'account_id' => null,
+            ] + $amounts($totals, $keys);
+        }
+
+        return $records;
     }
 
     /**

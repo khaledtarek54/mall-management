@@ -1,6 +1,6 @@
 {{--
-    One section of a printed financial statement: its account lines, the chart's own subtotals
-    (EG-28), then the figure the section foots to.
+    One section of a printed financial statement: each chart group's heading, its account lines and
+    the subtotal that closes it (EG-28), then the figure the section foots to.
 
     Both the balance sheet and the income statement carried an identical `$lines` closure — two
     copies of one layout, which is exactly the drift the screen/CSV/PDF split invites. This is that
@@ -19,6 +19,15 @@
 @endphp
 <table class="report">
     @foreach ($groups as $group)
+        {{-- The heading the group's rows sit under — printed for a one-row group too, which keeps no
+             subtotal but without a heading reads as a stray line under the previous group's total. --}}
+        @if ($showGroups && ($heading = \App\Support\StatementGroups::headingFor($group, $locale)) !== null)
+            <tr class="group-heading">
+                <td class="code" style="width:5rem">{{ $group['code'] }}</td>
+                <td colspan="2">{{ $heading }}</td>
+            </tr>
+        @endif
+
         @foreach ($group['rows'] as $row)
             <tr>
                 <td class="code" style="width:5rem">{{ $row['code'] }}</td>

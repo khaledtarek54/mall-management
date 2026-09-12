@@ -92,6 +92,12 @@ class LedgerReportPdfService
     {
         return $this->render('accounting.pdf.income-statement-spread', fn (): array => [
             'spread' => $spread,
+            // The lines the screen and the CSV print, laid out ONCE — resolved inside the data
+            // closure so the headings and subtotals are worded in the document's locale, which
+            // `PdfDocument` has set by the time this runs. The template has no fallback of its own:
+            // this is the one door, so a test that renders the template without it fails loudly
+            // rather than exercising a second copy of the layout.
+            'records' => StatementSpread::records($spread),
             'meta' => $this->meta($property, $period),
             // No window, so no notice: this method takes the spread ALREADY BUILT rather than the
             // dates to build it from — deliberately, so the printed columns cannot differ from the

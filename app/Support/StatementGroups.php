@@ -26,11 +26,13 @@ use App\Models\LedgerAccount;
  * with no subtotal — they still print, and they still count toward the section total. So does the
  * balance sheet's synthetic "net income for the period" line, which has no account at all.
  *
- * ## One helper, three renderers
+ * ## One helper, five renderers
  *
- * The screen, the CSV and the PDF each build a statement their own way, and a grouping written into
- * one of them is a statement that disagrees with its own export the first time anything changes —
- * which is exactly what happened to the general ledger's narrative before EG-36. They all call this.
+ * The screen, the comparative reading, the twelve-month spread, the CSV and the PDF each build a
+ * statement their own way, and a grouping written into one of them is a statement that disagrees
+ * with its own export the first time anything changes — which is exactly what happened to the
+ * general ledger's narrative before EG-36. They all call this, for the groups and for the heading
+ * each group prints under ({@see headingFor()}).
  */
 final class StatementGroups
 {
@@ -105,6 +107,37 @@ final class StatementGroups
         }
 
         return $ordered;
+    }
+
+    /**
+     * What the HEADING above a group's rows says — the summary account's own name, in the
+     * reader's language. Null for the ungrouped bucket, which has nothing to name.
+     *
+     * A subtotal without a heading is a figure with no bracket: on the shipped chart the revenue
+     * section printed *"Total Operating Revenue 10,345,002.01"* and, three rows later, the section's
+     * own *"Total operating revenue 10,350,942.01"* — two lines that read as the same total
+     * disagreeing, because nothing above the first said it closed the `41` branch while the
+     * one-row groups `42` and `43` sat between them belonging visibly to nothing. A statement is
+     * read heading → lines → total; the heading is what makes the total legible, so every renderer
+     * that prints a subtotal prints this above the group's first row, and prints it for a one-row
+     * group too (that group keeps NO subtotal — the row already is one — but without a heading its
+     * row reads as a stray under the previous group's total).
+     *
+     * ONE resolver, called by all five renderers (screen · comparative · spread · CSV · PDF), so a
+     * heading cannot say one thing on screen and another on the copy that leaves the building.
+     *
+     * @param  array{code: ?string, name_en: string, name_ar: string}  $group
+     */
+    public static function headingFor(array $group, string $locale): ?string
+    {
+        if ($group['code'] === null) {
+            return null;
+        }
+
+        // A blank in one language falls back to the other, as `ReportCsvExporter::name()` and
+        // `LedgerAccount::displayName()` already do — a heading row carrying a code and no words is
+        // worse than one in the other language.
+        return ($locale === 'ar' ? ($group['name_ar'] ?: $group['name_en']) : ($group['name_en'] ?: $group['name_ar'])) ?: null;
     }
 
     /**

@@ -1000,6 +1000,32 @@ Tests: `StatementsGroupByChartHierarchyTest` (12 cases — the helper, all three
 tie-out that subtotals foot back to the section total, because a grouping that silently dropped a row
 would still render as a tidy statement) and two cases in `ComparativeStatementTest`.
 
+**A subtotal stands under its HEADING (2026-09-12, the reports audit).** EG-28 gave every statement
+the chart's subtotals and none of the five renderers printed the heading a subtotal is read against.
+Measured on the demo books, the income statement's revenue section read *`…Total Operating Revenue
+10,345,002.01 · 42101001 Miscellaneous Income · 43101001 Sales Returns · Total operating revenue
+10,350,942.01`* — two lines that read as the same total disagreeing by 5,940, because nothing above
+the first said it closed the `41` branch and the two one-row groups between them belonged visibly to
+nothing. Every accounting system lays a statement out heading → lines → *"Total <group>"*; the
+heading is the half that makes the total legible. `StatementGroups::headingFor()` is the ONE
+resolver (the summary account's own name, in the reader's language) and the five renderers — the
+screen (`RendersFinancialStatement`, an `is_heading` row at weight `semibold`, no amount, no ledger
+link), the comparative reading (`IncomeStatement::comparativeRecords()`, every figure column blank),
+the spread, the CSV (`sectioned()` — a blank amount, never `0.00` a spreadsheet SUM would count) and
+the PDF partial (`tr.group-heading`) — print it above a group's first row whenever grouping is shown
+at all, **for a one-row group too**: that group keeps no subtotal (the row already is one) but
+without a heading its row reads as a stray under the previous group's total. `worthShowing()` is
+unchanged, so a single-group section still prints neither. **The 12-month spread's PDF had a worse
+defect the same audit found**: its template walked `$spread['rows']` itself and printed NO group
+lines while the screen and CSV beside it printed subtotals — the renderer drift this section warns
+about, wearing a third report's name. The spread's layout now lives once, in
+`StatementSpread::records()` (moved off the page; `IncomeStatement::spreadRecords()` delegates),
+and the PDF service hands those records to the template, resolved inside the document's locale.
+(`AStatementSubtotalStandsUnderItsHeadingTest` — six cases; eight mutations, one per renderer plus
+the resolver, each killing its own tooth. Its first PDF assertion was `toContain('group-heading')`,
+which the shared layout's STYLESHEET satisfies on every statement — green with the heading row
+deleted; it asserts the row markup now.)
+
 ### A narrative is a KEY, resolved when the entry is read (EG-36, 2026-08-22)
 
 `journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative`

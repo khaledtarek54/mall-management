@@ -318,7 +318,11 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                         $r['section'],
                         $r['code'] ?? '',
                         $r['account'],
-                        ...array_map(fn (array $span): float => (float) ($r['a_'.$span['key']] ?? 0), $spread['spans']),
+                        // A heading carries no figure: blank cells, never a row of 0.00 that a
+                        // spreadsheet SUM would count as a zero month.
+                        ...array_map(fn (array $span): float|string => ($r['is_heading'] ?? false)
+                            ? ''
+                            : (float) ($r['a_'.$span['key']] ?? 0), $spread['spans']),
                     ])
                     ->all(),
             ]);
@@ -434,6 +438,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                     'change_pct' => $total['change_pct'],
                     'is_total' => true,
                     'is_subtotal' => false,
+                    'is_heading' => false,
                     'account_id' => null,
                 ];
 
@@ -468,6 +473,27 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
             $grouped = StatementGroups::worthShowing($groups);
 
             foreach ($groups as $group) {
+                // The heading its rows sit under — the same one the plain statement prints, from
+                // the same resolver, so the two readings of one statement lay out alike.
+                $heading = $grouped ? StatementGroups::headingFor($group, $locale) : null;
+
+                if ($heading !== null) {
+                    $records[] = [
+                        'id' => 'c'.$i++,
+                        'section' => $part['label'],
+                        'code' => $group['code'],
+                        'account' => $heading,
+                        'amount' => null,
+                        'prior' => null,
+                        'change' => null,
+                        'change_pct' => null,
+                        'is_total' => false,
+                        'is_subtotal' => false,
+                        'is_heading' => true,
+                        'account_id' => null,
+                    ];
+                }
+
                 foreach ($group['rows'] as $row) {
                     $records[] = [
                         'id' => 'c'.$i++,
@@ -480,6 +506,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                         'change_pct' => $row['change_pct'],
                         'is_total' => false,
                         'is_subtotal' => false,
+                        'is_heading' => false,
                         // Drills into the general ledger exactly as the plain statement does. The
                         // service used to drop the account id on the floor, so a comparison was the
                         // one reading of this statement whose figures could not be opened.
@@ -511,6 +538,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                     'change_pct' => $priorTotal == 0.0 ? null : round($change / abs($priorTotal) * 100, 1),
                     'is_total' => false,
                     'is_subtotal' => true,
+                    'is_heading' => false,
                     'account_id' => null,
                 ];
             }
@@ -528,6 +556,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                 'change_pct' => $total['change_pct'],
                 'is_total' => true,
                 'is_subtotal' => false,
+                'is_heading' => false,
                 'account_id' => null,
             ];
         }
@@ -561,103 +590,17 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
      * The spread as table records — the same record shape every other reading produces, with one
      * `a_{span}` key per column instead of a single `amount`.
      *
-     * Laid out from `IncomeStatementLayout::shape()` like the other two readings, so a statement read
-     * across twelve months has the same sections, in the same order, as the same statement read for
-     * one — a spread that relaid the sections would be a different report wearing this one's name.
+     * Delegates to {@see StatementSpread::records()}, which is where the layout lives now: the
+     * printed spread rendered its rows from `$spread['rows']` directly and so printed NO group
+     * subtotals while this screen and its CSV printed them — the renderer drift the module doc
+     * warns about, wearing a third report's name. One layout, read by the screen, the CSV and the PDF.
      *
      * @param  array<string, mixed>  $spread
      * @return list<array<string, mixed>>
      */
     public function spreadRecords(array $spread): array
     {
-        $locale = app()->getLocale();
-        $records = [];
-        $i = 0;
-
-        $amounts = function (array $source, array $keys): array {
-            $cells = [];
-
-            foreach ($keys as $key) {
-                $cells['a_'.$key] = round((float) ($source[$key] ?? 0), 2);
-            }
-
-            return $cells;
-        };
-
-        $keys = array_column($spread['spans'], 'key');
-
-        foreach (IncomeStatementLayout::shape((bool) $spread['has_below_the_line']) as $part) {
-            $totals = $spread['totals'][$part['totals_key']] ?? [];
-
-            if ($part['is_net']) {
-                $records[] = [
-                    'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
-                    'account' => $part['label'], 'is_total' => true, 'is_subtotal' => false,
-                    'account_id' => null,
-                ] + $amounts($totals, $keys);
-
-                continue;
-            }
-
-            $sectionRows = array_values(array_filter(
-                $spread['rows'],
-                fn (array $row): bool => $row['section'] === $part['section']
-                    && ($part['statement_section'] === null || $row['statement_section'] === $part['statement_section']),
-            ));
-
-            if ($sectionRows === [] && $part['optional']) {
-                continue;
-            }
-
-            // The chart's own subtotals, exactly as the single-period reading gets them (EG-28).
-            // `StatementGroups` totals ONE figure per row and a spread row carries several under
-            // `amounts`, so its own `total` is deliberately left at zero here — the key named below
-            // exists on no spread row — and each group's per-column totals are summed further down.
-            $groups = StatementGroups::for($sectionRows, amountKey: 'amount');
-            $grouped = StatementGroups::worthShowing($groups);
-
-            foreach ($groups as $group) {
-                foreach ($group['rows'] as $row) {
-                    $records[] = [
-                        'id' => 's'.$i++, 'section' => $part['label'], 'code' => $row['code'],
-                        'account' => $locale === 'ar' ? $row['name_ar'] : $row['name_en'],
-                        'is_total' => false, 'is_subtotal' => false,
-                        'account_id' => $row['account_id'] ?? null,
-                    ] + $amounts($row['amounts'], $keys);
-                }
-
-                if (! $grouped || ! $group['show_subtotal']) {
-                    continue;
-                }
-
-                // Summed per COLUMN from the group's own rows. `StatementGroups` cannot do it — it
-                // totals one figure per row and every column here needs its own.
-                $groupTotals = [];
-
-                foreach ($keys as $key) {
-                    $groupTotals[$key] = round(array_sum(array_map(
-                        fn (array $r): float => (float) ($r['amounts'][$key] ?? 0),
-                        $group['rows'],
-                    )), 2);
-                }
-
-                $records[] = [
-                    'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
-                    'account' => __('admin.reports.group_subtotal', [
-                        'group' => $locale === 'ar' ? $group['name_ar'] : $group['name_en'],
-                    ]),
-                    'is_total' => false, 'is_subtotal' => true, 'account_id' => null,
-                ] + $amounts($groupTotals, $keys);
-            }
-
-            $records[] = [
-                'id' => 's'.$i++, 'section' => $part['label'], 'code' => null,
-                'account' => $part['total_label'], 'is_total' => true, 'is_subtotal' => false,
-                'account_id' => null,
-            ] + $amounts($totals, $keys);
-        }
-
-        return $records;
+        return StatementSpread::records($spread);
     }
 
     /**
