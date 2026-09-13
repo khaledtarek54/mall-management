@@ -2074,6 +2074,17 @@ rendered their English key in the Arabic feed — the vocabulary gate swept `->e
 that seam writes `->event($event)`; it sweeps the seam's second argument now.
 (`ACloseAndAReopenAreOnTheRecordTest` — eleven mutations, each killing its own tooth.)
 
+**A blocked row says WHAT is wrong, on the row, in the reader's language (2026-09-13).** Driven as
+the accountant, the tie-out row read *"Books tie out · Blocks · 1"* and nothing else: the failing
+check's console label sat in a hover tooltip on the count, in English, with no figure. The step
+column's description now carries the service's detail whenever there is one (the WHY only when the
+row is clear); each failed check is named from `admin.month_end.checks.{key}` with the console label
+as the floor (`MonthEndReadinessService::describeFailedCheck()`), and the control-account tie-out
+carries its figures — *Receivables: ledger 1,465,245.42 vs documents 1,508,715.42 (difference
+−43,470.00)* — read from the same `glTieOut()` the check made, never parsed out of its English
+sentence. The check keys are derived from the service's source in the test, so a tenth check cannot
+ship unnamed. (`TheMonthEndCloseSaysWhatDoesNotTieOutTest`, three mutations.)
+
 **Watch for green-for-the-wrong-reason.** A status row that cannot read its input must report a
 FAILURE, never a pass — `MonthEndCloseTest` asserts every row goes red when its condition is
 genuinely outstanding, and is mutation-verified against the one instance of this bug that shipped

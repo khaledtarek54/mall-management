@@ -9,6 +9,7 @@ use App\Models\VendorBill;
 use App\Services\MonthlyBillingService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use App\Support\ReportedPeriod;
+use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Throwable;
@@ -203,8 +204,50 @@ class MonthEndReadinessService
             'books_tie_out',
             $failed->count(),
             $failed->isEmpty() ? self::OK : self::BLOCKED,
-            $failed->isEmpty() ? null : $failed->pluck('label')->implode(' · '),
+            $failed->isEmpty() ? null : $failed->map(fn (array $c) => $this->describeFailedCheck($c))->implode(' · '),
         );
+    }
+
+    /**
+     * One failed check, as the accountant reads it: the check's name in their language and, for
+     * the control-account tie-out, the FIGURES — which side, the ledger's balance, the documents'
+     * balance and the delta. Until 2026-09-13 the row said *"Books tie out · Blocks · 1"* and the
+     * check's console label sat in a hover tooltip, in English, with no number on it: the
+     * accountant could see that something was off and not what, nor by how much (workflow audit).
+     *
+     * The console's own label is the FLOOR: `BooksReconciliationService` is a diagnostic that
+     * reports in English, and a check it grows tomorrow must still name itself here.
+     *
+     * @param  array{key:string, label:string, discrepancies?:array<int, array{ref?:string, detail?:string}>}  $check
+     */
+    private function describeFailedCheck(array $check): string
+    {
+        $name = Translate::orFallback("admin.month_end.checks.{$check['key']}", $check['label']);
+
+        if ($check['key'] !== 'gl_tie_out') {
+            $count = count($check['discrepancies'] ?? []);
+
+            return $count > 0
+                ? $name.' — '.trans_choice('admin.month_end.discrepancies', $count, ['count' => number_format($count)])
+                : $name;
+        }
+
+        // The figures, from the same read the check itself made — never parsed back out of its
+        // English sentence.
+        $gl = $this->books->glTieOut();
+        $sides = [];
+
+        foreach (['ar' => 'admin.month_end.gl_delta_ar', 'ap' => 'admin.month_end.gl_delta_ap'] as $side => $key) {
+            if (abs((float) ($gl[$side]['delta'] ?? 0)) > BooksReconciliationService::EPS) {
+                $sides[] = __($key, [
+                    'gl' => number_format((float) $gl[$side]['gl'], 2),
+                    'expected' => number_format((float) $gl[$side]['expected'], 2),
+                    'delta' => number_format((float) $gl[$side]['delta'], 2),
+                ]);
+            }
+        }
+
+        return $sides === [] ? $name : $name.' — '.implode('; ', $sides);
     }
 
     /** 7. The period itself. */

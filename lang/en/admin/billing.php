@@ -128,6 +128,23 @@ return [
             'period_closed' => 'Period closed',
             'reported_not_closed' => 'Reported month still open',
         ],
+        // The eight books checks, as the accountant reads them on the checklist row. The console
+        // audit reports each in English; these are the same checks in the reader's language, and
+        // the console label stays the floor for a check added later.
+        'checks' => [
+            'invoice_composition' => 'Invoice totals equal their lines plus VAT',
+            'paid_amount' => 'Paid amounts equal receipts, credits, tenant credit and netted deposits',
+            'balance' => 'Balances equal total minus paid',
+            'payment_allocation' => 'No receipt allocated beyond its amount',
+            'marketing_budget' => 'Marketing fund accrued and spent agree with the levies and spends',
+            'cam_allocations' => 'Service-charge allocations tie to their pool',
+            'gl_tie_out' => 'Receivables and payables control accounts agree with the documents',
+            'gl_in_sync' => 'Every posted document\'s ledger entry matches its current state',
+            'deposits_tie_out' => 'Deposits held agree with the deposit register',
+        ],
+        'discrepancies' => ':count document|:count documents',
+        'gl_delta_ar' => 'Receivables: ledger :gl vs documents :expected (difference :delta)',
+        'gl_delta_ap' => 'Payables: ledger :gl vs documents :expected (difference :delta)',
         'why' => [
             'billing_posted' => 'Leases still awaiting an invoice for this month.',
             'sales_declared' => 'Percentage-rent tenants who have not declared — undeclared sales cannot be billed.',

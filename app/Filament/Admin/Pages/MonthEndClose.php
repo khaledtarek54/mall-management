@@ -182,8 +182,13 @@ class MonthEndClose extends Page implements HasSchemas, HasTable
                     ->state(fn (array $record): string => __("admin.month_end.steps.{$record['key']}"))
                     ->weight('medium')
                     // The WHY, not just the what — a checklist row nobody understands gets ticked
-                    // without being done.
-                    ->description(fn (array $record): string => __("admin.month_end.why.{$record['key']}")),
+                    // without being done. And when the step is NOT clear, WHAT is wrong takes the
+                    // line instead: the service's own detail, which until 2026-09-13 lived only in
+                    // a hover tooltip on the count — invisible on touch and easy to miss, so the
+                    // accountant read "Books tie out · Blocks · 1" and nothing else.
+                    ->description(fn (array $record): string => filled($record['detail'] ?? null)
+                        ? $record['detail']
+                        : __("admin.month_end.why.{$record['key']}")),
                 TextColumn::make('status')
                     ->label(__('admin.month_end.status'))
                     ->badge()
