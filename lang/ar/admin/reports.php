@@ -455,6 +455,7 @@ return [
         'expense' => 'مصروف',
         'deposit' => 'حركة تأمين',
         'payment' => 'إيصال سداد',
+        'vendor_payment' => 'دفعة مورّد',
         'payroll' => 'مسير رواتب',
         'purchase_request' => 'طلب شراء',
         'lease' => 'عقد إيجار',

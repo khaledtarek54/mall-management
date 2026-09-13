@@ -598,6 +598,7 @@ return [
         'new_rent' => 'New Monthly Rent',
         'new_service_charge' => 'New Monthly Service Charge',
         'reference' => 'Reference',
+        'bank_reference' => 'Bank reference',
         'invoice_number' => 'Invoice #',
         'credit_note_number' => 'CN #',
         'credit_note_reason' => 'Reason',

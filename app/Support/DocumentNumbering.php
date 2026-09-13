@@ -66,6 +66,15 @@ class DocumentNumbering
         // every type it can see, and it could not see this one. Different tables so nothing ever
         // errored; an operator reading `PAY-…` simply could not tell which document it was.
         'payment' => ['default' => 'RCT', 'label' => 'Payment receipt'],
+        // The outbound mirror of the receipt: money paid TO a supplier against a bill. It had no
+        // number at all until 2026-09-13 — `vendor_bill_payments.reference` was created for one
+        // (its migration comment says "e.g. BILLPAY-202607-0001") and nothing ever wrote it, so
+        // every AP payment read "Vendor payment #9" on the ledger, "—" on the bill's payments tab
+        // and "#9" in the bank-rec picker: a money document nobody could cite on a remittance, a
+        // reconciliation or an audit request. Every benchmark numbers it (a payment/cheque number
+        // beside the bank's own reference), and the two are two fields here too — this series,
+        // and `bank_reference` for what the bank printed.
+        'vendor_payment' => ['default' => 'PMT', 'label' => 'Supplier payment'],
         'payroll' => ['default' => 'PAY', 'label' => 'Payroll run'],
         'purchase_request' => ['default' => 'PR', 'label' => 'Purchase request'],
         'lease' => ['default' => 'LSE', 'label' => 'Lease'],

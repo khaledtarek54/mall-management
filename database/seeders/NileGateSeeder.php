@@ -1087,7 +1087,7 @@ class NileGateSeeder extends Seeder
             $billDate = $thisMonth->subMonths($back)->day(7);
             $bill = $this->vendorBill('nileclean', $billDate, 'NC-'.$billDate->format('Y-m'), 'cleaning_security', 25000, 'Cleaning retainer — '.$billDate->format('F Y'));
             $svc->approve($bill);
-            $svc->recordPayment($bill, (float) $bill->total, 'bank_transfer', $billDate->addDays(20), null, $bank);
+            $svc->recordPayment($bill, (float) $bill->total, 'bank_transfer', $billDate->addDays(20), null, $bank, 'TRF'.$billDate->format('ym').'NC');
         }
 
         // Guardian: last month's retainer approved and still UNPAID — open AP, due D+10.

@@ -596,6 +596,7 @@ return [
         'new_rent' => 'الإيجار الشهري الجديد',
         'new_service_charge' => 'رسوم الخدمة الشهرية الجديدة',
         'reference' => 'المرجع',
+        'bank_reference' => 'مرجع البنك',
         'invoice_number' => 'رقم الفاتورة',
         'credit_note_number' => 'رقم إشعار الخصم',
         'credit_note_reason' => 'السبب',

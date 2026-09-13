@@ -66,6 +66,29 @@ class LinesRelationManager extends RelationManager
         return Auth::user()?->can('bank_accounts.import_statement') ?? false;
     }
 
+    /**
+     * What the BANK printed on a source document, if the document records it: `bank_reference` on
+     * a supplier payment, `cheque_number` on a receipt or a lodged cheque. Two attribute names
+     * because two documents already carried the fact under two names before this read existed;
+     * a third document that records it joins the list rather than growing a fourth spelling.
+     */
+    private static function bankReferenceOf(?Model $source): ?string
+    {
+        if (! $source instanceof Model) {
+            return null;
+        }
+
+        foreach (['bank_reference', 'cheque_number'] as $attribute) {
+            $value = $source->getAttribute($attribute);
+
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
     public function table(Table $table): Table
     {
         $service = app(MatchBankStatementLineService::class);
@@ -209,11 +232,18 @@ class LinesRelationManager extends RelationManager
                                 ->mapWithKeys(function (JournalLine $l) {
                                     $entry = $l->getRelationValue('entry');
 
+                                    // The bank's own reference on the document, when it carries one
+                                    // — a supplier payment's cheque/transfer number, a receipt's
+                                    // cheque number. It is the token the statement line prints, so
+                                    // it is what the operator's eye matches on.
+                                    $bankRef = $entry instanceof JournalEntry ? self::bankReferenceOf($entry->source) : null;
+
                                     return [$l->id => trim(sprintf(
-                                        '%s · %s · %s',
+                                        '%s · %s · %s%s',
                                         $entry instanceof JournalEntry ? $entry->entry_date->format('d/m/Y') : '',
                                         number_format((float) $l->debit > 0 ? (float) $l->debit : -(float) $l->credit, 2),
-                                        $entry instanceof JournalEntry ? $entry->displayDescription() : ''
+                                        $entry instanceof JournalEntry ? $entry->displayDescription() : '',
+                                        $bankRef ? ' · '.$bankRef : ''
                                     ))];
                                 })
                                 ->all())

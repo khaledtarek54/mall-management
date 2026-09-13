@@ -4104,11 +4104,14 @@ class DemoSeeder extends Seeder
             if (in_array($b['state'], ['approved', 'partially_paid', 'paid'], true)) {
                 $svc->approve($bill);
             }
+            // A transfer carries the bank's own reference — the token a statement line prints
+            // and the reconciliation picker shows beside the candidate. Seeded, so the payments
+            // tab does not read as a column nobody fills in.
             if ($b['state'] === 'partially_paid') {
-                $svc->recordPayment($bill, round($total * 0.5, 2), 'bank_transfer', $billDate->copy()->addDays(10));
+                $svc->recordPayment($bill, round($total * 0.5, 2), 'bank_transfer', $billDate->copy()->addDays(10), null, null, 'TRF'.$billDate->format('ymd').'01');
             }
             if ($b['state'] === 'paid') {
-                $svc->recordPayment($bill, (float) $total, 'bank_transfer', $billDate->copy()->addDays(15));
+                $svc->recordPayment($bill, (float) $total, 'bank_transfer', $billDate->copy()->addDays(15), null, null, 'TRF'.$billDate->format('ymd').'02');
             }
 
             $count++;

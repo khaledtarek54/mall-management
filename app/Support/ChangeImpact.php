@@ -341,7 +341,9 @@ class ChangeImpact
                 'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'method' => 'chooses cash vs bank',
             ],
-            self::NEUTRAL => ['notes', 'created_by_user_id'],
+            // `bank_reference` is what the bank printed — read by the reconciliation picker and the
+            // payments tab, never by the journalizer.
+            self::NEUTRAL => ['notes', 'created_by_user_id', 'bank_reference'],
             self::DESCRIPTIVE => ['reference' => 'names the entry'],
         ],
 

@@ -53,8 +53,12 @@ class VendorBillPaymentsRelationManager extends RelationManager
             // none, because it reads as "no such row". See App\Support\SearchPolicy.
             ->searchable(false)
             ->columns([
+                // The payment's own number (`PMT-AW-0001`), then what the bank printed.
                 TextColumn::make('reference')
-                    ->label(__('admin.fields.reference'))
+                    ->label(__('admin.fields.number'))
+                    ->placeholder('—'),
+                TextColumn::make('bank_reference')
+                    ->label(__('admin.fields.bank_reference'))
                     ->placeholder('—'),
                 TextColumn::make('amount')
                     ->label(__('admin.fields.amount'))

@@ -6,6 +6,7 @@ return [
         'lease_term_has_run_out' => 'This term has already ended, so the lease cannot be made active. Renew it, or record a holdover.',
         'requires_sales_reporting' => 'Leave unset unless the lease says otherwise — a tenant may owe turnover without owing percentage rent.',
         'reversal_reason' => 'This is recorded permanently in the audit trail.',
+        'bank_reference' => 'The cheque number or transfer reference the bank statement will show — matching is by it.',
         'cam_period_year' => 'The calendar year this pool reconciles. One pool per property per year.',
         'bank_account_on_document' => 'Optional on this rail. Naming one still tells two bank accounts apart when reconciling.',
         'bank_account_required_on_document' => 'This rail moves money through a bank, so the statement will show it. Pick which account.',

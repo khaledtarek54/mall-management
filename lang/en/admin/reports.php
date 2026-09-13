@@ -454,6 +454,7 @@ return [
         'expense' => 'Expense',
         'deposit' => 'Security deposit movement',
         'payment' => 'Payment receipt',
+        'vendor_payment' => 'Supplier payment',
         'payroll' => 'Payroll run',
         'purchase_request' => 'Purchase request',
         'lease' => 'Lease',

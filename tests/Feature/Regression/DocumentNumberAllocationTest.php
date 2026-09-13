@@ -29,6 +29,7 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Payroll;
 use App\Models\VendorBill;
+use App\Models\VendorBillPayment;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 
@@ -41,6 +42,8 @@ const NUMBERED_DOCUMENTS = [
     Expense::class,
     DepositTransaction::class,
     Payroll::class,
+    // Numbered since 2026-09-13 — the supplier payment had no series at all before that.
+    VendorBillPayment::class,
 ];
 
 it('allocates under a lock in every numbered document', function () {

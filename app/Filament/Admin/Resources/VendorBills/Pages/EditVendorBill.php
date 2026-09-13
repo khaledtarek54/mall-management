@@ -190,6 +190,13 @@ class EditVendorBill extends EditRecord
                     // `RecordsBankAccount` would have filled in, and requires one on exactly the
                     // rails the catalogue says carry bank money.
                     BankAccountField::for(VendorBillPayment::class),
+                    // The bank's own reference — cheque number, transfer reference — which is what
+                    // the statement line will carry and what the reconciliation picker shows
+                    // beside the candidate. The payment's OWN number is allocated on save.
+                    TextInput::make('bank_reference')
+                        ->label(__('admin.fields.bank_reference'))
+                        ->helperText(__('admin.helpers.bank_reference'))
+                        ->maxLength(100),
                     DatePicker::make('payment_date')
                         ->label(__('admin.fields.payment_date'))
                         ->default(now())
@@ -213,6 +220,7 @@ class EditVendorBill extends EditRecord
                             Carbon::parse($data['payment_date']),
                             $data['notes'] ?? null,
                             $data['bank_account_id'] ?? null,
+                            $data['bank_reference'] ?? null,
                         );
                     } catch (\DomainException $e) {
                         // A back-dated payment into a closed period is refused (would strand the GL) —
@@ -239,17 +247,19 @@ class EditVendorBill extends EditRecord
 
                     // Feedback must state what actually left the bank. Reporting only the gross
                     // would let the operator reconcile against a figure the statement never shows.
-                    $withheld = (float) ($this->record->payments()->latest('id')->value('withholding_amount') ?? 0);
+                    // And it names the payment: the number is what a remittance advice quotes.
+                    $latest = $this->record->payments()->latest('id')->first();
+                    $withheld = (float) ($latest?->withholding_amount ?? 0);
 
                     Notification::make()
                         ->title(__('admin.notifications.vendor_bill_paid'))
-                        ->body($withheld > 0
+                        ->body(($latest?->reference ? $latest->reference.' · ' : '').($withheld > 0
                             ? __('admin.vendors.wht.paid_body', [
                                 'net' => number_format($paid - $withheld, 2),
                                 'withheld' => number_format($withheld, 2),
                                 'gross' => number_format($paid, 2),
                             ])
-                            : 'EGP '.number_format($paid, 2))
+                            : 'EGP '.number_format($paid, 2)))
                         ->success()
                         ->send();
                 }),
