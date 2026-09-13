@@ -1822,6 +1822,19 @@ date* each entry carries. **`App\Support\PostingDateGuards::guards()` says who r
 its period is closed** — and `PostingDateGuardConformanceTest` holds all three in step, so a new
 money source cannot ship without the question being answered.
 
+**The manual journal is refused at ENTRY too (2026-09-13).** `JournalPostingService::post()` has
+always refused a closed period, so a draft dated into a closed month was accepted by the create
+page and refused only at *Post* — after every line was keyed, with nothing but reopening the month
+able to fix it. Every other money document's create page already refused the date at entry
+(`CreateVendorBill`, `CreatePayment`, `CreateCreditNote` — the F-89/F-93 shape, rendered ON the
+field); the accountant's own document was the one that did not, and the market refuses a closed
+post month at entry. `CreateJournalEntry` and `EditJournalEntry` render `PostingDate::assertOpen()`
+on `entry_date` now — the edit only when the date MOVED, so a draft keyed before its month closed
+stays editable for its other fields. Kept, and stated: an **unbalanced** draft is still allowed (a
+parked entry may be finished later; Post is where it must balance), and a MISSING period is allowed
+as `PostingDate` says. (`AJournalDatedIntoAClosedMonthIsRefusedAtEntryTest` — three mutations
+including the over-lock.)
+
 It exists because the answer was got wrong six times running — custody settlement and advance
 repayment (F-93/F-89), vendor bills, stock movements, procurement, PDC — each fixed as if it were
 that module's own bug, and each time the next module shipped with the same hole. The 2026-07-29

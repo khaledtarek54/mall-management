@@ -6,10 +6,13 @@ use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Services\Accounting\JournalPostingService;
 use App\Support\Filament\RefreshesRecordState;
+use App\Support\PostingDate;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class EditJournalEntry extends EditRecord
 {
@@ -31,6 +34,19 @@ class EditJournalEntry extends EditRecord
     {
         // Block re-homing the draft into a property outside the user's visible set.
         JournalEntryResource::assertAssetInScope($data['asset_id'] ?? $this->record->asset_id);
+
+        // A CHANGED date is guarded the way create guards it; an unchanged one is not re-asked, so
+        // a draft keyed before its month closed stays editable for its other fields (the bill's
+        // rule). A posted entry's date is disabled and never submitted, so this fires on drafts.
+        $submitted = $data['entry_date'] ?? null;
+        if ($submitted !== null
+            && Carbon::parse($submitted)->toDateString() !== $this->record->entry_date?->toDateString()) {
+            try {
+                PostingDate::assertOpen($submitted, __('admin.fields.entry_date'));
+            } catch (\DomainException $e) {
+                throw ValidationException::withMessages(['data.entry_date' => $e->getMessage()]);
+            }
+        }
 
         return $data;
     }
