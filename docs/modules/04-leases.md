@@ -2287,6 +2287,7 @@ which is why the seam sits where it does.
 | **A security deposit cannot be negative.** It is the CONTRACTUAL figure only — the money that moves comes from `deposit_transactions` — so this protects the move-out statement, not a payment. Refused rather than clamped, so a typo is reported rather than hidden. | `Lease::saving`. | `LeaseDepositNonNegativeTest` |
 | **An option's alerts are ordered — opening, closing, lapsed — and a later moment silences an earlier one.** Once `closing_notified_at` is set the opening branch of `leases:scan-option-windows` never fires; an option first seen inside its closing lead gets the closing alone, and that closing names both dates of the window. (`LeaseOptionWindowTest` — SW-257.) |
 | **An option's alert stamps belong to the dates they were about.** Move the start and the opening (and any closing already sent) is void; move the deadline and the closing and the lapse are; reopen a resolved option and the lapse and `resolved_at` are. The status is never moved by the hook. (`LeaseOptionWindowTest` — SW-258, seven mutations.) |
+| **`exercised` is the outcome of an act, never a word picked (SW-259).** The Options tab's status Select offers `open`/`waived`/`lapsed` (`LeaseOption::statusesAnOperatorMayState()`), never `exercised`; the model refuses a live option moving to `exercised` unless the save is the act's own (`markExercised()`, called by `ExerciseLeaseOptionService` after its window check) — the first cut recognised the act by SHAPE and refused the genuine button whenever the notice date was already on the record; and refuses any move AWAY from `exercised` (its exercise is an append-only lease event; the correction is to remove the option and record it again). A stated `waived` is resolved today, a stated `lapsed` on the day its window closed. A console seeder may still CREATE an exercised row as history — a new row is not a transition. (`AnOptionIsExercisedByAnActNotADropdownTest`, ten mutations.) |
 | **An option's notice window must be a window.** `latest_notice_date >= earliest_notice_date` (a null bound is unbounded; a one-day window is a real contract term). An inverted pair is simultaneously never-open and already-closed, so `leases:scan-option-windows` announces the option lapsed having never announced it open. | `LeaseOption::saving` — the model had no `booted()` at all until 2026-08-11; the rule was one `->afterOrEqual()` on the relation manager. | `LeaseOptionWindowTest` |
 | **Percentage-rent bands stay inside their bounds.** Breakpoint ≥ 0; rate within 0–100%. A negative rate raises a "charge" that is really a credit, through the same immediate-invoice path as a real overage. | `LeasePercentageRentTier::assertNoOverlap()` (which also carries the overlap + inversion rules). | `PercentageRentTiersAndDeductionsTest` |
 
@@ -3075,6 +3076,16 @@ lease's expiry reminder (SW-048): these alerts reach the leasing team, never a t
 deadline brought forward re-firing "decide" sooner is the wanted answer. A caller stating a stamp
 in the same save has ruled on it. `ProjectedState` records why `lease_options.status` is still
 NOT a projection: one direction is the calendar's (open → lapsed), three are a person's.
+**And `exercised` is not a word the tab offers at all (SW-259, 2026-09-13)** — it was, on create and
+on edit, so an open option could be set to *exercised* with no window check, no lease event and no
+notice date, and `pendingRenewalTerms()` then pre-filled the Renew form from it as if it were real.
+The Select reads `statusesAnOperatorMayState()`; the model lets only `markExercised()` — the
+service's own door — write the status, refuses any move away from it, and derives the resolution
+date a stated waiver or lapse omits. Filament's `Rule::in` over the offered options is the upstream
+layer; the model is the one an import or a console act meets. `DemoSeeder::updateOrCreate(…, ['status'
+=> 'open'])` on a database where the demo renewal has since been exercised in the panel now refuses
+(`option_exercised_is_final`) — a re-seed onto a mutated database was never a supported path, and
+`migrate:fresh --seed` is unaffected.
 
 ### Rules worth knowing before you change this
 

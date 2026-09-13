@@ -112,11 +112,11 @@ class ExerciseLeaseOptionService
         return DB::transaction(function () use ($option, $lease, $noticeGiven, $today, $data): LeaseOption {
             $projectedRent = $option->projectedRent((float) $lease->base_rent_monthly);
 
-            $option->forceFill([
-                'status' => 'exercised',
+            // The ONE door to `exercised` (SW-259): the model refuses the status from anywhere else.
+            $option->markExercised([
                 'resolved_at' => $today->toDateString(),
                 'notice_given_at' => $noticeGiven->toDateString(),
-            ])->save();
+            ]);
 
             $type = self::EVENT_FOR[$option->type] ?? null;
 

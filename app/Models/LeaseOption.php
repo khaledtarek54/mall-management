@@ -30,6 +30,66 @@ class LeaseOption extends Model
 
     public const STATUSES = ['open', 'exercised', 'lapsed', 'waived'];
 
+    /** The statuses that record an OUTCOME — none of them is the born state. */
+    public const RESOLVED_STATUSES = ['exercised', 'lapsed', 'waived'];
+
+    /**
+     * Which statuses an operator may STATE on this record from the tab — the one list the form's
+     * Select reads (SW-259, 2026-09-13).
+     *
+     * A status past the first one is the outcome of an ACT (the rule SW-238 applied to every money
+     * document): `exercised` is written by `ExerciseLeaseOptionService` — it checks the notice
+     * window, stamps the notice and resolution dates and records the lease event the renewal is
+     * raised from — and the dropdown offered it as a word. Picked there it wrote the word and
+     * nothing else: no window check, no event, an option reading "exercised" that
+     * `pendingRenewalTerms()` then hands to the Renew form as if it were real.
+     *
+     *  - `exercised` is never offered, on a new record either: a NEW row is not a transition, so
+     *    the model still accepts it for a console seeder abstracting history
+     *    (`SeedLeasingDepthCommand`), but the tab is the door for options on THIS lease going
+     *    forward, and a hand-made exercised row outranks a genuine one in the Renew form;
+     *  - an EXERCISED record's status is locked — its exercise is on the lease's record, and no act
+     *    un-exercises;
+     *  - any other record may be stated as `open`, `waived` or `lapsed` — statements, whose only
+     *    consequence is the resolution date, which the model derives when the statement omits it.
+     *
+     * @return list<string>
+     */
+    public static function statusesAnOperatorMayState(?self $record): array
+    {
+        if ($record?->exists && $record->getRawOriginal('status') === 'exercised') {
+            return ['exercised'];
+        }
+
+        return array_values(array_diff(self::STATUSES, ['exercised']));
+    }
+
+    /**
+     * Whether the save in flight is the Exercise act. A transient set by {@see markExercised()}
+     * for the duration of ITS save and nothing else — the first cut recognised the act by SHAPE
+     * (the notice and resolution dates dirty in the same save) and refused the genuine act the
+     * moment the notice date had been recorded on the tab beforehand: the service then writes
+     * the same date, nothing is dirty, and the operator is told to press the button they pressed.
+     */
+    private bool $exercisingByTheAct = false;
+
+    /**
+     * The ONE way a live option becomes `exercised` — called by `ExerciseLeaseOptionService`
+     * after its window check, never from a form.
+     *
+     * @param  array<string, mixed>  $attributes  the status's companions: `resolved_at`, `notice_given_at`
+     */
+    public function markExercised(array $attributes): void
+    {
+        $this->exercisingByTheAct = true;
+
+        try {
+            $this->forceFill($attributes + ['status' => 'exercised'])->save();
+        } finally {
+            $this->exercisingByTheAct = false;
+        }
+    }
+
     public const RENT_BASES = ['fixed', 'uplift_percent', 'market', 'cpi'];
 
     /** Option types that tie up a specific unit until they are resolved. */
@@ -75,6 +135,8 @@ class LeaseOption extends Model
         static::saving(function (self $option): void {
             if ($option->earliest_notice_date === null || $option->latest_notice_date === null) {
                 return;
+            } elseif ($option->status === 'waived') {
+                $option->resolved_at = CarbonImmutable::today()->toDateString();
             }
 
             $earliest = CarbonImmutable::instance(
@@ -94,6 +156,47 @@ class LeaseOption extends Model
                     'earliest' => $earliest->toDateString(),
                     'latest' => $latest->toDateString(),
                 ]));
+            }
+        });
+
+        // ── `exercised` is the outcome of an act, never a word typed (SW-259) ─────────────────
+        // The Select does not offer it (`statusesAnOperatorMayState()`), and Filament's own
+        // `Rule::in` over the options refuses a smuggled value first — this is the layer we own
+        // standing behind that contract, and the only one an import or a console act meets. The
+        // act identifies ITSELF (`markExercised()`): a shape — the notice and resolution dates
+        // dirty together — refused the genuine act whenever the notice date was already on the
+        // record, because the service then re-writes the same date and nothing is dirty.
+        static::updating(function (self $option): void {
+            if (! $option->isDirty('status')) {
+                return;
+            }
+
+            if ($option->status === 'exercised' && ! $option->exercisingByTheAct) {
+                throw new \DomainException(__('admin.errors.option_exercised_is_an_act'));
+            }
+
+            // And no act un-exercises: the exercise is on the lease's record (an append-only
+            // event) and the renewal is raised from it. The tab's Select is disabled on such a
+            // record — a rendering decision, and this is the gate. The correction for an option
+            // exercised in error is to remove it and record it again, which the refusal says.
+            if ($option->getRawOriginal('status') === 'exercised') {
+                throw new \DomainException(__('admin.errors.option_exercised_is_final'));
+            }
+        });
+
+        // A STATED outcome carries the day it was resolved. `exercised` is the act's to stamp and
+        // is left alone (deriving it here would also hand the guard above a dirty stamp it did
+        // not earn); a waiver typed on the tab is resolved today, and a lapse — stated by hand or
+        // abstracted from history — on the day its window closed, which is the day it lapsed.
+        static::saving(function (self $option): void {
+            if (! $option->isDirty('status') || $option->resolved_at !== null) {
+                return;
+            }
+
+            if ($option->status === 'lapsed') {
+                $option->resolved_at = ($option->latest_notice_date
+                    ? CarbonImmutable::instance($option->latest_notice_date)
+                    : CarbonImmutable::today())->toDateString();
             }
         });
 

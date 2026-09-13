@@ -196,7 +196,7 @@ return [
         ],
         'help' => [
             'option_type' => 'What the tenant may do — renew, break, take more space, give some back, or match an offer.',
-            'option_status' => 'Open until the tenant acts. Exercised, lapsed or waived closes it and frees the space.',
+            'option_status' => 'Open until the tenant acts. Exercised comes from the Exercise action; waived or lapsed can be recorded here.',
             'earliest_notice_date' => 'The window opens here. Notice before it is too early and does not bind the landlord.',
             'option_term_months' => 'How long the new term runs if the option is exercised. Blank keeps the current term.',
             'rent_basis' => 'How the new rent is set: a fixed figure, an uplift on today, market, or the index.',

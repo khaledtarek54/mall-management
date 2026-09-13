@@ -556,6 +556,8 @@ return [
         'escalation_collar_inverted' => 'The minimum increase cannot be above the maximum. As written the cap would always win, so the minimum you set is the one increase that could never happen.',
         'late_fee_minimum_above_cap' => 'The minimum late fee (:minimum) is above the cap (:maximum), and no fee can be both — the cap is applied last, so the minimum is the one amount that could never be charged. Lower the minimum, raise the cap, or set the cap to 0 for no cap.',
         'lease_expiry_before_commencement' => 'A lease cannot end (:expiry) before it starts (:commencement). Check the year — a lease with a backwards term never bills again, and its charges end before they begin.',
+        'option_exercised_is_final' => 'This option has been exercised and its exercise is on the lease\'s record, so its status cannot be changed. If it was exercised in error, remove the option and record it again.',
+        'option_exercised_is_an_act' => 'An option is exercised through the Exercise action, which checks the notice window and records the notice on the lease. It cannot be set to Exercised by hand.',
         'option_notice_window_inverted' => 'The notice window closes (:latest) before it opens (:earliest). As written the option could never be exercised — it would read as closed on every day it was supposed to be open.',
         'negative_security_deposit' => 'A security deposit cannot be negative. Enter 0 for a deposit-free lease.',
         'negative_lease_amount' => 'A :field cannot be negative. Check the figure — a negative one is not billed at all, so the lease would look priced and raise nothing.',

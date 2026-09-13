@@ -275,12 +275,18 @@ round changed the reading.
   the closing body named only the deadline, so the ONLY alert such an option ever gets now carries
   the whole window (`:earliest → :deadline`, EN + AR). `opening_notified_at` is not back-filled.
   `LeaseOptionWindowTest` (two cases, two mutations). Account: [modules/04 § options](../modules/04-leases.md).
-- **SW-259** — **OPEN (found by the review of SW-258).** The Options tab's `status` Select is a door
-  that bypasses `ExerciseLeaseOptionService`: picking *exercised* records no lease event, checks no
-  notice window, and writes no `notice_given_at`; picking *waived* likewise. Same shape as SW-238
-  (a status past the first one is the outcome of an ACT): `exercised` should come only from the
-  Exercise action, the Select offering `open`/`waived`/`lapsed` with `exercised` shown but not
-  pickable. S.
+- ~~**SW-259**~~ — **FIXED 2026-09-13.** The Options tab's status Select no longer offers `exercised`
+  (create or edit); the model lets only `ExerciseLeaseOptionService` write it (`markExercised()`, the
+  act identifying itself) and refuses any move away from it; a stated waiver/lapse gets the resolution
+  date it omitted (a lapse on its window's close). **The review found a blocker in the first cut**:
+  recognising the act by SHAPE (both dates dirty) refused the genuine Exercise button whenever the
+  notice date had been recorded on the tab first — the service re-writes the same date and nothing is
+  dirty. Also: my refusal said exercising "creates the renewal" (it records the lease event; the
+  renewal is raised from it), the create form still offered `exercised` (a hand-made row outranked a
+  genuine one in `pendingRenewalTerms()`), and the helper text was 24 words against 18 in a lang
+  group `FieldHelpConformanceTest` does not sweep (`admin.lease_options.help.*` — a blind spot,
+  recorded). `AnOptionIsExercisedByAnActNotADropdownTest` (8 cases, 10 mutations).
+  Account: [modules/04 § options](../modules/04-leases.md).
 - ~~**SW-258**~~ — **FIXED 2026-09-13.** `LeaseOption::updating` clears the alert stamps whose dates moved
   (opening ← start; closing + lapse ← deadline; closing ← start too, because SW-257 rightly never
   sends an opening after a closing, so the closing is the only alert that can carry a corrected

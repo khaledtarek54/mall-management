@@ -72,11 +72,15 @@ class LeaseOptionsRelationManager extends RelationManager
                 ->required()
                 ->live()
                 ->native(false),
+            // `exercised` is the outcome of the Exercise action, never a word picked here (SW-259):
+            // the options come from the model's own predicate, and an exercised record's status is
+            // locked — its exercise is on the lease's record, and no act un-exercises.
             Select::make('status')
                 ->label(__('admin.fields.status'))
                 ->helperText(__('admin.lease_options.help.option_status'))
-                ->options(collect(LeaseOption::STATUSES)
+                ->options(fn (?LeaseOption $record) => collect(LeaseOption::statusesAnOperatorMayState($record))
                     ->mapWithKeys(fn (string $s) => [$s => __("admin.lease_options.statuses.{$s}")])->all())
+                ->disabled(fn (?LeaseOption $record) => $record?->getRawOriginal('status') === 'exercised')
                 ->default('open')
                 ->required()
                 ->native(false),
