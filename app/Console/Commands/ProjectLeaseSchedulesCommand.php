@@ -45,8 +45,12 @@ class ProjectLeaseSchedulesCommand extends Command
         // full of them (2026-08-16: `fixed_amount` was excluded in three places at once — the
         // projector, this backfill, and the panel heading — so an amount-escalating lease had its
         // rent moved every year by the sweep with nothing anywhere saying it would).
+        // Every lease OPEN to a commercial act carries a ladder worth repairing — a `future` or
+        // `pending_approval` lease bills nothing yet, which is exactly when its rungs are cheapest
+        // to re-date (2026-09-13: the box's pending lease kept its snapped rungs through the
+        // anniversary-day repair because this read `active` alone).
         $leases = Lease::query()
-            ->where('status', 'active')
+            ->whereIn('status', Lease::OPEN_TO_COMMERCIAL_ACTS)
             ->where(fn ($q) => $q
                 ->where(fn ($p) => $p->where('escalation_type', 'fixed_percent')->where('escalation_rate', '>', 0))
                 ->orWhere(fn ($a) => $a->where('escalation_type', 'fixed_amount')->where('escalation_amount', '>', 0)))
@@ -56,7 +60,7 @@ class ProjectLeaseSchedulesCommand extends Command
             ->get();
 
         if ($leases->isEmpty()) {
-            $this->info('No active leases with a contracted escalation.');
+            $this->info('No open leases with a contracted escalation.');
 
             return self::SUCCESS;
         }

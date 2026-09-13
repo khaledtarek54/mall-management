@@ -299,10 +299,18 @@ it('re-dates an already-laddered lease onto its anniversaries through the consol
         }
         expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toBe('1000@2026-09-10..2027-08-31 1100@2027-09-01..2028-08-31 1210@2028-09-01..open');
 
+        // And a lease awaiting activation is repaired too — the box's pending lease kept its
+        // snapped rungs through the first run, which read `active` alone.
+        $pending = LeaseLadder::testersLease($this->asset);
+        $pending->forceFill(['status' => 'pending_approval'])->save();
+        $pending->charges()->whereDate('start_date', '2027-09-10')->update(['start_date' => '2027-09-01']);
+        $pending->charges()->whereDate('end_date', '2027-09-09')->update(['end_date' => '2027-08-31']);
+
         $this->artisan('atriom:project-lease-schedules', ['--retrue' => true, '--commit' => true])->assertSuccessful();
 
         expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toBe('1000@2026-09-10..2027-09-09 1100@2027-09-10..2028-09-09 1210@2028-09-10..open')
-            ->and(LeaseLadder::rungsByDay($lease, 'marketing'))->toBe('50@2026-09-10..2027-09-09 55@2027-09-10..2028-09-09 61@2028-09-10..open');
+            ->and(LeaseLadder::rungsByDay($lease, 'marketing'))->toBe('50@2026-09-10..2027-09-09 55@2027-09-10..2028-09-09 61@2028-09-10..open')
+            ->and(LeaseLadder::rungsByDay($pending, 'base_rent'))->toBe('1000@2026-09-10..2027-09-09 1100@2027-09-10..2028-09-09 1210@2028-09-10..open');
     });
 });
 

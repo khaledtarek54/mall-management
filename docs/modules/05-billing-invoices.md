@@ -373,7 +373,7 @@ begins on are nobody's by the holdover's own rule — the review found the servi
 them while the rent did not. `CreditUnearnedBillingService` apportions each line on its recorded
 window, so a move-out inside a split month credits the rung in force on those days;
 `StraightLineRentService` reads a split month as the blend, per-row method and yield included.
-(`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-one mutations
+(`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-two mutations
 each killing their own tooth; module 04 for the schedule side.)
 
 Reachable from the charge-schedule relation manager (a *"Bills whole months"* toggle, offered only

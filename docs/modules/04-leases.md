@@ -1232,7 +1232,9 @@
 >   103,041 otherwise). A relief's resumption rung has the same face and is told apart by the
 >   relief row before it; the one corner left — a legacy ladder whose relief ended on the eve of
 >   the anniversary month, re-trued inside that window — is stated in the predicate's docblock.
->   (`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-one mutations
+>   The repair reads every lease OPEN to a commercial act, not `active` alone — the box's
+>   pending lease kept its snapped rungs through the first run.
+>   (`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-two mutations
 >   each killing their own tooth.)
 > - **Billing a past month now bills what was in force THEN**, not today's amount. That is a
 >   behaviour change, and it is the point.
