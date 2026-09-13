@@ -179,10 +179,23 @@ it('has a writer for every narrative it catalogues', function () {
         }
     }
 
-    $orphans = array_values(array_diff(array_keys(LineNarrative::KEYS), array_keys($written)));
+    // A LEGACY key is catalogued for the rows already stored under it and written by nothing —
+    // exempt here, and stale in either direction: gone from `KEYS` (those rows stop resolving)
+    // or written again (a legacy that is not one).
+    $legacy = array_keys(LineNarrative::LEGACY);
+    $orphans = array_values(array_diff(array_keys(LineNarrative::KEYS), array_keys($written), $legacy));
+    $stale = array_merge(
+        array_map(fn (string $k) => "{$k}: legacy but not in KEYS", array_diff($legacy, array_keys(LineNarrative::KEYS))),
+        array_map(fn (string $k) => "{$k}: legacy but still written", array_intersect($legacy, array_keys($written))),
+    );
+
+    foreach (LineNarrative::LEGACY as $key => $why) {
+        expect(strlen($why))->toBeGreaterThan(60, "{$key}: a legacy entry nobody can review is not one");
+    }
 
     expect($written)->not->toBeEmpty('The sweep found no writer for ANY key — it is reading the wrong tree.');
     expect($orphans)->toBe([], 'Catalogued in both languages and stored by nothing: '.implode(', ', $orphans));
+    expect($stale)->toBe([], 'Stale LEGACY entries: '.implode('; ', $stale));
 });
 
 it('lets no line-raising service store prose with no key', function () {

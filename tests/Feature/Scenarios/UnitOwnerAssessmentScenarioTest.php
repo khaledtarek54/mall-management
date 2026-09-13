@@ -237,8 +237,11 @@ it('prorates an arrears assessment against the tenure held in the month it cover
 
     $line = Invoice::where('tenant_id', $late->tenant_id)->latest('id')->first()?->items->first();
 
+    // The line names the days of the owner's tenure it covers (2026-09-13), in the reader's
+    // language — an arrears line still says which month, and only the days it was held.
     expect($line)->not->toBeNull()
-        ->and($line->description)->toContain('February 2026');
+        ->and($line->description)->toContain('20 Feb 2026 – 28 Feb 2026')
+        ->and($line->narrative('en'))->toBe('Service charge - Feb 20, 2026 – Feb 28, 2026 (in arrears) (32% pro-rated)');
 
     // 20–28 Feb is 9 of 28 days. 2,800 × 9/28 = 900 exactly — not the full 2,800 a March
     // measurement would have produced.

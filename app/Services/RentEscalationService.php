@@ -366,12 +366,32 @@ class RentEscalationService
                 $incoming = $this->schedule->rowCovering($lease, $chargeType, $anniversary);
 
                 // A rung snapped to the 1st under the pre-2026-09-13 rule and already started IS
-                // this anniversary's step — sizing from it would step twice. The base is the row
-                // it succeeded, exactly as the snapped sweep read it; the write below then finds
-                // the step already in force and no-ops, while the event and the column still
-                // record it (`ChargeScheduleService::stepAlreadyAppliedOn()`).
-                if ($this->schedule->stepAlreadyAppliedOn($lease, $chargeType, $outgoing, $anniversary)) {
-                    $outgoing = $this->schedule->rowCovering($lease, $chargeType, CarbonImmutable::instance($outgoing->start_date)->subDay());
+                // this anniversary's step — sizing from it would step twice
+                // (`ChargeScheduleService::stepAlreadyAppliedOn()`). The step recorded is what the
+                // sweep has applied so far → the rung's own figure: the column where the type has
+                // one, else the row the rung succeeded (over a relief window, the contracted row
+                // before it); the write below then finds that figure already in force and no-ops,
+                // while the event and the column still record it.
+                $column = $chargeType === 'service_charge' ? (float) $lease->service_charge_monthly : null;
+                $rule = $outgoing === null ? null : ChargeEscalation::stepFor($outgoing, $lease, $leasePercent);
+
+                $before = $outgoing === null ? 0.0 : ($column !== null && $column > 0
+                    ? $column
+                    : (float) ($this->schedule->contractedRowBefore($lease, $chargeType, CarbonImmutable::instance($outgoing->start_date ?? $anniversary)->subDay())?->amount ?? 0));
+
+                if ($rule !== null && $this->schedule->stepAlreadyAppliedOn($lease, $chargeType, $outgoing, $anniversary, $before > 0 ? ChargeEscalation::apply($before, $rule) : null)) {
+
+                    if ($before > 0 && abs((float) $outgoing->amount - $before) >= 0.005) {
+                        $chargeSteps[$chargeType] = [
+                            'from' => $before,
+                            'to' => (float) $outgoing->amount,
+                            'rule' => $rule,
+                            'follows' => ChargeEscalation::modeOf($outgoing) === ChargeEscalation::FOLLOWS_LEASE,
+                            'relieved' => false,
+                        ];
+                    }
+
+                    continue;
                 }
 
                 if ($outgoing === null

@@ -109,6 +109,17 @@ class ChargeScheduleService
         $stated = array_filter(Arr::only($attributes, Charge::CARRIED_TERMS), fn ($v) => $v !== null);
         $statedDiffers = array_filter($stated, fn ($v, $k) => (string) $current->{$k} !== (string) $v, ARRAY_FILTER_USE_BOTH) !== [];
 
+        // A RELIEF row is never the target of a STEP (2026-09-13, found by the anniversary-day
+        // tests). The sweep's charge loop had that rule; its rent path did not — the step rode
+        // through `LeaseRentChangeService` into this method, found the relief segment starting on
+        // the anniversary and amended it in place to the full stepped rent, billing a tenant the
+        // rent they had been relieved of for the rest of the window. The contract still steps:
+        // the column and the event record it, and the walk re-prices the rung that RESUMES after
+        // the window (`repriceResumption()`); the window's own rows are the operator's.
+        if ($origin === Charge::ORIGIN_ESCALATION && $current->origin === Charge::ORIGIN_RELIEF) {
+            return $current;
+        }
+
         if ($this->sameMoney((float) $current->amount, $amount)) {
             if ($statedDiffers) {
                 $current->update($stated);
@@ -597,9 +608,11 @@ class ChargeScheduleService
                     : $rent;
 
                 // A rung snapped to the 1st under the old rule and already started IS this step;
-                // stepping from it would step twice (`stepAlreadyAppliedOn()`).
+                // stepping from it would step twice (`stepAlreadyAppliedOn()`). `$rent` here is
+                // the contract's figure as the walk carries it — the column at the pointer.
+                $ifApplied = $byAmount ? round($rent + $step, 2) : round($rent * (1 + $rate / 100), 2);
                 $rent = match (true) {
-                    $this->stepAlreadyAppliedOn($lease, 'base_rent', $eveRent, $effective) => $rentBase,
+                    $this->stepAlreadyAppliedOn($lease, 'base_rent', $eveRent, $effective, $ifApplied) => $rentBase,
                     $byAmount => round($rentBase + $step, 2),
                     default => round($rentBase * (1 + $rate / 100), 2),
                 };
@@ -653,7 +666,7 @@ class ChargeScheduleService
             // the rung billing into the anniversary, so a row that acquires or loses a rule
             // mid-ladder is honoured from that rung on.
             foreach ($chargeTypes as $chargeType) {
-                $created += $this->projectChargeRung($lease, $chargeType, $effective, $expiry, $leasePercent, $carry[$chargeType]);
+                $created += $this->projectChargeRung($lease, $chargeType, $effective, $expiry, $leasePercent, $carry[$chargeType], atPointer: $stepDate->equalTo($firstStep));
             }
 
             if ($parkingSteps) {
@@ -733,6 +746,7 @@ class ChargeScheduleService
         CarbonImmutable $expiry,
         ?float $leasePercent,
         float &$carry,
+        bool $atPointer = false,
     ): int {
         $eve = $this->rowCovering($lease, $type, $effective->subDay());
 
@@ -755,8 +769,19 @@ class ChargeScheduleService
         }
 
         // The pre-2026-09-13 shape: the eve rung is this anniversary's step already, snapped to
-        // the 1st and started — adopted, never stepped again (`stepAlreadyAppliedOn()`).
-        if ($this->stepAlreadyAppliedOn($lease, $type, $eve, $effective)) {
+        // the 1st and started — adopted, never stepped again (`stepAlreadyAppliedOn()`). What the
+        // sweep has applied so far is the service charge's COLUMN at the pointer's anniversary,
+        // and the walk's own `$carry` after it (the rent reads its `$rent` the same way). The
+        // review broke the first cut, which read the column at every anniversary: the column
+        // never advances inside a walk, so at the SECOND anniversary a real resumption (275 =
+        // 250 × 1.1) read as the step already applied and a re-true before the sweep dropped the
+        // final year's step. Where the column is empty (a service charge kept on the schedule
+        // alone) `$carry` stands in at the pointer too, which closes the legacy spanning-relief
+        // corner only where the column is kept — stated in the predicate's docblock.
+        $column = $type === 'service_charge' ? (float) $lease->service_charge_monthly : null;
+        $reference = $atPointer && $column !== null && $column > 0 ? $column : $carry;
+
+        if ($this->stepAlreadyAppliedOn($lease, $type, $eve, $effective, $reference > 0 ? ChargeEscalation::apply($reference, $rule) : null)) {
             $carry = $base;
 
             return 0;
@@ -1660,16 +1685,23 @@ class ChargeScheduleService
      * charge steps — which is a no-op for every ladder written since, because none of theirs
      * matches the shape.
      *
-     * One shape written since DOES match on its face and is excluded: the rung that RESUMES the
-     * contract after a relief window is the projected rung's own continuation (`escalation`
-     * origin, starting the day after the window — the 1st) and carries the step the window
-     * covered, never the one ahead; the row before it is the relief itself, which is how it is
-     * told apart. The corner that leaves is a LEGACY ladder whose relief ended on the eve of the
-     * anniversary month and whose re-priced resumption WAS the snapped step: re-trued between
-     * the 1st and the anniversary it would step once more — the sweep's rent path is column-based
-     * and unaffected, and the deploy checks the box for relief windows before re-truing.
+     * One shape written since DOES match on its face: the rung that RESUMES the contract after a
+     * relief window is the projected rung's own continuation (`escalation` origin, starting the
+     * day after the window — the 1st) and carries the step the window covered, never the one
+     * ahead. And a LEGACY ladder whose relief ended on the eve of the anniversary month had its
+     * resumption re-priced to the snapped step — the same face, embodying the step ahead. The two
+     * are told apart by the FIGURE the caller says the step would produce from what the sweep has
+     * applied so far (`$ifApplied`): at the pointer's anniversary the lease COLUMN stepped once,
+     * after it the walk's own contract figure (`$rent`, `$carry`) — a resumption that already
+     * carries that figure is the step, one that does not is the contract resuming. Only the rent
+     * and the service charge can carry a relief, so only they ever ask. (The corner an earlier
+     * revision of this docblock left open — a relief ending on the eve of the anniversary month —
+     * turned out not to exist: before the sweep such a resumption is a `manual` row at the
+     * pre-step figure, the base the walk steps from; the real legacy corner was the SPANNING
+     * window after its sweep. The column closes it where the column is kept; a service charge
+     * kept on the schedule alone, with an empty column, still meets it — stated, not closed.)
      */
-    public function stepAlreadyAppliedOn(BillableAgreement $lease, string $type, ?Charge $eve, CarbonImmutable $anniversary): bool
+    public function stepAlreadyAppliedOn(BillableAgreement $lease, string $type, ?Charge $eve, CarbonImmutable $anniversary, ?float $ifApplied = null): bool
     {
         if ($eve === null
             || $eve->origin !== Charge::ORIGIN_ESCALATION
@@ -1679,9 +1711,15 @@ class ChargeScheduleService
 
         $start = CarbonImmutable::instance($eve->start_date);
 
-        return $start->gte(self::billingBoundary($anniversary))
-            && $start->lessThan($anniversary)
-            && $this->rowCovering($lease, $type, $start->subDay())?->origin !== Charge::ORIGIN_RELIEF;
+        if (! $start->gte(self::billingBoundary($anniversary)) || ! $start->lessThan($anniversary)) {
+            return false;
+        }
+
+        if ($this->rowCovering($lease, $type, $start->subDay())?->origin !== Charge::ORIGIN_RELIEF) {
+            return true;
+        }
+
+        return $ifApplied !== null && $this->sameMoney((float) $eve->amount, $ifApplied);
     }
 
     /**

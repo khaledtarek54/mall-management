@@ -1242,8 +1242,17 @@
 >   a step could land inside a quarter, name days too), the two month-only keys they replace stay
 >   catalogued as `LineNarrative::LEGACY` for the rows already stored under them, and the writer
 >   gate exempts a legacy key and fails on one that is written again or dropped.
->   (`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — seventeen cases, twenty-seven
->   mutations each killing their own tooth.)
+>   **The review of the follow-up found two more**: the walk read the service charge's column at
+>   EVERY anniversary (it advances only when the sweep runs), so a re-true before the sweep read a
+>   real resumption at the second anniversary as the step already applied and dropped the final
+>   year's step — the column is the reference at the pointer's anniversary only, the walk's own
+>   carried figure after it; and the sweep's RENT step had always been able to land INSIDE a
+>   relief window (the charges loop refused a relief row as a target, the rent path did not), so
+>   `setAmount()` now refuses an escalation-origin write onto a relief row and the resumption
+>   after the window carries the step. The owners' run drops a zero-factor arrears line rather
+>   than billing 0.00 for days that run backwards.
+>   (`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — seventeen cases, thirty mutations
+>   each killing their own tooth.)
 > - **Billing a past month now bills what was in force THEN**, not today's amount. That is a
 >   behaviour change, and it is the point.
 > - `Lease::base_rent_monthly` still tracks the rent in force; nothing downstream moved.

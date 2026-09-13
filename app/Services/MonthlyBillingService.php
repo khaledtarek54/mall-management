@@ -834,36 +834,40 @@ class MonthlyBillingService
                 ? (int) round($rowFactor * 100)
                 : null;
 
+            // A PRORATED line names the DAYS it covers (2026-09-13): a month split by a rent step
+            // carries two rent lines, and the days are the only thing that tells them apart.
             if ($proratedPct !== null) {
-                $label .= ' ('.$proratedPct.'% pro-rated)';
+                $label = $charge->name.' - '.$lineFrom->format('j M Y').' – '.$lineTo->format('j M Y')
+                    .($inArrears ? ' (in arrears)' : '')
+                    .' ('.$proratedPct.'% pro-rated)';
             }
 
             // ONE key for the whole sentence, never a stem plus suffixes: Arabic does not put a
             // parenthetical where English does. A multi-month cycle names both ends, so its period
             // is prose the planner already built; a single month stores the DATE and is formatted
-            // in the reader's own locale.
-            // A cycle prorates too, if it ever can — testing `$isCycle` first meant such a row
-            // carried a `pct` its template had no placeholder for. See `LineNarrative::KEYS` for
-            // the measured bound on whether that path is reachable at all.
+            // in the reader's own locale. A prorated line — a month or a cycle — stores the line's
+            // own two ends as DATES (`_days` keys; the cycle keys became reachable the day a step
+            // could land inside a quarter — see `LineNarrative::KEYS`).
             $narrativeKey = match (true) {
                 $isCycle && $inArrears && $proratedPct !== null => 'billing.cycle_arrears_prorated',
                 $isCycle && $inArrears => 'billing.cycle_arrears',
                 $isCycle && $proratedPct !== null => 'billing.cycle_prorated',
                 $isCycle => 'billing.cycle',
-                $inArrears && $proratedPct !== null => 'billing.period_arrears_prorated',
+                $inArrears && $proratedPct !== null => 'billing.period_arrears_prorated_days',
                 $inArrears => 'billing.period_arrears',
-                $proratedPct !== null => 'billing.period_prorated',
+                $proratedPct !== null => 'billing.period_prorated_days',
                 default => 'billing.period',
             };
 
             // Both ENDS of a cycle as dates, so the reader's locale names the months. Passing
             // `cycleLabel()` through as text carried `DateTime::format`'s English into every
-            // Arabic quarterly line.
+            // Arabic quarterly line. A prorated line's ends are the LINE's — the days it billed.
             $narrativeData = ['name' => $charge->name]
-                + ($isCycle
-                    ? ['from' => $coveredStart->toDateString(), 'to' => $coveredEnd->toDateString()]
-                    : ['period' => $coveredStart->toDateString()])
-                + ($proratedPct !== null ? ['pct' => $proratedPct] : []);
+                + match (true) {
+                    $proratedPct !== null => ['from' => $lineFrom->toDateString(), 'to' => $lineTo->toDateString(), 'pct' => $proratedPct],
+                    $isCycle => ['from' => $coveredStart->toDateString(), 'to' => $coveredEnd->toDateString()],
+                    default => ['period' => $coveredStart->toDateString()],
+                };
 
             return [
                 'charge_id' => $charge->id,

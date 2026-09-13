@@ -373,7 +373,9 @@ begins on are nobody's by the holdover's own rule — the review found the servi
 them while the rent did not. `CreditUnearnedBillingService` apportions each line on its recorded
 window, so a move-out inside a split month credits the rung in force on those days;
 `StraightLineRentService` reads a split month as the blend, per-row method and yield included.
-(`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-two mutations
+A prorated line names its DAYS (`billing.period_prorated_days`, the line's own window in the
+reader's language) — the month-only keys stay as `LineNarrative::LEGACY` for rows already stored.
+(`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — seventeen cases, thirty mutations
 each killing their own tooth; module 04 for the schedule side.)
 
 Reachable from the charge-schedule relation manager (a *"Bills whole months"* toggle, offered only
@@ -1689,11 +1691,12 @@ English-reading auditor. `credit_note_items` carries the same pair.
 - **To add a new kind of line**, register the key in `LineNarrative::KEYS` with its placeholders,
   add the wording to BOTH lang files, then store `description_key` + `description_data` from the
   service. `LineNarrativeIsAKeyNotProseConformanceTest` fails on a key with no Arabic, on a
-  rendered `:placeholder`, on a key nothing writes, and on a line-raising service that stores prose
-  with no key.
+  rendered `:placeholder`, on a key nothing writes (unless it is in `LineNarrative::LEGACY` —
+  catalogued for rows already stored under it, and stale the day it is written again or dropped),
+  and on a line-raising service that stores prose with no key.
 - **The whole sentence is one template, never a stem plus suffixes.** Arabic does not put a
-  parenthetical where English does, so `billing.period_arrears_prorated` is its own key rather than
-  three fragments joined at read time.
+  parenthetical where English does, so `billing.period_arrears_prorated_days` is its own key rather
+  than three fragments joined at read time.
 - **A DATE or a CLASSIFICATION inside the line is data too.** `month`/`date` placeholders hold an
   ISO date and are formatted for the reader; `trans`/`catalogue` ones hold a CODE and are worded for
   the reader. Resolving either at write time produces one sentence in two languages, which is the

@@ -7,6 +7,8 @@ return [
         'period_arrears' => ':name - :period (مستحق عن فترة سابقة)',
         'period_prorated' => ':name - :period (:pct% بالتناسب)',
         'period_arrears_prorated' => ':name - :period (مستحق عن فترة سابقة) (:pct% بالتناسب)',
+        'period_prorated_days' => ':name - :from – :to (:pct% بالتناسب)',
+        'period_arrears_prorated_days' => ':name - :from – :to (مستحق عن فترة سابقة) (:pct% بالتناسب)',
         'cycle' => ':name - :from – :to',
         'cycle_arrears' => ':name - :from – :to (مستحق عن فترة سابقة)',
         'cycle_prorated' => ':name - :from – :to (:pct% بالتناسب)',

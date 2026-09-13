@@ -79,8 +79,17 @@ final class LineNarrative
         // own name, which the operator typed.
         'billing.period' => ['lang' => 'admin.invoice_lines.period', 'text' => ['name'], 'month' => ['period']],
         'billing.period_arrears' => ['lang' => 'admin.invoice_lines.period_arrears', 'text' => ['name'], 'month' => ['period']],
+        // A PRORATED line names its DAYS (2026-09-13): since a rent step lands on the anniversary
+        // and the month is split, a tenant reads two rent lines for one September and the only
+        // thing telling them apart is the days each covers — "(30% pro-rated)" beside
+        // "(70% pro-rated)" says the shares and not the dates. The two `_days` keys carry the
+        // line's own window (`invoice_items.covered_start/end`) as short dates; the two they
+        // replace stay catalogued for the rows already stored under them (`LEGACY`) and are
+        // written by nothing.
         'billing.period_prorated' => ['lang' => 'admin.invoice_lines.period_prorated', 'text' => ['name', 'pct'], 'month' => ['period']],
         'billing.period_arrears_prorated' => ['lang' => 'admin.invoice_lines.period_arrears_prorated', 'text' => ['name', 'pct'], 'month' => ['period']],
+        'billing.period_prorated_days' => ['lang' => 'admin.invoice_lines.period_prorated_days', 'text' => ['name', 'pct'], 'date' => ['from', 'to']],
+        'billing.period_arrears_prorated_days' => ['lang' => 'admin.invoice_lines.period_arrears_prorated_days', 'text' => ['name', 'pct'], 'date' => ['from', 'to']],
         // A cycle spanning more than one month states BOTH ENDS as dates, never a pre-built label.
         // The first version passed `cycleLabel()` through as verbatim text — and that method uses
         // `format('M Y')`, i.e. `DateTime::format`, which is never localised: an Arabic quarterly
@@ -88,19 +97,17 @@ final class LineNarrative
         // exists to end, on every quarterly, semi-annual and annual lease. Found by review.
         'billing.cycle' => ['lang' => 'admin.invoice_lines.cycle', 'text' => ['name'], 'month' => ['from', 'to']],
         'billing.cycle_arrears' => ['lang' => 'admin.invoice_lines.cycle_arrears', 'text' => ['name'], 'month' => ['from', 'to']],
-        // …and a cycle PRORATES, if it ever can. `$isCycle` was tested first in the writer's
-        // match, so a multi-month row could never reach a prorated key while carrying a `pct` the
-        // `cycle` template had no `:pct` to print — data stored and silently dropped.
-        //
-        // **Honest bound on that**: three routes were driven against the real billing service to
-        // produce a prorated cycle — a mid-quarter commencement, a final quarter truncated at
-        // expiry, and a charge starting mid-cycle — and in every one the WINDOW shrinks instead of
-        // the row prorating, so `$rowFactor` stayed 1. The shape defect was real and is now
-        // impossible (the conformance gate's placeholder-consumed tooth fails on it); the claim
-        // that it was reaching a tenant's invoice is NOT demonstrated, and these two keys are here
-        // so that if the path ever opens the clause words itself instead of vanishing.
-        'billing.cycle_prorated' => ['lang' => 'admin.invoice_lines.cycle_prorated', 'text' => ['name', 'pct'], 'month' => ['from', 'to']],
-        'billing.cycle_arrears_prorated' => ['lang' => 'admin.invoice_lines.cycle_arrears_prorated', 'text' => ['name', 'pct'], 'month' => ['from', 'to']],
+        // …and a cycle PRORATES. `$isCycle` was tested first in the writer's match, so a
+        // multi-month row could never reach a prorated key while carrying a `pct` the `cycle`
+        // template had no `:pct` to print — data stored and silently dropped. Until 2026-09-13
+        // the path was UNREACHABLE (three routes driven: a mid-quarter commencement, a final
+        // quarter truncated at expiry, a charge starting mid-cycle — the WINDOW shrank instead of
+        // the row prorating); a rent step landing on the anniversary inside a quarter is the
+        // first line that reaches it (nine days of September at the old rent, then the rest of
+        // the quarter at the new), so these two name their DAYS like every prorated line — and
+        // nothing had ever been stored under them, so no legacy shape to keep.
+        'billing.cycle_prorated' => ['lang' => 'admin.invoice_lines.cycle_prorated', 'text' => ['name', 'pct'], 'date' => ['from', 'to']],
+        'billing.cycle_arrears_prorated' => ['lang' => 'admin.invoice_lines.cycle_arrears_prorated', 'text' => ['name', 'pct'], 'date' => ['from', 'to']],
 
         // ── The five that already had a key and resolved it too early ─────────────────────────
         'late_fee.line' => ['lang' => 'admin.actions.late_fee_line_description', 'text' => ['percent', 'balance', 'min', 'invoice']],
@@ -157,6 +164,18 @@ final class LineNarrative
 
         return self::fromKey($key, $data ?? [], $locale) ?? (string) $prose;
     }
+
+    /**
+     * Keys that rows ALREADY STORED carry and that nothing writes any more — kept in `KEYS` so
+     * those rows go on resolving in both languages, listed here so the writer gate does not read
+     * them as sentences nobody reads. A key listed here that acquires a writer is stale.
+     *
+     * @var array<string, string> key => why nothing writes it now
+     */
+    public const LEGACY = [
+        'billing.period_prorated' => 'Replaced by billing.period_prorated_days on 2026-09-13: a prorated line names the days it covers, and the rows written before carry only the month.',
+        'billing.period_arrears_prorated' => 'Replaced by billing.period_arrears_prorated_days on 2026-09-13, for the same reason.',
+    ];
 
     /** The translated line, or null when there is no usable key. */
     private static function fromKey(?string $key, array $data, string $locale): ?string

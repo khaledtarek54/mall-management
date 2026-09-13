@@ -186,7 +186,7 @@ class BillUnitOwnershipsService
         // A co-owner pays his share of the unit's assessment, not the whole of it.
         $share = (float) ($locked->ownership_share_pct ?? 100) / 100;
 
-        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart, $periodEnd, $locked, $proration, $windowStart, $windowEnd): array {
+        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart, $periodEnd, $locked, $proration, $windowStart, $windowEnd): ?array {
             [$coveredStart, $coveredEnd] = MonthlyBillingService::coveredWindow($charge, $periodStart, $periodEnd, 1);
 
             // Whether THIS row prorates at all (EG-29). The agreement states the method; the charge
@@ -201,27 +201,31 @@ class BillUnitOwnershipsService
             // An arrears row prorates against the tenure the owner held in the month it COVERS, not
             // this one — a handover on the 20th of August owes 11/31 of August's صيانة on the
             // September assessment, and measuring it against September would bill a full month.
-            $factor = match (true) {
-                $charge->frequency !== 'monthly' => 1.0,
-                $charge->billsInArrears() => MonthlyBillingService::monthsCovered(
-                    $coveredStart,
-                    1,
+            // The days THIS line covers — an arrears row's are the tenure inside the month it
+            // covers; an advance row's the window above — named on a prorated line (2026-09-13).
+            [$lineFrom, $lineTo] = $charge->billsInArrears()
+                ? [
                     $locked->started_at !== null && $locked->started_at->gt($coveredStart)
                         ? CarbonImmutable::parse($locked->started_at) : $coveredStart,
                     $locked->ended_at !== null && $locked->ended_at->lt($coveredEnd)
                         ? CarbonImmutable::parse($locked->ended_at) : $coveredEnd,
-                    $lineProration,
-                ),
+                ]
+                : [$windowStart, $windowEnd];
+
+            $factor = match (true) {
+                $charge->frequency !== 'monthly' => 1.0,
+                $charge->billsInArrears() => MonthlyBillingService::monthsCovered($coveredStart, 1, $lineFrom, $lineTo, $lineProration),
                 // Same window as `$multiplier`, re-measured under THIS row's own method.
-                $lineProration !== $proration => MonthlyBillingService::monthsCovered(
-                    $periodStart,
-                    1,
-                    $windowStart,
-                    $windowEnd,
-                    $lineProration,
-                ),
+                $lineProration !== $proration => MonthlyBillingService::monthsCovered($periodStart, 1, $lineFrom, $lineTo, $lineProration),
                 default => $multiplier,
             };
+
+            // Nothing of the window falls inside the tenure — an arrears row whose covered month
+            // precedes the handover: no line, exactly as the lease run drops it, rather than a
+            // 0.00 line naming days that run backwards (found by review).
+            if ($factor <= 0) {
+                return null;
+            }
 
             $amount = round((float) $charge->amount * $factor * $share, 2);
 
@@ -248,21 +252,25 @@ class BillUnitOwnershipsService
             $proratedPct = $factor < 1 ? (int) round($factor * 100) : null;
 
             if ($proratedPct !== null) {
-                $label .= ' ('.$proratedPct.'% pro-rated)';
+                $label = $charge->name.' - '.$lineFrom->format('j M Y').' – '.$lineTo->format('j M Y')
+                    .($inArrears ? ' (in arrears)' : '')
+                    .' ('.$proratedPct.'% pro-rated)';
             }
 
             // The same four keys the lease run uses: an owner's صيانة assessment is the same
             // sentence about a different agreement, and two templates saying one thing is how the
-            // two drift into wording the same charge differently.
+            // two drift into wording the same charge differently. A prorated line names its days.
             $narrativeKey = match (true) {
-                $inArrears && $proratedPct !== null => 'billing.period_arrears_prorated',
+                $inArrears && $proratedPct !== null => 'billing.period_arrears_prorated_days',
                 $inArrears => 'billing.period_arrears',
-                $proratedPct !== null => 'billing.period_prorated',
+                $proratedPct !== null => 'billing.period_prorated_days',
                 default => 'billing.period',
             };
 
-            $narrativeData = ['name' => $charge->name, 'period' => $coveredStart->toDateString()]
-                + ($proratedPct !== null ? ['pct' => $proratedPct] : []);
+            $narrativeData = ['name' => $charge->name]
+                + ($proratedPct !== null
+                    ? ['from' => $lineFrom->toDateString(), 'to' => $lineTo->toDateString(), 'pct' => $proratedPct]
+                    : ['period' => $coveredStart->toDateString()]);
 
             return [
                 'charge_id' => $charge->id,
@@ -275,7 +283,7 @@ class BillUnitOwnershipsService
                 'vat_amount' => $vatAmount,
                 'total' => round($amount + $vatAmount, 2),
             ];
-        })->values()->all();
+        })->filter()->values()->all();
 
         // Never bill a zero. A fully-abated or zero-amount schedule should produce no document at
         // all rather than a 0.00 invoice that ages, duns and posts an empty entry.

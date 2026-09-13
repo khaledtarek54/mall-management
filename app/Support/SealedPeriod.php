@@ -158,6 +158,16 @@ class SealedPeriod
         // The authoritative answer, and it belongs to the poster: only `LedgerPoster` holds both
         // `effectivePayload()` and `matches()`, which are the two halves of the decision `sync()`
         // itself makes. Asking it here is what stops this guard drifting away from the engine.
+        //
+        // AND IT LEAVES NO TRACE ON THE MODEL (2026-09-13): the journalizer `loadMissing`s the
+        // document's lines, and a guard on `updating` caches them as they stand BEFORE the save
+        // on the very instance the caller goes on to use — measured: a draft raised to `issued`
+        // then given a second line answered `items->count()` 1 against 2 in the database. The
+        // `creating` twin (`CashBalanceGuard`) caches an EMPTY collection the same way and mailed
+        // the tenant a PDF with no lines; a read that changes what its subject answers next is a
+        // write, so both restore the relations they found.
+        $loadedBefore = $model->getRelations();
+
         try {
             $blocked = app(LedgerPoster::class)->sealedPeriodBlocking($model);
         } catch (\Throwable $e) {
@@ -168,6 +178,8 @@ class SealedPeriod
             Log::warning('Sealed-period guard could not evaluate '.$model::class.' #'.$model->getKey().': '.$e->getMessage());
 
             return;
+        } finally {
+            $model->setRelations($loadedBefore);
         }
 
         if ($blocked === null) {

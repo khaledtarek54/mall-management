@@ -46,6 +46,29 @@ it('bills an invoice whose returned instance, and whose PDF, carry the lines the
         ->and(app(InvoicePdfService::class)->viewData($invoice)['invoice']->items)->toHaveCount(2);
 });
 
+it('leaves no relation cache on a document it evaluated while UPDATING either — the sealed-period twin', function () {
+    // The `updating` guard (`SealedPeriod`) asks the journalizer on a draft becoming postable, and
+    // that read cached the lines as they stood — measured: raised to `issued`, given a second
+    // line, the instance answered 1 against 2 in the database.
+    $unit = makeUnit($this->asset, ['code' => 'LNS-03', 'status' => 'vacant']);
+    $lease = makeLease($unit, makeTenant(), ['commencement_date' => '2027-01-01', 'expiry_date' => '2029-12-31']);
+
+    $invoice = Invoice::create([
+        'lease_id' => $lease->id, 'tenant_id' => $lease->tenant_id, 'asset_id' => $this->asset->id,
+        'issue_date' => now()->toDateString(), 'due_date' => now()->addDays(7)->toDateString(),
+        'period_start' => now()->startOfMonth()->toDateString(), 'period_end' => now()->endOfMonth()->toDateString(),
+        'status' => 'draft', 'subtotal' => 0, 'vat_amount' => 0, 'total' => 0, 'paid_amount' => 0, 'balance' => 0, 'currency' => 'EGP',
+    ]);
+    \App\Models\InvoiceItem::create(['invoice_id' => $invoice->id, 'description' => 'Line 1', 'type' => 'base_rent', 'amount' => 100, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 100]);
+    $invoice = $invoice->fresh();
+
+    $invoice->update(['status' => 'issued']);
+    \App\Models\InvoiceItem::create(['invoice_id' => $invoice->id, 'description' => 'Line 2', 'type' => 'service_charge', 'amount' => 50, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 50]);
+
+    expect($invoice->relationLoaded('items'))->toBeFalse()
+        ->and($invoice->items->count())->toBe(2);
+});
+
 it('leaves no relation cache on a document it evaluated at creation', function () {
     $unit = makeUnit($this->asset, ['code' => 'LNS-02', 'status' => 'vacant']);
     $lease = makeLease($unit, makeTenant(), ['commencement_date' => '2027-01-01', 'expiry_date' => '2029-12-31']);

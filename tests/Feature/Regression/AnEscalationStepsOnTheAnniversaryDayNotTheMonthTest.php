@@ -95,6 +95,30 @@ it('bills the anniversary month at two figures, each for its own days, and does 
     });
 });
 
+it('names the days each split line covers, in the reader\'s language', function () {
+    // "(30% pro-rated)" beside "(70% pro-rated)" says the shares; the days are what tell two
+    // rent lines for one September apart, so a prorated line names them (2026-09-13).
+    asTenant($this->asset, function () {
+        $lease = LeaseLadder::testersLease($this->asset);
+        $this->travelTo(CarbonImmutable::parse('2027-09-01'));
+        anniversaryMonthLines($lease, '2027-09-01');
+
+        $lines = Invoice::query()->where('lease_id', $lease->id)->sole()->items()->where('type', 'base_rent')->orderBy('covered_start')->get();
+
+        expect($lines[0]->narrative('en'))->toBe('Base Rent - Sep 1, 2027 – Sep 9, 2027 (30% pro-rated)')
+            ->and($lines[1]->narrative('en'))->toBe('Base Rent - Sep 10, 2027 – Sep 30, 2027 (70% pro-rated)')
+            ->and($lines[1]->narrative('ar'))->toBe('Base Rent - 10 سبتمبر 2027 – 30 سبتمبر 2027 (70% بالتناسب)')
+            ->and($lines[1]->description_key)->toBe('billing.period_prorated_days')
+            // The prose floor names them too, for a reader still on the column.
+            ->and($lines[1]->description)->toBe('Base Rent - 10 Sep 2027 – 30 Sep 2027 (70% pro-rated)');
+
+        // A row stored under the key this replaces still reads as it did — in both languages.
+        $lines[1]->forceFill(['description_key' => 'billing.period_prorated', 'description_data' => ['name' => 'Base Rent', 'period' => '2027-09-01', 'pct' => 70]])->save();
+        expect($lines[1]->fresh()->narrative('en'))->toBe('Base Rent - September 2027 (70% pro-rated)')
+            ->and($lines[1]->fresh()->narrative('ar'))->toBe('Base Rent - سبتمبر 2027 (70% بالتناسب)');
+    });
+});
+
 it('is applied by the nightly sweep on the anniversary day — a projected rung stands, an unprojected one is opened on the day', function () {
     asTenant($this->asset, function () {
         // The rent's step — and a service charge FOLLOWING the clause — ride through
@@ -136,6 +160,12 @@ it('splits a QUARTERLY cycle the same way — whole months at each rung, the spl
             'base_rent 300.00 (2027-09-01..2027-09-09) pro-rated',
             'base_rent 2970.00 (2027-09-10..2027-11-30) pro-rated',
         ]);
+
+        // The cycle-prorated key — reachable for the first time here — names the line's days.
+        $second = Invoice::query()->where('lease_id', $lease->id)->sole()->items()->where('type', 'base_rent')->orderByDesc('covered_start')->first();
+        expect($second->description_key)->toBe('billing.cycle_prorated')
+            ->and($second->description_data)->toMatchArray(['from' => '2027-09-10', 'to' => '2027-11-30', 'pct' => 90])
+            ->and($second->narrative('en'))->toBe('Base Rent - Sep 10, 2027 – Nov 30, 2027 (90% pro-rated)');
     });
 });
 
@@ -375,17 +405,82 @@ it('still steps on the anniversary after a relief that ends on the eve of the an
         // the legacy shape exactly, except that it carries the PREVIOUS step, not this one.
         $this->travelTo(CarbonImmutable::parse('2026-09-10'));
         $spanning = LeaseLadder::testersLease($this->asset);
-        app(\App\Services\LeaseReliefService::class)->grant($spanning, [
-            'percent_off' => 50, 'from' => '2027-07-01', 'to' => '2028-08-31',
-            'reason' => 'Fourteen months at half rent through the refit.',
-        ]);
-        expect(LeaseLadder::rungsByDay($spanning, 'base_rent'))
-            ->toBe('1000@2026-09-10..2027-06-30 500@2027-07-01..2027-09-09 550@2027-09-10..2028-08-31 1100@2028-09-01..2028-09-09 1210@2028-09-10..open');
+        app(ChargeScheduleService::class)->setEscalation($spanning, 'service_charge', ChargeEscalation::FOLLOWS_LEASE);
+        foreach (['base_rent', 'service_charge'] as $type) {
+            app(\App\Services\LeaseReliefService::class)->grant($spanning, [
+                'type' => $type, 'percent_off' => 50, 'from' => '2027-07-01', 'to' => '2028-08-31',
+                'reason' => 'Fourteen months at half rent through the refit.',
+            ]);
+        }
+        $rent = '1000@2026-09-10..2027-06-30 500@2027-07-01..2027-09-09 550@2027-09-10..2028-08-31 1100@2028-09-01..2028-09-09 1210@2028-09-10..open';
+        $service = '250@2026-09-10..2027-06-30 125@2027-07-01..2027-09-09 138@2027-09-10..2028-08-31 275@2028-09-01..2028-09-09 303@2028-09-10..open';
+        expect(LeaseLadder::rungsByDay($spanning, 'base_rent'))->toBe($rent)
+            ->and(LeaseLadder::rungsByDay($spanning, 'service_charge'))->toBe($service);
 
+        // REVIEW BLOCKER: re-trued BEFORE the 2027 sweep — the columns still 1,000 / 250 — the
+        // walk reaches the 2028 anniversary with its own carried figure (1,100 / 275) and must
+        // read the resumption as the contract resuming, not as the step applied; the first cut
+        // read the service charge's COLUMN at every anniversary and dropped the final year's step.
+        $this->travelTo(CarbonImmutable::parse('2026-10-01'));
+        app(ChargeScheduleService::class)->retrueProjectedLadder($spanning->fresh());
+        expect(LeaseLadder::rungsByDay($spanning, 'base_rent'))->toBe($rent)
+            ->and(LeaseLadder::rungsByDay($spanning, 'service_charge'))->toBe($service);
+
+        // …and through the real door: a clause edit re-trues the same way.
+        LeaseLadder::edit($spanning, ['escalation_rate' => 12]);
+        expect(LeaseLadder::rungsByDay($spanning, 'service_charge'))->toEndWith('280@2028-09-01..2028-09-09 314@2028-09-10..open');
+
+        // And inside the 2028 window, after both sweeps: the resumption is still the contract.
+        $this->travelTo(CarbonImmutable::parse('2027-09-10'));
+        app(RentEscalationService::class)->runForToday();
         $this->travelTo(CarbonImmutable::parse('2028-09-05'));
         app(ChargeScheduleService::class)->retrueProjectedLadder($spanning->fresh());
-        expect(LeaseLadder::rungsByDay($spanning, 'base_rent'))
-            ->toBe('1000@2026-09-10..2027-06-30 500@2027-07-01..2027-09-09 550@2027-09-10..2028-08-31 1100@2028-09-01..2028-09-09 1210@2028-09-10..open');
+        expect(LeaseLadder::rungsByDay($spanning, 'base_rent'))->toEndWith('1120@2028-09-01..2028-09-09 1254@2028-09-10..open')
+            ->and(LeaseLadder::rungsByDay($spanning, 'service_charge'))->toEndWith('280@2028-09-01..2028-09-09 314@2028-09-10..open');
+    });
+});
+
+it('tells a legacy re-priced resumption from a real one — the corner the docblock stated, closed', function () {
+    // A LEGACY ladder whose relief SPANNED an anniversary: the old walk wrote the next step onto
+    // the resumption rung itself (escalation-origin, on the 1st of the next anniversary's month,
+    // the relief row before it) — the exact face of a real resumption, except that it carries the
+    // step AHEAD of what the sweep applied (`base_rent_monthly`), which a real one never does.
+    // Re-trued inside the window, and swept on the day, it steps once.
+    asTenant($this->asset, function () {
+        $lease = LeaseLadder::testersLease($this->asset);
+        app(ChargeScheduleService::class)->setEscalation($lease, 'service_charge', ChargeEscalation::FOLLOWS_LEASE);
+        foreach (['base_rent', 'service_charge'] as $type) {
+            app(\App\Services\LeaseReliefService::class)->grant($lease, [
+                'type' => $type, 'percent_off' => 50, 'from' => '2027-07-01', 'to' => '2028-08-31', 'reason' => 'Fourteen months through the refit.',
+            ]);
+        }
+        expect(LeaseLadder::rungsByDay($lease, 'base_rent'))
+            ->toBe('1000@2026-09-10..2027-06-30 500@2027-07-01..2027-09-09 550@2027-09-10..2028-08-31 1100@2028-09-01..2028-09-09 1210@2028-09-10..open')
+            ->and(LeaseLadder::rungsByDay($lease, 'service_charge'))
+            ->toBe('250@2026-09-10..2027-06-30 125@2027-07-01..2027-09-09 138@2027-09-10..2028-08-31 275@2028-09-01..2028-09-09 303@2028-09-10..open');
+
+        // The pre-2026-09-13 shape after the 2027 sweep, by hand: the resumption carries the 2028
+        // step, no day-dated rung, the columns and the pointer as the sweep left them.
+        foreach (['base_rent' => 1210, 'service_charge' => 302.5] as $type => $stepped) {
+            $lease->charges()->where('type', $type)->whereDate('start_date', '2028-09-10')->update(['is_active' => false]);
+            $lease->charges()->where('type', $type)->whereDate('start_date', '2028-09-01')->update(['amount' => $stepped, 'end_date' => null]);
+        }
+        $lease->forceFill(['base_rent_monthly' => 1100, 'service_charge_monthly' => 275, 'next_escalation_date' => '2028-09-10'])->saveQuietly();
+        expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toEndWith('550@2027-09-10..2028-08-31 1210@2028-09-01..open');
+
+        $this->travelTo(CarbonImmutable::parse('2028-09-05'));
+        app(ChargeScheduleService::class)->retrueProjectedLadder($lease->fresh());
+
+        expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toEndWith('550@2027-09-10..2028-08-31 1210@2028-09-01..open')
+            ->and(LeaseLadder::rungsByDay($lease, 'service_charge'))->toEndWith('138@2027-09-10..2028-08-31 303@2028-09-01..open');
+
+        $this->travelTo(CarbonImmutable::parse('2028-09-10'));
+        app(RentEscalationService::class)->runForToday();
+
+        expect((float) $lease->fresh()->base_rent_monthly)->toBe(1210.0)
+            ->and((float) $lease->fresh()->service_charge_monthly)->toBe(302.5)
+            ->and(LeaseLadder::rungsByDay($lease, 'base_rent'))->toEndWith('550@2027-09-10..2028-08-31 1210@2028-09-01..open')
+            ->and(LeaseLadder::rungsByDay($lease, 'service_charge'))->toEndWith('138@2027-09-10..2028-08-31 303@2028-09-01..open');
     });
 });
 

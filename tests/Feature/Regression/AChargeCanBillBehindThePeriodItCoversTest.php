@@ -145,8 +145,11 @@ it('prorates an arrears line against the month it COVERS, not the month it is bi
     $plan = planInvoiceFor($lease->fresh(), '2026-09-01');
     $line = collect($plan['items'])->first();
 
-    // 15–31 August is 17 of 31 days. 31,000 × 17/31 = 17,000 exactly.
-    expect($line['description'])->toContain('August 2026')
+    // 15–31 August is 17 of 31 days. 31,000 × 17/31 = 17,000 exactly — and the line names those
+    // days (a prorated line names its window since 2026-09-13), still saying it is in arrears.
+    expect($line['description'])->toContain('15 Aug 2026 – 31 Aug 2026')
+        ->and($line['description'])->toContain('(in arrears)')
+        ->and($line['description_key'])->toBe('billing.period_arrears_prorated_days')
         ->and((float) $line['amount'])->toBe(17000.0);
 });
 

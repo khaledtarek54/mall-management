@@ -212,8 +212,10 @@ it('pro-rates the first partial month when prorate is requested', function () {
         ->and($invoice->due_date->toDateString())->toBe('2026-03-22')
         ->and($invoice->period_end->toDateString())->toBe('2026-03-31');
 
-    // The line label flags the proration percentage (round(0.5484*100) = 55%).
-    expect($invoice->items()->first()->description)->toBe('Base Rent - March 2026 (55% pro-rated)');
+    // The line names the days it covers and the share (round(0.5484*100) = 55%) — the prose
+    // floor here, the reader's own language through `narrative()` (2026-09-13).
+    expect($invoice->items()->first()->description)->toBe('Base Rent - 15 Mar 2026 – 31 Mar 2026 (55% pro-rated)')
+        ->and($invoice->items()->first()->narrative('en'))->toBe('Base Rent - Mar 15, 2026 – Mar 31, 2026 (55% pro-rated)');
 });
 
 it('pro-rates VAT on the reduced base for a taxed charge', function () {

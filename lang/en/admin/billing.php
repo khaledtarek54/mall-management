@@ -13,6 +13,8 @@ return [
         'period_arrears' => ':name - :period (in arrears)',
         'period_prorated' => ':name - :period (:pct% pro-rated)',
         'period_arrears_prorated' => ':name - :period (in arrears) (:pct% pro-rated)',
+        'period_prorated_days' => ':name - :from – :to (:pct% pro-rated)',
+        'period_arrears_prorated_days' => ':name - :from – :to (in arrears) (:pct% pro-rated)',
         'cycle' => ':name - :from – :to',
         'cycle_arrears' => ':name - :from – :to (in arrears)',
         'cycle_prorated' => ':name - :from – :to (:pct% pro-rated)',
