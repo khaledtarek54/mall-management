@@ -102,6 +102,21 @@ class ScanLeaseOptionWindowsCommand extends Command
      * Which moment this option is at, or null when there is nothing to say.
      *
      * Checked lapsed-first: an option whose deadline has passed is past caring about its opening.
+     * And **closing before opening, with the opening MOOT once a closing has gone** (SW-257,
+     * 2026-09-13). An option first seen already inside its closing lead — recorded late: seeded,
+     * migrated, or abstracted after the fact — got *"the deadline is near; decide"* on its first
+     * morning and, because only the event SENT is stamped, *"notice may now be served; start the
+     * conversation"* the morning after. Measured on the staging soak: Nile Gate's renewal (window
+     * 1–25 Sep, seeded 5 Sep) — closing on the 6th, opening on the 7th, in that order. There is
+     * nothing an opening alert adds after a deadline warning, and the one it would add reads as
+     * the system contradicting itself. The stamp is deliberately NOT back-filled:
+     * `opening_notified_at` stays null because no opening alert went, which is true.
+     *
+     * The edge this accepts: a window SHORTER than the lead (earliest still ahead when the closing
+     * fires) also gets no opening alert. So the closing body now carries the window's BOTH dates —
+     * the review found it named only the deadline, which would have left a reader who served
+     * notice early refused by `ExerciseLeaseOptionService` with nothing the system said to explain
+     * why. A re-dated option does not clear its stamps (SW-258) — that is the same population.
      *
      * @return 'opening'|'closing'|'lapsed'|null
      */
@@ -116,8 +131,9 @@ class ScanLeaseOptionWindowsCommand extends Command
             return 'closing';
         }
 
-        // Opening: within the lead time of the earliest date, or already open and never announced.
-        if ($option->opening_notified_at === null && $option->earliest_notice_date) {
+        // Opening: within the lead time of the earliest date, or already open and never announced —
+        // and never AFTER a closing has been announced (see above).
+        if ($option->opening_notified_at === null && $option->closing_notified_at === null && $option->earliest_notice_date) {
             $earliest = CarbonImmutable::instance($option->earliest_notice_date)->startOfDay();
             if ($today->diffInDays($earliest, false) <= $lead) {
                 return 'opening';

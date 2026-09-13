@@ -267,13 +267,20 @@ round changed the reading.
   percentage-rent lease the operator EXCUSED from filing is still chased on the 10th and still
   estimated on the 17th, and the lease list's "owing" filter shows a different set from the two
   commands.
-- **SW-257** — **OPEN (found on the soak, 2026-09-12).** `leases:scan-option-windows` announces
-  *closing* (within the lead of `latest_notice_date`) before it checks *opening*, and stamps only the
-  event it sent — so an option already inside its closing lead when first seen (NG's renewal: earliest
-  1 Sep, latest 25 Sep, seeded 5 Sep) got *"the deadline is near; decide"* on the 6th and *"notice may
-  now be served; start the conversation"* on the 7th, in that order. XS: once `closing_notified_at`
-  is set, an opening is moot — stamp `opening_notified_at` alongside it, or skip the opening branch
-  when a closing has gone. One line in `eventFor()` + a tooth.
+- ~~**SW-257**~~ — **FIXED 2026-09-13.** `leases:scan-option-windows` never announces an opening after
+  a closing: the opening branch of `eventFor()` also requires `closing_notified_at === null`, so an
+  option recorded late (seeded, migrated, abstracted after the fact) that is already inside its
+  closing lead gets *"decide"* alone — not *"decide"* one morning and *"you may now start the
+  conversation"* the next (measured: NG's renewal, closing 6 Sep, opening 7 Sep). The review found
+  the closing body named only the deadline, so the ONLY alert such an option ever gets now carries
+  the whole window (`:earliest → :deadline`, EN + AR). `opening_notified_at` is not back-filled.
+  `LeaseOptionWindowTest` (two cases, two mutations). Account: [modules/04 § options](../modules/04-leases.md).
+- **SW-258** — **OPEN (found by the review of SW-257).** Re-dating a lease option clears none of its
+  three `*_notified_at` stamps — no writer touches them but the scan — although the notification's
+  own docblock (*"a re-dated option is visibly a NEW alert"*) presupposes a re-alert. An option
+  whose window is extended after its closing went is silent until it lapses; after SW-257 the same
+  is true of its opening. XS: a `saving` hook on `LeaseOption` clearing the stamps when either
+  bound moves, plus a tooth per stamp.
 - ~~**SW-256**~~ — **FIXED 2026-09-12 (found on the soak by reading the overdue set at 06:00).** Three
   NG invoices due THAT DAY read `overdue` on the register, the portal and the mobile app while the
   ageing report filed them under *Current*. `due_date` is a DATE cast (midnight), so `< now()` and

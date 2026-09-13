@@ -675,7 +675,7 @@ return [
         'lease_option_closing_title' => 'اقتراب الموعد النهائي — :type',
         'cheque_coverage_ending_title' => 'قرب نفاد الشيكات الآجلة',
         'cheque_coverage_ending_body' => 'لدى :tenant (:unit، عقد :lease) شيكات مودعة حتى :covered_to فقط، بينما يستمر العقد :months شهرًا إضافية. اطلب الدفعة التالية قبل تحصيل آخر شيك.',
-        'lease_option_closing_body' => 'يجب استخدام :type للمستأجر :tenant (:lease، وحدة :unit) قبل :deadline — تبقّى :days يومًا. بعد ذلك يسقط الحق.',
+        'lease_option_closing_body' => 'يجب استخدام :type للمستأجر :tenant (:lease، وحدة :unit) قبل :deadline — تبقّى :days يومًا (النافذة من :earliest إلى :deadline). بعد ذلك يسقط الحق.',
         'lease_option_lapsed_title' => 'سقوط :type',
         'lease_option_lapsed_body' => 'أُغلقت نافذة الإخطار الخاصة بـ :type على :lease (:tenant، وحدة :unit) في :deadline دون تقديم إخطار. تم تسجيله كساقط.',
         'reservation_lapsed_title' => 'انتهى حجز الوحدة :unit',

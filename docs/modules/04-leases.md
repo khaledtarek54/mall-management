@@ -2268,6 +2268,7 @@ which is why the seam sits where it does.
 | **Security deposit is non-binding for invoicing.** It is a field on Lease, NOT automatically deducted from tenant balances; operators issue credit notes if collected. | Manually tracked in notes; `security_deposit_received` flag aids reporting. | Domain rule; design choice for audit clarity. |
 | **A lease cannot end before it starts.** `expiry_date >= commencement_date`, on every writer. EQUAL is allowed — a deal that collapses at handover terminates on its commencement date. | `Lease::saving` guards **both** columns (fixing only expiry leaves the same broken state reachable by moving commencement forward). The lease form keeps the stricter `->after()` for NEW leases, where a zero-day term is nonsense; the terminate action carries a matching `minDate`. | `LeaseExpiryNeverPrecedesCommencementTest` |
 | **A security deposit cannot be negative.** It is the CONTRACTUAL figure only — the money that moves comes from `deposit_transactions` — so this protects the move-out statement, not a payment. Refused rather than clamped, so a typo is reported rather than hidden. | `Lease::saving`. | `LeaseDepositNonNegativeTest` |
+| **An option's alerts are ordered — opening, closing, lapsed — and a later moment silences an earlier one.** Once `closing_notified_at` is set the opening branch of `leases:scan-option-windows` never fires; an option first seen inside its closing lead gets the closing alone, and that closing names both dates of the window. (`LeaseOptionWindowTest` — SW-257.) |
 | **An option's notice window must be a window.** `latest_notice_date >= earliest_notice_date` (a null bound is unbounded; a one-day window is a real contract term). An inverted pair is simultaneously never-open and already-closed, so `leases:scan-option-windows` announces the option lapsed having never announced it open. | `LeaseOption::saving` — the model had no `booted()` at all until 2026-08-11; the rule was one `->afterOrEqual()` on the relation manager. | `LeaseOptionWindowTest` |
 | **Percentage-rent bands stay inside their bounds.** Breakpoint ≥ 0; rate within 0–100%. A negative rate raises a "charge" that is really a credit, through the same immediate-invoice path as a real overage. | `LeasePercentageRentTier::assertNoOverlap()` (which also carries the overlap + inversion rules). | `PercentageRentTiersAndDeductionsTest` |
 
@@ -3032,10 +3033,20 @@ feels like coverage.
 |---|---|
 | [`LeaseOption`](../../app/Models/LeaseOption.php) | renewal · termination · expansion · contraction · ROFR · ROFO · purchase, each with **both ends** of its notice window, the rent basis it would produce, a termination penalty, and the unit it encumbers |
 | [`LeaseOptionsRelationManager`](../../app/Filament/Admin/RelationManagers/LeaseOptionsRelationManager.php) | the panel on the lease, sorted **soonest deadline first**, with a live days-left badge and Exercise / Waive actions |
-| `leases:scan-option-windows` (daily 06:45) | alerts **before the window opens**, **before it closes**, and records a missed one as **lapsed** |
+| `leases:scan-option-windows` (daily 06:45) | alerts **before the window opens**, **before it closes**, and records a missed one as **lapsed** — and never announces an opening AFTER a closing (SW-257) |
 
 **Three moments, not one**, because each needs a different action: *opening* → start the
 conversation; *closing* → decide; *lapsed* → stop planning around a right that is gone.
+**And they are ordered: an opening is never announced after a closing (SW-257, 2026-09-13).** An
+option recorded late — seeded, migrated, or abstracted after the fact — that is already inside its
+closing lead when first seen gets the closing alone; before this it got *"decide"* one morning and
+*"you may now start the conversation"* the next (measured on the staging soak: Nile Gate's renewal,
+window 1–25 Sep, seeded 5 Sep — closing on the 6th, opening on the 7th). The closing body now names
+the whole window (`:earliest → :deadline`), because for such an option it is the only alert that
+ever goes, and a reader who served notice before the window opened would otherwise be refused with
+nothing the system said to explain why. `opening_notified_at` is deliberately left null on those:
+no opening alert went. Still open (SW-258): re-dating an option does not clear its stamps, so an
+extended window re-alerts nothing until it lapses.
 
 ### Rules worth knowing before you change this
 

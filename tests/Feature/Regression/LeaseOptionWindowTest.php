@@ -5,6 +5,7 @@ use App\Models\LeaseOption;
 use App\Notifications\LeaseOptionWindowNotification;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -80,6 +81,63 @@ it('warns again as the deadline closes in', function () {
         fn ($n) => $n->event === 'closing');
 
     expect($option->fresh()->closing_notified_at)->not->toBeNull();
+});
+
+it('does not tell the team to START after it has told them to DECIDE (SW-257)', function () {
+    // An option first seen already inside its closing lead: a seeded or migrated lease, exactly the
+    // staging soak's renewal (window 1–25 Sep, seeded 5 Sep). Day one says "decide"…
+    CarbonImmutable::setTestNow('2026-09-06');
+    $option = optionOn(optionLease(['commencement_date' => '2025-09-15', 'expiry_date' => '2026-12-31']), [
+        'earliest_notice_date' => '2026-09-01',
+        'latest_notice_date' => '2026-09-25',
+    ]);
+
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+
+    Notification::assertSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'closing' && $n->option->is($option));
+    expect($option->fresh()->closing_notified_at)->not->toBeNull();
+
+    // …and day two must NOT follow it with "you may now start the conversation". Before SW-257 it
+    // did, because only the event sent was stamped and the opening branch never asked whether a
+    // closing had gone.
+    CarbonImmutable::setTestNow('2026-09-07');
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+
+    Notification::assertNotSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'opening');
+    Notification::assertSentTimes(LeaseOptionWindowNotification::class, 1);
+
+    // The stamp is not back-filled: no opening alert went, and the row says so.
+    expect($option->fresh()->opening_notified_at)->toBeNull();
+
+    // The only alert this option ever gets must therefore name the WHOLE window, not just the
+    // deadline — the review found the closing body said "by :deadline" alone, so a reader who
+    // served notice before the window opened would be refused with nothing to explain why.
+    foreach (['en', 'ar'] as $locale) {
+        App::setLocale($locale);
+        $body = (new LeaseOptionWindowNotification($option->fresh(), 'closing'))->toDatabase($this->manager)['body'];
+        expect($body)->toContain('2026-09-01')->toContain('2026-09-25');
+    }
+    App::setLocale('en');
+});
+
+it('still announces the opening first on an option seen in good time — the control for SW-257', function () {
+    // Seen twenty days before the window opens: opening now, closing later, in that order.
+    CarbonImmutable::setTestNow('2029-12-12');
+    $option = optionOn(optionLease());
+
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    Notification::assertSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'opening' && $n->option->is($option));
+
+    CarbonImmutable::setTestNow('2030-03-20'); // inside the closing lead
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    Notification::assertSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'closing' && $n->option->is($option));
+
+    expect($option->fresh()->opening_notified_at)->not->toBeNull()
+        ->and($option->fresh()->closing_notified_at)->not->toBeNull();
 });
 
 it('records a missed window as lapsed instead of leaving it open forever', function () {
