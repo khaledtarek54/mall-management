@@ -1230,12 +1230,20 @@
 >   shipped — 96,300 from 1 September, anniversary the 15th) covers the eve of that anniversary
 >   and IS its step; the walk and the sweep adopt it rather than stepping it again (measured:
 >   103,041 otherwise). A relief's resumption rung has the same face and is told apart by the
->   relief row before it; the one corner left — a legacy ladder whose relief ended on the eve of
->   the anniversary month, re-trued inside that window — is stated in the predicate's docblock.
+>   relief row before it AND the lease's column: a legacy ladder whose relief SPANNED an
+>   anniversary had the next step written onto its resumption, one step ahead of what the sweep
+>   applied, where a real resumption carries only the steps the window covered — the corner an
+>   earlier note here left open, closed on the same day.
 >   The repair reads every lease OPEN to a commercial act, not `active` alone — the box's
->   pending lease kept its snapped rungs through the first run.
->   (`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-two mutations
->   each killing their own tooth.)
+>   pending lease kept its snapped rungs through the first run. **And a prorated line names its
+>   DAYS**: two rent lines for one September are told apart by the days each covers, so
+>   `billing.period_prorated_days` / `_arrears_prorated_days` carry the line's own window as short
+>   dates in the reader's language (the cycle-prorated keys, reachable for the first time the day
+>   a step could land inside a quarter, name days too), the two month-only keys they replace stay
+>   catalogued as `LineNarrative::LEGACY` for the rows already stored under them, and the writer
+>   gate exempts a legacy key and fails on one that is written again or dropped.
+>   (`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — seventeen cases, twenty-seven
+>   mutations each killing their own tooth.)
 > - **Billing a past month now bills what was in force THEN**, not today's amount. That is a
 >   behaviour change, and it is the point.
 > - `Lease::base_rent_monthly` still tracks the rent in force; nothing downstream moved.
@@ -2269,6 +2277,7 @@ which is why the seam sits where it does.
 | **A lease cannot end before it starts.** `expiry_date >= commencement_date`, on every writer. EQUAL is allowed — a deal that collapses at handover terminates on its commencement date. | `Lease::saving` guards **both** columns (fixing only expiry leaves the same broken state reachable by moving commencement forward). The lease form keeps the stricter `->after()` for NEW leases, where a zero-day term is nonsense; the terminate action carries a matching `minDate`. | `LeaseExpiryNeverPrecedesCommencementTest` |
 | **A security deposit cannot be negative.** It is the CONTRACTUAL figure only — the money that moves comes from `deposit_transactions` — so this protects the move-out statement, not a payment. Refused rather than clamped, so a typo is reported rather than hidden. | `Lease::saving`. | `LeaseDepositNonNegativeTest` |
 | **An option's alerts are ordered — opening, closing, lapsed — and a later moment silences an earlier one.** Once `closing_notified_at` is set the opening branch of `leases:scan-option-windows` never fires; an option first seen inside its closing lead gets the closing alone, and that closing names both dates of the window. (`LeaseOptionWindowTest` — SW-257.) |
+| **An option's alert stamps belong to the dates they were about.** Move the start and the opening (and any closing already sent) is void; move the deadline and the closing and the lapse are; reopen a resolved option and the lapse and `resolved_at` are. The status is never moved by the hook. (`LeaseOptionWindowTest` — SW-258, seven mutations.) |
 | **An option's notice window must be a window.** `latest_notice_date >= earliest_notice_date` (a null bound is unbounded; a one-day window is a real contract term). An inverted pair is simultaneously never-open and already-closed, so `leases:scan-option-windows` announces the option lapsed having never announced it open. | `LeaseOption::saving` — the model had no `booted()` at all until 2026-08-11; the rule was one `->afterOrEqual()` on the relation manager. | `LeaseOptionWindowTest` |
 | **Percentage-rent bands stay inside their bounds.** Breakpoint ≥ 0; rate within 0–100%. A negative rate raises a "charge" that is really a credit, through the same immediate-invoice path as a real overage. | `LeasePercentageRentTier::assertNoOverlap()` (which also carries the overlap + inversion rules). | `PercentageRentTiersAndDeductionsTest` |
 
@@ -3045,8 +3054,18 @@ window 1–25 Sep, seeded 5 Sep — closing on the 6th, opening on the 7th). The
 the whole window (`:earliest → :deadline`), because for such an option it is the only alert that
 ever goes, and a reader who served notice before the window opened would otherwise be refused with
 nothing the system said to explain why. `opening_notified_at` is deliberately left null on those:
-no opening alert went. Still open (SW-258): re-dating an option does not clear its stamps, so an
-extended window re-alerts nothing until it lapses.
+no opening alert went. **And a re-dated option is announced again (SW-258, 2026-09-13)**: each
+stamp goes with the bound its alert was about — `LeaseOption::updating` clears the opening's when
+the start moves, the closing's and the lapse's when the deadline moves, and the closing's on a
+moved start too, because SW-257 never sends an opening after a closing and the closing is then the
+only alert that can carry the corrected window. Reopening a resolved option (`status` back to
+`open`) forgets its lapse and its `resolved_at`, so a window still closed is lapsed again and said
+so; the status itself is never moved by the hook — correcting the recorded deadline on an option
+that genuinely lapsed must not make it live and encumbering again. Not forward-only like the
+lease's expiry reminder (SW-048): these alerts reach the leasing team, never a tenant, so a
+deadline brought forward re-firing "decide" sooner is the wanted answer. A caller stating a stamp
+in the same save has ruled on it. `ProjectedState` records why `lease_options.status` is still
+NOT a projection: one direction is the calendar's (open → lapsed), three are a person's.
 
 ### Rules worth knowing before you change this
 

@@ -116,7 +116,8 @@ class ScanLeaseOptionWindowsCommand extends Command
      * fires) also gets no opening alert. So the closing body now carries the window's BOTH dates —
      * the review found it named only the deadline, which would have left a reader who served
      * notice early refused by `ExerciseLeaseOptionService` with nothing the system said to explain
-     * why. A re-dated option does not clear its stamps (SW-258) — that is the same population.
+     * why. A re-dated option clears the stamps its alerts were about (`LeaseOption::updating`,
+     * SW-258), so a moved window is announced again — through the closing where one has gone.
      *
      * @return 'opening'|'closing'|'lapsed'|null
      */

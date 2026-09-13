@@ -174,9 +174,11 @@ final class ProjectedState
             '`facility:scan-open-permits` reports it hourly and writes nothing; `WorkPermit::hasLapsed()` '.
             'derives it for the badge and the filter.',
 
-        'lease_options.status' => 'A lapsed option is REPORTED by `leases:scan-option-windows` and '.
-            'resolved by a person. Auto-lapsing a contractual right on a date would resolve a '.
-            'negotiation the system is not party to.',
+        'lease_options.status' => 'ONE direction is the calendar\'s and three are a person\'s: '.
+            '`leases:scan-option-windows` moves an OPEN option to `lapsed` once its notice window '.
+            'has closed (and reopening it is an act that forgets that lapse — SW-258), while '.
+            '`exercised` and `waived` are decisions the system is not party to and nothing '.
+            'ever un-resolves. A one-way sweep on one value is not a projection of today.',
     ];
 
     /**

@@ -140,6 +140,152 @@ it('still announces the opening first on an option seen in good time — the con
         ->and($option->fresh()->closing_notified_at)->not->toBeNull();
 });
 
+it('re-arms the deadline alert when the deadline is extended (SW-258)', function () {
+    // "The deadline is near" went out about 1 April. Then the landlord grants an extension to
+    // 1 June. Nothing cleared the stamp, so the option was silent until it lapsed in June.
+    CarbonImmutable::setTestNow('2030-03-20');
+    $option = optionOn(optionLease(), ['opening_notified_at' => now()->subMonths(3)]);
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    expect($option->fresh()->closing_notified_at)->not->toBeNull();
+
+    $option->fresh()->update(['latest_notice_date' => '2030-06-01']);
+    expect($option->fresh()->closing_notified_at)->toBeNull();
+
+    // Inside the lead of the NEW deadline the closing is announced again — about the new date.
+    CarbonImmutable::setTestNow('2030-05-10');
+    Notification::fake();
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    Notification::assertSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'closing' && $n->option->is($option)
+            && str_contains($n->toDatabase($this->manager)['body'], '2030-06-01'));
+});
+
+it('re-arms the opening alert when the window\'s start is moved (SW-258)', function () {
+    CarbonImmutable::setTestNow('2029-12-12');
+    $option = optionOn(optionLease());
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    expect($option->fresh()->opening_notified_at)->not->toBeNull();
+
+    // The window's start moves a month later; the announcement made was about the wrong date.
+    $option->fresh()->update(['earliest_notice_date' => '2030-02-01']);
+    expect($option->fresh()->opening_notified_at)->toBeNull();
+
+    CarbonImmutable::setTestNow('2030-01-10');
+    Notification::fake();
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    Notification::assertSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'opening' && $n->option->is($option)
+            && str_contains($n->toDatabase($this->manager)['body'], '2030-02-01'));
+});
+
+it('re-announces the corrected window through the CLOSING when the start moves after the closing went (SW-258)', function () {
+    // SW-257 never sends an opening after a closing — rightly — so the closing is the only alert
+    // that can carry a corrected start. Leave it stamped and the last thing the system said about
+    // the window is wrong, with nothing to follow it: a colleague serving notice on the old start
+    // is refused, and the alert in their inbox says otherwise.
+    CarbonImmutable::setTestNow('2030-03-20');
+    $option = optionOn(optionLease(), ['opening_notified_at' => now()->subMonths(3)]);
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    expect($option->fresh()->closing_notified_at)->not->toBeNull();
+
+    $option->fresh()->update(['earliest_notice_date' => '2030-03-25']);
+    expect($option->fresh()->closing_notified_at)->toBeNull();
+
+    CarbonImmutable::setTestNow('2030-03-21');
+    Notification::fake();
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    Notification::assertSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'closing' && $n->option->is($option)
+            && str_contains($n->toDatabase($this->manager)['body'], '2030-03-25'));
+    Notification::assertNotSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'opening');
+});
+
+it('lets a caller that states a stamp in the same save rule on it — the idiom the lease\'s reminder uses', function () {
+    // No door does this today; the guard keeps a future fixture or console act from being silently
+    // overridden, exactly as `Lease::updating` (SW-048) reads a stamp stated beside the date.
+    CarbonImmutable::setTestNow('2030-03-20');
+    $option = optionOn(optionLease(), ['opening_notified_at' => now()->subMonths(3)]);
+
+    $option->forceFill(['latest_notice_date' => '2030-06-01', 'closing_notified_at' => now()])->save();
+
+    expect($option->fresh()->closing_notified_at)->not->toBeNull()
+        ->and($option->fresh()->lapsed_notified_at)->toBeNull();
+});
+
+it('keeps every stamp on a save that moves no date — the control for SW-258', function () {
+    // The scan's own stamp write, an edit to the notes, a rent-basis correction: none of them is
+    // a re-dating, and a hook that cleared on every save would make the scan re-alert daily.
+    CarbonImmutable::setTestNow('2030-03-20');
+    $option = optionOn(optionLease(), ['opening_notified_at' => now()->subMonths(3)]);
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    $stamped = $option->fresh();
+    expect($stamped->closing_notified_at)->not->toBeNull();
+
+    // As the Edit modal does: both DatePickers resubmit their unchanged 'Y-m-d' beside the edit.
+    $stamped->update([
+        'earliest_notice_date' => '2030-01-01', 'latest_notice_date' => '2030-04-01',
+        'notes' => 'Tenant called; deciding next week.', 'uplift_percent' => 12,
+    ]);
+
+    $again = $option->fresh();
+    expect($again->opening_notified_at)->not->toBeNull()
+        ->and($again->closing_notified_at)->not->toBeNull();
+
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    Notification::assertSentTimes(LeaseOptionWindowNotification::class, 1);
+});
+
+it('forgets the lapse when a lapsed option is REOPENED — with its dates untouched (SW-258)', function () {
+    // Reopening is the operator's act (the status is a field on the tab). Its window is still
+    // closed, so the honest answer is to lapse it AGAIN and say so — not to leave it open in
+    // silence because the lapse was "already announced". Dates untouched, deliberately: the
+    // first cut of this case also moved the deadline, and the date rule cleared the stamp before
+    // the status rule was ever asked — mutation showed the status rule could be deleted.
+    CarbonImmutable::setTestNow('2030-05-01');
+    $option = optionOn(optionLease(), [
+        'opening_notified_at' => now()->subMonths(5),
+        'closing_notified_at' => now()->subMonths(2),
+    ]);
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    expect($option->fresh()->status)->toBe('lapsed')
+        ->and($option->fresh()->lapsed_notified_at)->not->toBeNull();
+
+    $option->fresh()->update(['status' => 'open']);
+    expect($option->fresh()->lapsed_notified_at)->toBeNull()
+        // …and its resolution date, or the audit trail shows an OPEN option carrying one.
+        ->and($option->fresh()->resolved_at)->toBeNull();
+
+    Notification::fake();
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    expect($option->fresh()->status)->toBe('lapsed');
+    Notification::assertSentTo($this->manager, LeaseOptionWindowNotification::class,
+        fn ($n) => $n->event === 'lapsed' && $n->option->is($option));
+});
+
+it('never reopens a lapsed option itself when its recorded deadline is corrected (SW-258)', function () {
+    // An operator fixing the recorded date on an option that genuinely lapsed must not find it
+    // live — and encumbering a unit — again. The stamp goes (the lapse was about the old date);
+    // the status stays theirs.
+    CarbonImmutable::setTestNow('2030-05-01');
+    $option = optionOn(optionLease(), [
+        'opening_notified_at' => now()->subMonths(5),
+        'closing_notified_at' => now()->subMonths(2),
+    ]);
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+
+    $option->fresh()->update(['latest_notice_date' => '2030-04-15']);
+
+    expect($option->fresh()->status)->toBe('lapsed')
+        ->and($option->fresh()->lapsed_notified_at)->toBeNull();
+
+    // The status assertion is the tooth; a lapsed option is never a candidate (`status = open`),
+    // so this last line only pins that nothing re-enters the scan through the back door.
+    Notification::fake();
+    $this->artisan('leases:scan-option-windows')->assertSuccessful();
+    Notification::assertNothingSent();
+});
+
 it('records a missed window as lapsed instead of leaving it open forever', function () {
     CarbonImmutable::setTestNow('2030-05-01'); // a month past the deadline
     $option = optionOn(optionLease(), [

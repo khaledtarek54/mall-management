@@ -96,6 +96,60 @@ class LeaseOption extends Model
                 ]));
             }
         });
+
+        // ── An alert stamp records an alert about a DATE; move the date and the alert is void ──
+        // `leases:scan-option-windows` sends each of its three alerts once and stamps it. Nothing
+        // ever cleared a stamp — no writer touched them but the scan — so an option whose window
+        // was EXTENDED after "the deadline is near" had gone was silent until it lapsed, and one
+        // whose opening was moved after "notice may now be served" had gone announced nothing about
+        // the new date (SW-258, found by the review of SW-257). The notification's own docblock
+        // presupposed a re-alert (*"a re-dated option is visibly a NEW alert"*). Critical-date
+        // reminders in the reference systems are computed from the CURRENT date each run, so a
+        // changed date is a changed reminder — this is that rule for a scan that remembers.
+        //
+        // Each stamp goes with the bound its alert was about: the opening with the earliest date,
+        // the closing and the lapse with the latest. **A moved START also voids a closing already
+        // sent**: SW-257 rightly never announces an opening after a closing, so the closing is the
+        // only alert that can carry the corrected window — leaving it stamped would make the last
+        // thing the system said about the window wrong, with nothing to follow it. Re-opening a
+        // resolved option (`status` back to `open`) forgets its lapse AND its resolution date, so a
+        // window still closed is lapsed AGAIN — the operator reopened something already over, and
+        // the system says so once more rather than staying quiet. The STATUS is never moved here:
+        // an operator correcting the recorded deadline on an option that genuinely lapsed must
+        // not find it live and encumbering a unit again.
+        //
+        // Not forward-only, unlike the lease's expiry reminder (SW-048): these alerts go to the
+        // leasing team, never outbound to a tenant, so a deadline brought FORWARD re-firing
+        // "decide" sooner is the wanted answer. A caller that states a stamp in the same save has
+        // ruled on it itself, exactly as that hook reads it.
+        //
+        // On the MODEL, for the reason the window rule above is: the tab is one door, and a stamp
+        // cleared only there is not cleared for an import, a console act or a second screen.
+        static::updating(function (self $option): void {
+            $clear = function (string $stamp) use ($option): void {
+                if (! $option->isDirty($stamp)) {
+                    $option->{$stamp} = null;
+                }
+            };
+
+            if ($option->isDirty('earliest_notice_date')) {
+                $clear('opening_notified_at');
+                $clear('closing_notified_at');
+            }
+
+            if ($option->isDirty('latest_notice_date')) {
+                $clear('closing_notified_at');
+                $clear('lapsed_notified_at');
+            }
+
+            if ($option->isDirty('status') && $option->status === 'open') {
+                $clear('lapsed_notified_at');
+
+                if (! $option->isDirty('resolved_at')) {
+                    $option->resolved_at = null;
+                }
+            }
+        });
     }
 
     public function getActivitylogOptions(): LogOptions
