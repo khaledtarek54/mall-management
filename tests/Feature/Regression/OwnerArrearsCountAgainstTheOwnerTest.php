@@ -39,9 +39,14 @@ beforeEach(function () {
 
     app(BillUnitOwnershipsService::class)->runForPeriod(CarbonImmutable::parse('2026-01-01'));
 
-    // Overdue: issued in January with zero payment terms, read from today.
+    // A catch-up run dates DUE from `max(issue, today) + terms` by design, so with zero terms the
+    // assessment falls due TODAY — and since SW-256 (2026-09-12) a document is late the day AFTER
+    // its due date, never on it. Read from tomorrow, which is what "overdue" means.
     $this->invoice = Invoice::query()->where('unit_ownership_id', $ownership->id)->firstOrFail();
+    $this->travelTo(CarbonImmutable::instance($this->invoice->due_date)->addDay());
 });
+
+afterEach(fn () => CarbonImmutable::setTestNow());
 
 it('counts an owner assessment in the outstanding balance for that property', function () {
     // Unscoped has always been right — it is the SCOPED answer that silently dropped him.

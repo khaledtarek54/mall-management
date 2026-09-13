@@ -146,9 +146,11 @@ it('never edits a row in place — every write goes through the schedule service
         ->all();
 
     expect($names($table->getHeaderActions()))->toBe(['changeRent', 'grantRelief', 'addCharge'])
-        // The half that carries the invariant: one row action, and it ENDS a row rather than
-        // rewriting it. An `edit` or `delete` appearing here is the regression.
-        ->and($names($table->getActions()))->toBe(['endCharge']);
+        // The half that carries the invariant: the row actions END a row or RULE on it (the
+        // annual-increase rule, 2026-09-12 — `ChargeScheduleService::setEscalation()` writes
+        // every live rung of the type and re-walks its ladder), and neither rewrites an amount.
+        // An `edit` or `delete` appearing here is the regression.
+        ->and($names($table->getActions()))->toBe(['setEscalation', 'endCharge']);
 });
 
 it('warns when a contracted escalation is due but has never been scheduled', function () {

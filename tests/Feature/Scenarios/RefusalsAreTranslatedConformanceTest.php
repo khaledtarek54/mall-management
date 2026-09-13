@@ -40,6 +40,11 @@ final class RefusalTranslationExemptions
             .'sentence is deliberately the same one on both. Wrapping it in a second `__()` would '
             .'translate nothing; re-deriving the tokens here would be a second wording free to drift '
             .'from the four read-only screens that render the plan.',
+        'app/Models/Unit.php' => 'Throws `Unit::netAreaRefusal()`, which builds the sentence with __() '
+            .'(admin.refusals.unit_net_area_exceeds_gross) and is the ONE wording the model, the '
+            .'Remeasure modal and the unit importer all raise (meeting 2026-09-02 point 20) — the '
+            .'importer needs it as a `RowImportFailedException`, so the sentence lives in a helper '
+            .'and the throw here cannot carry `__()` in its own argument list without a second copy.',
     ];
 }
 
