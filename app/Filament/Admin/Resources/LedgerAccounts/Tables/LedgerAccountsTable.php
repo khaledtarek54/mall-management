@@ -3,11 +3,15 @@
 namespace App\Filament\Admin\Resources\LedgerAccounts\Tables;
 
 use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
+use App\Filament\Exports\LedgerAccountExporter;
 use App\Support\CashFlowSection;
+use App\Support\Exports;
 use App\Support\StatementSection;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -125,6 +129,19 @@ class LedgerAccountsTable
                     ->label(__('admin.fields.is_active')),
                 TrashedFilter::make(),
             ])
+            // The register in a spreadsheet, under the `Exports` doctrine: whoever may read the list
+            // may take it away (the export runs the list's own scoped, filtered query). The
+            // accountant's registers had none while receipts and invoices did (the reports audit,
+            // 2026-09-12).
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(LedgerAccountExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(LedgerAccountResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(LedgerAccountResource::class)),
+            ])
             ->recordActions([
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
@@ -138,6 +155,11 @@ class LedgerAccountsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(LedgerAccountExporter::class)
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(LedgerAccountResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(LedgerAccountResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => LedgerAccountResource::canDeleteAny()),
                 ]),

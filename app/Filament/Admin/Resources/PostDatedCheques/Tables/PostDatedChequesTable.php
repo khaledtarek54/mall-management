@@ -3,12 +3,17 @@
 namespace App\Filament\Admin\Resources\PostDatedCheques\Tables;
 
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
+use App\Filament\Exports\PostDatedChequeExporter;
 use App\Models\PostDatedCheque;
+use App\Support\Exports;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -68,6 +73,19 @@ class PostDatedChequesTable
                     // agree on what "matured & uncleared" means.
                     ->query(fn ($query) => $query->maturedUncleared()),
             ])
+            // The register in a spreadsheet, under the `Exports` doctrine: whoever may read the list
+            // may take it away (the export runs the list's own scoped, filtered query). The
+            // accountant's registers had none while receipts and invoices did (the reports audit,
+            // 2026-09-12).
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(PostDatedChequeExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(PostDatedChequeResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(PostDatedChequeResource::class)),
+            ])
             ->recordActions([
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
@@ -81,6 +99,15 @@ class PostDatedChequesTable
                 // record's own page, so opening the record is enough to act on it.
                 EditAction::make()->visible(fn (PostDatedCheque $r) => $r->status === PostDatedCheque::STATUS_HELD && PostDatedChequeResource::canManage()),
 
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(PostDatedChequeExporter::class)
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(PostDatedChequeResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(PostDatedChequeResource::class)),
+                ]),
             ])
             ->emptyStateIcon('heroicon-o-credit-card')
             ->emptyStateHeading(__('admin.empty.post_dated_cheques.heading'))

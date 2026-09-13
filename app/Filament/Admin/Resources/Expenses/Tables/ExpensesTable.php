@@ -4,10 +4,12 @@ namespace App\Filament\Admin\Resources\Expenses\Tables;
 
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
+use App\Filament\Exports\ExpenseExporter;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use App\Support\BadgeColors;
+use App\Support\Exports;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\DateRangeFilter;
@@ -15,6 +17,8 @@ use App\Support\Filament\TableGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -110,6 +114,19 @@ class ExpensesTable
             ->groups([
                 TableGroup::byColumn($table, 'category'),
             ])
+            // The register in a spreadsheet, under the `Exports` doctrine: whoever may read the list
+            // may take it away (the export runs the list's own scoped, filtered query). The
+            // accountant's registers had none while receipts and invoices did (the reports audit,
+            // 2026-09-12).
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(ExpenseExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(ExpenseResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(ExpenseResource::class)),
+            ])
             ->recordActions([
                 LedgerEntryAction::make(),
                 // Read the record without opening its edit form — less
@@ -124,6 +141,11 @@ class ExpensesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(ExpenseExporter::class)
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(ExpenseResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(ExpenseResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => ExpenseResource::canDeleteAny()),
                 ]),

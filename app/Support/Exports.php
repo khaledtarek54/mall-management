@@ -20,7 +20,9 @@ use Illuminate\Support\Facades\Auth;
  *
  * ## What was actually wrong, and it was not authorization
  *
- * Thirteen export actions across seven tables carried no gate at all. That reads as a data-egress
+ * Thirteen export actions across seven tables carried no gate at all when this was written
+ * (2026-08-22; twenty-nine across fifteen since the accountant's six registers joined on
+ * 2026-09-12 — every one of them through this method). That reads as a data-egress
  * hole and is not one: Filament exports `getTableQueryForExport()`, i.e. the resource's own scoped
  * query with the operator's filters applied, so an export can never return a row the list would not.
  *

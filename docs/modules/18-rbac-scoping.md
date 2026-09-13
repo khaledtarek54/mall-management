@@ -169,7 +169,8 @@ own. It asks the resource's own `canViewAny()` — whoever may read the list on 
 away, which is the rule `ExportsReport` already states for the report pages, and a new
 `exports.execute` key would only have to be granted back to every role.
 
-What it adds is the floor thirteen export actions across seven tables never had. Read as an
+What it adds is the floor thirteen export actions across seven tables never had (twenty-nine across
+fifteen since 2026-09-12 — the accountant's six registers joined the nine, [modules/17](17-reports.md)). Read as an
 authorization gap it is not one: Filament exports `getTableQueryForExport()`, the resource's own
 scoped query with the operator's filters applied, so an export can never return a row the list
 would not.

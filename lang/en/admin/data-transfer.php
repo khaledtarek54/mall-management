@@ -38,13 +38,19 @@ return [
         'export' => [
             'asset' => 'Your property export has completed.',
             'credit_note' => 'Your credit note export has completed.',
+            'deposit_transaction' => 'Your security deposit export has completed.',
+            'expense' => 'Your expense export has completed.',
             'invoice' => 'Your invoice export has completed.',
+            'journal_entry' => 'Your journal entries export has completed.',
             'lease' => 'Your lease export has completed.',
+            'ledger_account' => 'Your chart of accounts export has completed.',
             'payment' => 'Your payment export has completed.',
+            'post_dated_cheque' => 'Your post-dated cheque export has completed.',
             'tenant' => 'Your tenant export has completed.',
             'tenant_request' => 'Your request export has completed.',
             'unit' => 'Your unit export has completed.',
             'vendor' => 'Your vendor export has completed.',
+            'vendor_bill' => 'Your supplier bill export has completed.',
         ],
 
         'rows' => [

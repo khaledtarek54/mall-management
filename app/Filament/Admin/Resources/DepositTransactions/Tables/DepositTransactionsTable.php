@@ -3,9 +3,11 @@
 namespace App\Filament\Admin\Resources\DepositTransactions\Tables;
 
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
+use App\Filament\Exports\DepositTransactionExporter;
 use App\Models\PaymentMethod;
 use App\Models\Tenant;
 use App\Support\BadgeColors;
+use App\Support\Exports;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\DateRangeFilter;
@@ -14,6 +16,8 @@ use App\Support\Search\SearchText;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -103,6 +107,19 @@ class DepositTransactionsTable
                 TrashedFilter::make(),
                 BankAccountFilter::make(),
             ])
+            // The register in a spreadsheet, under the `Exports` doctrine: whoever may read the list
+            // may take it away (the export runs the list's own scoped, filtered query). The
+            // accountant's registers had none while receipts and invoices did (the reports audit,
+            // 2026-09-12).
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(DepositTransactionExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(DepositTransactionResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(DepositTransactionResource::class)),
+            ])
             ->recordActions([
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
@@ -116,6 +133,11 @@ class DepositTransactionsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(DepositTransactionExporter::class)
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(DepositTransactionResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(DepositTransactionResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => DepositTransactionResource::canDeleteAny()),
                 ]),

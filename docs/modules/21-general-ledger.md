@@ -716,6 +716,17 @@ Tests (`tests/Feature/`):
 **Identity is the CODE** — the same key `ChartOfAccountsSeeder` uses, so a second pass corrects
 rather than duplicates and an import over the shipped chart merges rather than twinning.
 
+**The chart exports too, and the file round-trips (2026-09-13, RP-10 b).** `LedgerAccountExporter`
+writes every column the importer requires under the importer's own label in both languages,
+classification cells as CODES, and the two flags as `1`/`0` — Filament renders a boolean FALSE as an
+EMPTY cell, and a blank read back was NULL into a NOT NULL column, so an exported chart failed 101 of
+the shipped 169 rows (every branch, every inactive leaf) with a message-less constraint error; found
+by review, by feeding an exported row back in. **A blank flag cell now KEEPS the row's value**
+(`ignoreBlankState()` on `is_postable`/`is_active`): a blank is what every spreadsheet hands back for
+"no", and the column default answers for a new row. Proved by round trip in
+`TheAccountantsRegistersExportTest` — whose first cut mapped the importer to the exporter's NAMES
+where Filament wants the CSV HEADERS, skipped every column, and held because nothing had changed.
+
 **Row order does not matter, and making that true fixed a latent bug.**
 `resolveParentIdFromCode()` looks BACKWARD for an existing parent, which is complete only when
 parents precede children — true of the seeder (sorted by code), false of a CSV. Filament streams

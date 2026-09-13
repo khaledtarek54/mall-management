@@ -4,13 +4,17 @@ namespace App\Filament\Admin\Resources\VendorBills\Tables;
 
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Filament\Exports\VendorBillExporter;
 use App\Models\ExpenseCategory;
 use App\Models\Vendor;
+use App\Support\Exports;
 use App\Support\Filament\DateRangeFilter;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -100,6 +104,19 @@ class VendorBillsTable
             ->groups([
                 Group::make('vendor.name')->label(__('admin.fields.vendor'))->collapsible(),
             ])
+            // The register in a spreadsheet, under the `Exports` doctrine: whoever may read the list
+            // may take it away (the export runs the list's own scoped, filtered query). The
+            // accountant's registers had none while receipts and invoices did (the reports audit,
+            // 2026-09-12).
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(VendorBillExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(VendorBillResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(VendorBillResource::class)),
+            ])
             ->recordActions([
                 // `postToMonth` used to sit here. A factory hides its `->action()` in its own file,
                 // so `RowActionPolicy` read this table as carrying NO write verb while it offered
@@ -118,6 +135,11 @@ class VendorBillsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(VendorBillExporter::class)
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(VendorBillResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(VendorBillResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => VendorBillResource::canDeleteAny()),
                 ]),

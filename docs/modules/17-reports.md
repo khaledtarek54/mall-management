@@ -1370,7 +1370,20 @@ lock one, so a refusal NAMING the columns that would satisfy it — in the opera
 they may have renamed them — is the honest version of "cannot be deselected".
 
 Bound in the container (`IdentifiedExportAction`, `IdentifiedExportBulkAction`), so all thirteen call
-sites across nine tables inherit it and the fourteenth is covered by existing. An exporter offering
+sites across nine tables inherit it and the fourteenth is covered by existing — **twenty-nine across
+fifteen since 2026-09-12** (seventeen across nine on the day before; the vendor and property
+registers had joined after the sentence was written), when the reports audit (RP-10 b) gave the six registers an accountant
+reconciles from their export: journal entries (one row per ENTRY — number · date · narrative resolved
+for the reader · source named as the register names it · property · total · status; the line-level
+journal is the general ledger's *every account* file), the chart of accounts (round-trips through
+`LedgerAccountImporter` — every required column under the importer's own label in both languages,
+classification cells as CODES), supplier bills (with the supplier's own reference and the due date the
+ageing runs on), expenses (rail and bank), security deposits (the schedule behind `deposits_held`) and
+post-dated cheques (drawer's bank · lodged-with bank · maturity · state). Each is an
+`Exporter` + `ExportAction`/`ExportBulkAction` under the one `Exports::allowed()` gate.
+(`TheAccountantsRegistersExportTest` — sixteen mutations; the header and bulk actions share the name
+`export`, so `assertTableBulkActionVisible('export')` resolved the HEADER one and was green with the
+bulk action deleted: the bulk door is asserted by class.) An exporter offering
 no identifying column at all is left alone: that is a question about that exporter, and refusing
 would make its file unobtainable rather than merely unusable.
 (`AnExportSaysWhichRowsItIsAboutTest`.)

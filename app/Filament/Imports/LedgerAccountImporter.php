@@ -96,14 +96,21 @@ class LedgerAccountImporter extends Importer
                 // them, and net profit is right either way.
                 ->rules(['nullable', Rule::in(StatementSection::SECTIONS)]),
 
+            // `ignoreBlankState()`: Filament fills a blank cell as NULL and both columns are NOT
+            // NULL, so a file with the flag column present and a cell empty failed the row with a
+            // message-less constraint error — the shape every spreadsheet hands back for a "no".
+            // A blank now keeps the row's own value on a re-import and the column default on a
+            // new one; a stated `0`/`1`/`yes`/`no` is still read (the exporter writes `1`/`0`).
             ImportColumn::make('is_postable')
                 ->label(__('admin.fields.is_postable'))
                 ->boolean()
+                ->ignoreBlankState()
                 ->rules(['nullable', 'boolean']),
 
             ImportColumn::make('is_active')
                 ->label(__('admin.fields.is_active'))
                 ->boolean()
+                ->ignoreBlankState()
                 ->rules(['nullable', 'boolean']),
         ];
     }
