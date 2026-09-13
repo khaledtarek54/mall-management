@@ -306,15 +306,28 @@ round changed the reading.
   lands on `due + grace + 1` — every fee one day later than before, stated (8th due, 7 days, fee on
   the 16th, which the soak calendar had predicted). `AnInvoiceDueTodayIsCurrentNotOverdueTest`
   (11 cases, 9 mutations). Account: [modules/05 § SW-256](../modules/05-billing-invoices.md).
-- **SW-255** — **OPEN (found by `atriom:doors --check-diff` on SW-254, pre-existing since 2026-08-30).**
-  `leases.requires_sales_reporting` has no door but the lease form: `LeaseImporter` and
-  `LeaseExporter` carry neither it nor `has_percentage_rent`, so a migrating operator's "must
-  report" column cannot be imported and a re-import of an export loses the ruling; the mobile
-  `Api/V1/LeaseResource` publishes `hasPercentageRent` and not the duty, which is why the app is told
-  to gate its sales screen on `canDeclareSales` (sync brief task 20). S: a column on the importer and
-  exporter (nullable, `1`/`0`/blank), and the API key only if the app wants to SHOW the clause
-  (MOBILE-API.md + spec in the same commit). Left out of SW-254 deliberately — that change was about
-  the READERS of the flag.
+- ~~**SW-255**~~ — **FIXED 2026-09-13.** `LeaseImporter`/`LeaseExporter` carry `has_percentage_rent`
+  and `requires_sales_reporting` (the duty's blank is its null, both ways; the NOT NULL clause keeps
+  on blank), under the labels a re-import maps by. **The review found the flag alone minted a
+  half-record the form refuses**, so the clause's four terms travel with it and the importer mirrors
+  the form's three rules against row + record; the second review found a mapped-but-blank term
+  column would then have written NULL over the record's terms and a blank frequency crashed on NOT
+  NULL — the term columns keep on blank. **And Filament's boolean cast made any unrecognised token
+  TRUE** («لا», `N/A`, `-`, `0.0`) on seven columns and every custom boolean field — ONE seam now,
+  `BooleanImportCellIsAnAnswer` (yes/no in both languages, Excel's `1.0`/`0.0`, the rest refused).
+  `proration_method` exported too. The mobile API is unchanged on purpose (the app gates on
+  `canDeclareSales`). `ALeasesSalesReportingDutyTravelsThroughImportAndExportTest` (13 cases, 21
+  mutations). Account: [modules/09 § SW-255](../modules/09-tenant-sales-percentage-rent.md).
+- **SW-261** — **OPEN (found by the review of SW-255).** Filament's NUMERIC import cast is the
+  boolean cast's twin: `preg_replace('/[^0-9.-]/', '')` + `floatval`, so `-`, `TBD` and `n/a` cast
+  to 0.00 and the `numeric` rule never sees the raw cell. On `percentage_rent_rate` that is an
+  overage priced at 0.00 for the term; on `base_rent_monthly` a lease that bills nothing. Same
+  fix shape as `BooleanImportCellIsAnAnswer` (hand an unparseable token back as the string so
+  `numeric` refuses it), one seam. S.
+- **SW-260** — **OPEN (recorded 2026-09-13 on SW-259).** `FieldHelpConformanceTest` budgets
+  `admin.helpers.*` and `admin.actions.*` only; `admin.lease_options.help.*` and any other
+  module-local help group are outside the 18-word sweep, which is how a 24-word helper passed. XS:
+  derive the swept groups from every `->helperText(__('…'))` call site rather than a list.
 - ~~**SW-253**~~ — **FIXED 2026-09-11 — the first option, plus a lookback.** The estimate requires `Lease::salesDeclarationRemindedAt()` (the same bell row the chase writes and reads for its idempotency — one definition now) to be ≥7 WHOLE days old; a lease with no reminder is skipped and reported to the ops log, never chased from the estimate; and the default run looks back three declarable months so a chase re-run late (August's, on 11 Sep) still ends in an estimate (17 Oct) rather than in a period nothing ever bills. Stricter than Voyager, stated in the benchmark. Every existing estimate fixture had never been chased — they run the real scan first now. `AnEstimateFollowsARecordedReminderTest`, five mutations. Was: **OPEN (found by the review of SW-252).** `sales:estimate-missing` (the 17th) estimates
   any lease `missingSalesDeclarationsFor()` returns; it never checks that the tenant was CHASED. The
   "week after the chase" is a schedule day, not a stamp — so a chase lost to any cause (a scan that

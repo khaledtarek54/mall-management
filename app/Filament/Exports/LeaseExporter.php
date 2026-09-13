@@ -46,8 +46,24 @@ class LeaseExporter extends Exporter
             ExportColumn::make('security_deposit_months')->label(__('admin.fields.security_deposit_months')),
             ExportColumn::make('security_deposit_percent')->label(__('admin.fields.security_deposit_percent')),
 
-            // The operator's own fields (D-7), LAST so the shipped column positions a
-            // colleague's import template depends on never move.
+            // The percentage-rent clause and the sales-reporting duty, under the labels the importer
+            // guesses on so a re-import maps itself (SW-255). `1`/`0`, and BLANK for a duty nobody
+            // has ruled on — that null is the normal state and must survive the round trip.
+            ExportColumn::make('has_percentage_rent')->label(__('admin.fields.has_percentage_rent'))
+                ->state(fn (Lease $record): int => $record->has_percentage_rent ? 1 : 0),
+            ExportColumn::make('requires_sales_reporting')->label(__('admin.fields.requires_sales_reporting'))
+                ->state(fn (Lease $record): ?int => $record->requires_sales_reporting === null ? null : ($record->requires_sales_reporting ? 1 : 0)),
+
+            // The clause's terms and the proration method: every column the importer takes, so a
+            // full export re-imports as the same lease and not as a half of one.
+            ExportColumn::make('percentage_rent_rate')->label(__('admin.imports.columns.percentage_rent_rate')),
+            ExportColumn::make('percentage_rent_calculation_type')->label(__('admin.imports.columns.percentage_rent_calculation_type')),
+            ExportColumn::make('percentage_rent_threshold')->label(__('admin.imports.columns.percentage_rent_threshold')),
+            ExportColumn::make('percentage_rent_frequency')->label(__('admin.imports.columns.percentage_rent_frequency')),
+            ExportColumn::make('proration_method')->label(__('admin.fields.proration_method')),
+
+            // The operator's own fields (D-7), LAST — Filament maps a re-import by LABEL, so what a
+            // colleague's template depends on is the headers, which these keep out of the way of.
             ...CustomFieldsTable::exportColumns('lease'),
         ];
     }

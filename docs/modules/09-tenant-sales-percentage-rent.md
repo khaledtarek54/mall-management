@@ -121,6 +121,29 @@ them showed the set the operator had actually ruled on. The helper is `owingSale
 the property filter + the fit-out rejection, the card reads the helper, and the period is ONE month
 named by its first day (the end used to be a second parameter the scope never saw).
 
+**And the flag and the duty have DOORS beyond the form now (SW-255, 2026-09-13).** Until then
+`has_percentage_rent` and `requires_sales_reporting` were written by the lease form and nothing
+else: a migrating operator's "must report turnover" column could not be imported, and a re-import
+of an export lost the ruling. `LeaseImporter` and `LeaseExporter` carry both, under the labels
+Filament maps a re-import by (`admin.fields.*`), and the duty's BLANK is its null — "follow the
+clause" — on the way out and on the way back, where the NOT NULL clause beside it keeps its value
+on a blank. **The flag travels with the clause's terms** (rate · method · threshold · breakpoint
+frequency, under `admin.imports.columns.*`), because the review of the first cut found the flag
+alone minted a half-record the form refuses: chased monthly, estimated on the 17th, overage priced
+at 0.00, and its own Edit page then refusing every save. The importer mirrors the form's three rules
+(a rate whenever the clause is on, a threshold under the artificial method, a base rent under a
+natural breakpoint) against the row AND the record — a partial re-import leans on the terms the
+lease already carries, and the term columns keep on blank so a template carrying their headers
+cannot write NULL over them. **A boolean import cell is an answer or it is refused**
+(`App\Support\Filament\BooleanImportCellIsAnAnswer`, one `ImportColumn::configureUsing` seam):
+Filament's own cast made everything it did not recognise TRUE — an Egyptian sheet's «لا», `N/A`, a
+dash — on these two columns and on five siblings (a vendor's withholding exemption, a charge's
+proration flag, a chart account's two flags) and on every custom boolean field; the seam answers
+yes/no in both languages and Excel's `1.0`/`0.0`, and hands anything else back for the `boolean`
+rule to refuse with the field's name. The numeric cast has the same shape (`-` → 0.00) and is
+recorded as SW-261. The mobile API is deliberately unchanged: the app gates its sales screen on
+`canDeclareSales`, and the duty is not a thing it shows.
+
 **Two consequences, both designed and stated:**
 - **Excused (`false` on a percentage-rent lease) means neither chased nor estimated** — the option
   label says so. Their percentage rent is still computed only from a declaration, so whatever the

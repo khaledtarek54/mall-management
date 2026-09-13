@@ -193,6 +193,11 @@ final class CustomFieldsTable
         return CustomFields::for($morphAlias)
             ->map(fn (CustomField $field): ImportColumn => ImportColumn::make('cf_'.$field->key)
                 ->label($field->label())
+                // A boolean field is an answer or it is refused (`BooleanImportCellIsAnAnswer`),
+                // which only reaches a column that says it IS boolean — without this, «لا» and
+                // "no" both stored TRUE through `(bool) $value` in `castCustomFieldValue()`.
+                ->boolean(fn (): bool => $field->type === 'boolean')
+                ->rules(fn (): array => $field->type === 'boolean' ? ['nullable', 'boolean'] : [])
                 ->fillRecordUsing(function ($record, $state) use ($field): void {
                     $record->fillCustomFields([$field->key => $state]);
                 }))

@@ -201,6 +201,60 @@ class LeaseImporter extends Importer
                 // means "inherit the property's", which is what most rows will say.
                 ->rules(['nullable', Rule::in(ValueSets::allowed('leases', 'proration_method') ?? [])]),
 
+            // The percentage-rent clause and the sales-reporting DUTY (SW-255, 2026-09-13). Both had
+            // exactly one door — the lease form — so a migrating operator's "must report turnover"
+            // column could not be imported, and a re-import of an export lost the ruling. Two
+            // columns because they are two lease terms (`Lease::requiresSalesReporting()`): a
+            // tenant may owe turnover figures without owing percentage rent.
+            //
+            // `has_percentage_rent` is NOT NULL: blank leaves the row as it stands (false on a new
+            // lease, unchanged on a re-import). `requires_sales_reporting` is a THREE-state and blank
+            // MEANS null — "follow the clause" — which is what a re-imported export must restore;
+            // Filament casts a blank to null before the boolean cast, so `->boolean()` keeps that.
+            ImportColumn::make('has_percentage_rent')
+                ->label(__('admin.fields.has_percentage_rent'))
+                ->boolean()
+                ->ignoreBlankState()
+                ->rules(['nullable', 'boolean']),
+            ImportColumn::make('requires_sales_reporting')
+                ->label(__('admin.fields.requires_sales_reporting'))
+                ->boolean()
+                ->rules(['nullable', 'boolean']),
+
+            // The clause's TERMS travel with the flag, or the flag alone mints a half-record the
+            // form refuses (the review of SW-255): `percentage_rent_rate` is required whenever the
+            // toggle is on, the threshold whenever the method is `artificial`, and a natural
+            // breakpoint needs a base rent — a lease with the flag and no rate is chased every
+            // month, estimated on the 17th, prices its overage at 0.00 and cannot be saved from its
+            // own Edit page. `afterValidate()` below mirrors the form's three rules against the row
+            // AND the record it lands on.
+            //
+            // BLANK KEEPS, on all four: a template that carries these headers has them blank on
+            // every row with no clause, and a blank written through would be NULL over a term the
+            // lease already has (the guard reads the record for what the row omits, and the fill
+            // must agree with it) — or a raw NOT NULL crash on `percentage_rent_frequency`, whose
+            // column defaults to `monthly`. None of them is a three-state like the duty above.
+            // The numeric cast has the boolean's old defect — a `-` or `TBD` casts to 0.00 —
+            // and is recorded (SW-261) rather than closed here.
+            ImportColumn::make('percentage_rent_rate')
+                ->label(__('admin.imports.columns.percentage_rent_rate'))
+                ->numeric()
+                ->ignoreBlankState()
+                ->rules(['nullable', 'numeric', 'min:0', 'max:100']),
+            ImportColumn::make('percentage_rent_calculation_type')
+                ->label(__('admin.imports.columns.percentage_rent_calculation_type'))
+                ->ignoreBlankState()
+                ->rules(['nullable', Rule::in(ValueSets::allowed('leases', 'percentage_rent_calculation_type') ?? [])]),
+            ImportColumn::make('percentage_rent_threshold')
+                ->label(__('admin.imports.columns.percentage_rent_threshold'))
+                ->numeric()
+                ->ignoreBlankState()
+                ->rules(['nullable', 'numeric', 'min:0']),
+            ImportColumn::make('percentage_rent_frequency')
+                ->label(__('admin.imports.columns.percentage_rent_frequency'))
+                ->ignoreBlankState()
+                ->rules(['nullable', Rule::in(ValueSets::allowed('leases', 'percentage_rent_frequency') ?? [])]),
+
             // The operator's own fields (D-7), LAST so an existing mapping template's column
             // order is untouched. Optional: a sheet that names none imports as it always did.
             ...CustomFieldsTable::importColumns('lease'),
@@ -293,6 +347,8 @@ class LeaseImporter extends Importer
      */
     protected function afterValidate(): void
     {
+        $this->refuseAPercentageRentClauseWithoutItsTerms();
+
         $commencement = $this->data['commencement_date'] ?? null;
         $expiry = $this->data['expiry_date'] ?? null;
         $term = $this->data['term_months'] ?? null;
@@ -331,6 +387,45 @@ class LeaseImporter extends Importer
                     'expiry' => CarbonImmutable::parse($expiry)->toDateString(),
                 ]),
             ]);
+        }
+    }
+
+    /**
+     * The form's three rules for the percentage-rent clause, asked of the ROW and the RECORD
+     * together — a value the row omits (or leaves blank: the term columns keep on blank) is the
+     * record's, because a partial re-import of a full export must not be refused for what it did
+     * not restate.
+     */
+    private function refuseAPercentageRentClauseWithoutItsTerms(): void
+    {
+        $effective = fn (string $column) => array_key_exists($column, $this->data) && $this->data[$column] !== null && $this->data[$column] !== ''
+            ? $this->data[$column]
+            : $this->record?->{$column};
+
+        if (! (bool) $effective('has_percentage_rent')) {
+            return;
+        }
+
+        $errors = [];
+
+        if (blank($effective('percentage_rent_rate'))) {
+            $errors['percentage_rent_rate'] = __('admin.validation.import_lease_percentage_rent_needs_rate');
+        }
+
+        $method = $effective('percentage_rent_calculation_type') ?? 'artificial';
+
+        if ($method === 'artificial' && blank($effective('percentage_rent_threshold'))) {
+            $errors['percentage_rent_threshold'] = __('admin.validation.import_lease_percentage_rent_needs_threshold');
+        }
+
+        // The form's third rule: a natural breakpoint IS the base rent, so with none there is a
+        // percentage of every pound of sales — refused there, refused here.
+        if ($method === 'natural_breakpoint' && (float) $effective('base_rent_monthly') <= 0) {
+            $errors['percentage_rent_calculation_type'] = __('admin.validation.natural_breakpoint_needs_base_rent');
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
         }
     }
 

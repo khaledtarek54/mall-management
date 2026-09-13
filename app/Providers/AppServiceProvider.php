@@ -29,6 +29,7 @@ use App\Support\Filament\AnnouncingEditAction;
 use App\Support\Filament\AnnouncingForceDeleteAction;
 use App\Support\Filament\AnnouncingRestoreAction;
 use App\Support\Filament\AuthorizedAction;
+use App\Support\Filament\BooleanImportCellIsAnAnswer;
 use App\Support\Filament\CatalogueAwareSelect;
 use App\Support\Filament\IdentifiedExportAction;
 use App\Support\Filament\IdentifiedExportBulkAction;
@@ -363,6 +364,10 @@ class AppServiceProvider extends ServiceProvider
         // multi-select's OPTIONS on the array's children, so a bare id had none to fail on.
         // See App\Support\Filament\MultiValueFieldIsAnArray for the measurement.
         MultiValueFieldIsAnArray::register();
+
+        // A boolean import cell is an answer or it is refused — never "anything else is true".
+        // See App\Support\Filament\BooleanImportCellIsAnAnswer for the measurement.
+        BooleanImportCellIsAnAnswer::register();
 
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_END,
