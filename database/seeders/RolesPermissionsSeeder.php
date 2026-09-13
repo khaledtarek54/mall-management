@@ -314,6 +314,16 @@ class RolesPermissionsSeeder extends Seeder
             'bank_accounts.view' => 'View the operator\'s bank accounts',
             'bank_accounts.create' => 'Register a bank account',
             'bank_accounts.edit' => 'Edit a bank account',
+            // Bringing the BANK's statement lines into the reconciliation workspace. Its own key,
+            // deliberately NOT `imports.execute`: FR-USR-02 reserves DATA import — tenants, units,
+            // leases, the operator's own registers, where one wrong column rewrites hundreds of
+            // rows — for admins. A statement file is the bank's evidence: importing it writes no
+            // register, posts nothing, is idempotent, and is the workspace's only intake. Gated on
+            // the admin right, the accountant it exists for could not reconcile a single month
+            // (2026-09-13 workflow audit). The market's shape: the bank-rec import is a function
+            // of the bank-rec role, separate from matching so it can be withheld from a matcher
+            // (the tab sits on the Edit page, so an importer needs `.edit` too).
+            'bank_accounts.import_statement' => 'Import a bank statement file into the reconciliation workspace',
         ],
         'vendor_bills' => [
             'vendor_bills.view' => 'View vendor bills (accounts payable)',
@@ -862,6 +872,7 @@ class RolesPermissionsSeeder extends Seeder
             'accounting_periods.view', 'accounting_periods.manage',
             'general_ledger.view',
             'bank_accounts.view', 'bank_accounts.create', 'bank_accounts.edit',
+            'bank_accounts.import_statement',
             'vendor_bills.view', 'vendor_bills.create', 'vendor_bills.edit',
             'vendor_bills.approve', 'vendor_bills.pay', 'vendor_bills.void_payment',
             'expenses.view', 'expenses.create', 'expenses.edit',

@@ -9,7 +9,6 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Banking\ImportBankStatementService;
 use App\Services\Banking\MatchBankStatementLineService;
-use App\Support\Imports;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -48,6 +47,23 @@ class LinesRelationManager extends RelationManager
     private function canMatch(): bool
     {
         return Auth::user()?->can('bank_accounts.edit') ?? false;
+    }
+
+    /**
+     * Importing is the workspace's intake, and it is NOT the data import FR-USR-02 reserves for
+     * admins. That rule is about the operator's own registers — tenants, units, leases — where one
+     * wrong CSV column rewrites hundreds of rows. A statement file is the bank's evidence: importing
+     * it writes no register, posts nothing and is idempotent (re-importing the same export adds no
+     * line). Gated on `Imports::allowed()` from the day the workspace shipped, the accountant it
+     * exists for could not get a single line in, and there is no other door — so the module was
+     * usable by admins alone (2026-09-13 workflow audit). Its own right, separate from `canMatch()`,
+     * so the import can be WITHHELD from somebody who reconciles. The reverse is not on offer: this
+     * tab lives on the statement's Edit page, which `canEdit()` gates on `bank_accounts.edit`, so an
+     * importer reaches it only while they also hold that — stated rather than implied.
+     */
+    private function canImport(): bool
+    {
+        return Auth::user()?->can('bank_accounts.import_statement') ?? false;
     }
 
     public function table(Table $table): Table
@@ -126,10 +142,8 @@ class LinesRelationManager extends RelationManager
                     ->label(__('admin.actions.import_statement_lines'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->modalDescription(__('admin.helpers.import_statement_lines'))
-                    // FR-USR-02: import is an ADMIN right, not a flavour of create. One wrong CSV
-                    // rewrites hundreds of rows at once and the mistake is found later.
-                    ->visible(fn (): bool => Imports::allowed())
-                    ->authorize(fn (): bool => Imports::allowed())
+                    ->visible(fn (): bool => $this->canImport())
+                    ->authorize(fn (): bool => $this->canImport())
                     ->schema([
                         FileUpload::make('file')
                             ->label(__('admin.fields.csv_file'))
@@ -140,7 +154,7 @@ class LinesRelationManager extends RelationManager
                             ->required(),
                     ])
                     ->action(function (array $data): void {
-                        abort_unless(Imports::allowed(), 403);
+                        abort_unless($this->canImport(), 403);
 
                         /** @var BankStatement $statement */
                         $statement = $this->getOwnerRecord();

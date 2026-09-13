@@ -233,6 +233,7 @@ return [
             'view' => 'View the operator\'s bank accounts',
             'create' => 'Register a bank account',
             'edit' => 'Edit a bank account',
+            'import_statement' => 'Import a bank statement file into the reconciliation workspace',
         ],
         'vendor_bills' => [
             'view' => 'View vendor bills (accounts payable)',

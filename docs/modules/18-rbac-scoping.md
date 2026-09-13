@@ -161,6 +161,28 @@ the first three did.
 the "everything except delete" filter would otherwise hand it straight back to every manager and
 quietly undo the requirement.
 
+**What is NOT data import: the bank statement (2026-09-13).** The bank-reconciliation workspace's
+*Import* button (`LinesRelationManager`) was gated on `Imports::allowed()` from the day it shipped,
+and there is no other door onto a statement's lines — so the `accounting` role could match lines
+and never get any in, and the module was usable by admins alone. Found by driving the
+reconciliation as the accountant, not from a report: an admin driving the demo never meets the
+gate. FR-USR-02 is about the operator's own REGISTERS — tenants, units, leases — where one wrong
+CSV column rewrites hundreds of rows. A statement file is the bank's evidence: importing it writes
+no register, posts nothing and is idempotent (`BankStatementImportTest`). It is its own right,
+**`bank_accounts.import_statement`**, seeded to `accounting` and the manager tier and withheld from
+the read-only roles, and separate from `bank_accounts.edit` (matching) so the import can be
+withheld from somebody who reconciles — the market's shape, where the bank-rec import is a function
+of the bank-rec role and not of data migration. The reverse split is not on offer: the Lines tab
+sits on the statement's **Edit** page (`BankStatementResource` has no View page), which
+`canEdit()` gates on `bank_accounts.edit`, so an importer reaches the tab only while they also
+hold that. `atriom:doors --check-diff` names `ImportBankStatementService` as the sibling door left
+alone — correctly, it is the service the action calls and carries no gate of its own. `ImportIsAdminOnlyTest`'s reflective gate is
+unchanged: it sweeps `ImportAction::make`, and this is a custom action with its own predicate.
+**Deploy step**: the right exists only where `RolesPermissionsSeeder` ran (`atriom:install --force`
+does, on every release). (`TheAccountantCanImportABankStatementTest` — a viewer handed the ADMIN
+import right still does not see the workspace's button, and the accountant's import lands two
+lines; both teeth mutation-proved.)
+
 #### Export is the wide door — but the door has to be on an admin panel (2026-08-22)
 
 The same FRD sentence that restricts import **widens** export: *"all other roles may export/download

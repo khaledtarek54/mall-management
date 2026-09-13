@@ -289,7 +289,7 @@ a pivot column, a migration and a backfill.
 | Charge code → GL account as data | ✅ | The catalogue resolves the posting role, which resolves through `account_mappings`, so a new code inherits the per-property override | ✅ KEEP | ⚪ |
 | Straight-line / deferred rent | ✅ | `StraightLineRentService` (EAS 49 / IFRS 16), settings-gated and shipped **OFF**; invoices are byte-identical either way | ✅ KEEP | ⚪ |
 | Tax | Region packs | A dated `tax_codes` + `tax_rates` catalogue — VAT · stamp · schedule · withholding, both directions — resolved for the **document's** date, with rate literals banned by a gate. Output stamp/schedule are liabilities, **input stamp/schedule are expenses**, because neither has a credit mechanism the way input VAT does | ✅ KEEP — no benchmark ships this | ⚪ |
-| Bank reconciliation | ✅ | `BankStatement` + import + matcher. Suggested matches deliberately held (§6) | ✅ KEEP | ⚪ |
+| Bank reconciliation | ✅ | `BankStatement` + import + matcher. Suggested matches deliberately held (§6). **The import was admin-only until 2026-09-13** (gated on FR-USR-02's data-import right), so the accountant could not feed it — `bank_accounts.import_statement` now, [modules/18](../modules/18-rbac-scoping.md#import-is-not-a-flavour-of-create-fr-usr-02) | ✅ KEEP | ⚪ |
 | Multiple books | ✅ | Single book | ⏭️ **DECLINE** | ⚪ |
 | Money-record deletion | Soft controls | **Refused at the model**, classified per model by attribute with a stated correction path, gated in CI | ✅ KEEP — exceeds benchmark | ⚪ |
 

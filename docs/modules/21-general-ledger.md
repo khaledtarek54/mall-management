@@ -585,6 +585,7 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 | `journal_entries` | view, create, edit, delete, post, void |
 | `accounting_periods` | view, manage (open/close) |
 | `general_ledger` | view (trial balance, ledger, statements) |
+| `bank_accounts` | view, create, edit (edit = matching on the reconciliation workspace), **import_statement** (bringing the bank's file in — its own right since 2026-09-13, NOT the admin `imports.execute`; see [modules/18](18-rbac-scoping.md#import-is-not-a-flavour-of-create-fr-usr-02)) |
 
 - **super_admin / manager / viewer / owner** inherit automatically (all-perms / non-delete /
   all-`.view` / all-`.view`).
