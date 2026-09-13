@@ -111,6 +111,7 @@ return [
         // ActivityLogVocabularyConformanceTest يُفشل البناء إذا فقد عمود مسجَّل مفتاحه.
         'account_number' => 'رقم الحساب',
         'accounting_period_id' => 'الفترة المحاسبية',
+        'fiscal_year_id' => 'السنة المالية',
         'accrued_amount' => 'المبلغ المستحق',
         'acknowledged_at' => 'وقت الاستلام',
         'acquisition_cost' => 'تكلفة الاقتناء',
@@ -483,6 +484,8 @@ return [
         'day_of_month' => 'يوم الاستحقاق',
         'starts_on' => 'يبدأ',
         'ends_on' => 'ينتهي',
+        'period_no' => 'رقم الفترة',
+        'year' => 'السنة',
         'is_active' => 'نشط',
         'is_publicly_listed' => 'مُدرج في تطبيق الزوار',
         'is_publicly_listed_helper' => 'يستطيع الزوار العثور على هذا المول ومتاجره في التطبيق. إيقافه يخفيه عن الواجهة العامة فقط — دون أي تأثير على الموظفين أو الوحدات أو الفوترة.',

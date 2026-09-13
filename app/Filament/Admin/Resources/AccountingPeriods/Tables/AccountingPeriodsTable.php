@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\AccountingPeriods\Tables;
 
+use App\Filament\Actions\ReversalReasonField;
 use App\Models\AccountingPeriod;
 use App\Services\Accounting\PeriodService;
 use Filament\Actions\Action;
@@ -105,9 +106,12 @@ class AccountingPeriodsTable
                         && auth()->user()?->can('accounting_periods.manage'))
                     ->authorize(fn () => auth()->user()?->can('accounting_periods.manage') ?? false)
                     ->requiresConfirmation()
-                    ->action(function (AccountingPeriod $record): void {
+                    // A reopen lifts the sealed-period guard over every posting source, so it
+                    // carries its documentation — the same required field every reversal asks.
+                    ->schema([ReversalReasonField::make()])
+                    ->action(function (AccountingPeriod $record, array $data): void {
                         try {
-                            app(PeriodService::class)->reopenPeriod($record);
+                            app(PeriodService::class)->reopenPeriod($record, $data['reason'] ?? null);
                         } catch (\DomainException $e) {
                             // The year's closing entry still stands, so anything posted into this
                             // month would never reach retained earnings. Persistent and shaped like

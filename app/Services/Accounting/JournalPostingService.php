@@ -7,6 +7,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
 use App\Support\JournalNarrative;
+use App\Support\ReversalReason;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -267,6 +268,16 @@ class JournalPostingService
             $entry->status = 'void';
             $entry->voided_at = now();
             $entry->save();
+
+            // A PERSON's reason goes on the trail as well as into the reversal's narrative
+            // (2026-09-13) — the shape every money reversal follows, so the audit log answers
+            // "why" without opening the reversing entry. A programmer's `$reasonKey` (every
+            // re-derive `LedgerPoster::sync()` performs) deliberately records nothing here: the
+            // `updated` row already says the entry was voided, and a trail row per automatic
+            // re-post would bury the ones a person wrote.
+            if ($reason !== null && trim($reason) !== '') {
+                ReversalReason::record($entry, 'voided', trim($reason));
+            }
 
             return $reversal->load('lines');
         });

@@ -112,6 +112,7 @@ return [
         // ActivityLogVocabularyConformanceTest fails the build if a logged column loses its key.
         'account_number' => 'Account number',
         'accounting_period_id' => 'Accounting period',
+        'fiscal_year_id' => 'Fiscal year',
         'accrued_amount' => 'Accrued amount',
         'acknowledged_at' => 'Acknowledged at',
         'acquisition_cost' => 'Acquisition cost',
@@ -484,6 +485,8 @@ return [
         'day_of_month' => 'Day of the period',
         'starts_on' => 'Starts',
         'ends_on' => 'Ends',
+        'period_no' => 'Period number',
+        'year' => 'Year',
         'is_active' => 'Active',
         'is_publicly_listed' => 'Listed in the shopper app',
         'is_publicly_listed_helper' => 'Shoppers can find this mall and its stores in the visitor app. Turning it off hides it from the public feed only — staff, units and billing are unaffected.',

@@ -164,9 +164,16 @@ it('has a subject label in en + ar for every hand-written activity() log name', 
 
 it('has an event label in en + ar for every event raised anywhere', function () {
     // `voided` and `reversed` were both raised by services and translated in neither locale.
+    //
+    // TWO shapes, because `ReversalReason::record($doc, 'cancelled', $why)` writes `->event($event)`
+    // from a VARIABLE — so the first pattern never saw it, and `cancelled`, `credit_reversed` and
+    // `deposit_reversed` rendered their English key in the Arabic feed from the day that seam
+    // shipped (2026-08-28) until the year reopen went through it (2026-09-13). A gate that sweeps
+    // one spelling of a call is blind to the seam built to replace the spelling.
     $events = array_unique(array_merge(
         ['created', 'updated', 'deleted'],
         activitySourceLiterals("/->event\('([a-z0-9_]+)'\)/"),
+        activitySourceLiterals("/ReversalReason::record\([^,]+,\s*'([a-z0-9_]+)'/"),
     ));
 
     $missing = [];

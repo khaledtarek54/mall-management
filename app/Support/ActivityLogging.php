@@ -80,6 +80,8 @@ final class ActivityLogging
         'gateway_response' => 'The payment provider\'s raw response body — kept on the record itself, unreadable as a diff.',
         'description_key' => 'JournalNarrative\'s lookup key; its resolved prose sibling is what a person reads.',
         'description_data' => 'JournalNarrative\'s placeholder payload, meaningless without the key.',
+        'reason_notes_key' => 'LineNarrative\'s lookup key for a credit note\'s reason paragraph; `reason_notes` is the prose a person reads (UX-30).',
+        'reason_notes_data' => 'LineNarrative\'s placeholder payload for that key, meaningless without it.',
         'custom_fields' => 'The VIRTUAL write attribute for HasCustomFields — the stored `metadata` column is the audited one, and logging both records every answer twice.',
 
         // ── The frozen module. ETA (module 16) is frozen in code and removed from every operator
@@ -154,6 +156,7 @@ final class ActivityLogging
      */
     public const COVERAGE_FLOOR = [
         'AccountMapping' => ['asset_id', 'key', 'ledger_account_id'],
+        'AccountingPeriod' => ['ends_on', 'fiscal_year_id', 'period_no', 'starts_on', 'status'],
         'ApprovalRule' => ['is_active', 'max_amount', 'min_amount', 'module', 'required_permission'],
         'Area' => ['asset_id', 'code', 'is_active', 'name'],
         'Asset' => ['city', 'code', 'is_active', 'leasable_area_sqm', 'name', 'primary_color', 'type'],
@@ -187,6 +190,7 @@ final class ActivityLogging
         'FixedAssetDisposal' => ['disposed_on', 'fixed_asset_id', 'proceeds', 'proceeds_account'],
         'FixedAssetTransfer' => ['accumulated_depreciation', 'cost', 'created_by_user_id', 'fixed_asset_id', 'from_asset_id', 'reason', 'to_asset_id', 'transferred_on'],
         'FixedAssetTransferLeg' => ['accumulated_depreciation', 'asset_id', 'cost', 'direction', 'fixed_asset_id', 'fixed_asset_transfer_id', 'transferred_on'],
+        'FiscalYear' => ['ends_on', 'starts_on', 'status', 'year'],
         'Floor' => ['asset_id', 'code', 'level', 'name'],
         'Holiday' => ['asset_id', 'closes_at', 'date', 'is_active', 'kind', 'name_ar', 'name_en', 'opens_at'],
         'InventoryItem' => ['category', 'is_active', 'name', 'reorder_level', 'sku', 'unit', 'unit_cost'],

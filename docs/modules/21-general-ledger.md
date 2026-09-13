@@ -2028,6 +2028,39 @@ Two rules it is built on:
 **Closing still happens in the Accounting Periods resource.** This page links there; it does not
 re-implement the close. One place to close a period, one gate to pass.
 
+**A close and a reopen are on the record, and a reopen says why (2026-09-13).** Driven as the
+accountant: closing a month wrote NO audit row — `AccountingPeriod` was not an audited model — and
+reopening asked no reason, while a reopen lifts `SealedPeriod`'s whole guard over every posting
+source, the single widest act in the module. The benchmark's rule (*"reopen sparingly and with
+proper documentation"*, [yardi/02 §9](../benchmarks/yardi/02-yardi-money-flow.md#9-month-end-close))
+lived in nobody's memory. Now: `AccountingPeriod` and `FiscalYear` take `ActivityLogging::for()`
+— the `updated` row names who closed what, and when; the close itself asks no reason, because
+closing is the routine act and the row is its record — **and a year's close and reopen walk the
+twelve months as model SAVES, never a bulk `update()`**, which fires no event: measured, the year
+close flipped 12 periods and wrote 0 rows. *Reopen period* and *Reopen year* carry the same
+required `ReversalReasonField` every money reversal asks; `PeriodService::reopenPeriod()` files the
+answer on the PERIOD (`accounting_period.reopened`, in the same transaction as the flip) and
+**`PeriodService::reopenFiscalYear()` files it on the YEAR (`fiscal_year.reopened`)** — that is the
+call every year reopen makes, whether or not a closing entry stands. The first cut recorded it in
+`YearEndCloseService::reopen()` beside the void, and the review drove the real action on a year with
+no closing entry (months closed one by one under an open year, or no P&L movement): every month
+silently unlocked, the typed reason discarded, zero rows — the early return sits before anything
+that could file it. `forceReopenPeriod()` records nothing: it is the year reversal's own mechanism.
+**The service layer files whatever it is handed** — the panel's field is what refuses a blank, so
+"every reopen says why" holds through the panel doors and a console caller may still pass nothing.
+The manual journal's
+*Void* was the one reversal in the panel with an OPTIONAL reason; it takes the same field now, and
+`JournalPostingService::void()` files a PERSON's words on the entry's trail (`journal_entry.voided`)
+beside the reversing entry's narrative — never a programmer's `$reasonKey`, or every automatic
+re-derive `LedgerPoster::sync()` performs would bury the ones a person wrote. And the shared field
+is labelled *Reason*, not *Reason for Void*: it sits on a cancel, a reopen and a void, and *"The
+reason for Void field is required"* on a cancelled bill was the sentence the accountant read.
+Four events routed through `ReversalReason::record()` (`cancelled` · `credit_reversed` ·
+`deposit_reversed` · `reopened`) had no `admin.activity.events` label in either language and
+rendered their English key in the Arabic feed — the vocabulary gate swept `->event('literal')` and
+that seam writes `->event($event)`; it sweeps the seam's second argument now.
+(`ACloseAndAReopenAreOnTheRecordTest` — eleven mutations, each killing its own tooth.)
+
 **Watch for green-for-the-wrong-reason.** A status row that cannot read its input must report a
 FAILURE, never a pass — `MonthEndCloseTest` asserts every row goes red when its condition is
 genuinely outstanding, and is mutation-verified against the one instance of this bug that shipped

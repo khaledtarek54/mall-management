@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\AccountingPeriods\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Models\FiscalYear;
 use App\Services\Accounting\PeriodService;
@@ -95,13 +96,17 @@ class ListAccountingPeriods extends ListRecords
                 ->color('danger')
                 ->visible($this->canManage())
                 ->authorize($this->canManage())
-                ->schema([$this->yearSelect()])
+                // Reopening a year voids its closing entries and unlocks every month — it carries
+                // its documentation, the same required field every reversal asks.
+                ->schema([$this->yearSelect(), ReversalReasonField::make()])
                 ->requiresConfirmation()
                 ->action(function (array $data): void {
                     $year = (int) $data['year'];
 
+                    // The reason is filed by `reopenFiscalYear()` — the call every year reopen
+                    // makes, whether or not a closing entry stands to be voided below.
                     if ($fiscalYear = FiscalYear::where('year', $year)->first()) {
-                        app(PeriodService::class)->reopenFiscalYear($fiscalYear);
+                        app(PeriodService::class)->reopenFiscalYear($fiscalYear, $data['reason'] ?? null);
                     }
                     app(YearEndCloseService::class)->reopen($year);
 

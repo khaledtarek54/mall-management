@@ -28,7 +28,11 @@ class ReversalReasonField
     public static function make(string $name = 'reason'): Textarea
     {
         return Textarea::make($name)
-            ->label(__('admin.fields.void_reason'))
+            // "Reason", not "Reason for Void": the same field sits on a CANCEL, a REOPEN and a
+            // void, and the refusal it produces is read as a sentence — *"The reason field is
+            // required"* is true of all of them where *"The reason for Void field…"* on a cancelled
+            // bill is not (2026-09-13 audit, EN and AR alike).
+            ->label(__('admin.fields.reason'))
             // Visible helper text rather than a hint icon: this is a CONSEQUENCE of what you type —
             // it becomes part of the permanent audit record — which FieldHelp puts in `helperText`,
             // and it is the one thing that changes how carefully somebody writes the sentence.

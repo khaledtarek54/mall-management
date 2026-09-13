@@ -2,11 +2,11 @@
 
 namespace App\Filament\Admin\Resources\JournalEntries\Pages;
 
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Services\Accounting\JournalPostingService;
 use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -78,11 +78,10 @@ class EditJournalEntry extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('journal_entries.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_journal_entry_confirm'))
-                ->schema([
-                    Textarea::make('reason')
-                        ->label(__('admin.fields.void_reason'))
-                        ->rows(2),
-                ])
+                // The one field every reversal asks, REQUIRED. A bare optional textarea sat here
+                // while every money document's reversal required its reason — the manual journal
+                // being the accountant's own act made it the odd one out (2026-09-13 audit).
+                ->schema([ReversalReasonField::make()])
                 ->action(function (array $data): void {
                     try {
                         $reversal = app(JournalPostingService::class)->void($this->record, $data['reason'] ?? null);

@@ -100,8 +100,10 @@ it('refuses it from the row action too, rather than 500ing or silently succeedin
     $this->actingAs(makeUser('super_admin', [$asset->id]));
     Filament::setTenant($asset);
 
+    // With a reason (the field is required since 2026-09-13), so what refuses here is the SERVICE's
+    // standing-closing-entry guard and not the form.
     Livewire::test(ListAccountingPeriods::class)
-        ->callTableAction('reopen_period', $this->march->fresh())
+        ->callTableAction('reopen_period', $this->march->fresh(), data: ['reason' => 'Late invoice'])
         ->assertHasNoTableActionErrors();
 
     expect($this->march->fresh()->status)->toBe('closed');

@@ -431,6 +431,13 @@ install enforces. The gaps here are §3 (post month) and §5 (write-off), not th
 > `ActivityLogging::for($this, 'accounting_period')` with a `COVERAGE_FLOOR` entry and labels in both
 > languages — plus a required reason on close and reopen in the shape every money reversal already
 > follows (`App\Support\ReversalReason`).
+>
+> **Shipped 2026-09-13**, with one deliberate narrowing of the sentence above: the reason is required
+> on the **reopen** (period and year), not on the close. Closing is the routine act at the end of the
+> sequence and its audit row — who, when, `open → closed` — is its documentation; asking a sentence
+> for every month-end would train the field into filler. The cited guidance above speaks of
+> documenting the REOPEN, not the close, and nothing in the sources says otherwise. See
+> [modules/21 → Month-end close checklist](../../modules/21-general-ledger.md#month-end-close-checklist).
 
 ---
 

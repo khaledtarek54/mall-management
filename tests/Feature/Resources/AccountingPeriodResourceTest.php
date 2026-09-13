@@ -66,7 +66,8 @@ it('runs the year-end close from the header action', function () {
 
     // Reopen unlocks the periods and voids the closing entry.
     Livewire::test(ListAccountingPeriods::class)
-        ->callAction('year_end_reopen', ['year' => 2026])
+        // A reopen carries its documentation (2026-09-13): the reason is required.
+        ->callAction('year_end_reopen', ['year' => 2026, 'reason' => 'Audit adjustment'])
         ->assertHasNoActionErrors();
 
     expect(app(YearEndCloseService::class)->closingEntryFor(2026))->toBeNull();

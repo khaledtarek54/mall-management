@@ -16,6 +16,7 @@ use App\Models\Equipment;
 use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
+use App\Models\FiscalYear;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetCategory;
 use App\Models\FixedAssetTransfer;
@@ -188,6 +189,8 @@ class ActivityVocabulary
         // retail list. Without it an Arabic diff prints `both`.
         'marketing_post.audience' => 'admin.marketing_posts.audiences',
         // Statuses whose catalogue is not `admin.statuses.{log_name}`.
+        'accounting_period.status' => 'admin.statuses.period',
+        'fiscal_year.status' => 'admin.statuses.period',
         'disbursement.status' => 'admin.disbursements.statuses',
         'employee.status' => 'admin.employees.statuses',
         'fixed_asset.status' => 'admin.fixed_assets.statuses',
@@ -408,6 +411,7 @@ class ActivityVocabulary
 
     private const FOREIGN_KEYS = [
         'accounting_period_id' => AccountingPeriod::class,
+        'fiscal_year_id' => FiscalYear::class,
         'area_id' => Area::class,
         'trade_id' => Trade::class,
         'asset_id' => Asset::class,

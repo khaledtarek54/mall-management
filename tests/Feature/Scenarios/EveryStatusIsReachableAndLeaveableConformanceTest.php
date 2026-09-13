@@ -167,7 +167,9 @@ const STATUS_EXEMPT = [
     // models, which is precisely the shape no static read can resolve.
     'accounting_periods.status.closed' => ['PeriodService::close()', 'app/Services/Accounting/PeriodService.php', "'status' => 'closed'"],
     'accounting_periods.status.open' => ['a period is born open (column default) and reopened by PeriodService', 'app/Services/Accounting/PeriodService.php', 'reopen'],
-    'fiscal_years.status.closed' => ['PeriodService closes the year with its periods', 'app/Services/Accounting/PeriodService.php', "periods()->update(['status' => 'closed'])"],
+    // The proof token moved with the write (2026-09-13): the year's periods are closed by model SAVES
+    // now, so each month's close is on the audit trail — a bulk `update()` fired no event.
+    'fiscal_years.status.closed' => ['PeriodService closes the year with its periods', 'app/Services/Accounting/PeriodService.php', "\$period->update(['status' => 'closed'])"],
     'fiscal_years.status.open' => ['a year is born open; the year-end close is the only other writer', 'app/Services/Accounting/PeriodService.php', 'fiscalYear'],
     'cam_allocations.status.closed' => ['the CAM true-up closes an allocation once the year is settled', 'app/Services/CamReconciliationService.php', 'closed'],
     'credit_notes.status.issued' => ['CreditNoteService — issue, and un-apply restoring it', 'app/Services/CreditNoteService.php', "\$note->status = 'issued'"],

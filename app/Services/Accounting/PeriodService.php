@@ -7,6 +7,7 @@ use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Support\LedgerRealtimeSync;
 use App\Support\MorphMap;
+use App\Support\ReversalReason;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -53,11 +54,25 @@ class PeriodService
      *
      * @throws \DomainException when a posted, un-reversed closing entry stands for this period's year
      */
-    public function reopenPeriod(AccountingPeriod $period): AccountingPeriod
+    public function reopenPeriod(AccountingPeriod $period, ?string $reason = null): AccountingPeriod
     {
         $this->assertNoStandingClosingEntry($period);
 
-        return $this->forceReopenPeriod($period);
+        // One transaction: the status flip and its trail row land together, or neither does.
+        return DB::transaction(function () use ($period, $reason): AccountingPeriod {
+            $this->forceReopenPeriod($period);
+
+            // The WHY, on the trail (2026-09-13). A reopen lifts SealedPeriod's guard over every
+            // posting source, so it is the one act here that must carry its documentation; the
+            // `updated` row says who and when, this says why — in the shape every money reversal
+            // already follows. The FORCE twin below records nothing: it is the year-end reversal's
+            // own mechanism, and a YEAR's reopen is recorded once, on the year, by
+            // {@see reopenFiscalYear()}. A blank reason is the panel's to refuse (the field is
+            // required); the service files whatever it is handed.
+            ReversalReason::record($period, 'reopened', $reason);
+
+            return $period;
+        });
     }
 
     /**
@@ -113,7 +128,12 @@ class PeriodService
         $this->assertPeriodsReconciled($year->periods()->pluck('id')->all());
 
         return DB::transaction(function () use ($year) {
-            $year->periods()->update(['status' => 'closed']);
+            // Model saves, not a bulk `update()`: a query-builder write fires no model event, so
+            // the twelve months closed by the year were closed with NO row on any of them
+            // (measured 2026-09-13 — 12 periods flipped, 0 `accounting_period` rows). Twelve saves
+            // a year is nothing; a month closed with nobody's name on it is the whole gap.
+            $year->periods()->where('status', '!=', 'closed')->get()
+                ->each(fn (AccountingPeriod $period) => $period->update(['status' => 'closed']));
             $year->update(['status' => 'closed']);
 
             return $year->refresh();
@@ -229,11 +249,25 @@ class PeriodService
         return $query->find($id);
     }
 
-    public function reopenFiscalYear(FiscalYear $year): FiscalYear
+    /**
+     * Reopen the year — every month, then the year — and file why, on the year.
+     *
+     * THE door a year reopen always goes through (`ListAccountingPeriods::year_end_reopen` calls
+     * it first, then `YearEndCloseService::reopen()` to void the closing entries), which is why
+     * the reason is recorded HERE and not beside the void: a year whose books never closed (no
+     * P&L movement, or months closed one by one under an open year) has no closing entry, and the
+     * void's early return would file nothing while every month was silently unlocked — measured
+     * 2026-09-13, found by the review of the first cut. Per-period saves for the reason
+     * {@see closeFiscalYear()} gives.
+     */
+    public function reopenFiscalYear(FiscalYear $year, ?string $reason = null): FiscalYear
     {
-        return DB::transaction(function () use ($year) {
-            $year->periods()->update(['status' => 'open']);
+        return DB::transaction(function () use ($year, $reason) {
+            $year->periods()->where('status', '!=', 'open')->get()
+                ->each(fn (AccountingPeriod $period) => $period->update(['status' => 'open']));
             $year->update(['status' => 'open']);
+
+            ReversalReason::record($year, 'reopened', $reason);
 
             return $year->refresh();
         });

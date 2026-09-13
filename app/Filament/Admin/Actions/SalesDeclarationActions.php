@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Admin\Actions;
 
+use App\Filament\Actions\ReversalReasonField;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
@@ -96,9 +97,7 @@ class SalesDeclarationActions
                 ->modalHeading(__('admin.actions.void_locked_modal_heading'))
                 ->modalDescription(__('admin.actions.void_locked_modal_description'))
                 ->schema([
-                    Textarea::make('reason')
-                        ->label(__('admin.fields.void_reason'))
-                        ->required()
+                    ReversalReasonField::make()
                         ->rows(3)
                         ->placeholder(__('admin.actions.void_locked_reason_placeholder')),
                 ])

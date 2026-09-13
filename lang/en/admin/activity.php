@@ -42,6 +42,8 @@ return [
             'bank_match' => 'Bank match',
             'bank_account' => 'Bank account',
             'bank_statement' => 'Bank statement',
+            'accounting_period' => 'Accounting period',
+            'fiscal_year' => 'Fiscal year',
             'charge_code' => 'Charge code',
             'rent_index' => 'Rent index',
             'lease_clause' => 'Lease clause',
@@ -139,6 +141,13 @@ return [
             'detached' => 'Removed',
             // Raised by TransferFixedAssetService — an asset moved between properties (point 18).
             'transferred' => 'Transferred',
+            // Raised through `ReversalReason::record()` — the seam the gate below could not see
+            // until 2026-09-13, so the first three rendered their English key in the Arabic feed
+            // from the day they shipped (2026-08-28). `reopened` is a period's or a year's.
+            'cancelled' => 'Cancelled',
+            'credit_reversed' => 'Credit reversed',
+            'deposit_reversed' => 'Deposit reversed',
+            'reopened' => 'Reopened',
         ],
 
         // What a row's stored `description` means. **Descriptions are KEYS, not sentences** —
@@ -174,6 +183,9 @@ return [
             'employee_advance' => ['reversed' => 'Employee advance reversed'],
             'custody' => ['reversed' => 'Custody float reversed'],
             'vendor_bill_payment' => ['voided' => 'Vendor payment voided'],
+            'accounting_period' => ['reopened' => 'Accounting period reopened'],
+            'fiscal_year' => ['reopened' => 'Fiscal year reopened — its closing entries reversed'],
+            'journal_entry' => ['voided' => 'Journal entry voided'],
             'employee_advance_repayment' => ['reversed' => 'Advance repayment reversed'],
             'custody_transaction' => ['reversed' => 'Custody transaction reversed'],
             'tenant_sales' => ['voided' => 'Locked sales declaration voided'],
