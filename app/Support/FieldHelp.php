@@ -152,4 +152,107 @@ class FieldHelp
     {
         return isset(self::LONG_BY_DESIGN[$key]);
     }
+
+    /**
+     * The helpers over budget on the day the sweep became DERIVED (SW-260, 2026-09-13) — a debt
+     * ledger, not an exemption list.
+     *
+     * `FieldHelpConformanceTest` had measured two catalogues by NAME (`admin.helpers.*` and
+     * `admin.actions.*_helper`), and a helper rendered from any other group was measured by
+     * nothing: 480 `->helperText(__('…'))` call sites under `app/`, 143 of them in those two
+     * groups. That is how a 24-word helper under a lease option's status passed on 2026-09-13, and
+     * how the 74 below — the settings screen's paragraphs most of all — had never been asked. The
+     * gate now derives its population from the call sites, so a helper is measured by being
+     * RENDERED, whatever group its words live in.
+     *
+     * Every key here is a wording edit owed — keep the line that changes what the operator types,
+     * move the WHY behind a `hintIcon()` — in both languages. The gate holds it as a RATCHET: an
+     * unlisted helper over budget fails (new work meets the budget from today), and a listed one
+     * that has come under budget fails too (a paid debt leaves the ledger). Nothing here carries a
+     * reason, because "it was already long" is not one; a helper that is long BY DESIGN belongs in
+     * {@see LONG_BY_DESIGN} with its reason.
+     *
+     * @var list<string>
+     */
+    public const OVER_BUDGET_BACKLOG = [
+        'admin.settings.fields.mail_enabled_helper',
+        'admin.settings.fields.wht_default_tax_code_helper',
+        'admin.settings.fields.straight_line_rent_enabled_help',
+        'admin.settings.fields.paymob_enabled_helper',
+        'admin.cam.estimate_charge_codes_help',
+        'admin.settings.fields.new_charges_follow_escalation_helper',
+        'admin.settings.fields.holdover_default_rate_pct_helper',
+        'admin.settings.fields.ar_aging_bucket_days_helper',
+        'admin.cam.gross_up_pct_help',
+        'admin.facility.helpers.criticality',
+        'admin.facility.days_of_week_hint',
+        'admin.settings.fields.default_payment_terms_days_helper',
+        'admin.settings.fields.levy_rate_percent_helper',
+        'admin.charge_schedule.vat_override_hint',
+        'admin.report_hub.recipients_help',
+        'admin.facility.area_hint',
+        'admin.fields.is_publicly_listed_helper',
+        'admin.saved_views.share_help',
+        'admin.settings.fields.auto_apply_tenant_credit_helper',
+        'admin.actions.change_rent_effective_from_hint',
+        'admin.settings.fields.seller_trn_helper',
+        'admin.report_hub.share_view_help',
+        'admin.fields.brand_logo_helper',
+        'admin.charge_schedule.add_effective_hint',
+        'admin.settings.fields.wht_enabled_helper',
+        'vendor.jobs.quote_supplementary_helper',
+        'admin.charge_schedule.end_from_hint',
+        'admin.settings.fields.lease_activation_requires_helper',
+        'admin.settings.fields.reservation_valid_days_helper',
+        'admin.reports.include_zero_balances_help',
+        'admin.actions.premises_effective_from_hint',
+        'admin.fields.sales_report_help',
+        'admin.vendors.wht.code_hint',
+        'admin.facility.penalty.basis_hint',
+        'admin.cam.denominator_basis_help',
+        'admin.fixed_asset_categories_screen.help.default_salvage',
+        'admin.facility.trigger_type_hint',
+        'admin.post_dated_cheques.fields.lease_hint',
+        'admin.facility.help.supplementary',
+        'admin.settings.fields.document_number_reset_help',
+        'admin.settings.fields.nsf_fee_amount_helper',
+        'admin.sales_analytics.as_of_help',
+        'admin.procurement.tier_hint',
+        'admin.vendors.wht.gross_hint',
+        'admin.cam.variable_pct_help',
+        'admin.fields.store_logo_hint',
+        'admin.lease_options.notice_given_at_hint',
+        'admin.unit_ownerships.charges.from_hint',
+        'admin.charge_schedule.add_type_hint',
+        'admin.rent_roll.as_of_help',
+        'admin.report_hub.day_of_month_help',
+        'admin.vendors.wht.exempt_hint',
+        'admin.facility.penalty.rate_hint',
+        'admin.tenants.documents.coverage_amount_hint',
+        'admin.tenants.documents.expires_on_hint',
+        'admin.fixed_asset_categories_screen.help.tag_prefix',
+        'admin.actions.holdover_rate_hint',
+        'admin.settings.fields.late_fee_maximum_helper',
+        'admin.settings.fields.default_security_deposit_basis_helper',
+        'admin.tenant_request_subcategories.help.trade',
+        'admin.recurring_expenses.help.description',
+        'admin.facility.fault.notes_hint',
+        'admin.fields.owner_helper',
+        'admin.settings.fields.activity_log_retention_days_help',
+        'admin.settings.fields.monthly_billing_day_helper',
+        'admin.occupancy_cost.window_help',
+        'admin.opening_balances.helpers.trial_balance',
+        'admin.work_permits.help.conditions',
+        'admin.facility.equipment.code_hint',
+        'admin.lease_cam_terms.help.cap_type',
+        'admin.fields.ownership_percentage_helper',
+        'admin.fields.owned_until_helper',
+        'admin.facility.help.route_stop',
+        'admin.settings.fields.fiscal_year_start_month_help',
+    ];
+
+    public static function isKnownOverBudget(string $key): bool
+    {
+        return in_array($key, self::OVER_BUDGET_BACKLOG, true);
+    }
 }

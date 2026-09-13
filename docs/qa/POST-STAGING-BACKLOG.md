@@ -324,10 +324,18 @@ round changed the reading.
   overage priced at 0.00 for the term; on `base_rent_monthly` a lease that bills nothing. Same
   fix shape as `BooleanImportCellIsAnAnswer` (hand an unparseable token back as the string so
   `numeric` refuses it), one seam. S.
-- **SW-260** — **OPEN (recorded 2026-09-13 on SW-259).** `FieldHelpConformanceTest` budgets
-  `admin.helpers.*` and `admin.actions.*` only; `admin.lease_options.help.*` and any other
-  module-local help group are outside the 18-word sweep, which is how a 24-word helper passed. XS:
-  derive the swept groups from every `->helperText(__('…'))` call site rather than a list.
+- ~~**SW-260**~~ — **FIXED 2026-09-13 (the blind spot; the wording it exposed is SW-262).**
+  `FieldHelpConformanceTest` derives its population from every `->helperText(__('…'))` call site
+  under `app/` — 480 rendered helpers, where the two named catalogues had covered 143 — and holds
+  the 74 found over budget as a ratchet (`FieldHelp::OVER_BUDGET_BACKLOG`): a new one fails, a
+  trimmed one must leave the ledger. Three mutations (the SW-259 24-word text restored; a ledger
+  entry trimmed; the sweep matching nothing).
+- **SW-262** — **OPEN (opened by SW-260).** The wording pass: 74 helpers over the 18-word budget,
+  listed in `FieldHelp::OVER_BUDGET_BACKLOG` — the settings screen's paragraphs (a 62-word
+  `mail_enabled_helper`, 48-word `wht_default_tax_code_helper`, …), the CAM pool's, the facility
+  screens'. Each is the three-home edit in BOTH languages: keep the line that changes what the
+  operator types, move the WHY behind a `hintIcon()`, leave the module's story to the screen guide.
+  Editorial, not mechanical — one screen at a time, reviewed as operator text. M.
 - ~~**SW-253**~~ — **FIXED 2026-09-11 — the first option, plus a lookback.** The estimate requires `Lease::salesDeclarationRemindedAt()` (the same bell row the chase writes and reads for its idempotency — one definition now) to be ≥7 WHOLE days old; a lease with no reminder is skipped and reported to the ops log, never chased from the estimate; and the default run looks back three declarable months so a chase re-run late (August's, on 11 Sep) still ends in an estimate (17 Oct) rather than in a period nothing ever bills. Stricter than Voyager, stated in the benchmark. Every existing estimate fixture had never been chased — they run the real scan first now. `AnEstimateFollowsARecordedReminderTest`, five mutations. Was: **OPEN (found by the review of SW-252).** `sales:estimate-missing` (the 17th) estimates
   any lease `missingSalesDeclarationsFor()` returns; it never checks that the tenant was CHASED. The
   "week after the chase" is a schedule day, not a stamp — so a chase lost to any cause (a scan that

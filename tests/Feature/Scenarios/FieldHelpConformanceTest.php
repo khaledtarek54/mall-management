@@ -70,6 +70,44 @@ it('A: keeps every always-visible helper to one readable line', function () {
         ."Keep the line that changes what the operator types, move the WHY to `admin.hints.*`\n"
         ."behind a ->hintIcon(), or register the string in `App\\Support\\FieldHelp::LONG_BY_DESIGN`\n"
         ."with the reason:\n  ".implode("\n  ", $tooLong));
+
+    // THE POPULATION IS DERIVED, NOT NAMED (SW-260, 2026-09-13). The two sweeps above read two
+    // catalogues by name, and a helper rendered from any OTHER group — `admin.facility.*`,
+    // `admin.settings.fields.*`, `admin.lease_options.help.*`, a dozen more — was measured by
+    // nothing: 480 call sites, 143 of them in those two groups. So the third sweep reads every
+    // `->helperText(__('…'))` under `app/` and measures the string the panel actually renders,
+    // whatever its key. The 74 that were over budget on the day this landed are a RATCHET in
+    // `FieldHelp::OVER_BUDGET_BACKLOG`: an unlisted one over budget fails, and a listed one that
+    // has been trimmed fails until it leaves the ledger — so the number only goes down.
+    $rendered = [];
+    foreach (Finder::create()->files()->in(app_path())->name('*.php') as $file) {
+        if (preg_match_all("/helperText\(__\('([a-z0-9_.]+)'/", $file->getContents(), $matches)) {
+            foreach ($matches[1] as $key) {
+                $rendered[$key] = true;
+            }
+        }
+    }
+    // Vacuity guard for the derivation: the sweep saw the panel, or it is reporting on nothing.
+    expect(count($rendered))->toBeGreaterThan(400);
+
+    $newlyOver = [];
+    $paidOff = [];
+    foreach (array_keys($rendered) as $key) {
+        $text = __($key);
+        if (! is_string($text) || $text === $key || FieldHelp::isExempt($key)) {
+            continue;
+        }
+        $over = str_word_count($text) > FieldHelp::WORD_BUDGET;
+        if ($over && ! FieldHelp::isKnownOverBudget($key)) {
+            $newlyOver[] = "{$key} (".str_word_count($text).' words)';
+        }
+        if (! $over && FieldHelp::isKnownOverBudget($key)) {
+            $paidOff[] = $key;
+        }
+    }
+    expect($newlyOver)->toBe([], "Rendered by the panel and over the budget, in a group the named sweeps never read.\n"
+        ."Trim it, move the WHY behind a hintIcon(), or register it in LONG_BY_DESIGN with a reason:\n  ".implode("\n  ", $newlyOver));
+    expect($paidOff)->toBe([], "Trimmed under budget — remove from `FieldHelp::OVER_BUDGET_BACKLOG`, the ledger only shrinks:\n  ".implode("\n  ", $paidOff));
 })->group('conformance');
 
 it('B: never renders a hint icon that says nothing', function () {
