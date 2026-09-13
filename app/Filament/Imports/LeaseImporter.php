@@ -157,11 +157,19 @@ class LeaseImporter extends Importer
             ImportColumn::make('service_charge_monthly')
                 ->label(__('admin.fields.service_charge_monthly'))
                 ->numeric()
+                // A blank cell is "not stated": the column is NOT NULL default 0, so on a new lease
+                // the default stands and on a re-import the figure already there does — without
+                // this a blank cell sent NULL and the row died on a raw constraint error with no
+                // message (found by the SW-261 test's own fixture, 2026-09-13).
+                ->ignoreBlankState()
                 ->rules(['nullable', 'numeric', 'min:0']),
 
             ImportColumn::make('security_deposit')
                 ->label(__('admin.fields.security_deposit'))
                 ->numeric()
+                // The same NOT NULL default-0 shape as the service charge above — the review of
+                // SW-261 found it three lines below the one that had just been fixed.
+                ->ignoreBlankState()
                 ->rules(['nullable', 'numeric', 'min:0']),
 
             // HOW the deposit was agreed (meeting 2026-09-02, point 3). Blank keeps the rule every

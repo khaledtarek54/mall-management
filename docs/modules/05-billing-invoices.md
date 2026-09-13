@@ -1953,6 +1953,15 @@ it Filament writes `amount` straight onto whichever row the service returned, ov
 just decided. **A blank VAT column stays NULL** so the catalogue answers per invoice; defaulting it
 would re-freeze the rate and undo the fix above.
 
+**The row is validated BEFORE it is placed (2026-09-13, found by the review of SW-261).** Filament
+runs `resolveRecord()` before `validateData()`, and this importer's whole write is inside
+`resolveRecord()` — so every rule ran AFTER `setAmount()` had already closed the rung in force and
+opened one at the cast value. Measured: `amount = TBD` on a lease with a 5,000 service charge
+left the operator a "failed row" in the report AND a schedule reading 5,000 → 30 June, 0.00 →
+onward. `resolveRecord()` calls `validateData()` first now; Filament's own pass afterwards
+validates the same data again and finds nothing new. Any importer that writes in `resolveRecord()`
+has this shape.
+
 **Tests:** `tests/Feature/Regression/CutOverImportersTest.php`.
 
 ### Implementing late fees

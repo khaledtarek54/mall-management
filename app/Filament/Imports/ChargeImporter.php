@@ -157,6 +157,14 @@ class ChargeImporter extends Importer
      */
     public function resolveRecord(): ?Charge
     {
+        // VALIDATED HERE, BEFORE THE WRITE. Filament validates a row AFTER `resolveRecord()`, and
+        // this importer's whole write is inside it — so a rule refusing `amount` ran after
+        // `setAmount()` had already closed the rung in force and opened one at the cast value.
+        // Measured (review of SW-261): `amount = TBD` on a lease with a 5,000 service charge left
+        // the operator a "failed row" AND a schedule reading 5,000 → 30 June, 0.00 → onward. The
+        // pass Filament runs afterwards validates the same data again and finds nothing new.
+        $this->validateData();
+
         // A model-level refusal is a sentence written FOR A PERSON — the schedule-overlap guard,
         // the unknown charge code, and (2026-09-03) a frequency the agreement's billing run cannot
         // invoice. Filament logs a bare `Throwable` as a failed row with **no message at all**

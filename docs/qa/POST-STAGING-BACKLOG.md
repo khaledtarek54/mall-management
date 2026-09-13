@@ -318,12 +318,21 @@ round changed the reading.
   `proration_method` exported too. The mobile API is unchanged on purpose (the app gates on
   `canDeclareSales`). `ALeasesSalesReportingDutyTravelsThroughImportAndExportTest` (13 cases, 21
   mutations). Account: [modules/09 § SW-255](../modules/09-tenant-sales-percentage-rent.md).
-- **SW-261** — **OPEN (found by the review of SW-255).** Filament's NUMERIC import cast is the
-  boolean cast's twin: `preg_replace('/[^0-9.-]/', '')` + `floatval`, so `-`, `TBD` and `n/a` cast
-  to 0.00 and the `numeric` rule never sees the raw cell. On `percentage_rent_rate` that is an
-  overage priced at 0.00 for the term; on `base_rent_monthly` a lease that bills nothing. Same
-  fix shape as `BooleanImportCellIsAnAnswer` (hand an unparseable token back as the string so
-  `numeric` refuses it), one seam. S.
+- ~~**SW-261**~~ — **FIXED 2026-09-13.** `NumericImportCellIsANumber`, through the same one-slot
+  registration as the boolean seam (`ImportCellCasts` — a second `configureUsing` would have
+  silently replaced the first): a numeric cell is read in the notations a spreadsheet writes
+  (grouping in threes, `EGP`/`%`/`ج.م.` around it, Excel's accounting `(500.00)`, either script's
+  digits, an exponent) and anything else is handed back for the `numeric`/`integer` rule — `TBD`,
+  `-`, `n/a`, `12-500`, `1.2.3` all refused naming the field, where each was a silent 0.00 or a
+  fragment. A word in the cell is only ever a UNIT and a unit is a currency ICU can name or `%`
+  (the first cut took any word and glued digit runs: `TBD 2027` → 2027, `Y1 12000` → 112000 —
+  review-found). Custom `number` fields join it. **Two doors the review found beside it, both
+  fixed:** `ChargeImporter` wrote its rung in `resolveRecord()`, which Filament runs BEFORE
+  validation, so a refused `TBD` row had already closed the live rung and opened a 0.00 one (it
+  validates first now); and `LeaseImporter` sent a BLANK `service_charge_monthly` as NULL into a
+  NOT NULL column — a raw constraint error, no message, since the importer was written —
+  and the review's second pass found `security_deposit`, three lines below, with the same shape
+  (`ignoreBlankState` on both). Fifteen mutations.
 - ~~**SW-260**~~ — **FIXED 2026-09-13 (the blind spot; the wording it exposed is SW-262).**
   `FieldHelpConformanceTest` derives its population from every `->helperText(__('…'))` call site
   under `app/` — 480 rendered helpers, where the two named catalogues had covered 143 — and holds

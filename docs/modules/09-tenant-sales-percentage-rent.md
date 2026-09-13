@@ -135,13 +135,21 @@ at 0.00, and its own Edit page then refusing every save. The importer mirrors th
 natural breakpoint) against the row AND the record — a partial re-import leans on the terms the
 lease already carries, and the term columns keep on blank so a template carrying their headers
 cannot write NULL over them. **A boolean import cell is an answer or it is refused**
-(`App\Support\Filament\BooleanImportCellIsAnAnswer`, one `ImportColumn::configureUsing` seam):
+(`App\Support\Filament\BooleanImportCellIsAnAnswer`, reached through the one `ImportColumn::configureUsing`
+registration in `ImportCellCasts`):
 Filament's own cast made everything it did not recognise TRUE — an Egyptian sheet's «لا», `N/A`, a
 dash — on these two columns and on five siblings (a vendor's withholding exemption, a charge's
 proration flag, a chart account's two flags) and on every custom boolean field; the seam answers
 yes/no in both languages and Excel's `1.0`/`0.0`, and hands anything else back for the `boolean`
-rule to refuse with the field's name. The numeric cast has the same shape (`-` → 0.00) and is
-recorded as SW-261. The mobile API is deliberately unchanged: the app gates its sales screen on
+rule to refuse with the field's name. **A numeric import cell is a number or it is refused**
+(`NumericImportCellIsANumber`, SW-261, the same day): Filament's own cast stripped everything but
+`[0-9.-]` and read the rest as a float, so `TBD` and `-` in `percentage_rent_rate` priced the
+overage at 0.00 for the term, `base_rent_monthly` at `TBD` created a lease billing nothing, and
+Arabic-Indic digits went to 0.00 with every digit stripped; the seam reads the notations a
+spreadsheet writes — grouping in threes, `EGP`/`%`/`ج.م.` around the figure, Excel's accounting
+`(500.00)`, either script's digits — and hands the rest back for the `numeric` rule. Both casts
+share ONE registration because `castStateUsing()` is a single slot, and the numeric twin took the
+whole seam with it once. The mobile API is deliberately unchanged: the app gates its sales screen on
 `canDeclareSales`, and the duty is not a thing it shows.
 
 **Two consequences, both designed and stated:**

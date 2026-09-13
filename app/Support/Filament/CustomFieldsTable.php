@@ -195,9 +195,16 @@ final class CustomFieldsTable
                 ->label($field->label())
                 // A boolean field is an answer or it is refused (`BooleanImportCellIsAnAnswer`),
                 // which only reaches a column that says it IS boolean — without this, «لا» and
-                // "no" both stored TRUE through `(bool) $value` in `castCustomFieldValue()`.
+                // "no" both stored TRUE through `(bool) $value` in `castCustomFieldValue()`. A
+                // number field is the numeric twin (`NumericImportCellIsANumber`): without it a
+                // `TBD` was dropped to null by `is_numeric()` there, and `12,500` with it.
                 ->boolean(fn (): bool => $field->type === 'boolean')
-                ->rules(fn (): array => $field->type === 'boolean' ? ['nullable', 'boolean'] : [])
+                ->numeric(fn (): bool => $field->type === 'number')
+                ->rules(fn (): array => match ($field->type) {
+                    'boolean' => ['nullable', 'boolean'],
+                    'number' => ['nullable', 'numeric'],
+                    default => [],
+                })
                 ->fillRecordUsing(function ($record, $state) use ($field): void {
                     $record->fillCustomFields([$field->key => $state]);
                 }))
