@@ -55,11 +55,11 @@ it('re-trues the ladder when the rate changes', function () {
     // RV4DrGHA — configured 100 %, ladder stepping 10 %.
     asTenant($this->asset, function () {
         $lease = LeaseLadder::testersLease($this->asset);
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09 1331@2029-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09');
 
         LeaseLadder::edit($lease, ['escalation_rate' => 100]);
 
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 2000@2027-09 4000@2028-09 8000@2029-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 2000@2027-09 4000@2028-09');
     });
 });
 
@@ -81,7 +81,7 @@ it('ends the tester s exact editing session on a yearly ladder', function () {
         LeaseLadder::edit($lease, ['escalation_interval_months' => null]);
         // …and the moment it says yearly again, so does the ladder. Before the fix every monthly
         // rung survived this edit and went on billing.
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09 1331@2029-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09');
     });
 });
 
@@ -91,7 +91,7 @@ it('carries the levy along with the re-trued rent', function () {
         LeaseLadder::edit($lease, ['escalation_rate' => 100]);
 
         // 5 % of each rung, and no orphaned rung from the 10 % ladder left billing beside it.
-        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 100@2027-09 200@2028-09 400@2029-09');
+        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 100@2027-09 200@2028-09');
     });
 });
 
@@ -113,7 +113,7 @@ it('re-rates the levy from today without touching the final rung, and touches no
         LeaseLadder::edit($lease, ['marketing_levy_rate' => 6]);
 
         // Six percent of 1,000 from the lease's own first day, then six percent of every rung.
-        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('60@2026-09 66@2027-09 73@2028-09 80@2029-09')
+        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('60@2026-09 66@2027-09 73@2028-09')
             ->and($lease->charges()->where('type', 'base_rent')->where('is_active', true)->orderBy('start_date')->pluck('id')->all())->toBe($rentIds);
     });
 });
@@ -131,7 +131,7 @@ it('leaves a rung the operator STATED exactly where it is', function () {
         LeaseLadder::edit($lease, ['escalation_rate' => 100]);
 
         // Stated 1,500 stands; the steps AFTER it compound from it at the new rate.
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1500@2027-09 3000@2028-09 6000@2029-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1500@2027-09 3000@2028-09');
     });
 });
 
@@ -162,19 +162,19 @@ it('shows the collared step in the schedule, and the sweep agrees with it', func
         LeaseLadder::edit($lease, ['escalation_floor_rate' => 2, 'escalation_ceiling_rate' => 5]);
 
         // 1,000 × 1.05 each year, and the levy derived from the collared figure.
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1103@2028-09 1158@2029-09')
-            ->and(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 53@2027-09 55@2028-09 58@2029-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1103@2028-09')
+            ->and(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 53@2027-09 55@2028-09');
 
         $this->travelTo(CarbonImmutable::parse('2027-09-10'));
         app(RentEscalationService::class)->runForToday();
 
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1103@2028-09 1158@2029-09')
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1103@2028-09')
             ->and((float) $lease->fresh()->base_rent_monthly)->toBe(1050.0);
 
         // Lifting the ceiling re-trues what lies ahead at the contracted rate.
         $this->travelTo(CarbonImmutable::parse('2027-09-15'));
         LeaseLadder::edit($lease, ['escalation_ceiling_rate' => null]);
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1155@2028-09 1271@2029-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1050@2027-09 1155@2028-09');
     });
 });
 
@@ -257,7 +257,7 @@ it('never arms the pointer in the past when a shortened interval is set mid-cycl
         // Six-monthly from commencement is 2027-03-10 — in the past — so it walks on to the
         // anniversary the sweep was already going to keep.
         expect($lease->fresh()->next_escalation_date->toDateString())->toBe('2027-09-10')
-            ->and(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-03 1331@2028-09 1464@2029-03 1611@2029-09');
+            ->and(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-03 1331@2028-09 1464@2029-03');
 
         // The sweep on the anniversary agrees with the ladder instead of fighting it.
         $this->travelTo(CarbonImmutable::parse('2027-09-10'));
@@ -265,7 +265,7 @@ it('never arms the pointer in the past when a shortened interval is set mid-cycl
 
         expect((float) $lease->fresh()->base_rent_monthly)->toBe(1100.0)
             ->and($lease->fresh()->next_escalation_date->toDateString())->toBe('2028-03-10')
-            ->and(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-03 1331@2028-09 1464@2029-03 1611@2029-09');
+            ->and(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-03 1331@2028-09 1464@2029-03');
     });
 });
 
@@ -278,13 +278,13 @@ it('keeps a step the sweep has already applied and re-trues only what lies ahead
 
         $this->travelTo(CarbonImmutable::parse('2027-09-10'));
         app(RentEscalationService::class)->runForToday();
-        $started = $lease->charges()->where('type', 'base_rent')->where('is_active', true)->whereDate('start_date', '2027-09-01')->sole();
+        $started = $lease->charges()->where('type', 'base_rent')->where('is_active', true)->whereDate('start_date', '2027-09-10')->sole();
         expect((float) $lease->fresh()->base_rent_monthly)->toBe(1100.0);
 
         $this->travelTo(CarbonImmutable::parse('2027-09-15'));
         LeaseLadder::edit($lease, ['escalation_rate' => 20]);
 
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1320@2028-09 1584@2029-09')
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1320@2028-09')
             ->and($started->fresh()->is_active)->toBeTrue()
             ->and((float) $started->fresh()->amount)->toBe(1100.0)
             ->and((float) $lease->fresh()->base_rent_monthly)->toBe(1100.0);
@@ -308,16 +308,16 @@ it('walks through a rent relief instead of over it', function () {
             'percent_off' => 50, 'from' => '2027-07-01', 'to' => '2027-12-31',
             'reason' => 'Six-month concession while the anchor unit is re-let.',
         ]);
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 500@2027-07 550@2027-09 1100@2028-01 1210@2028-09 1331@2029-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 500@2027-07 550@2027-09 1100@2028-01 1210@2028-09');
 
         LeaseLadder::edit($lease, ['escalation_rate' => 20]);
 
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 500@2027-07 550@2027-09 1200@2028-01 1440@2028-09 1728@2029-09')
-            ->and(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 60@2027-09 72@2028-09 86@2029-09')
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 500@2027-07 550@2027-09 1200@2028-01 1440@2028-09')
+            ->and(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 60@2027-09 72@2028-09')
             // The relief's own rows are the operator's, untouched to the day.
             ->and($lease->charges()->where('type', 'base_rent')->where('origin', Charge::ORIGIN_RELIEF)->where('is_active', true)->orderBy('start_date')->get()
                 ->map(fn (Charge $c) => $c->amount.' '.$c->start_date->toDateString().'..'.$c->end_date->toDateString())->implode(' | '))
-            ->toBe('500.00 2027-07-01..2027-08-31 | 550.00 2027-09-01..2027-12-31');
+            ->toBe('500.00 2027-07-01..2027-09-09 | 550.00 2027-09-10..2027-12-31');
     });
 });
 
@@ -335,13 +335,13 @@ it('gives a levy toggled on through the page its full ladder, from the base row 
 
         // Commencement month.
         LeaseLadder::edit($lease, ['has_marketing_levy' => true, 'marketing_levy_rate' => 5]);
-        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 55@2027-09 61@2028-09 67@2029-09');
+        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 55@2027-09 61@2028-09');
 
         // Mid-term, off again and on again: the same shape, and no back-dated stepped row.
         LeaseLadder::edit($lease, ['has_marketing_levy' => false]);
         $this->travelTo(CarbonImmutable::parse('2027-03-15'));
         LeaseLadder::edit($lease, ['has_marketing_levy' => true, 'marketing_levy_rate' => 5]);
-        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 55@2027-09 61@2028-09 67@2029-09');
+        expect(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-09 55@2027-09 61@2028-09');
     });
 });
 
@@ -361,6 +361,6 @@ it('repairs a ladder that has already drifted, on demand', function () {
 
         app(ChargeScheduleService::class)->retrueProjectedLadder($lease->fresh());
 
-        expect(LeaseLadder::rungs($lease->fresh(), 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09 1331@2029-09');
+        expect(LeaseLadder::rungs($lease->fresh(), 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09');
     });
 });

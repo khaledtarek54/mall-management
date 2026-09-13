@@ -803,7 +803,7 @@ class LeaseActions
                         ->body(__('admin.actions.premises_changed_body', [
                             'ref' => $updated->reference,
                             'area' => number_format($updated->totalAreaSqmOn(CarbonImmutable::parse($data['effective_from'])), 0),
-                            'from' => CarbonImmutable::parse($data['effective_from'])->startOfMonth()->format('d/m/Y'),
+                            'from' => CarbonImmutable::parse($data['effective_from'])->format('d/m/Y'),
                         ]))
                         ->success()
                         ->send();

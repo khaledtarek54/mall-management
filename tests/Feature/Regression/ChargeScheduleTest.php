@@ -65,12 +65,14 @@ it('closes the row in force and opens the next instead of overwriting the amount
 
     $schedule = rentSchedule($lease->fresh());
 
+    // From the DAY the change is made (2026-09-13, Trello gzwI17R0) — the planner bills the
+    // days before at the old rent and the days from it at the new.
     expect($schedule)->toHaveCount(2)
         ->and((float) $schedule[0]->amount)->toBe(10000.0)
         ->and($schedule[0]->start_date->toDateString())->toBe('2026-01-01')
-        ->and($schedule[0]->end_date->toDateString())->toBe('2026-05-31')
+        ->and($schedule[0]->end_date->toDateString())->toBe('2026-06-09')
         ->and((float) $schedule[1]->amount)->toBe(12000.0)
-        ->and($schedule[1]->start_date->toDateString())->toBe('2026-06-01')
+        ->and($schedule[1]->start_date->toDateString())->toBe('2026-06-10')
         ->and($schedule[1]->end_date)->toBeNull()
         // Both stay ACTIVE: the closed row is history, not a deactivated charge. Billing filters
         // it out by DATE, which is what lets a past month still bill it.
@@ -88,8 +90,9 @@ it('bills each month at the rent that was in force in that month', function () {
     $may = $billing->generateForLease($lease, CarbonImmutable::parse('2026-05-01'));
     $june = $billing->generateForLease($lease->fresh(), CarbonImmutable::parse('2026-06-01'));
 
+    // June is split on the 10th: nine days at 10,000 and twenty-one at 12,000.
     expect((float) $may['invoice']->items()->where('type', 'base_rent')->sole()->amount)->toBe(10000.0)
-        ->and((float) $june['invoice']->items()->where('type', 'base_rent')->sole()->amount)->toBe(12000.0);
+        ->and($june['invoice']->items()->where('type', 'base_rent')->orderBy('covered_start')->pluck('amount')->map(fn ($a) => (float) $a)->all())->toBe([3000.0, 8400.0]);
 });
 
 it('does not litter the schedule when the amount has not actually changed', function () {
@@ -120,20 +123,24 @@ it('amends a not-yet-started row in place rather than leaving a stub behind', fu
         ->and($schedule[1]->start_date->toDateString())->toBe('2026-08-01');
 });
 
-it('snaps an effective date to the billing month so no month is ever split', function () {
+it('dates a change on the day it is effective and splits that month between the two rents', function () {
     CarbonImmutable::setTestNow('2026-06-10');
     $lease = scheduledLease();
 
-    // Mid-month effective date: the engine bills one amount per type per month, so the row must
-    // start on the 1st. This also reproduces the old overwrite behaviour exactly — a mid-month
-    // change always billed that whole month at the new rent.
+    // Until 2026-09-13 a mid-month date snapped to the 1st because the engine billed one amount
+    // per type per month. Now the row starts on the day (the market's dated charge row) and July
+    // bills sixteen days at the old rent and fifteen at the new (Trello gzwI17R0).
     app(LeaseRentChangeService::class)->apply($lease, [
         'base_rent_monthly' => 12000, 'effective_from' => '2026-07-17',
     ]);
 
     $schedule = rentSchedule($lease->fresh());
-    expect($schedule[1]->start_date->toDateString())->toBe('2026-07-01')
-        ->and($schedule[0]->end_date->toDateString())->toBe('2026-06-30');
+    expect($schedule[1]->start_date->toDateString())->toBe('2026-07-17')
+        ->and($schedule[0]->end_date->toDateString())->toBe('2026-07-16');
+
+    $july = app(MonthlyBillingService::class)->planInvoiceForLease($lease->fresh(), CarbonImmutable::parse('2026-07-01'), CarbonImmutable::parse('2026-07-31'), true);
+    expect(collect($july['items'])->where('type', 'base_rent')->sortBy('covered_start')->pluck('amount')->values()->all())
+        ->toBe([round(10000 * 16 / 31, 2), round(12000 * 15 / 31, 2)]);
 });
 
 /* ---- escalation ------------------------------------------------------------ */
@@ -264,7 +271,7 @@ it('moves the marketing levy on the same effective date as the rent it derives f
 
     // A past month must bill the levy that was in force then, beside the rent that was in force
     // then — otherwise the schedule fixes the rent and leaves the levy inconsistent with it.
-    expect($levy->last()->start_date->toDateString())->toBe('2026-06-01')
+    expect($levy->last()->start_date->toDateString())->toBe('2026-06-10')
         ->and((float) $levy->last()->amount)->toBe(1000.0)
         ->and((float) $levy->first()->amount)->toBe(500.0);
 });

@@ -195,8 +195,9 @@ class Lease extends Model implements BillableAgreement, HasMedia
             // anniversary after the last one it applied (or after commencement when none), so
             // one old interval back from it is that anniversary, and one NEW interval on from
             // there is the next. A first cut read the last projected rung that had STARTED
-            // instead, and the review broke it: rungs start on the 1st and the sweep applies on
-            // the anniversary day, so an edit between the two read a rung as applied while
+            // instead, and the review broke it: rungs then started on the 1st (they start on the
+            // anniversary since 2026-09-13) while the sweep applies on the anniversary day, so an
+            // edit between the two read a rung as applied while
             // `base_rent_monthly` was never bumped, armed the pointer past the sweep, and every
             // later sweep amended the projected rungs DOWN one step for the rest of the term.
             if ($lease->exists

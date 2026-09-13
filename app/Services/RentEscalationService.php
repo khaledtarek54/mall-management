@@ -255,9 +255,13 @@ class RentEscalationService
             $nextDate = $lease->escalationDateAfter(
                 CarbonImmutable::instance($lease->next_escalation_date)
             );
-            $anniversary = ChargeScheduleService::billingBoundary(
-                CarbonImmutable::instance($lease->next_escalation_date)
-            );
+            // The anniversary ITSELF, since 2026-09-13 — not the 1st of its month. Every rung
+            // this sweep opens starts on the day the clause names, and the planner bills the
+            // days before it at the outgoing figure and the days from it at the new one
+            // (Trello gzwI17R0: a lease commencing on the 10th stepped from the 1st, nine days
+            // early, at every anniversary). `ChargeScheduleService::billingBoundary()` records
+            // why the snap that stood here was the wrong grain for a step.
+            $anniversary = CarbonImmutable::instance($lease->next_escalation_date)->startOfDay();
             $current = (float) $lease->base_rent_monthly;
 
             // ── THE RENT — the lease's own clause ─────────────────────────────────────────────
@@ -360,6 +364,15 @@ class RentEscalationService
             foreach ($this->schedule->escalatingChargeTypes($lease) as $chargeType) {
                 $outgoing = $this->schedule->rowCovering($lease, $chargeType, $anniversary->subDay());
                 $incoming = $this->schedule->rowCovering($lease, $chargeType, $anniversary);
+
+                // A rung snapped to the 1st under the pre-2026-09-13 rule and already started IS
+                // this anniversary's step — sizing from it would step twice. The base is the row
+                // it succeeded, exactly as the snapped sweep read it; the write below then finds
+                // the step already in force and no-ops, while the event and the column still
+                // record it (`ChargeScheduleService::stepAlreadyAppliedOn()`).
+                if ($this->schedule->stepAlreadyAppliedOn($lease, $chargeType, $outgoing, $anniversary)) {
+                    $outgoing = $this->schedule->rowCovering($lease, $chargeType, CarbonImmutable::instance($outgoing->start_date)->subDay());
+                }
 
                 if ($outgoing === null
                     || (float) $outgoing->amount <= 0

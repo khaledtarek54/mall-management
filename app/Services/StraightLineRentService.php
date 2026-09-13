@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Settings\BillingSettings;
+use App\Support\ProrationMethod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -86,7 +87,7 @@ class StraightLineRentService
                 continue;
             }
 
-            $total += (float) (ChargeScheduleService::pickInForce($rows, $month)?->amount ?? 0);
+            $total += self::rentBilledIn($lease, $rows, $month);
         }
 
         if ($total <= 0) {
@@ -125,7 +126,61 @@ class StraightLineRentService
             ->where('frequency', '!=', 'one_time')
             ->get();
 
-        return round((float) (ChargeScheduleService::pickInForce($rows, $month)?->amount ?? 0), 2);
+        return round(self::rentBilledIn($lease, $rows, $month), 2);
+    }
+
+    /**
+     * What the schedule bills as base rent for ONE calendar month — the rung in force, or, in a
+     * month a step splits, each rung for its own days (2026-09-13).
+     *
+     * Since an anniversary rung starts ON the anniversary, the month it falls in is billed at two
+     * figures — nine days at the old rent, twenty-one at the new — and reading the rung in force
+     * on the 1st (`pickInForce()`, the reading until then) would net the adjustment against a
+     * figure the invoice never carried, leaving Deferred Rent permanently off by the difference.
+     * Each rung's share is `MonthlyBillingService::monthsCovered()` on the lease's own method —
+     * the ONE day-share rule — over the rung's days inside the month. A rung that started with
+     * the lease is read for the whole of its month exactly as before (the term's own edges are
+     * whole months here, by this service's stated design), so nothing an install has already
+     * posted moves: only a rung dated inside a month reads as the blend the invoice bills.
+     *
+     * @param  Collection<int, Charge>  $rows  the lease's active recurring base-rent rows
+     */
+    private static function rentBilledIn(Lease $lease, Collection $rows, CarbonImmutable $month): float
+    {
+        $monthStart = $month->startOfMonth();
+        $monthEnd = $month->endOfMonth()->startOfDay();
+        $commencement = $lease->commencement_date ? CarbonImmutable::instance($lease->commencement_date)->startOfDay() : null;
+        $method = $lease->prorationMethod();
+
+        $inMonth = $rows->filter(fn (Charge $row): bool => ($row->start_date === null || ! CarbonImmutable::instance($row->start_date)->greaterThan($monthEnd))
+            && ($row->end_date === null || ! CarbonImmutable::instance($row->end_date)->lessThan($monthStart)));
+
+        // A month before the schedule begins reads the FIRST row, as `pickInForce()` does — a
+        // lease commencing on the 10th has no row over its own first nine days.
+        if ($inMonth->isEmpty()) {
+            return (float) (ChargeScheduleService::pickInForce($rows, $monthStart)?->amount ?? 0);
+        }
+
+        return (float) $inMonth->sum(function (Charge $row) use ($rows, $monthStart, $monthEnd, $commencement, $method): float {
+            $start = $row->start_date ? CarbonImmutable::instance($row->start_date)->startOfDay() : null;
+            $end = $row->end_date ? CarbonImmutable::instance($row->end_date)->startOfDay() : null;
+
+            $from = $start !== null && ($commencement === null || $start->greaterThan($commencement)) && $start->greaterThan($monthStart) ? $start : $monthStart;
+            $to = $end !== null && $end->lessThan($monthEnd) ? $end : $monthEnd;
+
+            // The ROW's own method — a `prorate = false` rent row bills whole months — and the
+            // planner's yield: such a row ending mid-month with a successor gives that month to
+            // the successor, so this reads what the invoice carries (found by review).
+            $rowMethod = $row->prorationMethodWithin($method);
+
+            if ($rowMethod === ProrationMethod::WHOLE_MONTH
+                && $end !== null && $end->lessThan($monthEnd)
+                && $rows->contains(fn (Charge $c) => $c->isNot($row) && $c->start_date !== null && CarbonImmutable::instance($c->start_date)->startOfDay()->equalTo($end->addDay()))) {
+                return 0.0;
+            }
+
+            return (float) $row->amount * MonthlyBillingService::monthsCovered($monthStart, 1, $from, $to, $rowMethod);
+        });
     }
 
     /**

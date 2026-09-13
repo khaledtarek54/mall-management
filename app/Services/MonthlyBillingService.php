@@ -292,47 +292,25 @@ class MonthlyBillingService
     }
 
     /**
-     * Decide what this lease WOULD be billed for the period, and compute every line — without
-     * writing anything.
+     * The latest service month already billed for this charge, or null if nothing recorded one.
      *
-     * This is the whole of the billing decision: fit-out grace, the billing cycle, which charges
-     * apply, proration, the line amounts, VAT, the header totals and the dates. `generateInvoiceForLease()`
-     * persists its output verbatim and `previewForPeriod()` renders it. **That shared path is the
-     * point** — a preview computed by a second implementation is a preview that can lie, and the one
-     * thing an operator must be able to trust about a dry run is that it is the run.
+     * Reads `invoice_items.covered_end`, so it can only see lines the run wrote after the
+     * 2026-09-03 migration — which is exactly right: a null is *not recorded*, and treating it as
+     * *covers nothing* is what keeps every historical invoice meaning what it meant.
      *
-     * `reason` mirrors the skip reasons the single-lease path already returns (`fit_out`,
-     * `off_cycle`, `no_applicable_charges`) so the UI can say *why* nothing bills rather than
-     * showing an unexplained blank.
-     *
-     * @return array{billable:bool, reason:?string, reason_detail:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
+     * Documents that left the books are excluded. A cancelled or fully credited invoice billed
+     * nobody for anything, so the month it covered is owed again — the same partition
+     * `InvoiceSettlement` draws for money arriving, asked here about months.
      */
-    /**
-     * The abatement share for a window, or null when the rent-free period does not touch it.
-     *
-     * Extracted so an ARREARS row can ask about the month it covers rather than the month the
-     * invoice is dated to (EG-30 / M-2). The inline derivation above answers for the invoice's own
-     * period, which is correct for an advance row and wrong for an arrears one — its rent-free
-     * month is the one behind it, and billing it in full a month later hands the abatement back.
-     */
-    private static function graceMultiplierFor(
-        Lease $lease,
-        CarbonImmutable $windowStart,
-        CarbonImmutable $windowEnd,
-        int $windowMonths,
-        ?string $method = null,
-    ): ?float {
-        $rentStart = $lease->rent_commencement_date
-            ? CarbonImmutable::instance($lease->rent_commencement_date)
-            : null;
+    private static function lastCoveredEndFor(Charge $charge): ?CarbonImmutable
+    {
+        $end = InvoiceItem::query()
+            ->where('charge_id', $charge->id)
+            ->whereNotNull('covered_end')
+            ->whereHas('invoice', fn ($q) => $q->whereNotIn('status', ['draft', 'cancelled', 'credited']))
+            ->max('covered_end');
 
-        if ($rentStart === null
-            || ! $rentStart->greaterThan($windowStart)
-            || $rentStart->greaterThan($windowEnd)) {
-            return null;
-        }
-
-        return self::monthsCovered($windowStart, $windowMonths, $rentStart, $windowEnd, $method ?? $lease->prorationMethod());
+        return $end === null ? null : CarbonImmutable::parse($end)->startOfDay();
     }
 
     /**
@@ -361,28 +339,6 @@ class MonthlyBillingService
      *
      * @return array{0: CarbonImmutable, 1: CarbonImmutable}
      */
-    /**
-     * The latest service month already billed for this charge, or null if nothing recorded one.
-     *
-     * Reads `invoice_items.covered_end`, so it can only see lines the run wrote after the
-     * 2026-09-03 migration — which is exactly right: a null is *not recorded*, and treating it as
-     * *covers nothing* is what keeps every historical invoice meaning what it meant.
-     *
-     * Documents that left the books are excluded. A cancelled or fully credited invoice billed
-     * nobody for anything, so the month it covered is owed again — the same partition
-     * `InvoiceSettlement` draws for money arriving, asked here about months.
-     */
-    private static function lastCoveredEndFor(Charge $charge): ?CarbonImmutable
-    {
-        $end = InvoiceItem::query()
-            ->where('charge_id', $charge->id)
-            ->whereNotNull('covered_end')
-            ->whereHas('invoice', fn ($q) => $q->whereNotIn('status', ['draft', 'cancelled', 'credited']))
-            ->max('covered_end');
-
-        return $end === null ? null : CarbonImmutable::parse($end)->startOfDay();
-    }
-
     public static function coveredWindow(
         Charge $charge,
         CarbonImmutable $periodStart,
@@ -486,6 +442,22 @@ class MonthlyBillingService
         return $total;
     }
 
+    /**
+     * Decide what this lease WOULD be billed for the period, and compute every line — without
+     * writing anything.
+     *
+     * This is the whole of the billing decision: fit-out grace, the billing cycle, which charges
+     * apply, proration, the line amounts, VAT, the header totals and the dates. `generateInvoiceForLease()`
+     * persists its output verbatim and `previewForPeriod()` renders it. **That shared path is the
+     * point** — a preview computed by a second implementation is a preview that can lie, and the one
+     * thing an operator must be able to trust about a dry run is that it is the run.
+     *
+     * `reason` mirrors the skip reasons the single-lease path already returns (`fit_out`,
+     * `off_cycle`, `no_applicable_charges`) so the UI can say *why* nothing bills rather than
+     * showing an unexplained blank.
+     *
+     * @return array{billable:bool, reason:?string, reason_detail:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
+     */
     public function planInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false, bool $forceFinalCycle = false): array
     {
         $nothing = fn (string $reason): array => [
@@ -681,16 +653,11 @@ class MonthlyBillingService
         //
         // Kept SEPARATE from `$multiplier` because the grace is per charge type: under net
         // abatement the tenant has been paying the service charge and the levy all through fit-out,
-        // and those bill the full month here. Only what the grace actually abated is clipped.
+        // and those bill the full month here. Only what the grace actually abated is clipped —
+        // per line, in `lineWindow()`, on the window the line covers.
         $rentStart = $lease->rent_commencement_date
             ? CarbonImmutable::instance($lease->rent_commencement_date)
             : null;
-
-        $graceMultiplier = ($rentStart
-            && $rentStart->greaterThan($effectivePeriodStart)
-            && ! $rentStart->greaterThan($effectivePeriodEnd))
-                ? self::monthsCovered($periodStart, $cycleMonths, $rentStart, $effectivePeriodEnd, $proration)
-                : null;
 
         // The share of a full cycle, for the label and the `prorated` flag.
         $factor = $multiplier / max($cycleMonths, 1);
@@ -704,11 +671,22 @@ class MonthlyBillingService
         // period does not contain.
         $leaseWindowStart = $commencement ?? CarbonImmutable::create(1970, 1, 1);
 
+        // A HOLDOVER begins the month after the term ended (`ConvertLeaseToHoldoverService` —
+        // the days between a mid-month expiry and that 1st are, by its rule, days the tenancy
+        // does not cover), so an arrears row on the holdover's first invoice must not reach back
+        // into them: the final invoice settled the arrears window to the expiry and recorded so
+        // (`covered_end`, the line's true window since 2026-09-13), and without this bound the
+        // service charge for the gap billed while the rent for it did not (found by review).
+        if ($lease->isBillableHoldoverFor($periodEnd) && $lease->holdover_from) {
+            $holdoverFrom = CarbonImmutable::instance($lease->holdover_from)->startOfDay();
+            $leaseWindowStart = $holdoverFrom->greaterThan($leaseWindowStart) ? $holdoverFrom : $leaseWindowStart;
+        }
+
         $leaseWindowEnd = (filled($lease->expiry_date) && ! $lease->isBillableHoldoverFor($periodEnd))
             ? CarbonImmutable::instance($lease->expiry_date)
             : CarbonImmutable::create(2999, 12, 31);
 
-        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $fullCycleMonths, $effectivePeriodStart, $effectivePeriodEnd, $rentStart, $proration, $leaseWindowStart, $leaseWindowEnd, $isFinalCycle) {
+        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $applicableCharges, $commencement, $periodStart, $periodEnd, $cycleMonths, $fullCycleMonths, $effectivePeriodStart, $effectivePeriodEnd, $rentStart, $proration, $leaseWindowStart, $leaseWindowEnd, $isFinalCycle) {
             // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
             // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
             //
@@ -771,55 +749,47 @@ class MonthlyBillingService
             // disagree with the invoice it credits.
             $rowProration = $charge->prorationMethodWithin($proration);
 
-            // The two multipliers computed once for the whole invoice were derived on the LEASE's
-            // method, so a row departing from it has to re-derive them. Identical whenever it does
-            // not — which is every row on every install until an operator ticks the box, so nothing
-            // that bills today changes.
-            $cycleMultiplier = $rowProration === $proration
-                ? $multiplier
-                : self::monthsCovered($periodStart, $cycleMonths, $effectivePeriodStart, $effectivePeriodEnd, $rowProration);
+            // ── THE DAYS THIS LINE BILLS: the window, the lease's edges, the grace, and THE ROW'S
+            // OWN DATES (2026-09-13, Trello gzwI17R0) ──────────────────────────────────────────
+            //
+            // Until then every branch below priced the row for the whole window it touched, and
+            // the schedule kept that honest by snapping every row to the 1st — so a rent step on
+            // the tenth of the month stepped from the first. Now a rung starts ON the anniversary
+            // and the month is SPLIT: the outgoing row bills the days to its end, the incoming
+            // row the days from its start, each by this row's own proration method — the market's
+            // date-ranged schedule, prorated at posting (benchmark 01 §3.2–3.3). `lineWindow()`
+            // is the one derivation of the window, so the arrears branch, the grace branch and
+            // the advance branch all clip the same way, and what a line COVERS is stored as what
+            // it actually billed.
+            [$cycleStart, $lineMonths] = $charge->billsInArrears()
+                ? [$coveredStart, $coveredMonths]
+                : [$periodStart, $cycleMonths];
 
-            $rowGrace = ($rowProration === $proration || $graceMultiplier === null || $rentStart === null)
-                ? $graceMultiplier
-                : self::monthsCovered($periodStart, $cycleMonths, $rentStart, $effectivePeriodEnd, $rowProration);
+            // A non-monthly row bills once, whole, in its month — so an outgoing rung that ends
+            // inside the window with its successor starting the next day YIELDS the month, or a
+            // quarterly signage licence stepping on the 10th would bill 900 AND 990 for one
+            // September (found by review).
+            $window = $charge->frequency !== 'monthly'
+                ? (self::successorOf($charge, $applicableCharges, $coveredEnd) !== null ? null : [$coveredStart, $coveredEnd])
+                : self::lineWindow($charge, $lease, $coveredStart, $coveredEnd, $effectivePeriodStart, $effectivePeriodEnd, $leaseWindowStart, $leaseWindowEnd, $rentStart, $rowProration, $applicableCharges, $commencement);
 
-            $rowMultiplier = match (true) {
-                $charge->frequency !== 'monthly' => 1.0,
-                // Grace is measured on the window this row COVERS. `$graceMultiplier` is derived
-                // from the invoice's own period, which is the right answer for an advance row and
-                // the wrong one for an arrears row: the rent-free month it needs to know about is
-                // the one behind it. A tenant whose rent commenced 15 August would otherwise have
-                // been billed August's service charge in full on the September invoice, having had
-                // it abated in August — the abatement given and then taken back a month later.
-                $rowGrace !== null && $lease->graceAbates($charge->type) && ! $charge->billsInArrears() => $rowGrace,
-                $lease->graceAbates($charge->type) && $charge->billsInArrears() => self::graceMultiplierFor($lease, $coveredStart, $coveredEnd, $coveredMonths, $rowProration)
-                        ?? self::monthsCovered(
-                            $coveredStart,
-                            $coveredMonths,
-                            $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
-                            $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
-                            $rowProration,
-                        ),
-                // An arrears row prorates against the month it COVERS, not the month the invoice
-                // is dated to. A lease that commenced on 15 August owes half of August's service
-                // charge on the September invoice — using September's multiplier would bill a full
-                // month for a half month of service, and the error is invisible because the figure
-                // is plausible.
-                $charge->billsInArrears() => self::monthsCovered(
-                    $coveredStart,
-                    // The final window spans the arrears cycle AND this one, so count both — a
-                    // fixed `$cycleMonths` here would silently bill only the first of them.
-                    $coveredMonths,
-                    $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
-                    $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
-                    $rowProration,
-                ),
-                default => $cycleMultiplier,
-            };
+            // Nothing of the window falls inside the row AND the lease — an arrears row on the
+            // FIRST invoice (the month it would bill is before the lease existed), a row that ended
+            // before the days this invoice has left to bill, a whole-month row yielding a split
+            // month to its successor. It bills nothing now, which is the honest answer rather
+            // than a zero line.
+            if ($window === null) {
+                return null;
+            }
 
-            // Nothing of the covered window falls inside the lease — an arrears row on the FIRST
-            // invoice, where the month it would bill is before the lease existed. It bills nothing
-            // now and bills normally next month, which is the honest answer rather than a zero line.
+            [$lineFrom, $lineTo] = $window;
+
+            $rowMultiplier = $charge->frequency !== 'monthly'
+                // A one-off bills once at its full amount, never multiplied; a quarterly or annual
+                // FREQUENCY row bills whole in its month.
+                ? 1.0
+                : self::monthsCovered($cycleStart, $lineMonths, $lineFrom, $lineTo, $rowProration);
+
             if ($rowMultiplier <= 0) {
                 return null;
             }
@@ -901,8 +871,11 @@ class MonthlyBillingService
                 // has always computed and always thrown away. `alreadyBilledForMonth()` keys on the
                 // INVOICE's period, which is a different question, and the day the two diverge is
                 // the day a lease continues past a final settle.
-                'covered_start' => $coveredStart->toDateString(),
-                'covered_end' => $coveredEnd->toDateString(),
+                // Since 2026-09-13 the window the LINE billed — clipped to the row's own dates and
+                // the lease's edges — so a split month records two lines covering two spans and
+                // the move-out credit can apportion each on its own days.
+                'covered_start' => $lineFrom->toDateString(),
+                'covered_end' => $lineTo->toDateString(),
                 'description' => $label,
                 'description_key' => $narrativeKey,
                 'description_data' => $narrativeData,
@@ -1097,10 +1070,17 @@ class MonthlyBillingService
      */
     private function scheduleClash(Lease $lease, $applicable, CarbonImmutable $periodStart): ?string
     {
+        // Two rows of one type in one period are a clash only when they share a DAY. Two that
+        // meet — the outgoing rung ending on the eve of the incoming one — are a SPLIT month
+        // (2026-09-13): the planner bills each for its own days. Same test `Charge::
+        // assertNoScheduleOverlap()` applies at the write, asked again here of whatever loaded.
         $clashes = $applicable
             ->filter(fn (Charge $c) => $c->frequency !== 'one_time')
             ->groupBy('type')
-            ->filter(fn ($rows) => $rows->count() > 1);
+            ->filter(fn ($rows) => $rows->count() > 1)
+            ->filter(fn ($rows) => $rows->contains(fn (Charge $a) => $rows->contains(
+                fn (Charge $b) => $a->isNot($b) && self::rowsShareADay($a, $b),
+            )));
 
         if ($clashes->isEmpty()) {
             return null;
@@ -1114,6 +1094,112 @@ class MonthlyBillingService
             'period' => $periodStart->locale(app()->getLocale())->isoFormat('MMMM YYYY'),
             'detail' => $detail,
         ]);
+    }
+
+    /**
+     * The days ONE recurring line bills inside the window its row covers — or null when none.
+     *
+     * Three clips, in order. The LEASE's edges: an advance row bills between the period's
+     * effective start (the commencement, when the run prorates the move-in month) and its
+     * effective end (the expiry), an arrears row between the lease's own bounds inside the
+     * month it covers. The GRACE: a charge the rent-free period abates starts at the rent
+     * commencement when that falls inside the window (an arrears row asks about the month it
+     * COVERS, not the month the invoice is dated to — a tenant whose rent commenced 15 August
+     * would otherwise be billed August's service charge in full on the September invoice, the
+     * abatement given and taken back a month later). And THE ROW'S OWN DATES (2026-09-13): its
+     * `end_date`, always; its `start_date` when it began AFTER the lease commenced — a row born
+     * with the lease follows the commencement, whose part-month is the run's `$prorate` decision
+     * and not the row's, while a rung opened mid-term (an anniversary step, a levy rung riding on
+     * it, a bay's re-sum) bills from the day it opened.
+     *
+     * A row that does NOT prorate by days — `prorate = false`, resolving to `WHOLE_MONTH` — is
+     * payable in full for any month it runs into, and two such rows meeting mid-month would both
+     * claim the month. The outgoing one YIELDS it: the successor that starts the next day bills
+     * the month whole, which is exactly what the pre-2026-09-13 snap gave such a row.
+     *
+     * @param  \Illuminate\Support\Collection<int, Charge>  $applicable  every row billing this period, to find a successor by
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}|null
+     */
+    private static function lineWindow(
+        Charge $charge,
+        Lease $lease,
+        CarbonImmutable $coveredStart,
+        CarbonImmutable $coveredEnd,
+        CarbonImmutable $effectivePeriodStart,
+        CarbonImmutable $effectivePeriodEnd,
+        CarbonImmutable $leaseWindowStart,
+        CarbonImmutable $leaseWindowEnd,
+        ?CarbonImmutable $rentStart,
+        string $rowProration,
+        $applicable,
+        ?CarbonImmutable $commencement,
+    ): ?array {
+        if ($charge->billsInArrears()) {
+            $from = $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart;
+            $to = $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd;
+        } else {
+            // The already-covered clamp moved `$coveredStart` forward for an advance row too, and
+            // until 2026-09-13 only the arrears branch read it — a final bill re-raised on a later
+            // termination date billed the prefix the first one had already covered.
+            $from = $coveredStart->greaterThan($effectivePeriodStart) ? $coveredStart : $effectivePeriodStart;
+            $to = $effectivePeriodEnd;
+        }
+
+        if ($rentStart !== null
+            && $lease->graceAbates($charge->type)
+            && $rentStart->greaterThan($from)
+            && ! $rentStart->greaterThan($to)) {
+            $from = $rentStart;
+        }
+
+        $rowStart = $charge->start_date ? CarbonImmutable::instance($charge->start_date)->startOfDay() : null;
+        $rowEnd = $charge->end_date ? CarbonImmutable::instance($charge->end_date)->startOfDay() : null;
+
+        if ($rowStart !== null && ($commencement === null || $rowStart->greaterThan($commencement)) && $rowStart->greaterThan($from)) {
+            $from = $rowStart;
+        }
+
+        if ($rowEnd !== null && $rowEnd->lessThan($to)) {
+            $yields = $rowProration === ProrationMethod::WHOLE_MONTH && self::successorOf($charge, $applicable, $to) !== null;
+            $to = $yields ? $rowEnd->startOfMonth()->subDay() : $rowEnd;
+        }
+
+        return $to->lessThan($from) ? null : [$from, $to];
+    }
+
+    /**
+     * The row of the same type that takes over the day after this one ends, when that day is
+     * still inside the window — the outgoing half of a split month. Null for a row with no end,
+     * one ending at or past the window, or one nothing follows.
+     *
+     * @param  \Illuminate\Support\Collection<int, Charge>  $applicable
+     */
+    private static function successorOf(Charge $charge, $applicable, CarbonImmutable $windowEnd): ?Charge
+    {
+        if ($charge->end_date === null) {
+            return null;
+        }
+
+        $rowEnd = CarbonImmutable::instance($charge->end_date)->startOfDay();
+
+        if (! $rowEnd->lessThan($windowEnd)) {
+            return null;
+        }
+
+        return $applicable->first(fn (Charge $c) => $c->isNot($charge)
+            && $c->type === $charge->type
+            && $c->frequency !== 'one_time'
+            && $c->start_date !== null
+            && CarbonImmutable::instance($c->start_date)->startOfDay()->equalTo($rowEnd->addDay()));
+    }
+
+    /** Do two schedule rows cover a common day? A null bound is open on that side. */
+    private static function rowsShareADay(Charge $a, Charge $b): bool
+    {
+        $endsBefore = $a->end_date && $b->start_date && CarbonImmutable::instance($a->end_date)->lessThan(CarbonImmutable::instance($b->start_date));
+        $startsAfter = $a->start_date && $b->end_date && CarbonImmutable::instance($a->start_date)->greaterThan(CarbonImmutable::instance($b->end_date));
+
+        return ! $endsBefore && ! $startsAfter;
     }
 
     /**

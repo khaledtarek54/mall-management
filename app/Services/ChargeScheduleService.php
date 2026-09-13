@@ -85,7 +85,13 @@ class ChargeScheduleService
         string $origin = Charge::ORIGIN_MANUAL,
     ): ?Charge {
         $amount = round($amount, 2);
-        $effectiveFrom = self::billingBoundary($effectiveFrom);
+        // Taken as the DAY the caller states — no boundary snap here since 2026-09-13. The
+        // anniversary walk and the sweep pass the anniversary itself, a typed act (Change Rent,
+        // Add charge, an import row, a space change) passes the day the operator typed, and the
+        // planner bills each row for the days it is in force (Trello gzwI17R0). The acts that
+        // keep a month grain — a relief window, a holdover, a bay's register row, a CAM estimate
+        // dated to its pool year — snap at their own door through `billingBoundary()`.
+        $effectiveFrom = $effectiveFrom->startOfDay();
 
         $current = $this->rowInForce($lease, $type, $effectiveFrom);
 
@@ -111,10 +117,45 @@ class ChargeScheduleService
             return $current;
         }
 
+        // A STATED figure supersedes every projected rung of the type that began after its date
+        // and has since started (2026-09-13, found by review). Until rungs landed on the
+        // anniversary, an act in the anniversary month amended the month's own rung in place;
+        // now a Change Rent typed on the 15th, after the 10th's step, found the row in force to
+        // be the step itself — or, back-dated to the 5th, closed the outgoing row and inherited
+        // its end on the 9th, so the negotiated rent billed nine days and the projected step from
+        // the OLD base the rest of the year. Those rungs were derived from the figure this act
+        // restates, so the act takes their place and its row runs to where the last of them ran;
+        // the re-true the act's door runs afterwards prunes the rungs still ahead and projects
+        // again from the stated figure. The levy's rungs ride on the rent's and are superseded
+        // with them — the re-sync a rent change runs writes the levy from the same date. The
+        // walk's and the sweep's own rent writes never supersede: they write AT an anniversary and
+        // nothing of theirs starts after it.
+        if ($origin !== Charge::ORIGIN_ESCALATION) {
+            $superseded = Charge::query()
+                ->where(...self::keyFor($lease))
+                ->where('type', $type)
+                ->where('is_active', true)
+                ->whereIn('origin', [Charge::ORIGIN_ESCALATION, Charge::ORIGIN_LEVY])
+                ->whereDate('start_date', '>', $effectiveFrom->toDateString())
+                ->whereDate('start_date', '<=', CarbonImmutable::today()->toDateString())
+                ->orderBy('start_date')
+                ->get();
+
+            $superseded->each->update(['is_active' => false]);
+        } else {
+            $superseded = collect();
+        }
+
         // A row that has not started yet has billed nothing — correct it rather than closing it
-        // the day before it began, which would leave an unbillable stub in the schedule.
+        // the day before it began, which would leave an unbillable stub in the schedule. It runs
+        // to where the last rung it superseded ran.
         if ($current->start_date && CarbonImmutable::instance($current->start_date)->gte($effectiveFrom)) {
-            $current->update(['amount' => $amount, 'origin' => $origin, ...$stated]);
+            $current->update([
+                'amount' => $amount,
+                'origin' => $origin,
+                ...$stated,
+                ...($superseded->isNotEmpty() ? ['end_date' => $superseded->last()->end_date] : []),
+            ]);
 
             return $current;
         }
@@ -122,7 +163,8 @@ class ChargeScheduleService
         // Past this point the row in force provably started BEFORE the effective date (the branch
         // above returned otherwise), so closing it the day before cannot produce a backwards or
         // zero-length range.
-        $inheritedEnd = $current->end_date;
+        $inheritedEnd = $superseded->isNotEmpty() ? $superseded->last()->end_date : $current->end_date;
+
         $current->update(['end_date' => $effectiveFrom->subDay()->toDateString()]);
 
         return Charge::create([
@@ -173,9 +215,9 @@ class ChargeScheduleService
      * prune, so a base row the projection had closed at the first rung's eve is open again and
      * cannot be asked to end before it starts; before the walk, so the walk closes it at the
      * moved first anniversary. Only the rows CREATION anchors there move — `seed`, `levy`,
-     * `renewal` — because on a lease commencing on the 1st every writer snaps to the 1st too, so
-     * a bay assigned that month, a CAM estimate, a relief segment or a manual charge shares the
-     * date without being about it; moving those would re-date a holding whose register row does
+     * `renewal` — because on a lease commencing on the 1st a bay assigned that month, a CAM
+     * estimate, a relief segment or a manual charge typed that day may share the date without
+     * being about it; moving those would re-date a holding whose register row does
      * not move. A moved row that would now END before it starts (the levy base row a later
      * re-rate had closed at last month's eve, on a lease moved past it) covers nothing under the
      * new term and is deactivated rather than refused in a charge's vocabulary.
@@ -488,7 +530,7 @@ class ChargeScheduleService
         $carry = [];
 
         foreach ($chargeTypes as $chargeType) {
-            $base = $this->contractedRowBefore($lease, $chargeType, self::billingBoundary($firstStep)->subDay());
+            $base = $this->contractedRowBefore($lease, $chargeType, $firstStep->subDay());
             $carry[$chargeType] = $base !== null && $base->origin !== Charge::ORIGIN_CAM_ESTIMATE
                 ? (float) $base->amount
                 : 0.0;
@@ -521,7 +563,10 @@ class ChargeScheduleService
         $stepDate = $firstStep;
 
         while (true) {
-            $effective = self::billingBoundary($stepDate);
+            // The rung starts ON the anniversary (2026-09-13) — the day the clause names, not the
+            // 1st of its month. The planner prorates the split month; `billingBoundary()` says
+            // why the snap that stood here was the wrong grain for a step.
+            $effective = $stepDate->startOfDay();
 
             if ($effective->greaterThan($expiry)) {
                 break;
@@ -551,9 +596,13 @@ class ChargeScheduleService
                     ? (float) $eveRent->amount
                     : $rent;
 
-                $rent = $byAmount
-                    ? round($rentBase + $step, 2)
-                    : round($rentBase * (1 + $rate / 100), 2);
+                // A rung snapped to the 1st under the old rule and already started IS this step;
+                // stepping from it would step twice (`stepAlreadyAppliedOn()`).
+                $rent = match (true) {
+                    $this->stepAlreadyAppliedOn($lease, 'base_rent', $eveRent, $effective) => $rentBase,
+                    $byAmount => round($rentBase + $step, 2),
+                    default => round($rentBase * (1 + $rate / 100), 2),
+                };
 
                 // A rung the operator STATED outranks the derivation. A future-dated Change Rent
                 // amended this anniversary's rung in place and flipped it `manual` — a negotiated
@@ -705,6 +754,14 @@ class ChargeScheduleService
             return 0;
         }
 
+        // The pre-2026-09-13 shape: the eve rung is this anniversary's step already, snapped to
+        // the 1st and started — adopted, never stepped again (`stepAlreadyAppliedOn()`).
+        if ($this->stepAlreadyAppliedOn($lease, $type, $eve, $effective)) {
+            $carry = $base;
+
+            return 0;
+        }
+
         $amount = ChargeEscalation::apply($base, $rule);
 
         $covering = $this->rowCovering($lease, $type, $effective);
@@ -803,9 +860,10 @@ class ChargeScheduleService
         string $origin = Charge::ORIGIN_MANUAL,
     ): array {
         $from = self::billingBoundary($from);
-        // The window ends at a MONTH boundary too: the engine bills one amount per type per month,
-        // so a window ending on the 10th would leave that month covered by both the relief row and
-        // the resumed one — the ambiguity `MonthlyBillingService::scheduleClash()` refuses.
+        // The window ends at a MONTH boundary too — a relief is a typed act, granted by the month
+        // its modal names (`billingBoundary()`); since 2026-09-13 the planner could split the
+        // month between the relief row and the resumed one, so this is the act's stated grain
+        // rather than a constraint of the engine.
         $to = $to->endOfMonth();
 
         if ($to->lessThan($from)) {
@@ -1207,8 +1265,8 @@ class ChargeScheduleService
             ])->values();
 
         // …UNLESS the date is BEFORE the schedule begins, where "latest" is the wrong end of it.
-        // Every write here snaps to the billing boundary (the 1st), so a lease commencing on the
-        // 10th has no row covering the 1st of its own first month — and the answer to "what is in
+        // The seeded rows start ON the commencement, so a lease commencing on the 10th has no
+        // row covering the 1st of its own first month — and the answer to "what is in
         // force before anything is" is the FIRST row, the one about to start, not the final rung
         // three years out. Measured (the lease behind Trello RV4DrGHA + jF09XB3n, and its tail on staging): the levy
         // re-sync on an ordinary save in the commencement month was handed the last projected
@@ -1590,21 +1648,62 @@ class ChargeScheduleService
     }
 
     /**
-     * Snap an effective date to the start of its billing month.
+     * Is this eve rung the step for `$anniversary` already, written under the pre-2026-09-13 snap?
      *
-     * The billing engine bills **one amount per charge type per month**, so a row that starts on
-     * the 15th would leave that month covered by two rows — genuinely ambiguous, and exactly what
-     * `MonthlyBillingService::scheduleClash()` refuses. Snapping means a schedule
-     * change never splits a month.
+     * A projected or swept rung now starts ON its anniversary, so a rung that covers the EVE can
+     * never be that anniversary's own step — except one written before 2026-09-13, which was
+     * snapped to the 1st of the anniversary month and, in the window between that 1st and the
+     * anniversary, has STARTED. Read as a base it would be stepped a second time: measured on the
+     * soak box's anchor lease (rung 96,300 from 1 September, anniversary 15 September, today the
+     * 13th), a re-true or the sweep would have minted 103,041 from the 15th. Such a rung is
+     * ADOPTED as the step it is — by the projection's rent and charge walks and by the sweep's
+     * charge steps — which is a no-op for every ladder written since, because none of theirs
+     * matches the shape.
      *
-     * It also **reproduces the old behaviour exactly**, which is the point: overwriting an amount
-     * mid-month always billed that whole month at the new rent. A lease whose escalation
-     * anniversary falls on the 15th of April therefore bills all of April at the new rent, as it
-     * always has — the difference is that March's rent is now still readable.
+     * One shape written since DOES match on its face and is excluded: the rung that RESUMES the
+     * contract after a relief window is the projected rung's own continuation (`escalation`
+     * origin, starting the day after the window — the 1st) and carries the step the window
+     * covered, never the one ahead; the row before it is the relief itself, which is how it is
+     * told apart. The corner that leaves is a LEGACY ladder whose relief ended on the eve of the
+     * anniversary month and whose re-priced resumption WAS the snapped step: re-trued between
+     * the 1st and the anniversary it would step once more — the sweep's rent path is column-based
+     * and unaffected, and the deploy checks the box for relief windows before re-truing.
+     */
+    public function stepAlreadyAppliedOn(BillableAgreement $lease, string $type, ?Charge $eve, CarbonImmutable $anniversary): bool
+    {
+        if ($eve === null
+            || $eve->origin !== Charge::ORIGIN_ESCALATION
+            || $eve->start_date === null) {
+            return false;
+        }
+
+        $start = CarbonImmutable::instance($eve->start_date);
+
+        return $start->gte(self::billingBoundary($anniversary))
+            && $start->lessThan($anniversary)
+            && $this->rowCovering($lease, $type, $start->subDay())?->origin !== Charge::ORIGIN_RELIEF;
+    }
+
+    /**
+     * Snap an effective date to the start of its billing month — the grain of a TYPED act.
      *
-     * Mid-month proration of a rent change is a real capability and deliberately NOT in this
-     * increment: it needs the billing engine to split a period, which is a change to the money
-     * path rather than to the schedule.
+     * Change Rent, Add charge, a space change, a holdover conversion, a relief window, a bay let
+     * or given back, a CAM estimate: each takes effect from the month its screen names ("The
+     * month the new rent starts billing"), and each snaps its date here at its own door. Until
+     * 2026-09-13 `setAmount()` snapped EVERY date it was handed, escalation anniversaries
+     * included, because the planner billed one amount per charge type per month and a row
+     * starting on the 15th would have left that month covered by two rows — so a lease
+     * commencing on the 10th stepped its rent from the 1st of the anniversary month, nine days
+     * early, at every anniversary (Trello gzwI17R0, High).
+     *
+     * **The anniversary step is NOT snapped.** The clause says "on each anniversary of the
+     * commencement", so the rung starts ON the anniversary — the market's date-ranged charge
+     * schedule (benchmark 01 §3.2, a rent step's effective date is "usually each anniversary")
+     * — and `MonthlyBillingService::planInvoiceForLease()` bills each row for the days it is in
+     * force inside the month, by the lease's own proration method, so the anniversary month
+     * carries two lines: the days before at the old rent, the days from the anniversary at the
+     * new. The typed acts keep the month grain their screens promise; widening any of them to
+     * the day is now a one-line decision at that door, not a change to the money path.
      */
     public static function billingBoundary(CarbonImmutable $date): CarbonImmutable
     {

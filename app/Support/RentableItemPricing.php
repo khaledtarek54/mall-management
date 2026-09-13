@@ -130,9 +130,10 @@ final class RentableItemPricing
      * `monthly_rate` as it stands, stepped once for every lease anniversary from the sweep's own
      * pointer up to the date — the anniversaries the sweep has not yet applied — and only those
      * whose BILLING MONTH is after the holding's: a bay taken in the anniversary month itself is
-     * priced for the year at the rate agreed that day, and steps on the next (every write snaps
-     * to the 1st, so "after" is at month granularity — a bay taken on 28 February steps on
-     * 1 March). Before the pointer nothing is re-applied, because the pointer is the sweep's
+     * priced for the year at the rate agreed that day, and steps on the next (a holding's row is
+     * laid from the 1st of its month, so "after" is at month granularity — a bay taken on
+     * 28 February steps on 1 March). The step itself takes effect ON the anniversary day since
+     * 2026-09-13, as the rent's does. Before the pointer nothing is re-applied, because the pointer is the sweep's
      * statement of what it has already done and `monthly_rate` already carries it (a late
      * sweep's pointer sits in the past by design — the backlog model — and this then reads
      * ahead of it exactly as the sweep will). The corollary is stated rather than hidden: a
@@ -164,20 +165,20 @@ final class RentableItemPricing
                 ? ChargeScheduleService::billingBoundary(CarbonImmutable::instance($lease->commencement_date))
                 : null);
 
-        // Walked one anniversary at a time through `escalationDateAfter()` on the RAW date, with
-        // the billing boundary taken per step — the same walk the projection and the sweep make,
-        // so a month-end anchor does not creep and a biennial clause steps every two years here
-        // as it does there.
+        // Walked one anniversary at a time through `escalationDateAfter()` on the RAW date — the
+        // same walk the projection and the sweep make, so a month-end anchor does not creep and
+        // a biennial clause steps every two years here as it does there. The step lands on the
+        // anniversary DAY; whether it is "after the holding" is still asked of the MONTH.
         $stepDate = CarbonImmutable::instance($lease->next_escalation_date);
 
         while (true) {
-            $effective = ChargeScheduleService::billingBoundary($stepDate);
+            $effective = $stepDate->startOfDay();
 
             if ($effective->greaterThan($on)) {
                 break;
             }
 
-            if ($from === null || $effective->greaterThan($from)) {
+            if ($from === null || ChargeScheduleService::billingBoundary($effective)->greaterThan($from)) {
                 $rate = ChargeEscalation::apply($rate, $step);
             }
 

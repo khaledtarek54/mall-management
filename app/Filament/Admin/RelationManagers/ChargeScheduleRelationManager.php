@@ -467,15 +467,17 @@ class ChargeScheduleRelationManager extends RelationManager
                         // saying this particular charge is not taxed, which is a different claim.
                         $rate = ($data['vat_rate'] ?? '') === '' ? null : (float) $data['vat_rate'];
 
-                        $from = CarbonImmutable::parse($data['effective_from']);
+                        // The DAY typed (2026-09-13): the planner bills a row for the days it is
+                        // in force, so a charge added from the 15th bills the 15th onward.
+                        $from = CarbonImmutable::parse($data['effective_from'])->startOfDay();
                         $schedule = app(ChargeScheduleService::class);
 
                         // ── A ONE-OFF MAY NOT LAND ON A TYPE THAT IS ALREADY RUNNING (2026-08-28) ──
                         //
                         // `setAmount()` RESTATES: it closes the row in force and opens a new one.
                         // That is right for a rent change or an escalation step, and catastrophic
-                        // for a one-off, because the schedule holds ONE row per type per month by
-                        // design (`Charge`'s overlap guard refuses two) — so a one-time 3,000 added
+                        // for a one-off, because a recurring type holds ONE row in force on any
+                        // day (`Charge`'s overlap guard refuses two) — so a one-time 3,000 added
                         // over a live 14,000 service charge does not sit BESIDE it, it REPLACES it.
                         //
                         // Measured on the teaching lease: October went from 14,000 to 3,000 and the

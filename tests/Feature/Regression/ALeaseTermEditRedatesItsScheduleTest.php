@@ -46,16 +46,18 @@ beforeEach(function () {
 it('re-dates the schedule when the commencement moves — the tester s exact steps', function () {
     asTenant($this->asset, function () {
         $lease = LeaseLadder::testersLease($this->asset);
-        expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toStartWith('1000@2026-09-10..2027-08-31 1100@2027-09-01');
+        expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toStartWith('1000@2026-09-10..2027-09-09 1100@2027-09-10');
 
         LeaseLadder::edit($lease, ['commencement_date' => '2026-09-12']);
 
-        // Every row anchored on the 10th now starts on the 12th; the anniversaries (counted from
-        // commencement, snapped to the 1st) do not move for a two-day shift, so the rungs stand.
+        // Every row anchored on the 10th now starts on the 12th, and so do the anniversaries —
+        // counted from the commencement and, since 2026-09-13, landing ON their day (Trello
+        // gzwI17R0) rather than on the 1st of their month. The third anniversary (2029-09-12)
+        // falls past the 2029-09-09 expiry, so the term steps twice.
         expect(LeaseLadder::rungsByDay($lease, 'base_rent'))
-            ->toBe('1000@2026-09-12..2027-08-31 1100@2027-09-01..2028-08-31 1210@2028-09-01..2029-08-31 1331@2029-09-01..open')
+            ->toBe('1000@2026-09-12..2027-09-11 1100@2027-09-12..2028-09-11 1210@2028-09-12..open')
             ->and(LeaseLadder::rungsByDay($lease, 'service_charge'))->toBe('250@2026-09-12..open')
-            ->and(LeaseLadder::rungsByDay($lease, 'marketing'))->toStartWith('50@2026-09-12..2027-08-31 55@2027-09-01')
+            ->and(LeaseLadder::rungsByDay($lease, 'marketing'))->toStartWith('50@2026-09-12..2027-09-11 55@2027-09-12')
             ->and($lease->fresh()->next_escalation_date->toDateString())->toBe('2027-09-12');
     });
 });
@@ -67,9 +69,9 @@ it('moves the anniversaries with a commencement that moves to another month', fu
         // What the Term tab does: the expiry is re-derived from the new commencement + 36 months.
         LeaseLadder::edit($lease, ['commencement_date' => '2026-11-20', 'expiry_date' => '2029-11-19']);
 
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-11 1100@2027-11 1210@2028-11 1331@2029-11')
-            ->and(LeaseLadder::rungsByDay($lease, 'base_rent'))->toStartWith('1000@2026-11-20..2027-10-31 1100@2027-11-01')
-            ->and(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-11 55@2027-11 61@2028-11 67@2029-11')
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-11 1100@2027-11 1210@2028-11')
+            ->and(LeaseLadder::rungsByDay($lease, 'base_rent'))->toStartWith('1000@2026-11-20..2027-11-19 1100@2027-11-20')
+            ->and(LeaseLadder::rungs($lease, 'marketing'))->toBe('50@2026-11 55@2027-11 61@2028-11')
             ->and($lease->fresh()->next_escalation_date->toDateString())->toBe('2027-11-20')
             // No rung from the September cadence left billing beside the new ones.
             ->and($lease->charges()->where('type', 'base_rent')->where('is_active', true)->whereMonth('start_date', 9)->count())->toBe(0);
@@ -107,7 +109,7 @@ it('prunes the rungs past a shortened expiry and projects up to a lengthened one
 
         LeaseLadder::edit($lease, ['term_months' => 60, 'expiry_date' => '2031-09-09']);
         expect($lease->fresh()->expiry_date->toDateString())->toBe('2031-09-09')
-            ->and(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09 1331@2029-09 1464@2030-09 1611@2031-09');
+            ->and(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09 1331@2029-09 1464@2030-09');
     });
 });
 
@@ -133,7 +135,7 @@ it('refuses to move the commencement of an invoiced lease, through every door, a
         // CONTROL: the expiry is an act's to move on an invoiced lease (an extension, a
         // termination), and the move re-trues the ladder through the same hook.
         $lease->fresh()->update(['expiry_date' => '2030-09-09']);
-        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09 1331@2029-09 1464@2030-09');
+        expect(LeaseLadder::rungs($lease, 'base_rent'))->toBe('1000@2026-09 1100@2027-09 1210@2028-09 1331@2029-09');
     });
 });
 
@@ -156,7 +158,7 @@ it('refuses to move the commencement once a contracted step has been reached', f
 
         expect(fn () => $lease->fresh()->update(['commencement_date' => '2026-10-10']))
             ->toThrow(DomainException::class, __('admin.refusals.lease_commencement_locked_after_stepping', [
-                'reference' => $lease->reference, 'from' => '2026-09-10', 'stepped' => '2027-09-01',
+                'reference' => $lease->reference, 'from' => '2026-09-10', 'stepped' => '2027-09-10',
             ]))
             ->and(LeaseLadder::rungsByDay($lease, 'base_rent'))->toBe($before);
 
@@ -198,7 +200,7 @@ it('keeps the step that still falls before an early termination date', function 
             'termination_date' => '2027-12-31', 'reason' => 'Tenant served notice.',
         ]);
 
-        expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toBe('1000@2026-09-10..2027-08-31 1100@2027-09-01..2027-12-31')
+        expect(LeaseLadder::rungsByDay($lease, 'base_rent'))->toBe('1000@2026-09-10..2027-09-09 1100@2027-09-10..2027-12-31')
             ->and($lease->fresh()->status)->toBe('active');
     });
 });
@@ -223,19 +225,20 @@ it('does not move a row that merely shares the commencement date on a lease comm
 });
 
 it('retires a moved row that would now end before it starts instead of refusing in a charge s words', function () {
-    // REVIEW FINDING. A levy re-rate closes the base levy row at last month's eve and opens the
-    // new rate from the 1st; move the commencement past that eve and the old base row would
-    // "end before it starts" — refused by `Charge::saving`, in a charge's vocabulary, on a
-    // lease-term field. Under the new term that row covers nothing, so it is retired.
+    // REVIEW FINDING. A levy re-rate closes the base levy row on the eve of the edit and opens
+    // the new rate from that day (the day, since 2026-09-13); move the commencement past that
+    // eve and the old base row would "end before it starts" — refused by `Charge::saving`, in a
+    // charge's vocabulary, on a lease-term field. Under the new term that row covers nothing, so
+    // it is retired.
     asTenant($this->asset, function () {
         $lease = LeaseLadder::testersLease($this->asset);
         $this->travelTo(CarbonImmutable::parse('2026-11-05'));
         LeaseLadder::edit($lease, ['marketing_levy_rate' => 6]);
-        expect(LeaseLadder::rungsByDay($lease, 'marketing'))->toStartWith('50@2026-09-10..2026-10-31 60@2026-11-01');
+        expect(LeaseLadder::rungsByDay($lease, 'marketing'))->toStartWith('50@2026-09-10..2026-11-04 60@2026-11-05');
 
         LeaseLadder::edit($lease, ['commencement_date' => '2026-12-01', 'expiry_date' => '2029-11-30']);
 
-        expect(LeaseLadder::rungsByDay($lease, 'marketing'))->toStartWith('60@2026-11-01..2027-11-30 66@2027-12-01')
+        expect(LeaseLadder::rungsByDay($lease, 'marketing'))->toStartWith('60@2026-11-05..2027-11-30 66@2027-12-01')
             ->and($lease->charges()->where('type', 'marketing')->where('is_active', false)->whereDate('start_date', '2026-09-10')->count())->toBe(1)
             ->and(LeaseLadder::rungsByDay($lease, 'base_rent'))->toStartWith('1000@2026-12-01..2027-11-30 1100@2027-12-01');
     });

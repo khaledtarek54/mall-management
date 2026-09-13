@@ -41,7 +41,9 @@ class LeaseSpaceChangeService
     {
         $this->assertChangeable($lease);
 
-        $effectiveFrom = ChargeScheduleService::billingBoundary(CarbonImmutable::parse($data['effective_from']));
+        // The DAY typed (2026-09-13): the re-rated rent bills from it, the old rent to the day
+        // before, the month split by the planner.
+        $effectiveFrom = CarbonImmutable::parse($data['effective_from'])->startOfDay();
         $unitIds = array_values(array_unique(array_map('intval', $data['unit_ids'] ?? [])));
 
         if ($unitIds === []) {
@@ -117,7 +119,9 @@ class LeaseSpaceChangeService
     {
         $this->assertChangeable($lease);
 
-        $effectiveFrom = ChargeScheduleService::billingBoundary(CarbonImmutable::parse($data['effective_from']));
+        // The DAY typed (2026-09-13): the re-rated rent bills from it, the old rent to the day
+        // before, the month split by the planner.
+        $effectiveFrom = CarbonImmutable::parse($data['effective_from'])->startOfDay();
         $unitIds = array_values(array_unique(array_map('intval', $data['unit_ids'] ?? [])));
 
         if ($unitIds === []) {

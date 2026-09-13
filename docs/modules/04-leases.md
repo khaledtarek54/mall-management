@@ -1194,9 +1194,46 @@
 >   true-up, a percentage-rent overage and a utility recharge genuinely share a month, and they are
 >   not a schedule. **Adjacent rows are fine** — one ending the day before the next begins *is* the
 >   schedule; `ChargeScheduleService` cannot produce an overlap by construction.
-> - **Effective dates snap to the billing month.** The engine bills one amount per type per month,
->   so a mid-month change starts on the 1st — which also reproduces the old overwrite behaviour
->   exactly. Mid-month proration of a rent change is deliberately future work.
+> - **A schedule row takes effect ON ITS DAY — an escalation on the anniversary, a typed act on
+>   the date typed — and the month it falls in is billed in two parts (2026-09-13, Trello
+>   gzwI17R0).** Until then `setAmount()` snapped EVERY date it was handed to the 1st, because the
+>   engine billed one amount per type per month; so a lease commencing on the 10th stepped from
+>   the 1st of its anniversary month, nine days early, at every anniversary, and a 36-month term
+>   whose third anniversary fell the day AFTER expiry got a third rung for its final month. Now the
+>   rung starts ON the anniversary (the market's date-ranged schedule — benchmark 01 §3.2, a
+>   step's effective date is "usually each anniversary"), a Change Rent, an Add charge, an import
+>   row and a space change start on the day the operator typed (the market's dated charge row —
+>   an operator who means the whole month types the 1st; the hints say so), and
+>   `MonthlyBillingService::lineWindow()` bills each row for the days it is in force inside the
+>   month, by the row's proration method: a split month carries two lines of one charge, each
+>   marked pro-rated and each recording the window it billed (`invoice_items.covered_start/end`).
+>   Two contiguous rows of one type are a SPLIT, not a clash (`scheduleClash()` asks whether they
+>   share a day, the model guard's own test); a non-monthly-FREQUENCY row, and a row that does not
+>   prorate (`prorate = false`), yield the split month whole to their successor — what the snap
+>   always gave them. **A stated figure supersedes every projected rung of its type that began
+>   after its date** (`setAmount()` — the review found a Change Rent typed after the anniversary
+>   landing before the started rung and the rung billing the rest of the year): those rungs were
+>   derived from the figure the act restates, so the act takes their place and the door's re-true
+>   projects again from it. **What still snaps to the month, at its own door**: a relief window, a
+>   holdover (begins the month after the term), a bay's register row (`RentableItemPricing`, "a
+>   bay taken on 28 February steps on 1 March"), and a CAM estimate, which is next YEAR's figure
+>   from its 1 January — and now re-trues the service-charge ladder so no projected rung outlives
+>   it. The move-out credit apportions each line on the window it recorded, so leaving inside a
+>   split month credits the rung in force on those days; the straight-line service reads a split
+>   month as the blend the invoice billed (per-row method and yield included); a holdover reads
+>   the rent in force ON the expiry day, and its first arrears line starts where the holdover
+>   does — the days between a mid-month expiry and the 1st are nobody's, by its own rule.
+>   `atriom:project-lease-schedules --retrue --commit` re-dates an install's existing ladders
+>   onto their anniversaries (started rungs are history and stay). **The migration window is
+>   `ChargeScheduleService::stepAlreadyAppliedOn()`**: a legacy rung snapped to the 1st that has
+>   STARTED while its anniversary is still ahead (the soak box's anchor lease on the day this
+>   shipped — 96,300 from 1 September, anniversary the 15th) covers the eve of that anniversary
+>   and IS its step; the walk and the sweep adopt it rather than stepping it again (measured:
+>   103,041 otherwise). A relief's resumption rung has the same face and is told apart by the
+>   relief row before it; the one corner left — a legacy ladder whose relief ended on the eve of
+>   the anniversary month, re-trued inside that window — is stated in the predicate's docblock.
+>   (`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-one mutations
+>   each killing their own tooth.)
 > - **Billing a past month now bills what was in force THEN**, not today's amount. That is a
 >   behaviour change, and it is the point.
 > - `Lease::base_rent_monthly` still tracks the rent in force; nothing downstream moved.
@@ -1523,7 +1560,7 @@
 >
 > **Two more came out of the same lease, both in the levy's tail.** `pickInForce()`'s fallback
 > for a date NOTHING covers answered with the LAST active row, which is right for a schedule that
-> has run out and wrong for one that has not begun: every write snaps to the billing boundary, so
+> has run out and wrong for one that has not begun: a typed act snaps to the billing boundary, so
 > a lease commencing on the 10th has no row covering the 1st of its own first month, and the
 > answer to "what is in force before anything is" is the FIRST row. Handed the last projected
 > rung instead, the levy re-sync on an ordinary save in the commencement month overwrote the
@@ -1559,8 +1596,8 @@
 > guards stand; a moved row that would now end before it starts covers nothing under the new term
 > and is retired rather than refused in a charge's vocabulary) and re-arms the first anniversary
 > from the new commencement. **Only creation's rows, by ORIGIN, because on a lease commencing on
-> the 1st every writer snaps to the 1st** — a bay assigned that month, a CAM estimate, a relief
-> segment or a manual charge shares the date without being about it, and a bay's register row
+> the 1st a bay's register row, a CAM estimate, a relief segment or a manual charge typed that day
+> may share the date without being about it**, and a bay's register row
 > would not move with it (the review's finding; the first cut moved anything on the date). An
 > expiry move prunes past the new end and projects up to a lengthened LIVE term; **an ended term
 > "lengthened" is a close-out and a shortened one an early termination, and in both the walk is

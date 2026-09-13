@@ -179,12 +179,27 @@ class CreditUnearnedBillingService
             //
             // Re-derived through `monthsCovered()` — the ONE definition — rather than zeroed, so a
             // QUARTER's invoice still credits the whole months the tenant did not have.
-            $lineRatio = $unearnedRatio;
+            //
+            // ON THE LINE'S OWN DAYS (2026-09-13). Since an anniversary rung starts on the
+            // anniversary, a month split by a step carries two lines of one charge — the days
+            // before at the old figure, the days from it at the new — and each records the window
+            // it billed (`invoice_items.covered_start/end`). The unearned share is asked of THAT
+            // window: a line that ended before the termination is fully earned and credits
+            // nothing, a line that began after it is credited whole, and the one the termination
+            // falls inside is apportioned on its own days. A line with no recorded window (raised
+            // before 2026-09-03) is read as covering the invoice's period, which is what it did.
             $lineMethod = $item->charge?->prorationMethodWithin($proration) ?? $proration;
+            $lineStart = $item->covered_start ? CarbonImmutable::instance($item->covered_start)->startOfDay() : $periodStart;
+            $lineEnd = $item->covered_end ? CarbonImmutable::instance($item->covered_end)->startOfDay() : $periodEnd;
+            $lineMonths = ($lineEnd->year - $lineStart->year) * 12 + ($lineEnd->month - $lineStart->month) + 1;
 
-            if ($lineMethod !== $proration) {
-                $lineBilled = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $periodEnd, $lineMethod);
-                $lineEarned = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $terminationDate, $lineMethod);
+            $lineRatio = $unearnedRatio;
+
+            if ($lineMethod !== $proration || ! $lineStart->equalTo($periodStart) || ! $lineEnd->equalTo($periodEnd)) {
+                $lineBilled = MonthlyBillingService::monthsCovered($lineStart->startOfMonth(), $lineMonths, $lineStart, $lineEnd, $lineMethod);
+                $lineEarned = $terminationDate->lessThan($lineStart)
+                    ? 0.0
+                    : MonthlyBillingService::monthsCovered($lineStart->startOfMonth(), $lineMonths, $lineStart, $terminationDate->lessThan($lineEnd) ? $terminationDate : $lineEnd, $lineMethod);
 
                 $lineRatio = $lineBilled > 0 ? 1 - ($lineEarned / $lineBilled) : 0.0;
             }

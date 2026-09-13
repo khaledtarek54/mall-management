@@ -26,8 +26,13 @@ class LeaseRentChangeService
     public function __construct(private ChargeScheduleService $schedule) {}
 
     /**
-     * The date the change takes effect. Defaults to today, which reproduces the old
-     * overwrite-now behaviour; the escalation sweep passes the anniversary.
+     * The date the change takes effect — the DAY typed, since 2026-09-13 (Trello gzwI17R0), the
+     * escalation sweep passing the anniversary; defaults to today. The month it falls in bills
+     * the old rent to the day before and the new rent from it (`MonthlyBillingService::
+     * lineWindow()`), the market's dated charge row; an operator who means the whole month types
+     * the 1st. The first cut kept a typed change on the month while the anniversary moved to its
+     * day, and the review broke it: a change typed after the anniversary landed on the 1st,
+     * BEFORE the started rung, and the rung billed the rest of the year.
      *
      * @param  array<string, mixed>  $data
      */

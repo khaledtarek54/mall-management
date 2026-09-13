@@ -296,7 +296,7 @@ return [
         'vat_from_catalogue' => 'Catalogue: :rate%',
         'vat_override_hint' => 'Leave blank to use the tax catalogue, resolved for each invoice\'s own date. Enter a value only where a deal fixed a different rate — 0 means this charge is not taxed.',
         'add_type_hint' => 'Any code your accountant has set up. Its VAT treatment is filled in below and can still be overridden for this lease.',
-        'add_effective_hint' => 'The month this charge starts billing. Adding a code the lease already has restates it from this date — the earlier row is closed, never rewritten.',
+        'add_effective_hint' => 'The day this charge starts billing. Adding a code the lease already has restates it from this date — the earlier row is closed, never rewritten.',
         'added' => ':type of :amount added, billing from :date.',
         'end' => 'Stop charge',
         'end_hint' => 'Stops future billing of this charge code on this lease. Everything already billed stays exactly as billed — the schedule keeps its history.',

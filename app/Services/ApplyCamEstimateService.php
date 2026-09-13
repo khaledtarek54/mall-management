@@ -80,7 +80,11 @@ class ApplyCamEstimateService
             return false;
         }
 
-        $effectiveFrom ??= CarbonImmutable::create((int) $allocation->pool->period_year + 1, 1, 1);
+        // An estimate is next YEAR's monthly figure and takes effect from its 1 January
+        // (`billingBoundary()` — the pool's own grain, not a day anybody types).
+        $effectiveFrom = ChargeScheduleService::billingBoundary(
+            $effectiveFrom ?? CarbonImmutable::create((int) $allocation->pool->period_year + 1, 1, 1),
+        );
 
         return DB::transaction(function () use ($allocation, $lease, $proposed, $effectiveFrom): bool {
             $previous = (float) ($this->schedule->rowInForce($lease, 'service_charge', $effectiveFrom)?->amount ?? 0);
@@ -95,6 +99,13 @@ class ApplyCamEstimateService
                 // Its own origin (2026-09-05), so the escalation clause can tell an estimate from
                 // a contractual figure and refuse to step it — the true-up re-prices estimates.
             ], Charge::ORIGIN_CAM_ESTIMATE);
+
+            // The service-charge ladder is re-walked from the estimate (2026-09-13, found by
+            // review): a projected rung on the lease's anniversary — the 10th of January, say —
+            // was derived from the OLD base and would otherwise outlive an estimate dated the
+            // 1st, billing the year at the old step. The walk never steps an estimate, so what
+            // follows is the estimate itself, which is what an estimate means.
+            $this->schedule->retrueProjectedLadder($lease->fresh(), clause: false, chargeTypes: ['service_charge']);
 
             // Keep the lease column in step with the schedule, as every other writer does.
             $lease->update(['service_charge_monthly' => (float) $proposed]);

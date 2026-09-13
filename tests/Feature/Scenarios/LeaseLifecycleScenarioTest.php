@@ -173,27 +173,35 @@ it('an escalation raises base rent on schedule and the base_rent charge tracks i
     expect($schedule)->toHaveCount(2)
         ->and((float) $schedule->first()->amount)->toBe(10000.0)
         ->and($schedule->first()->end_date)->not->toBeNull()
-        // Closed on the last day of the PREVIOUS month, and the new row opens on the 1st: a
-        // schedule change snaps to the billing month, because the engine bills one amount per
-        // charge type per month and a row starting mid-month would leave that month ambiguous.
+        // Closed on the eve of the change and the new row opens on the DAY (2026-09-13, Trello
+        // gzwI17R0): the planner bills each row for the days it is in force, so the month is
+        // split between the two rents rather than snapped to its 1st.
         ->and($schedule->first()->end_date->toDateString())
-        ->toBe($today->startOfMonth()->subDay()->toDateString())
-        ->and($schedule->last()->start_date->toDateString())->toBe($today->startOfMonth()->toDateString())
+        ->toBe($today->subDay()->toDateString())
+        ->and($schedule->last()->start_date->toDateString())->toBe($today->toDateString())
         ->and($schedule->last()->end_date)->toBeNull(); // the open-ended current row
 
     // The service charge is untouched by a rent-only escalation — still exactly one row.
     expect((float) $lease->charges()->where('type', 'service_charge')->sole()->amount)->toBe(2000.0);
 
-    // A month ON or AFTER the change bills the escalated rent.
-    $billing = app(MonthlyBillingService::class);
-    $after = $billing->generateForLease($lease, $today->startOfMonth());
-    expect((float) $after['invoice']->items()->where('type', 'base_rent')->sole()->amount)->toBe(10700.0);
-
-    // …and a month BEFORE it still bills what was in force then. This is the schedule's whole
+    // A month BEFORE the change still bills what was in force then. This is the schedule's whole
     // point, and it is a behaviour change: under the old overwrite model, re-billing a past month
     // charged that month at TODAY's rent, because the only row that existed held today's amount.
+    // (Billed first: a row's already-covered stamp is its LATEST covered day, so months are
+    // billed in order.)
+    $billing = app(MonthlyBillingService::class);
     $before = $billing->generateForLease($lease, CarbonImmutable::parse('2026-02-01'));
     expect((float) $before['invoice']->items()->where('type', 'base_rent')->sole()->amount)->toBe(10000.0);
+
+    // The month of the change bills it in two parts — the old rent to the eve, the new from the
+    // day — and a month AFTER it bills the escalated rent whole.
+    $after = $billing->generateForLease($lease->fresh(), $today->startOfMonth());
+    $days = $today->daysInMonth;
+    expect($after['invoice']->items()->where('type', 'base_rent')->orderBy('covered_start')->pluck('amount')->map(fn ($a) => (float) $a)->all())
+        ->toBe([round(10000 * ($today->day - 1) / $days, 2), round(10700 * ($days - $today->day + 1) / $days, 2)]);
+    $nextMonth = $today->startOfMonth()->addMonth();
+    $next = $billing->planInvoiceForLease($lease->fresh(), $nextMonth, $nextMonth->endOfMonth(), true);
+    expect(collect($next['items'])->where('type', 'base_rent')->pluck('amount')->values()->all())->toBe([10700.0]);
 });
 
 it('escalation guard: a fixed_percent raise cannot be applied to a terminated lease', function () {

@@ -128,10 +128,12 @@ class ConvertLeaseToHoldoverService
                 );
             }
 
-            // The last rent actually in force — read at EXPIRY, not today. A schedule with a step
-            // dated after the term ended (a projected escalation the lease never reached) must not
-            // become the basis of the holdover rent.
-            $lastRow = $this->schedule->rowInForce($lease, 'base_rent', ChargeScheduleService::billingBoundary($expiry));
+            // The last rent actually in force — read ON the expiry day, not today. A schedule with
+            // a step dated after the term ended (a projected escalation the lease never reached)
+            // must not become the basis of the holdover rent; one dated INSIDE the final month is
+            // the rent the term ended on (a rung starts on the anniversary since 2026-09-13, so
+            // reading the 1st of the month would miss it).
+            $lastRow = $this->schedule->rowInForce($lease, 'base_rent', $expiry);
 
             if ($lastRow === null) {
                 throw new InvalidArgumentException('This lease has no base-rent schedule to hold over from.');

@@ -182,6 +182,10 @@ class ChargeImporter extends Importer
         $mode = trim((string) ($this->data['escalation_mode'] ?? ''));
         $escalationRate = $this->data['escalation_rate'] ?? null;
         $escalationAmount = $this->data['escalation_amount'] ?? null;
+        // The DAY the file states (2026-09-13): the planner bills a row for the days it is in
+        // force, so a charge from the 15th bills the 15th onward — the market's dated charge row.
+        // Until then `setAmount()` snapped every date to the 1st.
+        $effectiveFrom = CarbonImmutable::parse((string) $this->data['effective_from'])->startOfDay();
 
         // A one-off has no anniversary and carries no rule; so does an ownership's assessment
         // (no lease clause) and a derived type (the rent, the levy, a bay). A recurring lease
@@ -197,7 +201,7 @@ class ChargeImporter extends Importer
         $mode = match (true) {
             ! $ruleable => null,
             $mode !== '' => $mode,
-            $schedule->rowInForce($agreement, $type, CarbonImmutable::parse((string) $this->data['effective_from'])) !== null => null,
+            $schedule->rowInForce($agreement, $type, $effectiveFrom) !== null => null,
             default => ChargeEscalation::defaultModeFor($agreement->unit?->asset_id),
         };
 
@@ -205,7 +209,7 @@ class ChargeImporter extends Importer
             $agreement,
             $type,
             (float) ($this->data['amount'] ?? 0),
-            CarbonImmutable::parse((string) $this->data['effective_from']),
+            $effectiveFrom,
             array_filter([
                 'name' => trim((string) ($this->data['name'] ?? '')) ?: null,
                 'frequency' => $frequency,

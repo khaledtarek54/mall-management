@@ -342,6 +342,40 @@ fully earned — measured at 17,500 where 15,000 was owed back.
 A month the lease never reached still bills **nothing**: whether a part month is worth a whole month
 is a different question from whether the lease ran in that month at all.
 
+### A row bills the days it is in force — a step splits the month (2026-09-13, Trello gzwI17R0)
+
+Until then the planner priced a row for the whole of every month it touched, and the schedule kept
+that honest by snapping every write to the 1st (`ChargeScheduleService::billingBoundary()`, inside
+`setAmount()`): an escalation on the 10th stepped from the 1st. Now an anniversary rung starts ON
+the anniversary and **`MonthlyBillingService::lineWindow()` clips each line to its row's own dates**
+— the row's `end_date` always, its `start_date` when the row began AFTER the lease commenced (a
+row born with the lease follows the commencement, whose part-month is the run's `$prorate`
+decision and not the row's) — then prices it through `monthsCovered()` on the row's own method.
+The anniversary month carries two lines of one charge, each `(x% pro-rated)`, each recording the
+window it billed in `invoice_items.covered_start/end` (the line's TRUE window now — clipped to the
+lease's edges too — where it used to record the invoice's whole period). **Two contiguous rows of
+one type are a split, not a clash**: `scheduleClash()` asks whether two rows share a DAY, the
+model guard's own test. **A non-prorating row yields the split month whole to its successor** —
+under `WHOLE_MONTH` both rows would otherwise claim it — which is exactly what the snap always gave
+such a row, so nothing a flat licence bills moved. The grace clip (`rent_commencement_date`) is
+asked per line on the window the line covers, arrears rows included; the already-covered clamp
+(`lastCoveredEndFor()`) now reaches an ADVANCE row's money as well as its label, which closes a
+latent double-bill on a final bill re-raised for a later termination date. **A non-monthly
+FREQUENCY row (quarterly, annually) yields the split month too** — it bills whole in its month and
+bypasses the day window, so without the yield an outgoing rung and its successor both applied
+(found by review: 900 AND 990 for one September). **A typed act lands on its day as well** —
+Change Rent, Add charge, the importer, a space change — so a change typed on the 15th bills the
+15th onward and that month in two parts; a relief window, a holdover, a bay's register row and a
+CAM estimate keep their month at their own doors. **A holdover's first arrears line starts where
+the holdover does** (`holdover_from` bounds `$leaseWindowStart`): the final invoice records the
+arrears window to the expiry, and the days between a mid-month expiry and the 1st the holdover
+begins on are nobody's by the holdover's own rule — the review found the service charge billing
+them while the rent did not. `CreditUnearnedBillingService` apportions each line on its recorded
+window, so a move-out inside a split month credits the rung in force on those days;
+`StraightLineRentService` reads a split month as the blend, per-row method and yield included.
+(`AnEscalationStepsOnTheAnniversaryDayNotTheMonthTest` — fifteen cases, twenty-one mutations
+each killing their own tooth; module 04 for the schedule side.)
+
 Reachable from the charge-schedule relation manager (a *"Bills whole months"* toggle, offered only
 for a monthly row), from `ChargeImporter`, and read back as a badge on the schedule table.
 `AFlatChargeIsPayableInFullForAnyMonthTest` pairs every assertion with a control on the same
